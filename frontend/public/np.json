@@ -1,0 +1,134 @@
+[
+  {
+    "city": "Kathmandu", 
+    "lat": "27.7100", 
+    "lng": "85.3200", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "primary", 
+    "population": "845767", 
+    "population_proper": "845767"
+  }, 
+  {
+    "city": "Pokhara", 
+    "lat": "28.2083", 
+    "lng": "83.9889", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "Gaṇḍakī", 
+    "capital": "admin", 
+    "population": "353841", 
+    "population_proper": "353841"
+  },
+  {
+    "city": "Biratnagar", 
+    "lat": "26.4542", 
+    "lng": "87.2797", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "Province Number One", 
+    "capital": "admin", 
+    "population": "242548", 
+    "population_proper": "242548"
+  },
+  {
+    "city": "Budhanilkantha", 
+    "lat": "27.7667", 
+    "lng": "85.3667", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "179688", 
+    "population_proper": "179688"
+  },
+  {
+    "city": "Tokha", 
+    "lat": "27.7592", 
+    "lng": "85.3283", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "133755", 
+    "population_proper": "133755"
+  },
+  {
+    "city": "Kirtipur", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Bhaktapur", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Naxal", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Sanepa", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Gathaghar", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Duwakot", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  },
+  {
+    "city":"Thimi", 
+    "lat": "27.6781", 
+    "lng": "85.2769", 
+    "country": "Nepal", 
+    "iso2": "NP", 
+    "admin_name": "", 
+    "capital": "", 
+    "population": "65602", 
+    "population_proper": "65602"
+  }
+]
