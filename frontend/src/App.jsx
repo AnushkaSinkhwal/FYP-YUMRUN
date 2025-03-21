@@ -69,7 +69,9 @@ function App() {
         setisHeaderFooterShow(false);
       } else {
         setIsAdminPath(false);
-        setisHeaderFooterShow(true);
+        if (!path.includes('/signin') && !path.includes('/signup')) {
+          setisHeaderFooterShow(true);
+        }
       }
     };
 
@@ -79,7 +81,7 @@ function App() {
     return () => {
       window.removeEventListener('popstate', checkAdminPath);
     };
-  }, []);
+  }, [setIsAdminPath, setisHeaderFooterShow]);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -134,51 +136,95 @@ function App() {
             </div>
           )}
           <a href="#main-content" className="skip-to-content">Skip to content</a>
-          {!isAdminPath ? (
-            // User interface
-            <>
-              {isHeaderFooterShow && <Header />}
-
-              <main id="main-content">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/cat/:id" element={<Listing />} />
-                  <Route path="/product/:id" element={<ProductDetails />} />
-                  <Route path="/cart" element={
-                    <ProtectedRoute>
-                      <Cart />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/signin" element={<SignIn />} />
-                  <Route path="/signup" element={<SignUp/>} />
-                </Routes>
-              </main>
-
-              {isHeaderFooterShow && <Footer />}
-
-              {isOpenProductModel && <ProductModel />}
-
-              <BackToTop />
-            </>
-          ) : (
-            // Admin interface
-            <Routes>
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<AdminDashboard />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/restaurants" element={<AdminRestaurants />} />
-                <Route path="/admin/categories" element={<AdminCategory />} />
-                <Route path="/admin/products" element={<AdminProducts />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-                <Route path="/admin/settings" element={<AdminSettings />} />
-              </Route>
-            </Routes>
-          )}
+          
+          <Routes>
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="restaurants" element={<AdminRestaurants />} />
+              <Route path="categories" element={<AdminCategory />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+            
+            {/* User Routes */}
+            <Route path="/" element={
+              <>
+                {isHeaderFooterShow && <Header />}
+                <main id="main-content">
+                  <Home />
+                </main>
+                {isHeaderFooterShow && <Footer />}
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+            
+            <Route path="/cat/:id" element={
+              <>
+                {isHeaderFooterShow && <Header />}
+                <main id="main-content">
+                  <Listing />
+                </main>
+                {isHeaderFooterShow && <Footer />}
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+            
+            <Route path="/product/:id" element={
+              <>
+                {isHeaderFooterShow && <Header />}
+                <main id="main-content">
+                  <ProductDetails />
+                </main>
+                {isHeaderFooterShow && <Footer />}
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+            
+            <Route path="/cart" element={
+              <>
+                {isHeaderFooterShow && <Header />}
+                <main id="main-content">
+                  <ProtectedRoute>
+                    <Cart />
+                  </ProtectedRoute>
+                </main>
+                {isHeaderFooterShow && <Footer />}
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+            
+            <Route path="/signin" element={
+              <>
+                <main id="main-content">
+                  <SignIn />
+                </main>
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+            
+            <Route path="/signup" element={
+              <>
+                <main id="main-content">
+                  <SignUp />
+                </main>
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+          </Routes>
         </MyContext.Provider>
       </AuthProvider>
     </BrowserRouter>

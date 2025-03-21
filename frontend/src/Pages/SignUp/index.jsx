@@ -1,139 +1,178 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
-import Logo from '../../images/logo.jpg';
-import { TextField, MenuItem, FormControl, InputLabel, Select } from "@mui/material";
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
-import Google from '../../images/google.jpg';
+import { useAuth } from "../../context/AuthContext";
+import "./signup.css";
 
 const SignUp = () => {
     const context = useContext(MyContext);
-    const [healthCondition, setHealthCondition] = useState("");
+    const { register, error: authError, isLoading } = useAuth();
+    const [fullName, setFullName] = useState("");
+    const [email, setEmail] = useState("");
+    const [contact, setContact] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [healthCondition, setHealthCondition] = useState("Healthy");
+    const [error, setError] = useState("");
+    
+    const navigate = useNavigate();
+    
+    // Hide header and footer for auth pages
+    context.setisHeaderFooterShow(false);
 
-    useEffect(() => {
-        console.log("Header and Footer hidden");
-        context.setisHeaderFooterShow(false); // Hide header & footer
-    }, [context]);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        // Clear previous errors
+        setError("");
+        
+        // Validation
+        if (!fullName || !email || !contact || !password || !confirmPassword || !healthCondition) {
+            setError("Please fill in all fields");
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+        
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters long");
+            return;
+        }
+        
+        console.log("Submitting registration form:", { fullName, email, contact, healthCondition });
+        
+        try {
+            const result = await register(fullName, email, password, contact, healthCondition);
+            console.log("Registration result:", result);
+            
+            if (result && result.success) {
+                console.log("Registration successful, redirecting to signin");
+                navigate("/signin", { replace: true });
+            } else {
+                console.error("Registration failed:", result?.error);
+                setError(result?.error || "Registration failed");
+            }
+        } catch (err) {
+            console.error("Registration error:", err);
+            setError("An unexpected error occurred: " + (err.message || err));
+        }
+    };
 
     return (
-        <section className="section signInPage">
+        <div className="sign-up-wrapper">
             <div className="container">
-                <div className="box card p-3 shadow border-0">
-                    <div className="text-center mb-2"> 
-                        <img src={Logo} alt="Logo" className="logo-image"/>
+                <div className="signup-card">
+                    <div className="signup-card-header">
+                        <h1>Create Account</h1>
+                        <p>Join YumRun to discover amazing food in your area!</p>
                     </div>
                     
-                    <form className="mt-2"> 
-                        <h2 className="mb-3 text-center">Sign Up</h2>
-
-                        <div className="row">
-                            <div className="col-md-6">
-                                <TextField 
-                                    id="full-name" 
-                                    label="Full Name" 
-                                    type="text" 
-                                    required 
-                                    variant="standard" 
-                                    className="w-100" 
-                                    sx={{ mb: 1 }} 
+                    {(error || authError) && (
+                        <div className="error-message">
+                            {error || authError}
+                        </div>
+                    )}
+                    
+                    <form onSubmit={handleSubmit} className="signup-form">
+                        <div className="form-group">
+                            <label htmlFor="fullName">Full Name</label>
+                            <input
+                                type="text"
+                                id="fullName"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                placeholder="Enter your full name"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label htmlFor="email">Email Address</label>
+                            <input
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Enter your email address"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label htmlFor="contact">Contact Number</label>
+                            <input
+                                type="tel"
+                                id="contact"
+                                value={contact}
+                                onChange={(e) => setContact(e.target.value)}
+                                placeholder="Enter your contact number"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label htmlFor="password">Password</label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Create a password"
+                                    required
                                 />
                             </div>
-
-                            <div className="col-md-6">
-                                <TextField 
-                                    id="contact" 
-                                    label="Contact No." 
-                                    type="tel" 
-                                    required 
-                                    variant="standard" 
-                                    className="w-100" 
-                                    sx={{ mb: 1 }} 
+                            
+                            <div className="form-group">
+                                <label htmlFor="confirmPassword">Confirm Password</label>
+                                <input
+                                    type="password"
+                                    id="confirmPassword"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Confirm your password"
+                                    required
                                 />
                             </div>
                         </div>
-
-                        <TextField 
-                            id="email" 
-                            label="Email Address" 
-                            type="email" 
-                            required 
-                            variant="standard" 
-                            className="w-100" 
-                            sx={{ mb: 1 }} 
-                        />
-
-                        <div className="row">
-                            <div className="col-md-6">
-                                <TextField 
-                                    id="password" 
-                                    label="Password" 
-                                    type="password" 
-                                    required 
-                                    variant="standard" 
-                                    className="w-100" 
-                                    sx={{ mb: 1 }} 
-                                />
-                            </div>
-
-                            <div className="col-md-6">
-                                <TextField 
-                                    id="confirm-password" 
-                                    label="Confirm Password" 
-                                    type="password" 
-                                    required 
-                                    variant="standard" 
-                                    className="w-100" 
-                                    sx={{ mb: 1 }} 
-                                />
-                            </div>
-                        </div>
-
-                        <FormControl className="w-100" sx={{ mb: 1 }}>
-                            <InputLabel id="health-condition-label">Health Condition</InputLabel>
-                            <Select
-                                labelId="health-condition-label"
-                                id="health-condition"
+                        
+                        <div className="form-group">
+                            <label htmlFor="healthCondition">Health Condition</label>
+                            <select
+                                id="healthCondition"
                                 value={healthCondition}
                                 onChange={(e) => setHealthCondition(e.target.value)}
-                                variant="standard"
                                 required
                             >
-                                <MenuItem value="Healthy">Healthy</MenuItem>
-                                <MenuItem value="Diabetes">Diabetes</MenuItem>
-                                <MenuItem value="Heart Condition">Heart Condition</MenuItem>
-                                <MenuItem value="Hypertension">Hypertension</MenuItem>
-                                <MenuItem value="Other">Other</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                        <a className="border-effect cursor txt d-block text-center mt-2">Forgot Password?</a>
-
-                        <div className="d-flex align-items-center mt-2 mb-2">
-                            <div className="row w-100">
-                                <div className="col-md-6">
-                                    <Button className="btn-blue col btn-lg btn-big w-100">Sign Up</Button>
-                                </div>
-                                <div className="col-md-6">
-                                    <Link to="/" className="d-block w-100">
-                                        <Button className="btn-lg btn-big w-100" variant="outlined" onClick={() => context.setisHeaderFooterShow(true)}>Cancel</Button>
-                                    </Link>
-                                </div>
-                            </div>
+                                <option value="Healthy">Healthy</option>
+                                <option value="Diabetes">Diabetes</option>
+                                <option value="Heart Condition">Heart Condition</option>
+                                <option value="Hypertension">Hypertension</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
-
-                        <p className="txt text-center mb-2">
-                            Already Registered? <Link to="/signIn" className="border-effect">Sign In</Link>
+                        
+                        <button
+                            type="submit"
+                            className="sign-up-btn"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Creating Account..." : "Sign Up"}
+                        </button>
+                        
+                        <p className="signin-prompt">
+                            Already have an account?{" "}
+                            <Link to="/signin" className="signin-link">
+                                Sign in
+                            </Link>
                         </p>
-
-                        <h6 className="text-center font-weight-bold mb-1">Or Continue with Social Account</h6>
-
-                        <Button className="loginWithGoogle d-block mx-auto" variant="outlined">
-                            <img src={Google} alt="Google Sign In"/> Sign In With Google
-                        </Button>
                     </form>
                 </div>
             </div>
-        </section>
+        </div>
     );
 };
 

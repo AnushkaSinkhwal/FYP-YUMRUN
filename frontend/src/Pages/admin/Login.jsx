@@ -1,13 +1,13 @@
-import React, { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 
 const Login = () => {
-  const { setisHideSidebarAndHeader } = useContext(MyContext);
+  const { setisHideSidebarAndHeader, setIsAdminPath } = useContext(MyContext);
   const { login, error: authError, isLoading } = useAuth();
   
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   
@@ -18,12 +18,25 @@ const Login = () => {
   const from = location.state?.from?.pathname || "/admin/dashboard";
 
   // Hide sidebar and header for login page
-  React.useEffect(() => {
+  useEffect(() => {
     setisHideSidebarAndHeader(true);
     return () => {
       setisHideSidebarAndHeader(false);
     };
   }, [setisHideSidebarAndHeader]);
+
+  // Set that we're on an admin path
+  useEffect(() => {
+    setIsAdminPath(true);
+    
+    return () => {
+      // This cleanup only happens when component unmounts
+      // Only reset when navigating away from admin completely
+      if (!window.location.pathname.includes('/admin')) {
+        setIsAdminPath(false);
+      }
+    };
+  }, [setIsAdminPath]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,30 +45,42 @@ const Login = () => {
     setError("");
     
     // Simple validation
-    if (!email || !password) {
+    if (!username || !password) {
       setError("Please fill in all fields");
       return;
     }
 
+    console.log("Submitting admin login form:", { username, password });
+    
     try {
-      // Use the login function from auth context
-      const result = await login(email, password);
+      // Use the standard login function
+      const result = await login(username, password);
+      console.log("Login result:", result);
       
-      if (result.success) {
+      if (result && result.success) {
         // Check if user is admin
         if (!result.user.isAdmin) {
           setError("You don't have admin privileges");
           return;
         }
         
-        // Redirect to previous location or dashboard
-        navigate(from, { replace: true });
+        // Set admin path state
+        setIsAdminPath(true);
+        
+        console.log("Login successful, redirecting to:", from);
+        
+        // Force a small delay to ensure state updates have time to process
+        setTimeout(() => {
+          // Redirect to previous location or dashboard
+          navigate(from, { replace: true });
+        }, 100);
       } else {
-        setError(result.error || "Authentication failed");
+        console.error("Login failed:", result?.error);
+        setError(result?.error || "Authentication failed");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("An unexpected error occurred");
+      setError("An unexpected error occurred: " + (err.message || err));
     }
   };
 
@@ -71,6 +96,11 @@ const Login = () => {
                     <div className="p-5 text-center">
                       <h1 className="h4 text-gray-900 mb-4">YUMRUN</h1>
                       <p>Admin Panel</p>
+                      <div className="mt-4 p-3 bg-light rounded">
+                        <p className="small text-muted mb-1">Default Admin Credentials:</p>
+                        <p className="small mb-1"><strong>Username:</strong> testadmin</p>
+                        <p className="small mb-0"><strong>Password:</strong> testadmin</p>
+                      </div>
                     </div>
                   </div>
                   <div className="col-lg-6">
@@ -87,13 +117,13 @@ const Login = () => {
                       <form className="user" onSubmit={handleSubmit}>
                         <div className="form-group mb-3">
                           <input
-                            type="email"
+                            type="text"
                             className="form-control form-control-user"
-                            id="exampleInputEmail"
-                            aria-describedby="emailHelp"
-                            placeholder="Enter Email Address..."
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            id="adminInputUsername"
+                            aria-describedby="usernameHelp"
+                            placeholder="Enter Username or Email..."
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
                           />
                         </div>
@@ -101,7 +131,7 @@ const Login = () => {
                           <input
                             type="password"
                             className="form-control form-control-user"
-                            id="exampleInputPassword"
+                            id="adminInputPassword"
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -138,7 +168,7 @@ const Login = () => {
                         </Link>
                       </div>
                       <div className="text-center">
-                        <Link className="small" to="/">
+                        <Link className="small" to="/" onClick={() => setIsAdminPath(false)}>
                           Back to Main Site
                         </Link>
                       </div>

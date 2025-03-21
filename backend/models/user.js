@@ -9,6 +9,13 @@ const userSchema = new mongoose.Schema({
         trim: true,
         minlength: [3, 'Name must be at least 3 characters']
     },
+    username: {
+        type: String,
+        trim: true,
+        unique: true,
+        sparse: true, // Allows multiple null values (useful during creation)
+        minlength: [3, 'Username must be at least 3 characters']
+    },
     email: {
         type: String,
         required: [true, 'Please provide your email'],
@@ -68,6 +75,34 @@ userSchema.virtual('id').get(function () {
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
     return this.name;
+});
+
+// Function to generate username from email
+const generateUsernameFromEmail = (email) => {
+    if (!email) return null;
+    const parts = email.split('@');
+    return parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+// Pre-save hook to generate username from email if not provided
+userSchema.pre('save', async function(next) {
+    // Generate username from email if not provided
+    if (!this.username) {
+        let baseUsername = generateUsernameFromEmail(this.email);
+        let username = baseUsername;
+        let count = 1;
+        
+        // Check if username exists and add number if it does
+        let userExists = await mongoose.models.User.findOne({ username });
+        while (userExists) {
+            username = `${baseUsername}${count}`;
+            count++;
+            userExists = await mongoose.models.User.findOne({ username });
+        }
+        
+        this.username = username;
+    }
+    next();
 });
 
 // Pre-save hook to hash password

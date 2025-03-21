@@ -1,16 +1,16 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
-// Middleware to protect routes that require authentication
+/**
+ * Authentication middleware
+ * Validates the JWT token and attaches the user to the request
+ */
 const auth = async (req, res, next) => {
   try {
     let token;
 
     // Check if authorization header is present and uses Bearer scheme
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       // Extract token from header
       token = req.headers.authorization.split(' ')[1];
     }
@@ -19,10 +19,7 @@ const auth = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        error: {
-          message: 'Not authorized to access this route',
-          code: 'UNAUTHORIZED'
-        }
+        message: 'Authentication required. Please log in.'
       });
     }
 
@@ -37,10 +34,7 @@ const auth = async (req, res, next) => {
       if (!user) {
         return res.status(401).json({
           success: false,
-          error: {
-            message: 'User not found',
-            code: 'UNAUTHORIZED'
-          }
+          message: 'Invalid authentication token.'
         });
       }
 
@@ -48,74 +42,68 @@ const auth = async (req, res, next) => {
       req.user = user;
       next();
     } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          message: 'Your session has expired. Please log in again.'
+        });
+      }
+      
       // If token verification fails
       return res.status(401).json({
         success: false,
-        error: {
-          message: 'Not authorized to access this route',
-          code: 'UNAUTHORIZED'
-        }
+        message: 'Invalid authentication token.'
       });
     }
   } catch (error) {
+    console.error('Auth middleware error:', error);
     return res.status(500).json({
       success: false,
-      error: {
-        message: 'Server error',
-        code: 'SERVER_ERROR'
-      }
+      message: 'Server error in authentication.'
     });
   }
 };
 
-// Middleware to check if user is admin
+/**
+ * Admin access middleware
+ * Checks if the authenticated user is an admin
+ */
 const isAdmin = (req, res, next) => {
-  // The auth middleware must be called before this middleware
   if (!req.user || !req.user.isAdmin) {
     return res.status(403).json({
       success: false,
-      error: {
-        message: 'Admin access required',
-        code: 'FORBIDDEN'
-      }
+      message: 'Access denied. Admin privileges required.'
     });
   }
   next();
 };
 
-// Middleware to check if user is restaurant owner
+/**
+ * Restaurant owner access middleware
+ * Checks if the authenticated user is a restaurant owner
+ */
 const isRestaurantOwner = (req, res, next) => {
-  // The auth middleware must be called before this middleware
   if (!req.user || !req.user.isRestaurantOwner) {
     return res.status(403).json({
       success: false,
-      error: {
-        message: 'Restaurant owner access required',
-        code: 'FORBIDDEN'
-      }
+      message: 'Access denied. Restaurant owner privileges required.'
     });
   }
   next();
 };
 
-// Middleware to check if user is delivery staff
+/**
+ * Delivery staff access middleware
+ * Checks if the authenticated user is delivery staff
+ */
 const isDeliveryStaff = (req, res, next) => {
-  // The auth middleware must be called before this middleware
   if (!req.user || !req.user.isDeliveryStaff) {
     return res.status(403).json({
       success: false,
-      error: {
-        message: 'Delivery staff access required',
-        code: 'FORBIDDEN'
-      }
+      message: 'Access denied. Delivery staff privileges required.'
     });
   }
   next();
 };
 
-module.exports = {
-  auth,
-  isAdmin,
-  isRestaurantOwner,
-  isDeliveryStaff
-}; 
+module.exports = { auth, isAdmin, isRestaurantOwner, isDeliveryStaff }; 

@@ -1,77 +1,128 @@
-import { useContext, useEffect } from "react";
+import { useContext, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { MyContext } from "../../App";
-import Logo from '../../images/logo.jpg';
-import { TextField } from "@mui/material";
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
-import Google from '../../images/google.jpg';
-
+import { useAuth } from "../../context/AuthContext";
+import "./signin.css";
 
 const SignIn = () => {
     const context = useContext(MyContext);
+    const { login, error: authError, isLoading } = useAuth();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    
+    const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Get the redirect path, or default to home
+    const from = location.state?.from?.pathname || "/";
+    
+    // Hide header and footer for auth pages
+    context.setisHeaderFooterShow(false);
 
-    useEffect(() => {
-        console.log("Header and Footer hidden");
-        context.setisHeaderFooterShow(false); // Hide header & footer
-    }, [context]);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        // Clear previous errors
+        setError("");
+        
+        // Simple validation
+        if (!email || !password) {
+            setError("Please fill in all fields");
+            return;
+        }
+
+        console.log("Submitting login form:", { email, password });
+        
+        try {
+            // Use the login function from auth context
+            const result = await login(email, password);
+            console.log("Login result:", result);
+            
+            if (result && result.success) {
+                // Check if user is admin and redirect to admin dashboard
+                if (result.user && result.user.isAdmin) {
+                    console.log("Admin user detected, redirecting to admin dashboard");
+                    navigate("/admin/dashboard", { replace: true });
+                    context.setIsAdminPath(true);
+                } else {
+                    // Redirect to previous location or home for regular users
+                    console.log("Regular user detected, redirecting to:", from);
+                    navigate(from, { replace: true });
+                    context.setisHeaderFooterShow(true);
+                }
+            } else {
+                console.error("Login failed:", result?.error);
+                setError(result?.error || "Authentication failed");
+            }
+        } catch (err) {
+            console.error("Login error:", err);
+            setError("An unexpected error occurred: " + (err.message || err));
+        }
+    };
 
     return (
-        <section className="section signInPage signUpPage">
-            <div className="shape-bottom">
-                <svg
-                    fill="#fff"
-                    id="Layer_1"
-                    x="0px"
-                    y="0px"
-                    viewBox="0 0 1921 819.8"
-                    style={{ enableBackground: "new 0 0 1921 819.8" }}
-                >
-                    <path
-                        className="st0"
-                        d="M1921,413.1v406.7H0V0.5h0.4l228.1,598.3c30,74.4,80.8,130.6,152.5,168.6c107.6,57,212.1,40.7,245.7,34.4 
-                        c22.4-4.2,54.9-13.1,97.5-26.6L1921,400.5V413.1z"
-                    ></path>
-                </svg>
-            </div>
+        <div className="sign-in-wrapper">
             <div className="container">
-                <div className="box card p-3 shadow border-0">
-                    <div className="text-center">
-                        <img src={Logo} alt="Logo" className="logo-image"/>
+                <div className="login-card">
+                    <div className="login-card-header">
+                        <h1>Sign In</h1>
+                        <p>Welcome back! Please enter your details.</p>
                     </div>
-                    
-                    <form className="mt-3">
-
-                        <h2 className="mb-4">Sign In</h2>
+                    {(error || authError) && (
+                        <div className="error-message">
+                            {error || authError}
+                        </div>
+                    )}
+                    <form onSubmit={handleSubmit} className="login-form">
                         <div className="form-group">
-                            <TextField id="standard-basic" label="Email" type="email" required variant="standard" className="w-100"/>
+                            <label htmlFor="email">Email or Username</label>
+                            <input
+                                type="text"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Enter your email or username"
+                                required
+                            />
                         </div>
                         <div className="form-group">
-                            <TextField id="standard-basic" label="Password" type="password" required variant="standard" className="w-100"/>
+                            <label htmlFor="password">Password</label>
+                            <input
+                                type="password"
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter your password"
+                                required
+                            />
                         </div>
-                        <a className="border-effect cursor txt">Forgot Password</a>
-                        <div className="d-flex align-items-center mt-3 mb-3">
-                            <div className="row w-100">
-                               <div className="col-md-6">
-                            <Link to="/">  <Button className="btn-blue w-100 btn-lg btn-big ">Sign In</Button></Link>
+                        <div className="form-options">
+                            <div className="remember-me">
+                                <input type="checkbox" id="remember" />
+                                <label htmlFor="remember">Remember me</label>
+                            </div>
+                            <Link to="/forgot-password" className="forgot-password">
+                                Forgot password?
+                            </Link>
                         </div>
-                        <div className="col-md-6 pr-0">
-                        <Link to="/" className="d-block w-100"><Button className=" btn-lg btn-big w-100" variant="outlined" onClick={()=>context.setisHeaderFooterShow(true)}>Cancel
-                        </Button></Link>
-                        </div>
-                        </div>
-                        </div>
-
-
-                        <p className="txt"> Not Registered? <Link to= "/signUp" className="border-effect"> Sign Up</Link></p>
-                        <h6 className="mt-4 text-center font-weight-bold">Or Continue with social account</h6>
-
-                        <Button className="loginWithGoogle mt-2" variant="outlined"><img src={Google}/>Sign In With Google</Button>
-
-
+                        <button
+                            type="submit"
+                            className="sign-in-btn"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Signing in..." : "Sign In"}
+                        </button>
+                        <p className="sign-up-prompt">
+                            Don&apos;t have an account?{" "}
+                            <Link to="/signup" className="sign-up-link">
+                                Sign up
+                            </Link>
+                        </p>
                     </form>
                 </div>
             </div>
-        </section>
+        </div>
     );
 };
 

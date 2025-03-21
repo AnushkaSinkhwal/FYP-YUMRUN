@@ -230,7 +230,7 @@ const Home = () => {
 
                                 <div className="product-grid">
                                     <div className="row">
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-6 mb-4 fade-in-item">
+                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item">
                                             <ProductItem 
                                                 name="Bakery Cafe" 
                                                 location="Sundhara" 
@@ -239,7 +239,7 @@ const Home = () => {
                                                 newPrice="300"
                                             />
                                         </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-6 mb-4 fade-in-item" style={{animationDelay: '0.1s'}}>
+                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.1s'}}>
                                             <ProductItem 
                                                 name="Pizza Hut" 
                                                 location="Pulchowk" 
@@ -248,7 +248,7 @@ const Home = () => {
                                                 newPrice="720"
                                             />
                                         </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-6 mb-4 fade-in-item" style={{animationDelay: '0.2s'}}>
+                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.2s'}}>
                                             <ProductItem 
                                                 name="Himalayan Java" 
                                                 location="Thamel" 
@@ -257,7 +257,7 @@ const Home = () => {
                                                 newPrice="400"
                                             />
                                         </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-6 mb-4 fade-in-item" style={{animationDelay: '0.3s'}}>
+                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.3s'}}>
                                             <ProductItem 
                                                 name="Tamarind" 
                                                 location="Jhamsikhel" 
@@ -310,13 +310,13 @@ const Home = () => {
                                 <p className="text-light">Sign up for our newsletter to receive weekly updates on new dishes and special offers.</p>
                                 <div className="newsletter-form">
                                     <IoIosMail />
-                                    <input type="email" placeholder="Your Email Address" />
-                                    <button>Subscribe</button>
+                                    <input type="email" placeholder="Your Email Address" aria-label="Email for newsletter" />
+                                    <button type="button" aria-label="Subscribe to newsletter">Subscribe</button>
                                 </div>
                             </div>
                         </div>
-                        <div className="col-lg-5 col-md-6 text-center">
-                            <img src={banner3} alt="Newsletter Promotion" className="newsletter-image" />
+                        <div className="col-lg-5 col-md-6 d-flex justify-content-center align-items-center">
+                            <img src={banner3} alt="Newsletter Promotion" className="newsletter-image img-fluid" />
                         </div>
                     </div>
                 </div>

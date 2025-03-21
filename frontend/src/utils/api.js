@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL from environment variables
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -29,30 +29,32 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    console.log('API Error:', error);
+    
     // Handle unauthorized errors (token expired, etc.)
     if (error.response && error.response.status === 401) {
       // Clear auth data
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       
-      // Handle redirect based on user type
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      
-      if (userData.isAdmin) {
+      // Redirect to login page
+      const path = window.location.pathname;
+      if (path.startsWith('/admin')) {
         window.location.href = '/admin/login';
       } else {
         window.location.href = '/signin';
       }
     }
+    
     return Promise.reject(error);
   }
 );
 
 // Auth API methods
 export const authAPI = {
-  // Login user (works for any user type)
-  login: async (email, password) => {
-    return api.post('/auth/login', { email, password });
+  // Login user (works for both regular and admin users)
+  login: async (usernameOrEmail, password) => {
+    return api.post('/auth/login', { email: usernameOrEmail, password });
   },
   
   // Register new user
@@ -63,6 +65,13 @@ export const authAPI = {
   // Get current user profile
   getCurrentUser: async () => {
     return api.get('/auth/me');
+  },
+  
+  // Logout user (client-side)
+  logout: async () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    return { success: true };
   }
 };
 
@@ -88,15 +97,24 @@ export const adminAPI = {
     return api.put(`/admin/users/${userId}`, userData);
   },
   
-  // Get restaurant owners
-  getOwners: async () => {
-    return api.get('/admin/owners');
-  },
-  
-  // Get system statistics
-  getStatistics: async () => {
-    return api.get('/admin/statistics');
+  // Delete user
+  deleteUser: async (userId) => {
+    return api.delete(`/admin/users/${userId}`);
   }
 };
 
+// User API methods
+export const userAPI = {
+  // Update user profile
+  updateProfile: async (userData) => {
+    return api.put('/users/profile', userData);
+  },
+  
+  // Change password
+  changePassword: async (passwordData) => {
+    return api.put('/users/password', passwordData);
+  }
+};
+
+// Export default instance
 export default api; 

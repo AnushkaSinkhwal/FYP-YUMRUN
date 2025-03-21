@@ -111,6 +111,7 @@
   .newsLetterSection {
     padding: 30px 0;
     overflow: hidden;
+    border-radius: var(--border-radius);
   }
   
   .newsLetterSection img{
@@ -138,10 +139,53 @@
     line-height: 1.5;
     text-align: center;
   }
+  
+  .newsLetterSection .newsletter-form {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    margin-top: 15px;
+  }
+  
+  .newsLetterSection .newsletter-form input {
+    flex: 1;
+    font-size: 14px;
+  }
+  
+  .newsLetterSection .newsletter-form button {
+    white-space: nowrap;
+    padding: 0 15px;
+  }
 
   /* Login/signup fixes */
   .loginSection{height: auto !important; padding: 30px 0;}
   .signUpSection .col-md-8{display: none !important;}
+  
+  /* Improved sign in/sign up page styling */
+  .signInPage .box, 
+  .signUpPage .box {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 20px !important;
+  }
+  
+  .logo-image {
+    max-width: 150px !important;
+    margin: 0 auto;
+  }
+  
+  .loginWithGoogle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px;
+    height: 44px;
+  }
+  
+  .loginWithGoogle img {
+    max-width: 20px !important;
+    height: auto;
+  }
   
   /* Fix notifications positioning */
   #notifications .MuiPaper-elevation{right: 20px !important; max-width: 90%;}
