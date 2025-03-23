@@ -1,7 +1,8 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
+import Logo from "../../assets/images/logo.png";
 import "./signin.css";
 
 const SignIn = () => {
@@ -10,15 +11,23 @@ const SignIn = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [rememberMe, setRememberMe] = useState(false);
     
     const navigate = useNavigate();
     const location = useLocation();
     
     // Get the redirect path, or default to home
     const from = location.state?.from?.pathname || "/";
+    // Get any success message passed from other pages
+    const successMessage = location.state?.message || "";
     
     // Hide header and footer for auth pages
     context.setisHeaderFooterShow(false);
+
+    const validateEmail = (email) => {
+        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(String(email).toLowerCase()) || email.includes('@');
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -26,13 +35,28 @@ const SignIn = () => {
         // Clear previous errors
         setError("");
         
-        // Simple validation
-        if (!email || !password) {
-            setError("Please fill in all fields");
+        // Enhanced validation
+        if (!email.trim()) {
+            setError("Email is required");
             return;
         }
 
-        console.log("Submitting login form:", { email, password });
+        if (!validateEmail(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+        
+        if (!password) {
+            setError("Password is required");
+            return;
+        }
+
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters");
+            return;
+        }
+
+        console.log("Submitting login form:", { email, password, rememberMe });
         
         try {
             // Use the login function from auth context
@@ -40,6 +64,13 @@ const SignIn = () => {
             console.log("Login result:", result);
             
             if (result && result.success) {
+                // Remember user preference if selected
+                if (rememberMe) {
+                    localStorage.setItem('rememberedEmail', email);
+                } else {
+                    localStorage.removeItem('rememberedEmail');
+                }
+
                 // Check if user is admin and redirect to admin dashboard
                 if (result.user && result.user.isAdmin) {
                     console.log("Admin user detected, redirecting to admin dashboard");
@@ -61,14 +92,35 @@ const SignIn = () => {
         }
     };
 
+    // Check for remembered email on component mount
+    useEffect(() => {
+        const rememberedEmail = localStorage.getItem('rememberedEmail');
+        if (rememberedEmail) {
+            setEmail(rememberedEmail);
+            setRememberMe(true);
+        }
+    }, []);
+
     return (
         <div className="sign-in-wrapper">
             <div className="container">
                 <div className="login-card">
+                    <div className="login-logo">
+                        <Link to="/">
+                            <img src={Logo} alt="YumRun Logo" />
+                        </Link>
+                    </div>
                     <div className="login-card-header">
                         <h1>Sign In</h1>
                         <p>Welcome back! Please enter your details.</p>
                     </div>
+                    
+                    {successMessage && (
+                        <div className="success-message">
+                            {successMessage}
+                        </div>
+                    )}
+                    
                     {(error || authError) && (
                         <div className="error-message">
                             {error || authError}
@@ -99,7 +151,12 @@ const SignIn = () => {
                         </div>
                         <div className="form-options">
                             <div className="remember-me">
-                                <input type="checkbox" id="remember" />
+                                <input 
+                                    type="checkbox" 
+                                    id="remember" 
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                />
                                 <label htmlFor="remember">Remember me</label>
                             </div>
                             <Link to="/forgot-password" className="forgot-password">
@@ -111,7 +168,12 @@ const SignIn = () => {
                             className="sign-in-btn"
                             disabled={isLoading}
                         >
-                            {isLoading ? "Signing in..." : "Sign In"}
+                            {isLoading ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    Signing in...
+                                </>
+                            ) : "Sign In"}
                         </button>
                         <p className="sign-up-prompt">
                             Don&apos;t have an account?{" "}

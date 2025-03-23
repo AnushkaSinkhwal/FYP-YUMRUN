@@ -16,34 +16,52 @@ const Dashboard = () => {
     error: null
   });
 
+  const [notifications, setNotifications] = useState([]);
+
   // Fetch dashboard data
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
+      setDashboardData({
+        loading: true,
+        error: null,
+        data: {}
+      });
+
       try {
-        // Fetch statistics from the API
-        const response = await adminAPI.getStatistics();
-        
+        const response = await adminAPI.getDashboard();
         if (response.data.success) {
           setDashboardData({
-            users: response.data.data.users || 0,
-            owners: response.data.data.owners || 0,
-            orders: 0, // Add these fields when the API provides them
-            deliveries: 0,
             loading: false,
-            error: null
+            error: null,
+            data: response.data.data
+          });
+        } else {
+          setDashboardData({
+            loading: false,
+            error: response.data.message || 'Failed to fetch dashboard data',
+            data: {}
           });
         }
+        
+        // Fetch notifications
+        try {
+          const notificationsResponse = await adminAPI.getNotifications();
+          if (notificationsResponse.data.success) {
+            setNotifications(notificationsResponse.data.data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch notifications:', error);
+        }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setDashboardData(prev => ({
-          ...prev,
+        setDashboardData({
           loading: false,
-          error: 'Failed to load dashboard data'
-        }));
+          error: error.response?.data?.message || 'An error occurred while fetching dashboard data',
+          data: {}
+        });
       }
     };
 
-    fetchDashboardData();
+    fetchData();
   }, []);
 
   // Dashboard stats cards
@@ -197,6 +215,18 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {notifications.filter(n => n.status === 'pending').length > 0 && (
+        <div className="alert alert-warning d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <i className="fas fa-bell me-2"></i>
+            You have {notifications.filter(n => n.status === 'pending').length} pending notifications that require your attention.
+          </div>
+          <Link to="/profile?tab=notifications" className="btn btn-sm btn-primary">
+            View Notifications
+          </Link>
+        </div>
+      )}
 
       <div className="row">
         <div className="col-12">

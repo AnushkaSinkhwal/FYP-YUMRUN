@@ -11,6 +11,7 @@ import ProductDetails from './Pages/ProductDetails';
 import Cart from './Pages/Cart';
 import SignIn from "./Pages/SignIn";
 import SignUp from './Pages/SignUp';
+import Profile from './Pages/Profile';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import BackToTop from './components/BackToTop';
@@ -220,6 +221,20 @@ function App() {
                 <main id="main-content">
                   <SignUp />
                 </main>
+                {isOpenProductModel && <ProductModel />}
+                <BackToTop />
+              </>
+            } />
+
+            <Route path="/profile" element={
+              <>
+                {isHeaderFooterShow && <Header />}
+                <main id="main-content">
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                </main>
+                {isHeaderFooterShow && <Footer />}
                 {isOpenProductModel && <ProductModel />}
                 <BackToTop />
               </>

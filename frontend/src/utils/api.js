@@ -100,6 +100,16 @@ export const adminAPI = {
   // Delete user
   deleteUser: async (userId) => {
     return api.delete(`/admin/users/${userId}`);
+  },
+  
+  // Get admin notifications
+  getNotifications: async () => {
+    return api.get('/admin/notifications');
+  },
+  
+  // Process notification (approve/reject)
+  processNotification: async (notificationId, status) => {
+    return api.post(`/admin/notifications/${notificationId}`, { status });
   }
 };
 

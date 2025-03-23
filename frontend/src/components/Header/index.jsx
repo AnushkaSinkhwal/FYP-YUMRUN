@@ -9,9 +9,11 @@ import SearchBox from './SearchBox';
 import Navigation from "./Navigation";
 import { useContext, useState, useEffect } from 'react';
 import { MyContext } from '../../App';
+import { useAuth } from '../../context/AuthContext';
 
 const Header = () => {
   const context = useContext(MyContext);
+  const { currentUser } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
   const [showSearch, setShowSearch] = useState(false);
   const [cartActive, setCartActive] = useState(false);
@@ -130,8 +132,8 @@ const Header = () => {
               )}
 
               {/* Sign In/Profile Button */}
-              {context.isLogin !== true ? (
-                <Link to="/signIn" className="auth-link">
+              {!currentUser ? (
+                <Link to="/signin" className="auth-link">
                   <Button className='header-btn auth-btn' aria-label="Sign In">
                     <FaRegUserCircle className="btn-icon" aria-hidden="true" />
                     {!isMobile && <span className="btn-text">Sign In</span>}

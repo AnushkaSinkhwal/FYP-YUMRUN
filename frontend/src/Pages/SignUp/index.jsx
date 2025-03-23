@@ -1,7 +1,8 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
+import Logo from "../../assets/images/logo.png";
 import "./signup.css";
 
 const SignUp = () => {
@@ -14,11 +15,42 @@ const SignUp = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [healthCondition, setHealthCondition] = useState("Healthy");
     const [error, setError] = useState("");
+    const [passwordStrength, setPasswordStrength] = useState("");
     
     const navigate = useNavigate();
     
     // Hide header and footer for auth pages
     context.setisHeaderFooterShow(false);
+
+    useEffect(() => {
+        // Check password strength when password changes
+        if (!password) {
+            setPasswordStrength("");
+            return;
+        }
+        
+        // Simple password strength checker
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
+        const isLongEnough = password.length >= 8;
+        
+        const strengthScore = [hasLowerCase, hasUpperCase, hasNumber, hasSpecialChar, isLongEnough].filter(Boolean).length;
+        
+        if (strengthScore <= 2) {
+            setPasswordStrength("weak");
+        } else if (strengthScore <= 3) {
+            setPasswordStrength("medium");
+        } else {
+            setPasswordStrength("strong");
+        }
+    }, [password]);
+
+    const validateEmail = (email) => {
+        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(String(email).toLowerCase());
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -26,19 +58,34 @@ const SignUp = () => {
         // Clear previous errors
         setError("");
         
-        // Validation
-        if (!fullName || !email || !contact || !password || !confirmPassword || !healthCondition) {
-            setError("Please fill in all fields");
+        // Enhanced validation
+        if (!fullName.trim()) {
+            setError("Full name is required");
             return;
         }
         
-        if (password !== confirmPassword) {
-            setError("Passwords do not match");
+        if (!email.trim()) {
+            setError("Email is required");
+            return;
+        }
+        
+        if (!validateEmail(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+        
+        if (!contact.trim()) {
+            setError("Contact number is required");
             return;
         }
         
         if (password.length < 6) {
             setError("Password must be at least 6 characters long");
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            setError("Passwords do not match");
             return;
         }
         
@@ -50,7 +97,10 @@ const SignUp = () => {
             
             if (result && result.success) {
                 console.log("Registration successful, redirecting to signin");
-                navigate("/signin", { replace: true });
+                navigate("/signin", { 
+                    replace: true,
+                    state: { message: "Account created successfully! Please sign in." }
+                });
             } else {
                 console.error("Registration failed:", result?.error);
                 setError(result?.error || "Registration failed");
@@ -65,6 +115,11 @@ const SignUp = () => {
         <div className="sign-up-wrapper">
             <div className="container">
                 <div className="signup-card">
+                    <div className="signup-logo">
+                        <Link to="/">
+                            <img src={Logo} alt="YumRun Logo" />
+                        </Link>
+                    </div>
                     <div className="signup-card-header">
                         <h1>Create Account</h1>
                         <p>Join YumRun to discover amazing food in your area!</p>
@@ -124,6 +179,11 @@ const SignUp = () => {
                                     placeholder="Create a password"
                                     required
                                 />
+                                {passwordStrength && (
+                                    <div className={`password-strength ${passwordStrength}`}>
+                                        Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="form-group">
@@ -160,7 +220,12 @@ const SignUp = () => {
                             className="sign-up-btn"
                             disabled={isLoading}
                         >
-                            {isLoading ? "Creating Account..." : "Sign Up"}
+                            {isLoading ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    Creating Account...
+                                </>
+                            ) : "Sign Up"}
                         </button>
                         
                         <p className="signin-prompt">

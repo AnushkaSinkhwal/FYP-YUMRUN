@@ -1,0 +1,83 @@
+.profile-container {
+  min-height: 80vh;
+  background-color: #f8f9fa;
+  padding: 2rem 0;
+}
+
+.profile-container .card {
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.profile-container .card-header {
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 1rem 1.5rem;
+}
+
+.profile-container .nav-pills .nav-link {
+  color: #495057;
+  border-radius: 5px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-container .nav-pills .nav-link.active {
+  background-color: #ff642f;
+  color: white;
+}
+
+.profile-container .badge {
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+}
+
+.profile-container .notification-item {
+  transition: all 0.3s ease;
+}
+
+.profile-container .notification-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.profile-container .change-item {
+  padding: 0.5rem;
+  border-radius: 5px;
+  background-color: #f8f9fa;
+  margin-bottom: 0.5rem;
+}
+
+.profile-container .change-label {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.profile-container .btn-primary {
+  background-color: #ff642f;
+  border-color: #ff642f;
+}
+
+.profile-container .btn-primary:hover,
+.profile-container .btn-primary:focus {
+  background-color: #e54e1b;
+  border-color: #e54e1b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  .profile-container .col-lg-3 {
+    margin-bottom: 2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-container {
+    padding: 1rem 0;
+  }
+  
+  .profile-container .card {
+    border-radius: 5px;
+  }
+} 
