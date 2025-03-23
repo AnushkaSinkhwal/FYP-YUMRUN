@@ -27,7 +27,7 @@ A health-focused food ordering and delivery platform with nutritional transparen
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/yumrun.git
+git clone https://github.com/yourusername/FYP-YUMRUN.git
 cd yumrun
 
 # Install dependencies
