@@ -54,7 +54,52 @@ api.interceptors.response.use(
 export const authAPI = {
   // Login user (works for both regular and admin users)
   login: async (usernameOrEmail, password) => {
-    return api.post('/auth/login', { email: usernameOrEmail, password });
+    // Determine if this is an admin login attempt based on URL
+    const isAdminLogin = window.location.pathname.startsWith('/admin');
+    
+    try {
+      let response;
+      
+      if (isAdminLogin) {
+        // Admin login
+        response = await api.post('/admin/login', { username: usernameOrEmail, password });
+      } else {
+        // Regular user login
+        response = await api.post('/auth/login', { email: usernameOrEmail, password });
+      }
+      
+      return response.data;
+    } catch (error) {
+      // Handle specific error codes
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        const { data, status } = error.response;
+        
+        if (status === 401) {
+          return { 
+            success: false, 
+            error: 'Invalid credentials'
+          };
+        } else if (status === 403) {
+          return { 
+            success: false, 
+            error: 'Access denied. You do not have the required permissions.'
+          };
+        } else {
+          return { 
+            success: false, 
+            error: data.message || 'Login failed'
+          };
+        }
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        return { 
+          success: false, 
+          error: 'Connection error. Please try again.'
+        };
+      }
+    }
   },
   
   // Register new user
@@ -82,22 +127,22 @@ export const adminAPI = {
     return api.get('/admin/dashboard');
   },
   
-  // Get all users
+  // Get all users (admin only)
   getUsers: async () => {
     return api.get('/admin/users');
   },
   
-  // Get user by ID
-  getUserById: async (userId) => {
+  // Get user by ID (admin only)
+  getUser: async (userId) => {
     return api.get(`/admin/users/${userId}`);
   },
   
-  // Update user
+  // Update user (admin only)
   updateUser: async (userId, userData) => {
     return api.put(`/admin/users/${userId}`, userData);
   },
   
-  // Delete user
+  // Delete user (admin only)
   deleteUser: async (userId) => {
     return api.delete(`/admin/users/${userId}`);
   },

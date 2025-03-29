@@ -1,23 +1,26 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../../assets/images/logo.png'; // Updated logo path
 import CityDropdown from "../CityDropdown";
 import Button from '@mui/material/Button';
-import { FaRegUserCircle, FaSearch, FaMapMarkerAlt } from "react-icons/fa";
+import { FaRegUserCircle, FaSearch, FaMapMarkerAlt, FaSignOutAlt, FaUser } from "react-icons/fa";
+import { RiDashboardLine } from "react-icons/ri";
 import { BsTelephone } from "react-icons/bs";
 import { MdOutlineEmail } from "react-icons/md";
 import SearchBox from './SearchBox';
 import Navigation from "./Navigation";
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
 import { MyContext } from '../../App';
 import { useAuth } from '../../context/AuthContext';
 
 const Header = () => {
-  const context = useContext(MyContext);
-  const { currentUser } = useAuth();
+  const { setIsLoading } = useContext(MyContext);
+  const { currentUser, logout } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
   const [showSearch, setShowSearch] = useState(false);
   const [cartActive, setCartActive] = useState(false);
-  const { setIsLoading } = useContext(MyContext);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const userDropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   // Check if screen is mobile on resize
   useEffect(() => {
@@ -33,6 +36,37 @@ const Header = () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Handle ESC key to close dropdown
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        setShowUserDropdown(false);
+      }
+    };
+
+    if (showUserDropdown) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showUserDropdown]);
 
   // Simulate cart activity for demo purposes
   useEffect(() => {
@@ -66,6 +100,16 @@ const Header = () => {
         setIsLoading(false);
       }, 500);
     }
+  };
+
+  const toggleUserDropdown = () => {
+    setShowUserDropdown(!showUserDropdown);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setShowUserDropdown(false);
   };
 
   return (
@@ -140,12 +184,47 @@ const Header = () => {
                   </Button>
                 </Link>
               ) : (
-                <Link to="/profile" className="auth-link">
-                  <Button className='header-btn auth-btn' aria-label="Profile">
+                <div className="user-dropdown-container" ref={userDropdownRef}>
+                  <Button 
+                    className='header-btn auth-btn' 
+                    aria-label="Profile"
+                    onClick={toggleUserDropdown}
+                    aria-expanded={showUserDropdown}
+                    aria-controls="user-dropdown-menu"
+                  >
                     <FaRegUserCircle className="btn-icon" aria-hidden="true" />
-                    {!isMobile && <span className="btn-text">Profile</span>}
+                    {!isMobile && (
+                      <span className="btn-text">
+                        {currentUser.name?.split(' ')[0] || 'Profile'}
+                      </span>
+                    )}
                   </Button>
-                </Link>
+                  
+                  {showUserDropdown && (
+                    <div className="user-dropdown" id="user-dropdown-menu" role="menu">
+                      <Link to="/profile" className="dropdown-item" onClick={() => setShowUserDropdown(false)}>
+                        <FaUser className="mr-2" />
+                        My Profile
+                      </Link>
+                      
+                      {currentUser.isAdmin && (
+                        <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setShowUserDropdown(false)}>
+                          <RiDashboardLine className="mr-2" />
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      
+                      <button 
+                        className="logout-btn" 
+                        onClick={handleLogout}
+                        aria-label="Logout"
+                      >
+                        <FaSignOutAlt className="mr-2" />
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Cart Section */}

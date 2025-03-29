@@ -87,12 +87,10 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      console.log('Attempting to login with:', { usernameOrEmail, password });
       const response = await authAPI.login(usernameOrEmail, password);
-      console.log('Login response:', response.data);
       
-      if (response.data.success) {
-        const { token, user } = response.data;
+      if (response.success) {
+        const { token, user } = response;
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
@@ -104,13 +102,13 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user };
       } else {
-        setError(response.data.message || 'Login failed');
+        setError(response.error || 'Login failed');
         setIsLoading(false);
-        return { success: false, error: response.data.message || 'Login failed' };
+        return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
+      const errorMessage = error.message || 'Login failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };

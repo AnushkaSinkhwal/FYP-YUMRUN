@@ -8,6 +8,13 @@ const { auth, isAdmin } = require('../middleware/auth');
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Username/email and password are required' 
+            });
+        }
 
         // Find user by username or email
         const user = await User.findOne({
@@ -335,9 +342,23 @@ router.get('/notifications', auth, isAdmin, (req, res) => {
                 type: 'profile_update', 
                 message: 'Restaurant owner Sarah Smith updated contact details', 
                 status: 'pending',
-                user: { id: 'user456', name: 'Sarah Smith', email: 'sarah@example.com' },
+                user: { id: 'user456', name: 'Sarah Smith', email: 'sarah@example.com', isRestaurantOwner: true },
                 timestamp: new Date(Date.now() - 86400000).toISOString(),
                 changes: { email: 'sarah.new@example.com', previousEmail: 'sarah@example.com' }
+            },
+            { 
+                id: 3, 
+                type: 'profile_update', 
+                message: 'Restaurant owner Michael Johnson updated contact information', 
+                status: 'pending',
+                user: { id: 'user789', name: 'Michael Johnson', email: 'michael@restaurant.com', isRestaurantOwner: true },
+                timestamp: new Date(Date.now() - 172800000).toISOString(),
+                changes: { 
+                    phone: '555-123-4567', 
+                    previousPhone: '555-987-6543',
+                    name: 'Michael J. Johnson',
+                    previousName: 'Michael Johnson'
+                }
             }
         ];
         

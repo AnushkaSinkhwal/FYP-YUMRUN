@@ -18,51 +18,63 @@ const Dashboard = () => {
 
   const [notifications, setNotifications] = useState([]);
 
-  // Fetch dashboard data
   useEffect(() => {
-    const fetchData = async () => {
+    fetchDashboardData();
+    fetchNotifications();
+    
+    // Refresh data every 60 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+      fetchNotifications();
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
       setDashboardData({
         loading: true,
         error: null,
         data: {}
       });
 
-      try {
-        const response = await adminAPI.getDashboard();
-        if (response.data.success) {
-          setDashboardData({
-            loading: false,
-            error: null,
-            data: response.data.data
-          });
-        } else {
-          setDashboardData({
-            loading: false,
-            error: response.data.message || 'Failed to fetch dashboard data',
-            data: {}
-          });
-        }
-        
-        // Fetch notifications
-        try {
-          const notificationsResponse = await adminAPI.getNotifications();
-          if (notificationsResponse.data.success) {
-            setNotifications(notificationsResponse.data.data);
-          }
-        } catch (error) {
-          console.error('Failed to fetch notifications:', error);
-        }
-      } catch (error) {
+      const response = await adminAPI.getDashboard();
+      
+      if (response.data.success) {
         setDashboardData({
           loading: false,
-          error: error.response?.data?.message || 'An error occurred while fetching dashboard data',
+          error: null,
+          data: response.data.data
+        });
+      } else {
+        setDashboardData({
+          loading: false,
+          error: response.data.message || 'Failed to load dashboard data',
           data: {}
         });
       }
-    };
-
-    fetchData();
-  }, []);
+    } catch (err) {
+      console.error('Dashboard error:', err);
+      setDashboardData({
+        loading: false,
+        error: 'Failed to load dashboard data',
+        data: {}
+      });
+    }
+  };
+  
+  const fetchNotifications = async () => {
+    try {
+      const response = await adminAPI.getNotifications();
+      
+      if (response.data.success) {
+        setNotifications(response.data.data || []);
+      }
+    } catch (err) {
+      console.error('Notifications error:', err);
+    }
+  };
 
   // Dashboard stats cards
   const stats = [
@@ -221,6 +233,11 @@ const Dashboard = () => {
           <div>
             <i className="fas fa-bell me-2"></i>
             You have {notifications.filter(n => n.status === 'pending').length} pending notifications that require your attention.
+            {notifications.filter(n => n.status === 'pending' && n.user.isRestaurantOwner).length > 0 && (
+              <span className="ms-2 badge bg-primary">
+                {notifications.filter(n => n.status === 'pending' && n.user.isRestaurantOwner).length} from restaurant owners
+              </span>
+            )}
           </div>
           <Link to="/profile?tab=notifications" className="btn btn-sm btn-primary">
             View Notifications

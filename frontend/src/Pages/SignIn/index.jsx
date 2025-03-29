@@ -12,6 +12,7 @@ const SignIn = () => {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
+    const [loginAttempted, setLoginAttempted] = useState(false);
     
     const navigate = useNavigate();
     const location = useLocation();
@@ -31,60 +32,45 @@ const SignIn = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoginAttempted(true);
         
         // Clear previous errors
         setError("");
         
-        // Enhanced validation
-        if (!email.trim()) {
-            setError("Email is required");
+        // Validate input
+        if (!email || !password) {
+            setError("Please fill in all fields");
             return;
         }
-
-        if (!validateEmail(email)) {
+        
+        // Validate email format (if it looks like an email)
+        if (email.includes('@') && !validateEmail(email)) {
             setError("Please enter a valid email address");
             return;
         }
         
-        if (!password) {
-            setError("Password is required");
-            return;
+        // Remember email if option is checked
+        if (rememberMe) {
+            localStorage.setItem('rememberedEmail', email);
+        } else {
+            localStorage.removeItem('rememberedEmail');
         }
-
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters");
-            return;
-        }
-
-        console.log("Submitting login form:", { email, password, rememberMe });
         
         try {
-            // Use the login function from auth context
+            // Attempt to login
             const result = await login(email, password);
-            console.log("Login result:", result);
             
             if (result && result.success) {
-                // Remember user preference if selected
-                if (rememberMe) {
-                    localStorage.setItem('rememberedEmail', email);
-                } else {
-                    localStorage.removeItem('rememberedEmail');
+                // If user is admin, redirect to admin dashboard
+                if (result.user.isAdmin) {
+                    navigate('/admin/dashboard', { replace: true });
+                    return;
                 }
-
-                // Check if user is admin and redirect to admin dashboard
-                if (result.user && result.user.isAdmin) {
-                    console.log("Admin user detected, redirecting to admin dashboard");
-                    navigate("/admin/dashboard", { replace: true });
-                    context.setIsAdminPath(true);
-                } else {
-                    // Redirect to previous location or home for regular users
-                    console.log("Regular user detected, redirecting to:", from);
-                    navigate(from, { replace: true });
-                    context.setisHeaderFooterShow(true);
-                }
+                
+                // Redirect to previous page or home
+                navigate(from, { replace: true });
             } else {
-                console.error("Login failed:", result?.error);
-                setError(result?.error || "Authentication failed");
+                setError(result?.error || "Invalid username or password");
             }
         } catch (err) {
             console.error("Login error:", err);
@@ -126,6 +112,13 @@ const SignIn = () => {
                             {error || authError}
                         </div>
                     )}
+                    
+                    {loginAttempted && !email && !password && (
+                        <div className="error-message">
+                            Please enter both email and password
+                        </div>
+                    )}
+                    
                     <form onSubmit={handleSubmit} className="login-form">
                         <div className="form-group">
                             <label htmlFor="email">Email or Username</label>
@@ -163,24 +156,16 @@ const SignIn = () => {
                                 Forgot password?
                             </Link>
                         </div>
-                        <button
-                            type="submit"
-                            className="sign-in-btn"
+                        <button 
+                            type="submit" 
+                            className="btn login-btn" 
                             disabled={isLoading}
                         >
-                            {isLoading ? (
-                                <>
-                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    Signing in...
-                                </>
-                            ) : "Sign In"}
+                            {isLoading ? "Signing in..." : "Sign In"}
                         </button>
-                        <p className="sign-up-prompt">
-                            Don&apos;t have an account?{" "}
-                            <Link to="/signup" className="sign-up-link">
-                                Sign up
-                            </Link>
-                        </p>
+                        <div className="login-footer">
+                            <p>Don&apos;t have an account? <Link to="/signup">Sign up</Link></p>
+                        </div>
                     </form>
                 </div>
             </div>

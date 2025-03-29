@@ -1648,8 +1648,8 @@ button:active {
 .page-loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(0, 0, 0, 0.1);
   border-radius: 50%;
+  border: 3px solid transparent;
   border-top-color: var(--primary-color);
   animation: spin 1s linear infinite;
 }
@@ -1969,4 +1969,204 @@ a:focus, button:focus, input:focus, textarea:focus, select:focus {
   padding: 0.75rem;
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+/* User dropdown menu styles */
+.user-dropdown-container {
+  position: relative;
+  z-index: 1050;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  min-width: 200px;
+  z-index: 1050;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.1);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: var(--text-color);
+  text-decoration: none;
+  transition: background 0.2s;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.user-dropdown .dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.user-dropdown .dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.user-dropdown .logout-btn {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #ff4d4f;
+  padding: 12px 16px;
+  transition: background 0.2s;
+}
+
+.user-dropdown .logout-btn:hover {
+  background: #fff1f0;
+}
+
+.user-dropdown .mr-2 {
+  margin-right: 8px;
+}
+
+.auth-btn {
+  background: transparent !important;
+  color: var(--text-color) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  transition: background 0.2s ease !important;
+}
+
+.auth-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.auth-btn .btn-icon {
+  font-size: 18px;
+}
+
+.auth-btn .btn-text {
+  font-size: 14px;
+}
+
+/* Button styles */
+.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 0.5rem 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+  background-color: #e54e1b;
+  border-color: #e54e1b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 100, 47, 0.2);
+}
+
+.btn-danger {
+  background-color: #ff4d4f;
+  border-color: #ff4d4f;
+}
+
+.btn-danger:hover {
+  background-color: #ff3b3e;
+  border-color: #ff3b3e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 77, 79, 0.2);
+}
+
+/* Profile page improvements */
+.profile-container .card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: none;
+}
+
+.profile-container .card-header {
+  background-color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 1rem 1.25rem;
+}
+
+.profile-container .nav-link {
+  color: var(--text-color);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.profile-container .nav-link.active {
+  background-color: var(--primary-color);
+  color: white;
+  box-shadow: 0 4px 8px rgba(255, 100, 47, 0.2);
+}
+
+/* Notification styling */
+.notification-item {
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.notification-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Pending changes alert */
+.alert-warning {
+  background-color: #fff7e6;
+  border-color: #ffd591;
+  color: #d48806;
+}
+
+/* Loading animation */
+.page-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.page-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

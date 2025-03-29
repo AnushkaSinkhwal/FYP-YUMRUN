@@ -10,6 +10,7 @@ const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loginAttempted, setLoginAttempted] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,6 +41,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoginAttempted(true);
     
     // Clear previous errors
     setError("");
@@ -50,24 +52,19 @@ const Login = () => {
       return;
     }
 
-    console.log("Submitting admin login form:", { username, password });
-    
     try {
       // Use the standard login function
       const result = await login(username, password);
-      console.log("Login result:", result);
       
       if (result && result.success) {
         // Check if user is admin
         if (!result.user.isAdmin) {
-          setError("You don't have admin privileges");
+          setError("Access denied. Admin rights required.");
           return;
         }
         
         // Set admin path state
         setIsAdminPath(true);
-        
-        console.log("Login successful, redirecting to:", from);
         
         // Force a small delay to ensure state updates have time to process
         setTimeout(() => {
@@ -75,7 +72,6 @@ const Login = () => {
           navigate(from, { replace: true });
         }, 100);
       } else {
-        console.error("Login failed:", result?.error);
         setError(result?.error || "Authentication failed");
       }
     } catch (err) {
@@ -98,8 +94,8 @@ const Login = () => {
                       <p>Admin Panel</p>
                       <div className="mt-4 p-3 bg-light rounded">
                         <p className="small text-muted mb-1">Default Admin Credentials:</p>
-                        <p className="small mb-1"><strong>Username:</strong> testadmin</p>
-                        <p className="small mb-0"><strong>Password:</strong> testadmin</p>
+                        <p className="small mb-1"><strong>Username:</strong> admin</p>
+                        <p className="small mb-0"><strong>Password:</strong> admin</p>
                       </div>
                     </div>
                   </div>
@@ -112,6 +108,11 @@ const Login = () => {
                       {(error || authError) && (
                         <div className="alert alert-danger">
                           {error || authError}
+                        </div>
+                      )}
+                      {loginAttempted && !username && !password && (
+                        <div className="alert alert-danger">
+                          Please enter both username and password
                         </div>
                       )}
                       <form className="user" onSubmit={handleSubmit}>
