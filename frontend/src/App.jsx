@@ -1,5 +1,5 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
-import './App.css';
+// import 'bootstrap/dist/css/bootstrap.min.css';
+// import './App.css';
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./Pages/Home";
 import Header from "./components/Header";
@@ -16,16 +16,20 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import BackToTop from './components/BackToTop';
 import ScrollToTop from './components/ScrollToTop';
+import { Spinner } from './components/ui';
 
 // Admin imports
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./Pages/admin/Dashboard";
-import AdminLogin from "./Pages/admin/Login";
 import AdminProducts from "./Pages/admin/Products";
 import AdminCategory from "./Pages/admin/Category";
 import AdminUsers from "./Pages/admin/Users";
 import AdminSettings from "./Pages/admin/Settings";
 import AdminRestaurants from "./Pages/admin/Restaurants";
+import AdminNotifications from "./Pages/admin/Notifications";
+import AdminDeliveries from "./Pages/admin/Deliveries";
+import AdminOrders from "./Pages/admin/Orders";
+import AdminProfile from "./Pages/admin/Profile";
 
 // Create a RouteChangeDetector component
 const RouteChangeDetector = () => {
@@ -61,6 +65,9 @@ function App() {
   
   // Check if current path is admin path
   const [isAdminPath, setIsAdminPath] = useState(false);
+  
+  // Use pathname to track route changes
+  const pathname = window.location.pathname;
 
   useEffect(() => {
     const checkAdminPath = () => {
@@ -82,7 +89,14 @@ function App() {
     return () => {
       window.removeEventListener('popstate', checkAdminPath);
     };
-  }, [setIsAdminPath, setisHeaderFooterShow]);
+  }, [pathname, setIsAdminPath, setisHeaderFooterShow]);
+  
+  // Additional effect to ensure root path always shows header
+  useEffect(() => {
+    if (pathname === '/') {
+      setisHeaderFooterShow(true);
+    }
+  }, [pathname, setisHeaderFooterShow]);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -132,15 +146,14 @@ function App() {
           <ScrollToTop />
           <RouteChangeDetector />
           {isLoading && (
-            <div className="page-loading">
-              <div className="page-loading-spinner"></div>
+            <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+              <Spinner size="lg" className="text-white" />
             </div>
           )}
           <a href="#main-content" className="skip-to-content">Skip to content</a>
           
           <Routes>
             {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminLayout />
@@ -152,7 +165,11 @@ function App() {
               <Route path="categories" element={<AdminCategory />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="deliveries" element={<AdminDeliveries />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="notifications" element={<AdminNotifications />} />
               <Route path="settings" element={<AdminSettings />} />
+              <Route path="profile" element={<AdminProfile />} />
             </Route>
             
             {/* User Routes */}

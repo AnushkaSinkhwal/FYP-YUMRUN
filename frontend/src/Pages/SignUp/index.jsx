@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
-import "./signup.css";
+import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem } from "../../components/ui";
 
 const SignUp = () => {
     const context = useContext(MyContext);
@@ -14,8 +14,13 @@ const SignUp = () => {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [healthCondition, setHealthCondition] = useState("Healthy");
+    const [role, setRole] = useState("user");
     const [error, setError] = useState("");
     const [passwordStrength, setPasswordStrength] = useState("");
+    
+    // Restaurant owner specific fields
+    const [restaurantName, setRestaurantName] = useState("");
+    const [restaurantAddress, setRestaurantAddress] = useState("");
     
     const navigate = useNavigate();
     
@@ -89,10 +94,40 @@ const SignUp = () => {
             return;
         }
         
-        console.log("Submitting registration form:", { fullName, email, contact, healthCondition });
+        // Restaurant owner validation
+        if (role === "restaurantOwner") {
+            if (!restaurantName.trim()) {
+                setError("Restaurant name is required");
+                return;
+            }
+            
+            if (!restaurantAddress.trim()) {
+                setError("Restaurant address is required");
+                return;
+            }
+        }
+        
+        // Prepare user data based on role
+        const userData = {
+            name: fullName,
+            email,
+            password,
+            phone: contact,
+            role
+        };
+        
+        // Add role-specific data
+        if (role === "user") {
+            userData.healthCondition = healthCondition;
+        } else if (role === "restaurantOwner") {
+            userData.restaurantName = restaurantName;
+            userData.restaurantAddress = restaurantAddress;
+        }
+        
+        console.log("Submitting registration form:", userData);
         
         try {
-            const result = await register(fullName, email, password, contact, healthCondition);
+            const result = await register(userData);
             console.log("Registration result:", result);
             
             if (result && result.success) {
@@ -112,29 +147,50 @@ const SignUp = () => {
     };
 
     return (
-        <div className="sign-up-wrapper">
-            <div className="container">
-                <div className="signup-card">
-                    <div className="signup-logo">
+        <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-white to-[#ffe9e2] p-5">
+            <div className="w-full max-w-lg">
+                <Card>
+                    <div className="flex justify-center mb-6">
                         <Link to="/">
-                            <img src={Logo} alt="YumRun Logo" />
+                            <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
                         </Link>
                     </div>
-                    <div className="signup-card-header">
-                        <h1>Create Account</h1>
-                        <p>Join YumRun to discover amazing food in your area!</p>
+                    
+                    <div className="mb-8 text-center">
+                        <h1 className="text-2xl font-bold text-gray-800 mb-2">Create Account</h1>
+                        <p className="text-gray-600">Join YumRun to discover amazing food in your area!</p>
                     </div>
                     
                     {(error || authError) && (
-                        <div className="error-message">
+                        <Alert variant="error">
                             {error || authError}
-                        </div>
+                        </Alert>
                     )}
                     
-                    <form onSubmit={handleSubmit} className="signup-form">
-                        <div className="form-group">
-                            <label htmlFor="fullName">Full Name</label>
-                            <input
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div className="space-y-2">
+                            <Label className="font-medium">I want to register as:</Label>
+                            <RadioGroup 
+                                value={role} 
+                                onValueChange={setRole}
+                                className="flex gap-4"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="user" id="user" />
+                                    <Label htmlFor="user">Customer</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
+                                    <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="fullName">
+                                Full Name
+                            </Label>
+                            <Input
                                 type="text"
                                 id="fullName"
                                 value={fullName}
@@ -144,9 +200,11 @@ const SignUp = () => {
                             />
                         </div>
                         
-                        <div className="form-group">
-                            <label htmlFor="email">Email Address</label>
-                            <input
+                        <div className="space-y-2">
+                            <Label htmlFor="email">
+                                Email Address
+                            </Label>
+                            <Input
                                 type="email"
                                 id="email"
                                 value={email}
@@ -156,9 +214,11 @@ const SignUp = () => {
                             />
                         </div>
                         
-                        <div className="form-group">
-                            <label htmlFor="contact">Contact Number</label>
-                            <input
+                        <div className="space-y-2">
+                            <Label htmlFor="contact">
+                                Contact Number
+                            </Label>
+                            <Input
                                 type="tel"
                                 id="contact"
                                 value={contact}
@@ -168,10 +228,12 @@ const SignUp = () => {
                             />
                         </div>
                         
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label htmlFor="password">Password</label>
-                                <input
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="password">
+                                    Password
+                                </Label>
+                                <Input
                                     type="password"
                                     id="password"
                                     value={password}
@@ -180,15 +242,21 @@ const SignUp = () => {
                                     required
                                 />
                                 {passwordStrength && (
-                                    <div className={`password-strength ${passwordStrength}`}>
+                                    <div className={`text-xs mt-1 ${
+                                        passwordStrength === "weak" ? "text-red-500" : 
+                                        passwordStrength === "medium" ? "text-amber-500" : 
+                                        "text-green-500"
+                                    }`}>
                                         Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
                                     </div>
                                 )}
                             </div>
                             
-                            <div className="form-group">
-                                <label htmlFor="confirmPassword">Confirm Password</label>
-                                <input
+                            <div className="space-y-2">
+                                <Label htmlFor="confirmPassword">
+                                    Confirm Password
+                                </Label>
+                                <Input
                                     type="password"
                                     id="confirmPassword"
                                     value={confirmPassword}
@@ -199,43 +267,83 @@ const SignUp = () => {
                             </div>
                         </div>
                         
-                        <div className="form-group">
-                            <label htmlFor="healthCondition">Health Condition</label>
-                            <select
-                                id="healthCondition"
-                                value={healthCondition}
-                                onChange={(e) => setHealthCondition(e.target.value)}
-                                required
-                            >
-                                <option value="Healthy">Healthy</option>
-                                <option value="Diabetes">Diabetes</option>
-                                <option value="Heart Condition">Heart Condition</option>
-                                <option value="Hypertension">Hypertension</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
+                        {role === "user" && (
+                            <div className="space-y-2">
+                                <Label htmlFor="healthCondition">
+                                    Health Condition
+                                </Label>
+                                <Select
+                                    id="healthCondition"
+                                    value={healthCondition}
+                                    onChange={(e) => setHealthCondition(e.target.value)}
+                                    required
+                                >
+                                    <option value="Healthy">Healthy</option>
+                                    <option value="Diabetes">Diabetes</option>
+                                    <option value="Heart Condition">Heart Condition</option>
+                                    <option value="Hypertension">Hypertension</option>
+                                    <option value="Other">Other</option>
+                                </Select>
+                            </div>
+                        )}
                         
-                        <button
+                        {role === "restaurantOwner" && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="restaurantName">
+                                        Restaurant Name
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        id="restaurantName"
+                                        value={restaurantName}
+                                        onChange={(e) => setRestaurantName(e.target.value)}
+                                        placeholder="Enter your restaurant name"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <Label htmlFor="restaurantAddress">
+                                        Restaurant Address
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        id="restaurantAddress"
+                                        value={restaurantAddress}
+                                        onChange={(e) => setRestaurantAddress(e.target.value)}
+                                        placeholder="Enter your restaurant address"
+                                        required
+                                    />
+                                </div>
+                            </>
+                        )}
+                        
+                        <Button
                             type="submit"
-                            className="sign-up-btn"
+                            variant="brand"
+                            size="full"
                             disabled={isLoading}
+                            className="mt-6"
                         >
                             {isLoading ? (
                                 <>
-                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <Spinner size="sm" className="mr-2 text-white" />
                                     Creating Account...
                                 </>
                             ) : "Sign Up"}
-                        </button>
+                        </Button>
                         
-                        <p className="signin-prompt">
-                            Already have an account?{" "}
-                            <Link to="/signin" className="signin-link">
-                                Sign in
-                            </Link>
-                        </p>
+                        <div className="text-center mt-4">
+                            <p className="text-sm text-gray-600">
+                                Already have an account?{" "}
+                                <Link to="/signin" className="text-yumrun-orange hover:text-yumrun-orange-dark hover:underline font-medium">
+                                    Sign in
+                                </Link>
+                            </p>
+                        </div>
                     </form>
-                </div>
+                </Card>
             </div>
         </div>
     );

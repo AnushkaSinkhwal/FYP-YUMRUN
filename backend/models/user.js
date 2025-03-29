@@ -2,6 +2,39 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');  // For password hashing
 const validator = require('validator');
 
+// Restaurant details schema
+const restaurantDetailsSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, 'Restaurant name is required'],
+        trim: true
+    },
+    address: {
+        type: String,
+        required: [true, 'Restaurant address is required'],
+        trim: true
+    },
+    description: {
+        type: String,
+        trim: true
+    },
+    cuisineType: {
+        type: String,
+        trim: true
+    },
+    approved: {
+        type: Boolean,
+        default: false
+    },
+    approvedAt: {
+        type: Date
+    },
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -56,6 +89,12 @@ const userSchema = new mongoose.Schema({
     isDeliveryStaff: {
         type: Boolean,
         default: false
+    },
+    restaurantDetails: {
+        type: restaurantDetailsSchema,
+        required: function() {
+            return this.isRestaurantOwner === true;
+        }
     },
     createdAt: {
         type: Date,

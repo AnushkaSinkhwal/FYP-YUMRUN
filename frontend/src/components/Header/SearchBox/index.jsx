@@ -1,6 +1,6 @@
 import { IoSearchSharp } from "react-icons/io5";
-import Button from '@mui/material/Button'; 
 import { useState } from 'react';
+import { Button, Input } from '../../../components/ui';
 
 const SearchBox = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -12,21 +12,23 @@ const SearchBox = () => {
     };
 
     return (
-        <form className="search-box" onSubmit={handleSearch}>
-            <div className="search-input-wrapper">
-                <input 
+        <form onSubmit={handleSearch} className="w-full">
+            <div className="relative">
+                <Input 
                     type="text" 
                     placeholder="Search for food, restaurants..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
+                    className="pr-12 bg-gray-50 border-gray-200 focus:bg-white"
                 />
                 <Button 
                     type="submit" 
-                    className="search-button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full rounded-l-none"
                     aria-label="Search"
                 >
-                    <IoSearchSharp className="search-icon" />
+                    <IoSearchSharp className="text-gray-500 text-xl" />
                 </Button>
             </div>
         </form>

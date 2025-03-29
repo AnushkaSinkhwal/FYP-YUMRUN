@@ -1,7 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Logo from '../../assets/images/logo.png'; // Updated logo path
 import CityDropdown from "../CityDropdown";
-import Button from '@mui/material/Button';
 import { FaRegUserCircle, FaSearch, FaMapMarkerAlt, FaSignOutAlt, FaUser } from "react-icons/fa";
 import { RiDashboardLine } from "react-icons/ri";
 import { BsTelephone } from "react-icons/bs";
@@ -11,6 +10,7 @@ import Navigation from "./Navigation";
 import { useContext, useState, useEffect, useRef } from 'react';
 import { MyContext } from '../../App';
 import { useAuth } from '../../context/AuthContext';
+import { Container, Button } from '../../components/ui';
 
 const Header = () => {
   const { setIsLoading } = useContext(MyContext);
@@ -20,7 +20,6 @@ const Header = () => {
   const [cartActive, setCartActive] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const userDropdownRef = useRef(null);
-  const navigate = useNavigate();
 
   // Check if screen is mobile on resize
   useEffect(() => {
@@ -108,114 +107,118 @@ const Header = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
-    setShowUserDropdown(false);
+    
+    // Force a reload to reset all global state
+    window.location.href = '/';
   };
 
   return (
-    <div className="headerWrapper">
+    <div className="w-full border-b border-gray-200 bg-white">
       {/* Top Strip */}
-      <div className="top-strip">
-        <div className="container">
-          <div className="row">
-            <div className="col-md-6 d-none d-md-flex">
-              <div className="top-contact-info">
-                <a href="tel:+9771234567" className="top-contact-item" aria-label="Call us">
-                  <BsTelephone className="top-icon" />
-                  <span>+977 1234567</span>
-                </a>
-                <a href="mailto:info@yumrun.com" className="top-contact-item" aria-label="Email us">
-                  <MdOutlineEmail className="top-icon" />
-                  <span>info@yumrun.com</span>
-                </a>
-              </div>
+      <div className="w-full py-2 bg-yumrun-primary">
+        <Container>
+          <div className="flex flex-col md:flex-row md:justify-between items-center">
+            <div className="hidden md:flex items-center space-x-4">
+              <a href="tel:+9771234567" className="flex items-center text-white text-sm hover:text-gray-100" aria-label="Call us">
+                <BsTelephone className="mr-1" />
+                <span>+977 1234567</span>
+              </a>
+              <a href="mailto:info@yumrun.com" className="flex items-center text-white text-sm hover:text-gray-100" aria-label="Email us">
+                <MdOutlineEmail className="mr-1" />
+                <span>info@yumrun.com</span>
+              </a>
             </div>
-            <div className="col-md-6 text-md-right text-center">
-              <p className="welcome-text mb-0">Delivering Delicious Food To Your Doorstep</p>
-            </div>
+            <p className="text-white text-sm text-center md:text-right mb-0">Delivering Delicious Food To Your Doorstep</p>
           </div>
-        </div>
+        </Container>
       </div>
 
       {/* Header Section */}
-      <header className="header">
-        <div className="container">
-          <div className="row align-items-center">
+      <header className="py-5">
+        <Container>
+          <div className="flex items-center justify-between">
             {/* Logo Wrapper */}
-            <div className="logoWrapper col-lg-2 col-md-3 col-6">
-              <Link to="/" className="logo-link" aria-label="YumRun Home">
-                <img src={Logo} alt="YumRun" className="header-logo" width="auto" height="auto" />
+            <div className="w-32 lg:w-40">
+              <Link to="/" className="block" aria-label="YumRun Home">
+                <img src={Logo} alt="YumRun" className="h-auto w-full transition-all duration-200 hover:opacity-90" />
               </Link>
             </div>
 
             {/* Search and Navigation */}
-            <div className="col-lg-7 col-md-4 d-flex align-items-center justify-content-center">
-              {!isMobile && (
-                <>
-                  <div className="location-selector d-flex align-items-center mr-3">
-                    <FaMapMarkerAlt className="location-icon" aria-hidden="true" />
-                    <CityDropdown />
-                  </div>
-                  <div className="search-container flex-grow-1">
-                    <SearchBox />
-                  </div>
-                </>
-              )}
+            <div className="hidden lg:flex items-center space-x-4 flex-1 px-6">
+              <div className="flex items-center mr-3">
+                <FaMapMarkerAlt className="text-yumrun-secondary mr-2" aria-hidden="true" />
+                <CityDropdown />
+              </div>
+              <div className="flex-1">
+                <SearchBox />
+              </div>
             </div>
 
             {/* User & Cart Section */}
-            <div className="col-lg-3 col-md-5 col-6 d-flex align-items-center justify-content-end">
+            <div className="flex items-center space-x-3">
               {isMobile && (
-                <Button 
-                  className="search-toggle-btn mr-2" 
+                <button 
+                  className="flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 hover:bg-gray-100 transition-colors" 
                   onClick={toggleSearch}
                   aria-label="Toggle search"
                 >
-                  <FaSearch aria-hidden="true" />
-                </Button>
+                  <FaSearch className="text-gray-700" aria-hidden="true" />
+                </button>
               )}
 
               {/* Sign In/Profile Button */}
               {!currentUser ? (
-                <Link to="/signin" className="auth-link">
-                  <Button className='header-btn auth-btn' aria-label="Sign In">
-                    <FaRegUserCircle className="btn-icon" aria-hidden="true" />
-                    {!isMobile && <span className="btn-text">Sign In</span>}
+                <Link to="/signin">
+                  <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                    <FaRegUserCircle className="text-gray-700" aria-hidden="true" />
+                    {!isMobile && <span>Sign In</span>}
                   </Button>
                 </Link>
               ) : (
-                <div className="user-dropdown-container" ref={userDropdownRef}>
+                <div className="relative" ref={userDropdownRef}>
                   <Button 
-                    className='header-btn auth-btn' 
-                    aria-label="Profile"
+                    variant="outline" 
+                    size="sm"
                     onClick={toggleUserDropdown}
                     aria-expanded={showUserDropdown}
                     aria-controls="user-dropdown-menu"
+                    className="flex items-center space-x-2"
                   >
-                    <FaRegUserCircle className="btn-icon" aria-hidden="true" />
+                    <FaRegUserCircle className="text-gray-700" aria-hidden="true" />
                     {!isMobile && (
-                      <span className="btn-text">
-                        {currentUser.name?.split(' ')[0] || 'Profile'}
-                      </span>
+                      <span>{currentUser.name?.split(' ')[0] || 'Profile'}</span>
                     )}
                   </Button>
                   
                   {showUserDropdown && (
-                    <div className="user-dropdown" id="user-dropdown-menu" role="menu">
-                      <Link to="/profile" className="dropdown-item" onClick={() => setShowUserDropdown(false)}>
+                    <div 
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200"
+                      id="user-dropdown-menu" 
+                      role="menu"
+                    >
+                      <Link 
+                        to="/profile" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                        onClick={() => setShowUserDropdown(false)}
+                      >
                         <FaUser className="mr-2" />
                         My Profile
                       </Link>
                       
                       {currentUser.isAdmin && (
-                        <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setShowUserDropdown(false)}>
+                        <Link 
+                          to="/admin/dashboard" 
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                          onClick={() => setShowUserDropdown(false)}
+                        >
                           <RiDashboardLine className="mr-2" />
                           Admin Dashboard
                         </Link>
                       )}
                       
                       <button 
-                        className="logout-btn" 
+                        className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
                         onClick={handleLogout}
                         aria-label="Logout"
                       >
@@ -228,17 +231,17 @@ const Header = () => {
               )}
 
               {/* Cart Section */}
-              <div className="cart-wrapper">
+              <div className="relative">
                 <Link 
                   to="/cart" 
-                  className={cartActive ? "cart_action cart-icon-animated" : "cart_action"}
+                  className={`relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 hover:bg-gray-100 transition-colors ${cartActive ? 'animate-cartBounce' : ''}`}
                   onClick={handleCartClick}
                   aria-label="Shopping cart"
                 >
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M20.5001 5.99994H16.0001V4.99994C16.0001 2.79994 14.2101 0.999939 12.0001 0.999939C9.79014 0.999939 8.00014 2.79994 8.00014 4.99994V5.99994H3.50014C2.10014 5.99994 1.00014 7.09994 1.00014 8.49994V17.9999C1.00014 19.3999 2.10014 20.4999 3.50014 20.4999H20.5001C21.9001 20.4999 23.0001 19.3999 23.0001 17.9999V8.49994C23.0001 7.09994 21.9001 5.99994 20.5001 5.99994ZM10.0001 4.99994C10.0001 3.89994 10.9001 2.99994 12.0001 2.99994C13.1001 2.99994 14.0001 3.89994 14.0001 4.99994V5.99994H10.0001V4.99994ZM21.0001 17.9999C21.0001 18.2999 20.8001 18.4999 20.5001 18.4999H3.50014C3.20014 18.4999 3.00014 18.2999 3.00014 17.9999V8.49994C3.00014 8.19994 3.20014 7.99994 3.50014 7.99994H8.00014V9.99994C8.00014 10.5499 8.45014 10.9999 9.00014 10.9999C9.55014 10.9999 10.0001 10.5499 10.0001 9.99994V7.99994H14.0001V9.99994C14.0001 10.5499 14.4501 10.9999 15.0001 10.9999C15.5501 10.9999 16.0001 10.5499 16.0001 9.99994V7.99994H20.5001C20.8001 7.99994 21.0001 8.19994 21.0001 8.49994V17.9999Z" fill="black"/>
                   </svg>
-                  <span className="cart_count" aria-label="10 items in cart">10</span>
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-yumrun-accent text-white text-xs font-semibold rounded-full">10</span>
                 </Link>
               </div>
             </div>
@@ -246,21 +249,11 @@ const Header = () => {
 
           {/* Mobile search bar */}
           {(isMobile && showSearch) && (
-            <div className="row mt-2 mb-2 mobile-search-row">
-              <div className="col-12">
-                <div className="mobile-search-container">
-                  <SearchBox />
-                </div>
-                <div className="mobile-location mt-2">
-                  <div className="d-flex align-items-center">
-                    <FaMapMarkerAlt className="location-icon" aria-hidden="true" />
-                    <CityDropdown />
-                  </div>
-                </div>
-              </div>
+            <div className="mt-4 w-full">
+              <SearchBox />
             </div>
           )}
-        </div>
+        </Container>
       </header>
       
       <Navigation />

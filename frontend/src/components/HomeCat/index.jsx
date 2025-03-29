@@ -6,6 +6,7 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import { useState, useEffect } from "react";
 import { MdOutlineFastfood, MdOutlineLocalPizza, MdOutlineRamenDining, MdOutlineCoffee, MdOutlineBakeryDining } from "react-icons/md";
 import { GiNoodles, GiChickenLeg, GiHamburger, GiCakeSlice, GiSushis } from "react-icons/gi";
+import { Container } from '../ui';
 
 const HomeCat = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -93,12 +94,12 @@ const HomeCat = () => {
     ];
 
     return (
-        <section className="homeCat">
-            <div className="container">
-                <div className="section-header d-flex align-items-center justify-content-between mb-4 flex-wrap">
-                    <div className="info">
-                        <h3 className="mb-0 hd">FEATURED CATEGORIES</h3>
-                        <p className="text-light mb-0">Explore our popular food categories</p>
+        <section className="py-10 bg-white">
+            <Container>
+                <div className="flex flex-wrap items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">FEATURED CATEGORIES</h2>
+                        <p className="text-gray-500">Explore our popular food categories</p>
                     </div>
                 </div>
                 
@@ -139,21 +140,21 @@ const HomeCat = () => {
                     {categories.map((category, index) => (
                         <SwiperSlide key={index}>
                             <div 
-                                className="category-item" 
+                                className="flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-transform duration-300 hover:scale-105"
                                 style={{ 
                                     background: category.bg,
                                     color: category.color
                                 }}
                             >
-                                <div className="category-icon">
+                                <div className="flex items-center justify-center w-12 h-12 mb-2">
                                     {category.icon}
                                 </div>
-                                <h6>{category.name}</h6>
+                                <h3 className="text-sm font-medium text-center">{category.name}</h3>
                             </div>
                         </SwiperSlide>
                     ))}
                 </Swiper>
-            </div>
+            </Container>
         </section>
     );
 };

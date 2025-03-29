@@ -1,12 +1,92 @@
-# YUMRUN
+# YumRun Food Delivery Application
 
-A health-focused food ordering and delivery platform with nutritional transparency and personalized recommendations.
+YumRun is a comprehensive food delivery platform that connects customers with restaurants and delivery staff. The application features a modern UI built with React, Tailwind CSS, and Shadcn UI components.
+
+## UI Updates
+
+The application has been completely redesigned with:
+
+- **Tailwind CSS**: For consistent, utility-first styling
+- **Shadcn UI Components**: Modern, accessible UI components
+- **Responsive Design**: Works seamlessly on mobile, tablet, and desktop
+- **Dark Mode Support**: Toggle between light and dark themes
+- **Consistent Branding**: Using YumRun's brand colors throughout
+
+## Test Credentials
+
+### Admin User
+- **Email:** admin@yumrun.com
+- **Password:** Admin@123
+- **Access:** Full administrative access, including user management, restaurant approvals, and system settings
+
+### Restaurant Owner
+- **Email:** owner@restaurant.com  
+- **Password:** Owner@123
+- **Access:** Restaurant management, menu creation/editing, order management
+
+### Regular User
+- **Email:** user@example.com
+- **Password:** User@123  
+- **Access:** Browsing restaurants, placing orders, managing profile
 
 ## Features
 
-- **For Users**: Account management, health profile, meal customization, order tracking, reviews, loyalty points
-- **For Restaurants**: Menu management, order tracking, health metrics
-- **For Admins**: User/restaurant management, platform oversight
+- **User Authentication**: Secure login/signup for different user roles
+- **Role-Based Access Control**: Different interfaces for customers, restaurant owners, and administrators
+- **Profile Management**: Update personal information and preferences
+- **Restaurant Management**: Add/edit restaurant details and menu items (for restaurant owners)
+- **Admin Dashboard**: Manage users, restaurants, and system settings (for admins)
+- **Order Management**: Place, track, and manage orders
+- **Responsive UI**: Works on all device sizes
+
+## Development Setup
+
+1. Clone the repository
+2. Install dependencies for both frontend and backend:
+   ```
+   cd backend && npm install
+   cd ../frontend && npm install
+   ```
+3. Set up environment variables:
+   - Create `.env` file in the backend directory
+   - Set up MongoDB connection string and JWT secret
+
+4. Run the development servers:
+   ```
+   # Backend
+   cd backend && npm run dev
+
+   # Frontend
+   cd frontend && npm run dev
+   ```
+
+## Creating Test Users
+
+To create test users for a new database:
+
+```bash
+# From the project root
+cd backend
+node scripts/createTestUsers.js
+```
+
+## UI Components
+
+The application uses custom UI components built with Tailwind CSS and Shadcn UI:
+
+- Button
+- Input
+- Card
+- Alert
+- Badge
+- Container
+- Dialog
+- Checkbox
+- Label
+- Select
+- Spinner
+
+These components provide a consistent design language throughout the application.
 
 ## Tech Stack
 

@@ -1,10 +1,7 @@
 import HomeBanner from "../../components/HomeBanner";
 import banner1 from "../../assets/images/banner1.jpg";
 import banner2 from "../../assets/images/banner2.jpg";
-import banner3 from "../../assets/images/banner3.jpg";
-import banner4 from "../../assets/images/banner4.jpg";
 import banner5 from "../../assets/images/banner5.jpg";
-import Button from '@mui/material/Button';
 import { FaLongArrowAltRight } from "react-icons/fa";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
@@ -15,6 +12,7 @@ import ProductItem from "../../components/ProductItem";
 import HomeCat from "../../components/HomeCat";
 import { IoIosMail } from "react-icons/io";
 import { useEffect, useState, useRef } from 'react';
+import { Container, Button } from '../../components/ui';
 
 const Home = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -83,71 +81,80 @@ const Home = () => {
     };
 
     return (
-        <div className={`home-container ${isLoaded ? 'loaded' : ''}`}>
+        <div className={`transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
             {/* Hero Banner Section */}
-            <div className="hero-section full-width">
-                <div className="container">
-                    <HomeBanner/>
-                </div>
+            <div className="w-full">
+                <HomeBanner/>
             </div>
             
             {/* Food Categories Section */}
-            <div className="category-section">
-                <HomeCat/>
-            </div>
+            <HomeCat/>
             
-            <section className="homeProducts">
-                <div className="container">
-                    <div className="row">
+            <section className="py-10 bg-white">
+                <Container>
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         {/* Left Banner Section - Responsive Banners */}
-                        <div className="col-lg-3 col-md-12">
-                            <div className="banners-container">
-                                <div className="row">
-                                    <div className="col-lg-12 col-md-4 col-sm-6 col-12 mb-4">
-                                        <div className="banner fade-in-item image-hover-zoom">
-                                            <img 
-                                                src={banner1}
-                                                className="w-100" 
-                                                alt="Promotional Banner"
-                                                loading="lazy"
-                                            />
-                                        </div>
+                        <div className="lg:col-span-3">
+                            <div className="space-y-6">
+                                <div 
+                                    className="overflow-hidden rounded-lg shadow-sm transition-transform duration-300 hover:shadow-md" 
+                                    ref={bannersRef}
+                                >
+                                    <div className="relative overflow-hidden rounded-lg">
+                                        <img 
+                                            src={banner1}
+                                            className="w-full h-auto transition-transform duration-500 hover:scale-105" 
+                                            alt="Promotional Banner"
+                                            loading="lazy"
+                                        />
                                     </div>
-                                    <div className="col-lg-12 col-md-4 col-sm-6 col-12 mb-4">
-                                        <div className="banner fade-in-item image-hover-zoom" style={{animationDelay: '0.2s'}}>
-                                            <img 
-                                                src={banner2}
-                                                className="w-100" 
-                                                alt="Promotional Banner"
-                                                loading="lazy"
-                                            />
-                                        </div>
+                                </div>
+                                <div 
+                                    className="overflow-hidden rounded-lg shadow-sm transition-transform duration-300 hover:shadow-md" 
+                                    style={{animationDelay: '0.2s'}}
+                                >
+                                    <div className="relative overflow-hidden rounded-lg">
+                                        <img 
+                                            src={banner2}
+                                            className="w-full h-auto transition-transform duration-500 hover:scale-105" 
+                                            alt="Promotional Banner"
+                                            loading="lazy"
+                                        />
                                     </div>
-                                    <div className="col-lg-12 col-md-4 col-sm-12 mb-4">
-                                        <div className="banner fade-in-item image-hover-zoom" style={{animationDelay: '0.4s'}}>
-                                            <img 
-                                                src={banner5}
-                                                className="w-100" 
-                                                alt="Promotional Banner"
-                                                loading="lazy"
-                                            />
-                                        </div>
+                                </div>
+                                <div 
+                                    className="overflow-hidden rounded-lg shadow-sm transition-transform duration-300 hover:shadow-md" 
+                                    style={{animationDelay: '0.4s'}}
+                                >
+                                    <div className="relative overflow-hidden rounded-lg">
+                                        <img 
+                                            src={banner5}
+                                            className="w-full h-auto transition-transform duration-500 hover:scale-105" 
+                                            alt="Promotional Banner"
+                                            loading="lazy"
+                                        />
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
                         {/* Right Section - Products */}
-                        <div className="col-lg-9 col-md-12">
+                        <div className="lg:col-span-9">
                             {/* Best Sellers Section */}
-                            <div className="products-section mb-5">
-                                <div ref={bestSellersRef} className="section-header d-flex align-items-center justify-content-between mb-4 flex-wrap section-animate">
-                                    <div className="info">
-                                        <h3 className="mb-0 hd">BEST SELLERS</h3>
-                                        <p className="text-light mb-0">Do not miss the current offers.</p>
+                            <div className="mb-16">
+                                <div 
+                                    ref={bestSellersRef} 
+                                    className="flex flex-wrap items-center justify-between mb-6"
+                                >
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900">BEST SELLERS</h2>
+                                        <p className="text-gray-500">Do not miss the current offers.</p>
                                     </div>
 
-                                    <Button className="viewAllBtn mt-2 mt-sm-0">
+                                    <Button 
+                                        variant="outline" 
+                                        className="mt-2 sm:mt-0 flex items-center gap-2"
+                                    >
                                         View All <FaLongArrowAltRight />
                                     </Button>
                                 </div>
@@ -198,17 +205,15 @@ const Home = () => {
                                                 name="Cafe Soma" 
                                                 location="Lalitpur" 
                                                 rating={4.0}
-                                                oldPrice="480"
-                                                newPrice="400"
                                             />
                                         </SwiperSlide>
                                         <SwiperSlide>
                                             <ProductItem 
-                                                name="KFC" 
-                                                location="Durbar Marg" 
+                                                name="Tamarind Restaurant" 
+                                                location="Pulchowk" 
                                                 rating={4.3}
-                                                oldPrice="750"
-                                                newPrice="600"
+                                                oldPrice="780"
+                                                newPrice="650"
                                             />
                                         </SwiperSlide>
                                     </Swiper>
@@ -216,111 +221,98 @@ const Home = () => {
                             </div>
 
                             {/* New Products Section */}
-                            <div className="products-section mb-5">
-                                <div ref={newProductsRef} className="section-header d-flex align-items-center justify-content-between mb-4 flex-wrap section-animate">
-                                    <div className="info">
-                                        <h3 className="mb-0 hd">NEW PRODUCTS</h3>
-                                        <p className="text-light mb-0">New Products with Updated Stock.</p>
+                            <div ref={newProductsRef}>
+                                <div className="flex flex-wrap items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900">NEW PRODUCTS</h2>
+                                        <p className="text-gray-500">New arrivals from top restaurants.</p>
                                     </div>
 
-                                    <Button className="viewAllBtn mt-2 mt-sm-0">
+                                    <Button 
+                                        variant="outline" 
+                                        className="mt-2 sm:mt-0 flex items-center gap-2"
+                                    >
                                         View All <FaLongArrowAltRight />
                                     </Button>
                                 </div>
 
-                                <div className="product-grid">
-                                    <div className="row">
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item">
-                                            <ProductItem 
-                                                name="Bakery Cafe" 
-                                                location="Sundhara" 
-                                                rating={3.9}
-                                                oldPrice="350"
-                                                newPrice="300"
-                                            />
-                                        </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.1s'}}>
-                                            <ProductItem 
-                                                name="Pizza Hut" 
-                                                location="Pulchowk" 
-                                                rating={4.1}
-                                                oldPrice="850"
-                                                newPrice="720"
-                                            />
-                                        </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.2s'}}>
-                                            <ProductItem 
-                                                name="Himalayan Java" 
-                                                location="Thamel" 
-                                                rating={4.6}
-                                                oldPrice="450"
-                                                newPrice="400"
-                                            />
-                                        </div>
-                                        <div className="col-xl-3 col-lg-4 col-md-4 col-sm-6 col-6 mb-4 fade-in-item" style={{animationDelay: '0.3s'}}>
-                                            <ProductItem 
-                                                name="Tamarind" 
-                                                location="Jhamsikhel" 
-                                                rating={4.3}
-                                                oldPrice="950"
-                                                newPrice="850"
-                                            />
-                                        </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    <div className="col-span-1">
+                                        <ProductItem 
+                                            name="Himalayan Java" 
+                                            location="Thamel" 
+                                            rating={4.7}
+                                            oldPrice="450"
+                                            newPrice="390"
+                                        />
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Promotional Banners Section */}
-                            <div ref={bannersRef} className="promo-banners section-animate mb-5">
-                                <div className="row">
-                                    <div className="col-md-6 mb-4 mb-md-0">
-                                        <div className="banner image-hover-zoom">
-                                            <img 
-                                                src={banner3} 
-                                                className="w-100" 
-                                                alt="Promotional Banner" 
-                                                loading="lazy"
-                                            />
-                                        </div>
+                                    <div className="col-span-1">
+                                        <ProductItem 
+                                            name="KFC Nepal" 
+                                            location="Durbar Marg" 
+                                            rating={4.1} 
+                                            oldPrice="680"
+                                            newPrice="599"
+                                        />
                                     </div>
-                                    <div className="col-md-6">
-                                        <div className="banner image-hover-zoom">
-                                            <img 
-                                                src={banner4} 
-                                                className="w-100" 
-                                                alt="Promotional Banner" 
-                                                loading="lazy"
-                                            />
-                                        </div>
+                                    <div className="col-span-1">
+                                        <ProductItem 
+                                            name="Pizza Hut" 
+                                            location="Naxal" 
+                                            rating={4.3}
+                                            oldPrice="950"
+                                            newPrice="799"
+                                        />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <ProductItem 
+                                            name="Bakery Cafe" 
+                                            location="Sundhara" 
+                                            rating={4.0}
+                                            oldPrice="380"
+                                            newPrice="320"
+                                        />
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                    
+                    {/* Newsletter Subscription Section */}
+                    <div 
+                        ref={newsletterRef}
+                        className="mt-16 py-10 px-6 md:px-10 bg-gradient-to-r from-yumrun-primary/90 to-yumrun-primary rounded-lg shadow-md"
+                    >
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="text-white md:w-1/2">
+                                <h2 className="text-3xl font-bold mb-2">Subscribe to Our Newsletter</h2>
+                                <p className="opacity-90">Stay updated with our latest offers, promotions, and food trends</p>
+                            </div>
+                            
+                            <div className="w-full md:w-1/2">
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="relative flex-grow">
+                                        <input 
+                                            type="email" 
+                                            placeholder="Your email address" 
+                                            className="w-full px-4 py-3 rounded-md border-0 focus:ring-2 focus:ring-white/50 focus:outline-none"
+                                        />
+                                        <IoIosMail className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl" />
+                                    </div>
+                                    <Button 
+                                        className="px-6 py-3 bg-white hover:bg-gray-100 text-yumrun-primary font-medium rounded-md"
+                                    >
+                                        Subscribe
+                                    </Button>
+                                </div>
+                                <p className="text-white/80 text-xs mt-2">
+                                    By subscribing, you agree to our Terms of Service and Privacy Policy
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </Container>
             </section>
-
-            {/* Newsletter Section */}
-            <div ref={newsletterRef} className="container mb-5 section-animate">
-                <div className="newsLetterSection">
-                    <div className="row align-items-center">
-                        <div className="col-lg-7 col-md-6">
-                            <div className="newsletter-content p-4">
-                                <h3 className="text-white">Get Every Week Updates</h3>
-                                <p className="text-light">Sign up for our newsletter to receive weekly updates on new dishes and special offers.</p>
-                                <div className="newsletter-form">
-                                    <IoIosMail />
-                                    <input type="email" placeholder="Your Email Address" aria-label="Email for newsletter" />
-                                    <button type="button" aria-label="Subscribe to newsletter">Subscribe</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-lg-5 col-md-6 d-flex justify-content-center align-items-center">
-                            <img src={banner3} alt="Newsletter Promotion" className="newsletter-image img-fluid" />
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

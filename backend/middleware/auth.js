@@ -79,6 +79,20 @@ const isAdmin = (req, res, next) => {
 };
 
 /**
+ * Admin access middleware (alias for isAdmin)
+ * For better semantic clarity in admin routes
+ */
+const adminOnly = (req, res, next) => {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin privileges required.'
+    });
+  }
+  next();
+};
+
+/**
  * Restaurant owner access middleware
  * Checks if the authenticated user is a restaurant owner
  */
@@ -106,4 +120,4 @@ const isDeliveryStaff = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, isAdmin, isRestaurantOwner, isDeliveryStaff }; 
+module.exports = { auth, isAdmin, adminOnly, isRestaurantOwner, isDeliveryStaff }; 

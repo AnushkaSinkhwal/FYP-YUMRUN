@@ -25,7 +25,7 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Incorrect username or email'
       });
     }
 
@@ -34,7 +34,7 @@ router.post('/login', async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Incorrect password'
       });
     }
 
@@ -82,12 +82,23 @@ router.post('/login', async (req, res) => {
 
 /**
  * @route   POST /api/auth/register
- * @desc    Register a new user
+ * @desc    Register a new user with role selection
  * @access  Public
  */
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone, password, healthCondition } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      password, 
+      role,
+      // User specific fields
+      healthCondition,
+      // Restaurant owner specific fields
+      restaurantName,
+      restaurantAddress
+    } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -98,14 +109,35 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create new user
-    const user = new User({
+    // Create new user with base fields
+    const userFields = {
       name,
       email,
       phone,
-      password, // Will be hashed by pre-save hook
-      healthCondition: healthCondition || 'Healthy'
-    });
+      password // Will be hashed by pre-save hook
+    };
+
+    // Add role-specific fields and flags
+    if (role === 'restaurantOwner') {
+      if (!restaurantName || !restaurantAddress) {
+        return res.status(400).json({
+          success: false,
+          message: 'Restaurant name and address are required for restaurant owners'
+        });
+      }
+      
+      userFields.isRestaurantOwner = true;
+      userFields.restaurantDetails = {
+        name: restaurantName,
+        address: restaurantAddress,
+        approved: false // Requires admin approval
+      };
+    } else if (role === 'user') {
+      userFields.healthCondition = healthCondition || 'Healthy';
+    }
+    // Note: Admin role requires special access and cannot be self-registered
+
+    const user = new User(userFields);
 
     // Save user to database
     await user.save();

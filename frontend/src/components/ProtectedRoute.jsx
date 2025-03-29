@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PropTypes from 'prop-types';
+import { Spinner } from '../components/ui';
 
 // Component to protect routes that require authentication
 const ProtectedRoute = ({ children, requireAdmin = false, requireRestaurantOwner = false, requireDeliveryStaff = false }) => {
@@ -10,22 +11,16 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireRestaurantOwner
   // If still loading, show a loading indicator
   if (isLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <Spinner size="lg" />
       </div>
     );
   }
   
   // If no user is logged in, redirect to login
   if (!currentUser) {
-    // Determine redirect based on the route
-    const redirectTo = location.pathname.startsWith('/admin')
-      ? '/admin/login'
-      : '/signin';
-      
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    // Use unified login path for all user types
+    return <Navigate to="/signin" state={{ from: location }} replace />;
   }
   
   // Check specific role requirements

@@ -81,13 +81,13 @@ export const AuthProvider = ({ children }) => {
     checkUserAuth();
   }, []);
   
-  // Login user (works for all user types)
-  const login = async (usernameOrEmail, password) => {
+  // Unified login for all user types (admin, restaurant owner, regular user)
+  const login = async (email, password) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await authAPI.login(usernameOrEmail, password);
+      const response = await authAPI.unifiedLogin(email, password);
       
       if (response.success) {
         const { token, user } = response;
@@ -100,30 +100,40 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(user);
         setIsLoading(false);
         
-        return { success: true, user };
+        // Return success with user data for redirection decisions
+        return { 
+          success: true, 
+          user,
+          isAdmin: user.isAdmin,
+          isRestaurantOwner: user.isRestaurantOwner,
+          isDeliveryStaff: user.isDeliveryStaff
+        };
       } else {
         setError(response.error || 'Login failed');
         setIsLoading(false);
-        return { success: false, error: response.error || 'Login failed' };
+        return { 
+          success: false, 
+          error: response.error || 'Login failed. Please check your credentials.' 
+        };
       }
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.message || 'Login failed. Please try again.';
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };
     }
   };
   
-  // Register user
-  const register = async (name, email, password, phone, healthCondition = 'Healthy') => {
+  // Unified register for all user types with role selection
+  const register = async (userData) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log('Registering user with:', { name, email, phone, healthCondition });
-      const userData = { name, email, password, phone, healthCondition };
+      console.log('Registering user with:', userData);
       
+      // userData should include: name, email, password, phone, role, and any role-specific fields
       const response = await authAPI.register(userData);
       console.log('Registration response:', response.data);
       
@@ -153,10 +163,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
+  // Legacy wrapper for backward compatibility
+  const registerUser = async (name, email, password, phone, healthCondition = 'Healthy') => {
+    return register({
+      name,
+      email,
+      password,
+      phone,
+      healthCondition,
+      role: 'user'
+    });
+  };
+  
+  // Register restaurant owner
+  const registerRestaurantOwner = async (name, email, password, phone, restaurantName, restaurantAddress) => {
+    return register({
+      name,
+      email,
+      password,
+      phone,
+      restaurantName,
+      restaurantAddress,
+      role: 'restaurantOwner'
+    });
+  };
+  
   // Logout user
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+    authAPI.logout();
     setCurrentUser(null);
   };
   
@@ -164,6 +198,7 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => currentUser?.isAdmin === true;
   const isRestaurantOwner = () => currentUser?.isRestaurantOwner === true;
   const isDeliveryStaff = () => currentUser?.isDeliveryStaff === true;
+  const isRegularUser = () => !isAdmin() && !isRestaurantOwner() && !isDeliveryStaff();
   
   // Context value
   const value = {
@@ -172,10 +207,13 @@ export const AuthProvider = ({ children }) => {
     error,
     login,
     register,
+    registerUser,
+    registerRestaurantOwner,
     logout,
     isAdmin,
     isRestaurantOwner,
-    isDeliveryStaff
+    isDeliveryStaff,
+    isRegularUser
   };
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

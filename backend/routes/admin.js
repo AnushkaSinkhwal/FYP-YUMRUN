@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const { auth, isAdmin } = require('../middleware/auth');
+const Notification = require('../models/notification');
+const { auth, isAdmin, adminOnly } = require('../middleware/auth');
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -86,75 +87,64 @@ router.post('/login', async (req, res) => {
 
 /**
  * @route   GET /api/admin/dashboard
- * @desc    Get dashboard data for admin
+ * @desc    Get admin dashboard data
  * @access  Private/Admin
  */
-router.get('/dashboard', auth, isAdmin, async (req, res) => {
+router.get('/dashboard', auth, adminOnly, async (req, res) => {
   try {
-    // Get user counts
-    const totalUsers = await User.countDocuments();
-    const adminUsers = await User.countDocuments({ isAdmin: true });
-    const restaurantOwners = await User.countDocuments({ isRestaurantOwner: true });
-    const deliveryStaff = await User.countDocuments({ isDeliveryStaff: true });
-    const regularUsers = await User.countDocuments({ 
-      isAdmin: false, 
-      isRestaurantOwner: false,
-      isDeliveryStaff: false
-    });
-
+    // Get counts for dashboard
+    const userCount = await User.countDocuments({ isAdmin: false, isRestaurantOwner: false });
+    const restaurantCount = await User.countDocuments({ isRestaurantOwner: true });
+    const pendingNotifications = await Notification.countDocuments({ status: 'PENDING' });
+    
     // Return dashboard data
     return res.status(200).json({
       success: true,
       data: {
-        userStats: {
-          total: totalUsers,
-          admins: adminUsers,
-          restaurantOwners: restaurantOwners,
-          deliveryStaff: deliveryStaff,
-          regularUsers: regularUsers
-        }
+        userCount,
+        restaurantCount,
+        pendingNotifications
       }
     });
   } catch (error) {
     console.error('Admin dashboard error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.'
+      message: 'Error fetching dashboard data'
     });
   }
 });
 
 /**
  * @route   GET /api/admin/users
- * @desc    Get all users for admin
+ * @desc    Get all users
  * @access  Private/Admin
  */
-router.get('/users', auth, isAdmin, async (req, res) => {
+router.get('/users', auth, adminOnly, async (req, res) => {
   try {
     const users = await User.find().select('-password');
     
     return res.status(200).json({
       success: true,
-      count: users.length,
-      data: users
+      users
     });
   } catch (error) {
-    console.error('Admin get users error:', error);
+    console.error('Get users error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.'
+      message: 'Error fetching users'
     });
   }
 });
 
 /**
- * @route   GET /api/admin/users/:id
- * @desc    Get user by ID for admin
+ * @route   GET /api/admin/users/:userId
+ * @desc    Get user by ID
  * @access  Private/Admin
  */
-router.get('/users/:id', auth, isAdmin, async (req, res) => {
+router.get('/users/:userId', auth, adminOnly, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.userId).select('-password');
     
     if (!user) {
       return res.status(404).json({
@@ -165,42 +155,28 @@ router.get('/users/:id', auth, isAdmin, async (req, res) => {
     
     return res.status(200).json({
       success: true,
-      data: user
+      user
     });
   } catch (error) {
-    console.error('Admin get user error:', error);
+    console.error('Get user error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.'
+      message: 'Error fetching user'
     });
   }
 });
 
 /**
- * @route   PUT /api/admin/users/:id
- * @desc    Update user by ID for admin
+ * @route   PUT /api/admin/users/:userId
+ * @desc    Update user
  * @access  Private/Admin
  */
-router.put('/users/:id', auth, isAdmin, async (req, res) => {
+router.put('/users/:userId', auth, adminOnly, async (req, res) => {
   try {
-    const { name, email, phone, isAdmin, isRestaurantOwner, isDeliveryStaff, healthCondition } = req.body;
+    const { name, email, phone, isAdmin, isRestaurantOwner, isDeliveryStaff } = req.body;
     
-    // Build update object with only provided fields
-    const updateFields = {};
-    if (name) updateFields.name = name;
-    if (email) updateFields.email = email;
-    if (phone) updateFields.phone = phone;
-    if (isAdmin !== undefined) updateFields.isAdmin = isAdmin;
-    if (isRestaurantOwner !== undefined) updateFields.isRestaurantOwner = isRestaurantOwner;
-    if (isDeliveryStaff !== undefined) updateFields.isDeliveryStaff = isDeliveryStaff;
-    if (healthCondition) updateFields.healthCondition = healthCondition;
-    
-    // Update user
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateFields },
-      { new: true, runValidators: true }
-    ).select('-password');
+    // Find the user
+    const user = await User.findById(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -209,35 +185,49 @@ router.put('/users/:id', auth, isAdmin, async (req, res) => {
       });
     }
     
+    // Update user fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    
+    // Update role fields if provided
+    if (isAdmin !== undefined) user.isAdmin = isAdmin;
+    if (isRestaurantOwner !== undefined) user.isRestaurantOwner = isRestaurantOwner;
+    if (isDeliveryStaff !== undefined) user.isDeliveryStaff = isDeliveryStaff;
+    
+    // Save the updated user
+    await user.save();
+    
     return res.status(200).json({
       success: true,
-      data: user
+      message: 'User updated successfully',
+      user
     });
   } catch (error) {
-    console.error('Admin update user error:', error);
+    console.error('Update user error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.'
+      message: 'Error updating user'
     });
   }
 });
 
 /**
- * @route   DELETE /api/admin/users/:id
- * @desc    Delete user by ID for admin
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Delete user
  * @access  Private/Admin
  */
-router.delete('/users/:id', auth, isAdmin, async (req, res) => {
+router.delete('/users/:userId', auth, adminOnly, async (req, res) => {
   try {
-    // Don't allow admin to delete themselves
-    if (req.params.id === req.user.id) {
+    // Cannot delete yourself
+    if (req.params.userId === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
         message: 'You cannot delete your own account'
       });
     }
     
-    const user = await User.findById(req.params.id);
+    const user = await User.findByIdAndDelete(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -246,17 +236,338 @@ router.delete('/users/:id', auth, isAdmin, async (req, res) => {
       });
     }
     
-    await user.deleteOne();
-    
     return res.status(200).json({
       success: true,
       message: 'User deleted successfully'
     });
   } catch (error) {
-    console.error('Admin delete user error:', error);
+    console.error('Delete user error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.'
+      message: 'Error deleting user'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/notifications
+ * @desc    Get all notifications
+ * @access  Private/Admin
+ */
+router.get('/notifications', auth, adminOnly, async (req, res) => {
+  try {
+    // Get query parameters for filtering
+    const { status, type, limit = 50, skip = 0 } = req.query;
+    
+    // Build the query
+    const query = {};
+    if (status) query.status = status;
+    if (type) query.type = type;
+    
+    // Get notifications with pagination and sorting
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .skip(Number(skip))
+      .limit(Number(limit))
+      .populate('userId', 'name email');
+    
+    // Get total count for pagination
+    const total = await Notification.countDocuments(query);
+    
+    return res.status(200).json({
+      success: true,
+      notifications,
+      total,
+      limit: Number(limit),
+      skip: Number(skip)
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/notifications/count
+ * @desc    Get count of pending notifications
+ * @access  Private/Admin
+ */
+router.get('/notifications/count', auth, adminOnly, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ status: 'PENDING' });
+    
+    return res.status(200).json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    console.error('Get notifications count error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications count'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/notifications/:notificationId/process
+ * @desc    Process a notification (approve/reject)
+ * @access  Private/Admin
+ */
+router.post('/notifications/:notificationId/process', auth, adminOnly, async (req, res) => {
+  try {
+    const { action, reason } = req.body;
+    
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be "approve" or "reject"'
+      });
+    }
+    
+    // If rejecting, require a reason
+    if (action === 'reject' && !reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+    
+    // Find the notification
+    const notification = await Notification.findById(req.params.notificationId);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+    
+    // Check if notification is already processed
+    if (notification.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: `Notification is already ${notification.status.toLowerCase()}`
+      });
+    }
+    
+    // Get the user
+    const user = await User.findById(notification.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Process based on notification type
+    if (action === 'approve') {
+      if (notification.type === 'PROFILE_UPDATE') {
+        // Apply the changes to the user profile
+        const changes = notification.data;
+        
+        // Update user fields
+        if (changes.name) user.name = changes.name;
+        if (changes.email) user.email = changes.email;
+        if (changes.phone) user.phone = changes.phone;
+        
+        // Update restaurant details if applicable
+        if (changes.restaurantDetails && user.isRestaurantOwner) {
+          if (!user.restaurantDetails) {
+            user.restaurantDetails = {};
+          }
+          
+          if (changes.restaurantDetails.name) {
+            user.restaurantDetails.name = changes.restaurantDetails.name;
+          }
+          
+          if (changes.restaurantDetails.address) {
+            user.restaurantDetails.address = changes.restaurantDetails.address;
+          }
+          
+          if (changes.restaurantDetails.description) {
+            user.restaurantDetails.description = changes.restaurantDetails.description;
+          }
+          
+          if (changes.restaurantDetails.cuisineType) {
+            user.restaurantDetails.cuisineType = changes.restaurantDetails.cuisineType;
+          }
+        }
+        
+        // Save the updated user
+        await user.save();
+      } else if (notification.type === 'RESTAURANT_REGISTRATION') {
+        // Approve a restaurant registration
+        if (user.restaurantDetails) {
+          user.restaurantDetails.approved = true;
+          user.restaurantDetails.approvedAt = new Date();
+          user.restaurantDetails.approvedBy = req.user._id;
+          
+          // Save the updated user
+          await user.save();
+        }
+      }
+      
+      // Update notification status
+      notification.status = 'APPROVED';
+    } else {
+      // Reject the notification
+      notification.status = 'REJECTED';
+      notification.rejectionReason = reason;
+    }
+    
+    // Update common fields
+    notification.processedBy = req.user._id;
+    notification.processedAt = new Date();
+    
+    // Save the notification
+    await notification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: `Notification ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
+      notification
+    });
+  } catch (error) {
+    console.error('Process notification error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error processing notification'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/users/:userId/approve-changes
+ * @desc    Directly approve user profile changes
+ * @access  Private/Admin
+ */
+router.post('/users/:userId/approve-changes', auth, adminOnly, async (req, res) => {
+  try {
+    const changes = req.body;
+    
+    // Find the user
+    const user = await User.findById(req.params.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Apply changes directly
+    if (changes.name) user.name = changes.name;
+    if (changes.email) user.email = changes.email;
+    if (changes.phone) user.phone = changes.phone;
+    
+    // Update restaurant details if applicable
+    if (changes.restaurantDetails && user.isRestaurantOwner) {
+      if (!user.restaurantDetails) {
+        user.restaurantDetails = {};
+      }
+      
+      if (changes.restaurantDetails.name) {
+        user.restaurantDetails.name = changes.restaurantDetails.name;
+      }
+      
+      if (changes.restaurantDetails.address) {
+        user.restaurantDetails.address = changes.restaurantDetails.address;
+      }
+      
+      if (changes.restaurantDetails.description) {
+        user.restaurantDetails.description = changes.restaurantDetails.description;
+      }
+      
+      if (changes.restaurantDetails.cuisineType) {
+        user.restaurantDetails.cuisineType = changes.restaurantDetails.cuisineType;
+      }
+    }
+    
+    // Save the updated user
+    await user.save();
+    
+    // Create a notification record for tracking
+    const notification = new Notification({
+      type: 'PROFILE_UPDATE',
+      title: 'Profile Update',
+      message: `Admin ${req.user.name} has updated user ${user.name}'s profile directly.`,
+      userId: user._id,
+      status: 'APPROVED',
+      data: changes,
+      processedBy: req.user._id,
+      processedAt: new Date()
+    });
+    
+    await notification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Approve changes error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error approving changes'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/users/:userId/reject-changes
+ * @desc    Reject user profile changes
+ * @access  Private/Admin
+ */
+router.post('/users/:userId/reject-changes', auth, adminOnly, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+    
+    // Find the user
+    const user = await User.findById(req.params.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Create a notification record for tracking
+    const notification = new Notification({
+      type: 'PROFILE_UPDATE',
+      title: 'Profile Update Rejected',
+      message: `Admin ${req.user.name} has rejected profile changes for user ${user.name}.`,
+      userId: user._id,
+      status: 'REJECTED',
+      rejectionReason: reason,
+      processedBy: req.user._id,
+      processedAt: new Date()
+    });
+    
+    await notification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Changes rejected successfully'
+    });
+  } catch (error) {
+    console.error('Reject changes error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error rejecting changes'
     });
   }
 });

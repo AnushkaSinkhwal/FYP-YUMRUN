@@ -159,6 +159,8 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// User Profile Routes
+
 // GET user profile
 router.get('/profile', auth, async (req, res) => {
     try {
@@ -167,46 +169,61 @@ router.get('/profile', auth, async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        // Prepare response based on user type
+        const userData = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            isAdmin: user.isAdmin,
+            isRestaurantOwner: user.isRestaurantOwner,
+            isDeliveryStaff: user.isDeliveryStaff
+        };
+
+        // Add role-specific data
+        if (!user.isAdmin && !user.isRestaurantOwner && !user.isDeliveryStaff) {
+            userData.healthCondition = user.healthCondition;
+        }
+
+        if (user.isRestaurantOwner && user.restaurantDetails) {
+            userData.restaurantDetails = user.restaurantDetails;
+        }
+
         res.status(200).json({
             success: true,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                healthCondition: user.healthCondition,
-                isAdmin: user.isAdmin,
-                isRestaurantOwner: user.isRestaurantOwner,
-                isDeliveryStaff: user.isDeliveryStaff
-            }
+            user: userData
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// PUT update health details
+// PUT update health details (regular users only)
 router.put('/health-details', auth, async (req, res) => {
     try {
-        const user = await User.findByIdAndUpdate(
-            req.user.id,
-            { healthCondition: req.body.healthCondition },
-            { new: true }
-        );
-
+        const user = await User.findById(req.user.id);
+        
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+        
+        // Check if user is a regular user (not admin, restaurant owner, or delivery staff)
+        if (user.isAdmin || user.isRestaurantOwner || user.isDeliveryStaff) {
+            return res.status(403).json({ success: false, message: 'Only regular users can update health details' });
+        }
+
+        // Update health condition
+        user.healthCondition = req.body.healthCondition;
+        await user.save();
 
         res.status(200).json({
             success: true,
+            message: 'Health details updated successfully',
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                healthCondition: user.healthCondition,
-                isAdmin: user.isAdmin,
-                isRestaurantOwner: user.isRestaurantOwner,
-                isDeliveryStaff: user.isDeliveryStaff
+                healthCondition: user.healthCondition
             }
         });
     } catch (error) {
@@ -247,54 +264,180 @@ router.put('/profile', auth, async (req, res) => {
                     name: currentUser.name,
                     email: currentUser.email,
                     phone: currentUser.phone,
-                    healthCondition: currentUser.healthCondition,
                     isAdmin: currentUser.isAdmin,
                     isRestaurantOwner: currentUser.isRestaurantOwner,
-                    isDeliveryStaff: currentUser.isDeliveryStaff
-                },
-                pendingChanges: {
-                    name: req.body.name,
-                    email: req.body.email,
-                    phone: req.body.phone
+                    isDeliveryStaff: currentUser.isDeliveryStaff,
+                    restaurantDetails: currentUser.restaurantDetails
                 }
             });
         }
-
-        // For regular users or admins, apply changes immediately
-        const updates = {
-            name: req.body.name,
-            email: req.body.email,
-            phone: req.body.phone,
-            healthCondition: req.body.healthCondition
-        };
-
-        // If password is provided, update it
-        if (req.body.password) {
-            const salt = await bcrypt.genSalt(10);
-            updates.password = await bcrypt.hash(req.body.password, salt);
+        
+        // For regular users and admins, apply changes immediately
+        const updatedFields = {};
+        
+        // Only update fields that are provided
+        if (req.body.name) updatedFields.name = req.body.name;
+        if (req.body.phone) updatedFields.phone = req.body.phone;
+        
+        // Email change requires special verification (in a real app)
+        // For now, just update it
+        if (req.body.email && req.body.email !== currentUser.email) {
+            // Check if the new email is already in use
+            const emailExists = await User.findOne({ email: req.body.email });
+            if (emailExists) {
+                return res.status(400).json({ success: false, message: 'Email already in use' });
+            }
+            updatedFields.email = req.body.email;
+        }
+        
+        // Update restaurant details if applicable and provided
+        if (isRestaurantOwner && req.body.restaurantDetails) {
+            // Don't allow changes to approval status via this route
+            const { name, address, description, cuisineType } = req.body.restaurantDetails;
+            
+            if (!currentUser.restaurantDetails) {
+                currentUser.restaurantDetails = {};
+            }
+            
+            if (name) updatedFields['restaurantDetails.name'] = name;
+            if (address) updatedFields['restaurantDetails.address'] = address;
+            if (description) updatedFields['restaurantDetails.description'] = description;
+            if (cuisineType) updatedFields['restaurantDetails.cuisineType'] = cuisineType;
+        }
+        
+        // Update health condition for regular users
+        if (!isRestaurantOwner && !currentUser.isAdmin && !currentUser.isDeliveryStaff && req.body.healthCondition) {
+            updatedFields.healthCondition = req.body.healthCondition;
         }
 
-        const user = await User.findByIdAndUpdate(
+        // Update the user
+        const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            updates,
+            { $set: updatedFields },
             { new: true }
         );
 
+        // Return the updated user
         res.status(200).json({
             success: true,
+            message: 'Profile updated successfully',
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                healthCondition: user.healthCondition,
-                isAdmin: user.isAdmin,
-                isRestaurantOwner: user.isRestaurantOwner,
-                isDeliveryStaff: user.isDeliveryStaff
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+                healthCondition: updatedUser.healthCondition,
+                isAdmin: updatedUser.isAdmin,
+                isRestaurantOwner: updatedUser.isRestaurantOwner,
+                isDeliveryStaff: updatedUser.isDeliveryStaff,
+                ...(updatedUser.restaurantDetails && { restaurantDetails: updatedUser.restaurantDetails })
             }
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Change password
+router.put('/change-password', auth, [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+        .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+        .matches(/[0-9]/).withMessage('Password must contain at least one number')
+        .matches(/[^a-zA-Z0-9]/).withMessage('Password must contain at least one special character')
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        // Get user with password
+        const user = await User.findById(req.user.id).select('+password');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Verify current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+        }
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        // Save the updated user
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Password updated successfully'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route   GET /api/users/profile/change-status
+ * @desc    Get the status of pending profile changes
+ * @access  Private
+ */
+router.get('/profile/change-status', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        // Find pending notifications for this user
+        const pendingNotification = await Notification.findOne({
+            userId: req.user._id,
+            type: 'PROFILE_UPDATE',
+            status: 'PENDING'
+        }).sort({ createdAt: -1 });
+        
+        if (pendingNotification) {
+            return res.status(200).json({
+                success: true,
+                hasPendingChanges: true,
+                pendingChanges: pendingNotification.data,
+                createdAt: pendingNotification.createdAt
+            });
+        }
+        
+        // Check if there are any recently rejected changes
+        const rejectedNotification = await Notification.findOne({
+            userId: req.user._id,
+            type: 'PROFILE_UPDATE',
+            status: 'REJECTED',
+            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+        }).sort({ createdAt: -1 });
+        
+        if (rejectedNotification) {
+            return res.status(200).json({
+                success: true,
+                hasPendingChanges: false,
+                hasRejectedChanges: true,
+                rejectedChanges: rejectedNotification.data,
+                rejectionReason: rejectedNotification.rejectionReason,
+                rejectedAt: rejectedNotification.processedAt
+            });
+        }
+        
+        // No pending or rejected changes
+        return res.status(200).json({
+            success: true,
+            hasPendingChanges: false,
+            hasRejectedChanges: false
+        });
+    } catch (error) {
+        console.error('Get profile change status error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching profile change status'
+        });
     }
 });
 

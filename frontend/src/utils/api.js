@@ -38,12 +38,7 @@ api.interceptors.response.use(
       localStorage.removeItem('userData');
       
       // Redirect to login page
-      const path = window.location.pathname;
-      if (path.startsWith('/admin')) {
-        window.location.href = '/admin/login';
-      } else {
-        window.location.href = '/signin';
-      }
+      window.location.href = '/signin';
     }
     
     return Promise.reject(error);
@@ -52,21 +47,10 @@ api.interceptors.response.use(
 
 // Auth API methods
 export const authAPI = {
-  // Login user (works for both regular and admin users)
-  login: async (usernameOrEmail, password) => {
-    // Determine if this is an admin login attempt based on URL
-    const isAdminLogin = window.location.pathname.startsWith('/admin');
-    
+  // Unified login for all user types (admin, restaurant owner, regular user)
+  unifiedLogin: async (email, password) => {
     try {
-      let response;
-      
-      if (isAdminLogin) {
-        // Admin login
-        response = await api.post('/admin/login', { username: usernameOrEmail, password });
-      } else {
-        // Regular user login
-        response = await api.post('/auth/login', { email: usernameOrEmail, password });
-      }
+      const response = await api.post('/auth/login', { email, password });
       
       return response.data;
     } catch (error) {
@@ -79,12 +63,12 @@ export const authAPI = {
         if (status === 401) {
           return { 
             success: false, 
-            error: 'Invalid credentials'
+            error: data.message || 'Invalid credentials'
           };
         } else if (status === 403) {
           return { 
             success: false, 
-            error: 'Access denied. You do not have the required permissions.'
+            error: data.message || 'Access denied. You do not have the required permissions.'
           };
         } else {
           return { 
@@ -92,17 +76,28 @@ export const authAPI = {
             error: data.message || 'Login failed'
           };
         }
+      } else if (error.request) {
+        // The request was made but no response was received
+        return { 
+          success: false, 
+          error: 'No response from server. Please check your internet connection.'
+        };
       } else {
         // Something happened in setting up the request that triggered an Error
         return { 
           success: false, 
-          error: 'Connection error. Please try again.'
+          error: error.message || 'Connection error. Please try again.'
         };
       }
     }
   },
   
-  // Register new user
+  // Legacy login methods (to be removed once unified login is fully implemented)
+  login: async (usernameOrEmail, password) => {
+    return authAPI.unifiedLogin(usernameOrEmail, password);
+  },
+  
+  // Register new user (now supports role selection)
   register: async (userData) => {
     return api.post('/auth/register', userData);
   },
@@ -147,14 +142,54 @@ export const adminAPI = {
     return api.delete(`/admin/users/${userId}`);
   },
   
+  // Get all deliveries
+  getDeliveries: async () => {
+    return api.get('/admin/deliveries');
+  },
+  
+  // Get delivery by ID
+  getDelivery: async (deliveryId) => {
+    return api.get(`/admin/deliveries/${deliveryId}`);
+  },
+  
+  // Update delivery status
+  updateDeliveryStatus: async (deliveryId, status) => {
+    return api.put(`/admin/deliveries/${deliveryId}/status`, { status });
+  },
+  
+  // Assign driver to delivery
+  assignDriver: async (deliveryId, driverId) => {
+    return api.post(`/admin/deliveries/${deliveryId}/assign`, { driverId });
+  },
+  
+  // Get all drivers available for assignment
+  getAvailableDrivers: async () => {
+    return api.get('/admin/drivers/available');
+  },
+  
   // Get admin notifications
   getNotifications: async () => {
     return api.get('/admin/notifications');
   },
   
+  // Get notification count
+  getNotificationCount: async () => {
+    return api.get('/admin/notifications/count');
+  },
+  
   // Process notification (approve/reject)
-  processNotification: async (notificationId, status) => {
-    return api.post(`/admin/notifications/${notificationId}`, { status });
+  processNotification: async (notificationId, action) => {
+    return api.post(`/admin/notifications/${notificationId}/process`, { action });
+  },
+  
+  // Approve user profile changes
+  approveProfileChanges: async (userId, changes) => {
+    return api.post(`/admin/users/${userId}/approve-changes`, changes);
+  },
+  
+  // Reject user profile changes
+  rejectProfileChanges: async (userId, reason) => {
+    return api.post(`/admin/users/${userId}/reject-changes`, { reason });
   }
 };
 
@@ -167,7 +202,12 @@ export const userAPI = {
   
   // Change password
   changePassword: async (passwordData) => {
-    return api.put('/users/password', passwordData);
+    return api.put('/users/change-password', passwordData);
+  },
+  
+  // Get profile change status
+  getProfileChangeStatus: async () => {
+    return api.get('/users/profile/change-status');
   }
 };
 
