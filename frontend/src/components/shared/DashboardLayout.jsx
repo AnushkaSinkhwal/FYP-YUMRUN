@@ -39,7 +39,7 @@ const DashboardLayout = ({ children }) => {
     const items = {
       admin: [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/admin/restaurants', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/restaurant', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/users', label: 'Users', icon: <FaUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/deliveries', label: 'Deliveries', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },

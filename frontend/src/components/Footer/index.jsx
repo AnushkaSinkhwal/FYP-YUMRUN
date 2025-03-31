@@ -90,7 +90,7 @@ const Footer = () => {
                             <ul className="space-y-2">
                                 <li><Link to="/" className="text-gray-600 hover:text-yumrun-primary transition-colors">Home</Link></li>
                                 <li><Link to="/about" className="text-gray-600 hover:text-yumrun-primary transition-colors">About Us</Link></li>
-                                <li><Link to="/restaurants" className="text-gray-600 hover:text-yumrun-primary transition-colors">Restaurants</Link></li>
+                                <li><Link to="/restaurant" className="text-gray-600 hover:text-yumrun-primary transition-colors">Restaurants</Link></li>
                                 <li><Link to="/menu" className="text-gray-600 hover:text-yumrun-primary transition-colors">Menu</Link></li>
                                 <li><Link to="/contact" className="text-gray-600 hover:text-yumrun-primary transition-colors">Contact</Link></li>
                             </ul>

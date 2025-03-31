@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Notification = require('../models/notification');
-const { auth, isAdmin, adminOnly } = require('../middleware/auth');
+const { auth, isAdmin } = require('../middleware/auth');
 const RestaurantApproval = require('../models/restaurantApproval');
 
 // Admin login route
@@ -91,7 +91,7 @@ router.post('/login', async (req, res) => {
  * @desc    Get admin dashboard data
  * @access  Private/Admin
  */
-router.get('/dashboard', auth, adminOnly, async (req, res) => {
+router.get('/dashboard', auth, isAdmin, async (req, res) => {
   try {
     // Get counts for dashboard
     const userCount = await User.countDocuments({ isAdmin: false, isRestaurantOwner: false });
@@ -121,7 +121,7 @@ router.get('/dashboard', auth, adminOnly, async (req, res) => {
  * @desc    Get all users
  * @access  Private/Admin
  */
-router.get('/users', auth, adminOnly, async (req, res) => {
+router.get('/users', auth, isAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password');
     
@@ -143,7 +143,7 @@ router.get('/users', auth, adminOnly, async (req, res) => {
  * @desc    Get user by ID
  * @access  Private/Admin
  */
-router.get('/users/:userId', auth, adminOnly, async (req, res) => {
+router.get('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId).select('-password');
     
@@ -172,7 +172,7 @@ router.get('/users/:userId', auth, adminOnly, async (req, res) => {
  * @desc    Update user
  * @access  Private/Admin
  */
-router.put('/users/:userId', auth, adminOnly, async (req, res) => {
+router.put('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
     const { name, email, phone, isAdmin, isRestaurantOwner, isDeliveryStaff } = req.body;
     
@@ -218,7 +218,7 @@ router.put('/users/:userId', auth, adminOnly, async (req, res) => {
  * @desc    Delete user
  * @access  Private/Admin
  */
-router.delete('/users/:userId', auth, adminOnly, async (req, res) => {
+router.delete('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
     // Cannot delete yourself
     if (req.params.userId === req.user._id.toString()) {
@@ -255,7 +255,7 @@ router.delete('/users/:userId', auth, adminOnly, async (req, res) => {
  * @desc    Get all notifications
  * @access  Private/Admin
  */
-router.get('/notifications', auth, adminOnly, async (req, res) => {
+router.get('/notifications', auth, isAdmin, async (req, res) => {
   try {
     // Get query parameters for filtering
     const { status, type, limit = 50, skip = 0 } = req.query;
@@ -296,7 +296,7 @@ router.get('/notifications', auth, adminOnly, async (req, res) => {
  * @desc    Get count of pending notifications
  * @access  Private/Admin
  */
-router.get('/notifications/count', auth, adminOnly, async (req, res) => {
+router.get('/notifications/count', auth, isAdmin, async (req, res) => {
   try {
     const count = await Notification.countDocuments({ status: 'PENDING' });
     
@@ -318,7 +318,7 @@ router.get('/notifications/count', auth, adminOnly, async (req, res) => {
  * @desc    Process a notification (approve/reject)
  * @access  Private/Admin
  */
-router.post('/notifications/:notificationId/process', auth, adminOnly, async (req, res) => {
+router.post('/notifications/:notificationId/process', auth, isAdmin, async (req, res) => {
   try {
     const { action, reason } = req.body;
     
@@ -447,7 +447,7 @@ router.post('/notifications/:notificationId/process', auth, adminOnly, async (re
  * @desc    Directly approve user profile changes
  * @access  Private/Admin
  */
-router.post('/users/:userId/approve-changes', auth, adminOnly, async (req, res) => {
+router.post('/users/:userId/approve-changes', auth, isAdmin, async (req, res) => {
   try {
     const changes = req.body;
     
@@ -525,7 +525,7 @@ router.post('/users/:userId/approve-changes', auth, adminOnly, async (req, res) 
  * @desc    Reject user profile changes
  * @access  Private/Admin
  */
-router.post('/users/:userId/reject-changes', auth, adminOnly, async (req, res) => {
+router.post('/users/:userId/reject-changes', auth, isAdmin, async (req, res) => {
   try {
     const { reason } = req.body;
     

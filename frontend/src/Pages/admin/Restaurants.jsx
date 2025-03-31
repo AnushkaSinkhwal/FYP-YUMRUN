@@ -385,7 +385,7 @@ const Restaurants = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm" className="text-blue-600" asChild>
-                        <a href={`/admin/restaurants/${restaurant.id}`} target="_blank">
+                        <a href={`/admin/restaurant/${restaurant.id}`} target="_blank">
                           <FaEye className="mr-1" /> View
                         </a>
                       </Button>

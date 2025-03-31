@@ -16,7 +16,7 @@ const AdminDashboard = () => {
       count: 45,
       icon: <FaUtensils size={24} />,
       color: "bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300",
-      link: "/admin/restaurants",
+      link: "/admin/restaurant",
     },
     {
       title: "Total Orders",
@@ -41,7 +41,7 @@ const AdminDashboard = () => {
       description: "Review and manage restaurant listings",
       icon: <FaUtensils className="w-8 h-8 mb-2" />,
       gradient: "bg-gradient-to-r from-blue-500 to-blue-700",
-      link: "/admin/restaurants",
+      link: "/admin/restaurant",
       buttonText: "View Restaurants"
     },
     {
@@ -70,7 +70,7 @@ const AdminDashboard = () => {
       details: "New restaurant registration pending approval",
       status: "pending",
       date: new Date().toLocaleDateString(),
-      link: "/admin/restaurants/approvals"
+      link: "/admin/restaurant/approvals"
     },
     {
       id: 2,

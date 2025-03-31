@@ -24,24 +24,43 @@ const menuItemSchema = mongoose.Schema({
     },
     restaurant: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Restaurant',
+        ref: 'User',
         required: true,
+    },
+    category: {
+        type: String,
+        enum: [
+            'Appetizers',
+            'Main Course',
+            'Desserts',
+            'Drinks',
+            'Beverages',
+            'Sides',
+            'Specials',
+            'Breakfast',
+            'Lunch',
+            'Dinner',
+            'Vegan',
+            'Vegetarian',
+            'Gluten-Free'
+        ],
+        default: 'Main Course'
     },
     calories: {
         type: Number,
-        required: true,
+        default: 0,
     },
     protein: {
         type: Number,
-        required: true,
+        default: 0,
     },
     carbs: {
         type: Number,
-        required: true,
+        default: 0,
     },
     fat: {
         type: Number,
-        required: true,
+        default: 0,
     },
     isVegetarian: {
         type: Boolean,
@@ -55,7 +74,7 @@ const menuItemSchema = mongoose.Schema({
         type: Boolean,
         default: false,
     },
-    isCustomizable: {
+    isAvailable: {
         type: Boolean,
         default: true,
     },
@@ -63,14 +82,14 @@ const menuItemSchema = mongoose.Schema({
         type: Date,
         default: Date.now,
     }
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
 
 menuItemSchema.virtual('id').get(function () {
     return this._id.toHexString();
-});
-
-menuItemSchema.set('toJSON', {
-    virtuals: true,
 });
 
 exports.MenuItem = mongoose.model('MenuItem', menuItemSchema);

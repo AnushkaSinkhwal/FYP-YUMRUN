@@ -31,15 +31,20 @@ if (process.env.NODE_ENV === 'development') {
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
-const restaurantRoutes = require('./routes/restaurants');
+const restaurantRoutes = require('./routes/restaurant');
+const restaurantsRoutes = require('./routes/restaurants');
 const adminRoutes = require('./routes/admin');
 const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static('uploads'));
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/restaurant', restaurantRoutes);
+app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);

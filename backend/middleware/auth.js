@@ -5,61 +5,43 @@ const User = require('../models/user');
  * Authentication middleware
  * Validates the JWT token and attaches the user to the request
  */
-const auth = async (req, res, next) => {
+const auth = (req, res, next) => {
   try {
-    let token;
-
-    // Check if authorization header is present and uses Bearer scheme
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      // Extract token from header
-      token = req.headers.authorization.split(' ')[1];
-    }
-
-    // If no token, return unauthorized
+    // Get token from header
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    console.log('[Auth Middleware] Auth header:', authHeader ? `${authHeader.substring(0, 15)}...` : 'None');
+    
     if (!token) {
+      console.log('[Auth Middleware] No token found');
       return res.status(401).json({
         success: false,
-        message: 'Authentication required. Please log in.'
+        message: 'No token, authorization denied'
       });
     }
-
+    
+    // Verify token
     try {
-      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Find user by id from decoded token
-      const user = await User.findById(decoded.userId).select('-password');
-
-      // If user not found
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid authentication token.'
-        });
-      }
-
-      // Add user to request object
-      req.user = user;
-      next();
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Your session has expired. Please log in again.'
-        });
-      }
+      console.log('[Auth Middleware] Token verified, user:', decoded.userId, 'role:', decoded.role);
       
-      // If token verification fails
+      // Add user data to request
+      req.user = decoded;
+      
+      next();
+    } catch (jwtError) {
+      console.log('[Auth Middleware] Token verification failed:', jwtError.message);
       return res.status(401).json({
         success: false,
-        message: 'Invalid authentication token.'
+        message: 'Token is not valid'
       });
     }
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({
+    console.error('[Auth Middleware] Error:', error.message);
+    return res.status(401).json({
       success: false,
-      message: 'Server error in authentication.'
+      message: 'Token is not valid'
     });
   }
 };
@@ -69,24 +51,10 @@ const auth = async (req, res, next) => {
  * Checks if the authenticated user is an admin
  */
 const isAdmin = (req, res, next) => {
-  if (!req.user || !req.user.isAdmin) {
+  if (!req.user.role || req.user.role !== 'admin') {
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Admin privileges required.'
-    });
-  }
-  next();
-};
-
-/**
- * Admin access middleware (alias for isAdmin)
- * For better semantic clarity in admin routes
- */
-const adminOnly = (req, res, next) => {
-  if (!req.user || !req.user.isAdmin) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied. Admin privileges required.'
+      message: 'Access denied. Admin permissions required.'
     });
   }
   next();
@@ -97,12 +65,14 @@ const adminOnly = (req, res, next) => {
  * Checks if the authenticated user is a restaurant owner
  */
 const isRestaurantOwner = (req, res, next) => {
-  if (!req.user || !req.user.isRestaurantOwner) {
+  if (!req.user.role || req.user.role !== 'restaurantOwner') {
+    console.log('[Auth Middleware] Access denied - Not a restaurant owner. User role:', req.user.role);
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Restaurant owner privileges required.'
+      message: 'Access denied. Restaurant owner permissions required.'
     });
   }
+  console.log('[Auth Middleware] Restaurant owner access granted');
   next();
 };
 
@@ -110,14 +80,19 @@ const isRestaurantOwner = (req, res, next) => {
  * Delivery staff access middleware
  * Checks if the authenticated user is delivery staff
  */
-const isDeliveryStaff = (req, res, next) => {
-  if (!req.user || !req.user.isDeliveryStaff) {
+const isDeliveryRider = (req, res, next) => {
+  if (!req.user.role || req.user.role !== 'deliveryRider') {
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Delivery staff privileges required.'
+      message: 'Access denied. Delivery rider permissions required.'
     });
   }
   next();
 };
 
-module.exports = { auth, isAdmin, adminOnly, isRestaurantOwner, isDeliveryStaff }; 
+module.exports = {
+  auth,
+  isAdmin,
+  isRestaurantOwner,
+  isDeliveryRider
+}; 

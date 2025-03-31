@@ -1,4 +1,4 @@
-import { FaUtensils, FaShoppingCart, FaEdit, FaChartLine } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaChartLine, FaStore } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 
 const RestaurantDashboard = () => {
@@ -37,20 +37,20 @@ const RestaurantDashboard = () => {
   // Restaurant-specific quick actions
   const quickActions = [
     {
+      title: "Manage Restaurant",
+      description: "Update your restaurant details",
+      icon: <FaStore className="h-8 w-8 mb-2" />,
+      gradient: "bg-gradient-to-r from-orange-500 to-orange-700",
+      link: "/restaurant/profile",
+      buttonText: "Manage Restaurant"
+    },
+    {
       title: "Manage Menu",
       description: "Update your restaurant's menu",
       icon: <FaUtensils className="h-8 w-8 mb-2" />,
       gradient: "bg-gradient-to-r from-blue-500 to-blue-700",
       link: "/restaurant/menu",
       buttonText: "Go to Menu"
-    },
-    {
-      title: "Update Profile",
-      description: "Edit your restaurant details",
-      icon: <FaEdit className="h-8 w-8 mb-2" />,
-      gradient: "bg-gradient-to-r from-green-500 to-green-700",
-      link: "/restaurant/profile",
-      buttonText: "Edit Profile"
     },
     {
       title: "View Analytics",
