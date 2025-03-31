@@ -12,29 +12,44 @@ const { auth } = require('../middleware/auth');
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // Extract credentials, handling both direct and nested objects
+    let email, password;
+    
+    if (typeof req.body.email === 'object' && req.body.email !== null) {
+      // If email is an object (probably contains both email and password)
+      const credentials = req.body.email;
+      email = credentials.email;
+      password = credentials.password;
+    } else {
+      // Normal case
+      email = req.body.email;
+      password = req.body.password;
+    }
 
-    // Find user by email or username
-    const user = await User.findOne({
-      $or: [
-        { email: email },
-        { username: email }
-      ]
-    }).select('+password');
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email }).select('+password');
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Incorrect username or email'
+        message: 'Invalid email or password'
       });
     }
 
     // Verify password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Incorrect password'
+        message: 'Invalid email or password'
       });
     }
 
@@ -42,12 +57,9 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       {
         userId: user._id,
-        name: user.name,
+        fullName: user.fullName,
         email: user.email,
-        username: user.username,
-        isAdmin: user.isAdmin,
-        isRestaurantOwner: user.isRestaurantOwner,
-        isDeliveryStaff: user.isDeliveryStaff
+        role: user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRY || '24h' }
@@ -56,12 +68,12 @@ router.post('/login', async (req, res) => {
     // Prepare user data (exclude sensitive fields)
     const userData = {
       id: user._id,
-      name: user.name,
+      fullName: user.fullName,
       email: user.email,
-      username: user.username,
-      isAdmin: user.isAdmin,
-      isRestaurantOwner: user.isRestaurantOwner,
-      isDeliveryStaff: user.isDeliveryStaff
+      role: user.role,
+      healthCondition: user.healthCondition,
+      restaurantDetails: user.restaurantDetails,
+      deliveryRiderDetails: user.deliveryRiderDetails
     };
 
     // Return success response
@@ -88,16 +100,19 @@ router.post('/login', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const { 
-      name, 
+      fullName, 
       email, 
-      phone, 
+      phone,
       password, 
       role,
-      // User specific fields
       healthCondition,
-      // Restaurant owner specific fields
       restaurantName,
-      restaurantAddress
+      restaurantAddress,
+      restaurantDescription,
+      panNumber,
+      vehicleType,
+      licenseNumber,
+      vehicleRegistrationNumber
     } = req.body;
 
     // Check if user already exists
@@ -111,31 +126,37 @@ router.post('/register', async (req, res) => {
 
     // Create new user with base fields
     const userFields = {
-      name,
+      fullName,
       email,
       phone,
-      password // Will be hashed by pre-save hook
+      password, // Will be hashed by pre-save hook
+      role
     };
 
-    // Add role-specific fields and flags
-    if (role === 'restaurantOwner') {
-      if (!restaurantName || !restaurantAddress) {
-        return res.status(400).json({
-          success: false,
-          message: 'Restaurant name and address are required for restaurant owners'
-        });
-      }
-      
-      userFields.isRestaurantOwner = true;
+    // Add role-specific fields
+    if (role === 'customer') {
+      userFields.healthCondition = healthCondition || 'Healthy';
+    } else if (role === 'restaurantOwner') {
       userFields.restaurantDetails = {
         name: restaurantName,
         address: restaurantAddress,
+        description: restaurantDescription,
+        panNumber,
         approved: false // Requires admin approval
       };
-    } else if (role === 'user') {
-      userFields.healthCondition = healthCondition || 'Healthy';
+    } else if (role === 'deliveryRider') {
+      userFields.deliveryRiderDetails = {
+        vehicleType,
+        licenseNumber,
+        vehicleRegistrationNumber
+      };
+    } else if (role === 'admin') {
+      // Admin creation should only be done through a separate secure route
+      return res.status(403).json({
+        success: false,
+        message: 'Admin registration not allowed through public API'
+      });
     }
-    // Note: Admin role requires special access and cannot be self-registered
 
     const user = new User(userFields);
 
@@ -146,12 +167,9 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       {
         userId: user._id,
-        name: user.name,
+        fullName: user.fullName,
         email: user.email,
-        username: user.username,
-        isAdmin: user.isAdmin,
-        isRestaurantOwner: user.isRestaurantOwner,
-        isDeliveryStaff: user.isDeliveryStaff
+        role: user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRY || '24h' }
@@ -160,26 +178,24 @@ router.post('/register', async (req, res) => {
     // Prepare user data (exclude sensitive fields)
     const userData = {
       id: user._id,
-      name: user.name,
+      fullName: user.fullName,
       email: user.email,
-      username: user.username,
-      isAdmin: user.isAdmin,
-      isRestaurantOwner: user.isRestaurantOwner,
-      isDeliveryStaff: user.isDeliveryStaff
+      role: user.role,
+      healthCondition: user.healthCondition,
+      restaurantDetails: user.restaurantDetails,
+      deliveryRiderDetails: user.deliveryRiderDetails
     };
 
-    // Return success response
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
-      message: 'Registration successful',
       token,
       user: userData
     });
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: error.message || 'Registration failed'
+      message: error.message
     });
   }
 });

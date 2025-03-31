@@ -3,240 +3,246 @@ import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
-import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem, Container, Switch } from "../../components/ui";
+import { Button, Input, Label, Alert, Spinner, Container, RadioGroup, RadioGroupItem, Select } from "../../components/ui";
 
 const SignUp = () => {
     const context = useContext(MyContext);
     const { register, error: authError, isLoading } = useAuth();
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [contact, setContact] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [healthCondition, setHealthCondition] = useState("Healthy");
-    const [role, setRole] = useState("user");
+    const [role, setRole] = useState("customer");
+    const [formData, setFormData] = useState({
+        // Common fields
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "",
+        confirmPassword: "",
+        // Customer specific fields
+        healthCondition: "Healthy",
+        // Restaurant owner specific fields
+        restaurantName: "",
+        restaurantAddress: "",
+        restaurantDescription: "",
+        panNumber: "",
+        // Delivery rider specific fields
+        vehicleType: "motorcycle",
+        licenseNumber: "",
+        vehicleRegistrationNumber: ""
+    });
     const [error, setError] = useState("");
     const [passwordStrength, setPasswordStrength] = useState("");
-    
-    // Restaurant owner specific fields
-    const [restaurantName, setRestaurantName] = useState("");
-    const [restaurantAddress, setRestaurantAddress] = useState("");
     
     const navigate = useNavigate();
     
     // Hide header and footer for auth pages
     context.setisHeaderFooterShow(false);
 
-    // Check for stored error on component mount
-    useEffect(() => {
-        const storedError = localStorage.getItem('signupError');
-        if (storedError) {
-            setError(storedError);
-            localStorage.removeItem('signupError'); // Clear the error after displaying
-        }
-    }, []);
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
     useEffect(() => {
         // Check password strength when password changes
-        if (!password) {
+        if (!formData.password) {
             setPasswordStrength("");
             return;
         }
         
-        // Enhanced password strength checker
-        const hasLowerCase = /[a-z]/.test(password);
-        const hasUpperCase = /[A-Z]/.test(password);
-        const hasNumber = /\d/.test(password);
-        const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
-        const isLongEnough = password.length >= 8;
+        const hasLetter = /[a-zA-Z]/.test(formData.password);
+        const hasNumber = /\d/.test(formData.password);
+        const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password);
+        const hasMinLength = formData.password.length >= 6;
+        const hasMinLetters = (formData.password.match(/[a-zA-Z]/g) || []).length >= 6;
         
-        const strengthScore = [hasLowerCase, hasUpperCase, hasNumber, hasSpecialChar, isLongEnough].filter(Boolean).length;
+        const requirements = [hasLetter, hasNumber, hasSpecialChar, hasMinLength, hasMinLetters];
+        const strengthScore = requirements.filter(Boolean).length;
         
-        if (strengthScore <= 2) {
+        if (strengthScore <= 3) {
             setPasswordStrength("weak");
-        } else if (strengthScore <= 3) {
+        } else if (strengthScore === 4) {
             setPasswordStrength("medium");
         } else {
             setPasswordStrength("strong");
         }
-    }, [password]);
+    }, [formData.password]);
 
     const validateEmail = (email) => {
-        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-        return re.test(String(email).toLowerCase());
+        return email.toLowerCase().endsWith('@gmail.com');
     };
 
-    const [timezone, setTimezone] = useState("Asia/Kathmandu");
-    const [defaultCurrency, setDefaultCurrency] = useState("NPR");
-    const [notificationPreferences, setNotificationPreferences] = useState({
-        enableEmailNotifications: true,
-        enableSmsNotifications: false,
-        enablePushNotifications: true
-    });
+    const validatePhone = (phone) => {
+        return /^\d{10}$/.test(phone);
+    };
+
+    const validatePAN = (pan) => {
+        // PAN format validation for Nepal
+        return /^[0-9]{9}$/.test(pan);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         // Clear previous errors
         setError("");
-        localStorage.removeItem('signupError');
         
-        // Enhanced validation with specific error messages
-        if (!fullName.trim()) {
-            const errorMessage = "Full name is required";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
+        // Validate common fields
+        if (!formData.fullName.trim()) {
+            setError("Full name is required");
+            return;
+        }
+
+        // Validate email format
+        if (!formData.email || !validateEmail(formData.email)) {
+            setError("Please enter a valid Gmail address");
             return;
         }
         
-        if (!email.trim()) {
-            const errorMessage = "Email is required";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
+        // Validate phone number
+        if (!formData.phone || !validatePhone(formData.phone)) {
+            setError("Please enter a valid 10-digit phone number");
             return;
         }
         
-        if (!validateEmail(email)) {
-            const errorMessage = "Please enter a valid email address";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
-            return;
-        }
-        
-        if (!contact.trim()) {
-            const errorMessage = "Contact number is required";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
-            return;
-        }
-        
-        if (password.length < 8) {
-            const errorMessage = "Password must be at least 8 characters long";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
-            return;
-        }
-        
-        if (password !== confirmPassword) {
-            const errorMessage = "Passwords do not match";
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
-            return;
-        }
-        
-        // Restaurant owner validation
+        // Role-specific validation
         if (role === "restaurantOwner") {
-            if (!restaurantName.trim()) {
-                const errorMessage = "Restaurant name is required";
-                setError(errorMessage);
-                localStorage.setItem('signupError', errorMessage);
+            if (!formData.restaurantName.trim()) {
+                setError("Restaurant name is required");
                 return;
             }
-            
-            if (!restaurantAddress.trim()) {
-                const errorMessage = "Restaurant address is required";
-                setError(errorMessage);
-                localStorage.setItem('signupError', errorMessage);
+            if (!formData.restaurantAddress.trim()) {
+                setError("Restaurant address is required");
+                return;
+            }
+            if (!formData.restaurantDescription.trim()) {
+                setError("Restaurant description is required");
+                return;
+            }
+            if (!formData.panNumber || !validatePAN(formData.panNumber)) {
+                setError("Please enter a valid 9-digit PAN number");
+                return;
+            }
+        } else if (role === "deliveryRider") {
+            if (!formData.licenseNumber.trim()) {
+                setError("License number is required");
+                return;
+            }
+            if (!formData.vehicleRegistrationNumber.trim()) {
+                setError("Vehicle registration number is required");
                 return;
             }
         }
         
-        // Prepare user data based on role
+        // Validate password
+        if (!formData.password || formData.password.length < 6 || 
+            !/[a-zA-Z]/.test(formData.password) || 
+            !/\d/.test(formData.password) || 
+            !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password) ||
+            (formData.password.match(/[a-zA-Z]/g) || []).length < 6) {
+            setError("Password must contain at least 6 letters, 1 number, and 1 special character");
+            return;
+        }
+        
+        if (formData.password !== formData.confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+        
+        // Prepare user data
         const userData = {
-            name: fullName,
-            email,
-            password,
-            phone: contact,
-            role,
-            timezone,
-            defaultCurrency,
-            notificationPreferences,
-            settings: {
-                emailNotifications: notificationPreferences.enableEmailNotifications,
-                smsNotifications: notificationPreferences.enableSmsNotifications,
-                pushNotifications: notificationPreferences.enablePushNotifications
-            }
+            fullName: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            password: formData.password,
+            role: role
         };
         
         // Add role-specific data
-        if (role === "user") {
-            userData.healthCondition = healthCondition;
+        if (role === "customer") {
+            userData.healthCondition = formData.healthCondition;
         } else if (role === "restaurantOwner") {
-            userData.restaurantName = restaurantName;
-            userData.restaurantAddress = restaurantAddress;
+            userData.restaurantName = formData.restaurantName;
+            userData.restaurantAddress = formData.restaurantAddress;
+            userData.restaurantDescription = formData.restaurantDescription;
+            userData.panNumber = formData.panNumber;
+        } else if (role === "deliveryRider") {
+            userData.vehicleType = formData.vehicleType;
+            userData.licenseNumber = formData.licenseNumber;
+            userData.vehicleRegistrationNumber = formData.vehicleRegistrationNumber;
         }
         
         try {
             const result = await register(userData);
-            
             if (result && result.success) {
                 navigate("/signin", { 
                     replace: true,
-                    state: { message: "Account created successfully! Please sign in." }
+                    state: { message: "Registration successful! Please login to continue." }
                 });
             } else {
-                const errorMessage = result?.error || "Registration failed";
-                setError(errorMessage);
-                localStorage.setItem('signupError', errorMessage);
+                setError(result?.error || "Registration failed");
             }
         } catch (err) {
-            const errorMessage = "An unexpected error occurred: " + (err.message || err);
-            setError(errorMessage);
-            localStorage.setItem('signupError', errorMessage);
+            setError("An unexpected error occurred: " + (err.message || err));
         }
     };
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-white to-[#ffe9e2] p-5">
-            <Container className="max-w-5xl">
-                <div className="grid grid-cols-1 gap-8 overflow-hidden bg-white rounded-lg shadow-xl md:grid-cols-2">
-                    {/* Left side - Sign Up Form */}
-                    <div className="flex flex-col justify-center p-8">
-                        <div className="flex justify-center mb-6">
-                            <Link to="/">
-                                <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
-                            </Link>
+            <Container className="max-w-3xl">
+                <div className="p-8 bg-white rounded-lg shadow-xl">
+                    <div className="flex justify-center mb-6">
+                        <Link to="/">
+                            <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
+                        </Link>
+                    </div>
+                    
+                    <div className="mb-6 text-center">
+                        <h1 className="mb-2 text-2xl font-bold text-gray-800">Create Account</h1>
+                        <p className="text-gray-600">Join YumRun today!</p>
+                    </div>
+                    
+                    {(error || authError) && (
+                        <Alert variant="error" className="mb-4">
+                            {error || authError}
+                        </Alert>
+                    )}
+                    
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-700">Account Type</h3>
+                            <RadioGroup 
+                                value={role} 
+                                onValueChange={setRole}
+                                className="flex flex-wrap gap-4"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="customer" id="customer" />
+                                    <Label htmlFor="customer">Customer</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
+                                    <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="deliveryRider" id="deliveryRider" />
+                                    <Label htmlFor="deliveryRider">Delivery Rider</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
-                        
-                        <div className="mb-6 text-center">
-                            <h1 className="mb-2 text-2xl font-bold text-gray-800">Create Account</h1>
-                            <p className="text-gray-600">Join YumRun to discover amazing food in your area!</p>
-                        </div>
-                        
-                        {(error || authError) && (
-                            <Alert variant="error" className="mb-4">
-                                {error || authError}
-                            </Alert>
-                        )}
-                        
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div className="space-y-2">
-                                <Label className="font-medium">I want to register as:</Label>
-                                <RadioGroup 
-                                    value={role} 
-                                    onValueChange={setRole}
-                                    className="flex gap-4"
-                                >
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="user" id="user" />
-                                        <Label htmlFor="user">Customer</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
-                                        <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
-                                    </div>
-                                </RadioGroup>
-                            </div>
-                            
-                            <div className="space-y-4">
-                                <h3 className="font-semibold text-gray-700">Personal Information</h3>
+
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-700">Personal Information</h3>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="fullName">Full Name</Label>
+                                    <Label htmlFor="fullName">Full Name*</Label>
                                     <Input
                                         type="text"
                                         id="fullName"
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
+                                        name="fullName"
+                                        value={formData.fullName}
+                                        onChange={handleInputChange}
                                         placeholder="Enter your full name"
                                         required
                                         className="w-full"
@@ -244,267 +250,238 @@ const SignUp = () => {
                                 </div>
                                 
                                 <div className="space-y-2">
-                                    <Label htmlFor="email">Email Address</Label>
+                                    <Label htmlFor="phone">Phone Number*</Label>
+                                    <Input
+                                        type="tel"
+                                        id="phone"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter 10-digit phone number"
+                                        required
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Email Address*</Label>
                                     <Input
                                         type="email"
                                         id="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="Enter your email address"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter Gmail address"
                                         required
                                         className="w-full"
                                     />
+                                    <p className="text-xs text-gray-500">Must be a Gmail address</p>
                                 </div>
-                                
+                            </div>
+                        </div>
+
+                        {/* Role-specific fields */}
+                        {role === "customer" && (
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Health Information</h3>
                                 <div className="space-y-2">
-                                    <Label htmlFor="contact">Contact Number</Label>
-                                    <Input
-                                        type="tel"
-                                        id="contact"
-                                        value={contact}
-                                        onChange={(e) => setContact(e.target.value)}
-                                        placeholder="Enter your contact number"
-                                        required
+                                    <Label htmlFor="healthCondition">Health Condition</Label>
+                                    <Select
+                                        id="healthCondition"
+                                        name="healthCondition"
+                                        value={formData.healthCondition}
+                                        onChange={(e) => handleInputChange(e)}
                                         className="w-full"
-                                    />
+                                    >
+                                        <option value="Healthy">Healthy</option>
+                                        <option value="Diabetes">Diabetes</option>
+                                        <option value="Heart Condition">Heart Condition</option>
+                                        <option value="Hypertension">Hypertension</option>
+                                        <option value="Other">Other</option>
+                                    </Select>
                                 </div>
                             </div>
+                        )}
 
+                        {role === "restaurantOwner" && (
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-gray-700">Account Settings</h3>
+                                <h3 className="font-semibold text-gray-700">Restaurant Information</h3>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="timezone">Time Zone</Label>
-                                        <Select
-                                            id="timezone"
-                                            value={timezone}
-                                            onValueChange={setTimezone}
-                                            className="w-full"
-                                        >
-                                            <option value="Asia/Kathmandu">Asia/Kathmandu (GMT+5:45)</option>
-                                            <option value="UTC">UTC</option>
-                                            <option value="America/New_York">America/New_York (GMT-4)</option>
-                                        </Select>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        <Label htmlFor="defaultCurrency">Default Currency</Label>
-                                        <Select
-                                            id="defaultCurrency"
-                                            value={defaultCurrency}
-                                            onValueChange={setDefaultCurrency}
-                                            className="w-full"
-                                        >
-                                            <option value="NPR">NPR (रू)</option>
-                                            <option value="USD">USD ($)</option>
-                                            <option value="EUR">EUR (€)</option>
-                                            <option value="GBP">GBP (£)</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="font-semibold text-gray-700">Notification Preferences</h3>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <Label>Email Notifications</Label>
-                                            <p className="text-sm text-gray-500">Receive updates via email</p>
-                                        </div>
-                                        <Switch
-                                            checked={notificationPreferences.enableEmailNotifications}
-                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev,
-                                                enableEmailNotifications: checked
-                                            }))}
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <Label>SMS Notifications</Label>
-                                            <p className="text-sm text-gray-500">Receive updates via SMS</p>
-                                        </div>
-                                        <Switch
-                                            checked={notificationPreferences.enableSmsNotifications}
-                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev,
-                                                enableSmsNotifications: checked
-                                            }))}
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <Label>Push Notifications</Label>
-                                            <p className="text-sm text-gray-500">Receive browser notifications</p>
-                                        </div>
-                                        <Switch
-                                            checked={notificationPreferences.enablePushNotifications}
-                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev,
-                                                enablePushNotifications: checked
-                                            }))}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="font-semibold text-gray-700">Security</h3>
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">Password</Label>
-                                        <Input
-                                            type="password"
-                                            id="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Create a password"
-                                            required
-                                            className="w-full"
-                                        />
-                                        {passwordStrength && (
-                                            <div className={`text-xs mt-1 ${
-                                                passwordStrength === "weak" ? "text-red-500" : 
-                                                passwordStrength === "medium" ? "text-amber-500" : 
-                                                "text-green-500"
-                                            }`}>
-                                                Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        <Label htmlFor="confirmPassword">Confirm Password</Label>
-                                        <Input
-                                            type="password"
-                                            id="confirmPassword"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            placeholder="Confirm your password"
-                                            required
-                                            className="w-full"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Role-specific fields */}
-                            {role === "user" && (
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold text-gray-700">Health Information</h3>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="healthCondition">Health Condition</Label>
-                                        <Select
-                                            id="healthCondition"
-                                            value={healthCondition}
-                                            onValueChange={setHealthCondition}
-                                            className="w-full"
-                                        >
-                                            <option value="Healthy">Healthy</option>
-                                            <option value="Diabetes">Diabetes</option>
-                                            <option value="Heart Condition">Heart Condition</option>
-                                            <option value="Hypertension">Hypertension</option>
-                                            <option value="Other">Other</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {role === "restaurantOwner" && (
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold text-gray-700">Restaurant Information</h3>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="restaurantName">Restaurant Name</Label>
+                                        <Label htmlFor="restaurantName">Restaurant Name*</Label>
                                         <Input
                                             type="text"
                                             id="restaurantName"
-                                            value={restaurantName}
-                                            onChange={(e) => setRestaurantName(e.target.value)}
-                                            placeholder="Enter your restaurant name"
+                                            name="restaurantName"
+                                            value={formData.restaurantName}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter restaurant name"
                                             required
                                             className="w-full"
                                         />
                                     </div>
                                     
                                     <div className="space-y-2">
-                                        <Label htmlFor="restaurantAddress">Restaurant Address</Label>
+                                        <Label htmlFor="panNumber">PAN Number*</Label>
                                         <Input
                                             type="text"
-                                            id="restaurantAddress"
-                                            value={restaurantAddress}
-                                            onChange={(e) => setRestaurantAddress(e.target.value)}
-                                            placeholder="Enter your restaurant address"
+                                            id="panNumber"
+                                            name="panNumber"
+                                            value={formData.panNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter 9-digit PAN number"
                                             required
                                             className="w-full"
                                         />
                                     </div>
                                 </div>
-                            )}
-                            
-                            <Button
-                                type="submit"
-                                variant="brand"
-                                size="full"
-                                disabled={isLoading}
-                                className="mt-6"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Spinner size="sm" className="mr-2 text-white" />
-                                        Creating Account...
-                                    </>
-                                ) : "Sign Up"}
-                            </Button>
-                            
-                            <div className="mt-4 text-center">
-                                <p className="text-sm text-gray-600">
-                                    Already have an account?{" "}
-                                    <Link to="/signin" className="font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
-                                        Sign in
-                                    </Link>
-                                </p>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="restaurantAddress">Restaurant Address*</Label>
+                                    <Input
+                                        type="text"
+                                        id="restaurantAddress"
+                                        name="restaurantAddress"
+                                        value={formData.restaurantAddress}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter complete restaurant address"
+                                        required
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="restaurantDescription">Restaurant Description*</Label>
+                                    <textarea
+                                        id="restaurantDescription"
+                                        name="restaurantDescription"
+                                        value={formData.restaurantDescription}
+                                        onChange={handleInputChange}
+                                        placeholder="Describe your restaurant"
+                                        required
+                                        className="w-full min-h-[100px] rounded-md border border-gray-300 p-2"
+                                    />
+                                </div>
                             </div>
-                        </form>
-                    </div>
-                    
-                    {/* Right side - Information */}
-                    <div className="flex-col justify-center hidden p-8 md:flex bg-gradient-to-br from-orange-50 to-orange-100">
-                        <h2 className="mb-4 text-xl font-bold text-gray-800">Join YumRun Today</h2>
-                        <p className="mb-6 text-gray-600">
-                            Whether you&apos;re a food lover or a restaurant owner, YumRun has something for everyone:
-                        </p>
-                        
+                        )}
+
+                        {role === "deliveryRider" && (
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Vehicle Information</h3>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleType">Vehicle Type*</Label>
+                                        <Select
+                                            id="vehicleType"
+                                            name="vehicleType"
+                                            value={formData.vehicleType}
+                                            onChange={(e) => handleInputChange(e)}
+                                            className="w-full"
+                                        >
+                                            <option value="motorcycle">Motorcycle</option>
+                                            <option value="scooter">Scooter</option>
+                                            <option value="bicycle">Bicycle</option>
+                                        </Select>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label htmlFor="licenseNumber">License Number*</Label>
+                                        <Input
+                                            type="text"
+                                            id="licenseNumber"
+                                            name="licenseNumber"
+                                            value={formData.licenseNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter license number"
+                                            required
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleRegistrationNumber">Vehicle Registration Number*</Label>
+                                        <Input
+                                            type="text"
+                                            id="vehicleRegistrationNumber"
+                                            name="vehicleRegistrationNumber"
+                                            value={formData.vehicleRegistrationNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter vehicle registration number"
+                                            required
+                                            className="w-full"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50">
-                                <h3 className="font-medium text-gray-800">For Customers</h3>
-                                <p className="text-sm text-gray-600">Order delicious food from your favorite restaurants</p>
-                                <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
-                                    <li>Browse menus from multiple restaurants</li>
-                                    <li>Track your orders in real-time</li>
-                                    <li>Get personalized food recommendations</li>
-                                    <li>Save your favorite restaurants</li>
-                                </ul>
-                            </Card>
-                            
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50">
-                                <h3 className="font-medium text-gray-800">For Restaurant Owners</h3>
-                                <p className="text-sm text-gray-600">Grow your business with YumRun</p>
-                                <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
-                                    <li>Manage your menu easily</li>
-                                    <li>Track orders and deliveries</li>
-                                    <li>Get insights and analytics</li>
-                                    <li>Reach more customers</li>
-                                </ul>
-                            </Card>
+                            <h3 className="font-semibold text-gray-700">Security</h3>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Password*</Label>
+                                    <Input
+                                        type="password"
+                                        id="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleInputChange}
+                                        placeholder="Create a password"
+                                        required
+                                        className="w-full"
+                                    />
+                                    {passwordStrength && (
+                                        <div className={`text-xs mt-1 ${
+                                            passwordStrength === "weak" ? "text-red-500" : 
+                                            passwordStrength === "medium" ? "text-amber-500" : 
+                                            "text-green-500"
+                                        }`}>
+                                            Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-500">Must contain 6+ letters, 1 number, and 1 special character</p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <Label htmlFor="confirmPassword">Confirm Password*</Label>
+                                    <Input
+                                        type="password"
+                                        id="confirmPassword"
+                                        name="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleInputChange}
+                                        placeholder="Confirm your password"
+                                        required
+                                        className="w-full"
+                                    />
+                                </div>
+                            </div>
                         </div>
                         
-                        <div className="mt-6 text-sm text-gray-500">
-                            <p>By creating an account, you agree to our Terms of Service and Privacy Policy</p>
+                        <Button
+                            type="submit"
+                            variant="brand"
+                            size="full"
+                            disabled={isLoading}
+                            className="mt-6"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Spinner size="sm" className="mr-2 text-white" />
+                                    Creating Account...
+                                </>
+                            ) : "Create Account"}
+                        </Button>
+                        
+                        <div className="mt-4 text-center">
+                            <p className="text-sm text-gray-600">
+                                Already have an account?{" "}
+                                <Link to="/signin" className="font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
+                                    Sign in
+                                </Link>
+                            </p>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </Container>
         </div>

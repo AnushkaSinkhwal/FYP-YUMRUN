@@ -81,7 +81,7 @@ const SignIn = () => {
         try {
             console.log('Attempting login with:', { email });
             // Attempt to login
-            const response = await login(email, password);
+            const response = await login({ email, password });
             console.log('Login response:', response);
             
             if (response.success) {
@@ -92,7 +92,8 @@ const SignIn = () => {
                 console.log('Stored user data:', userData);
                 
                 // Use React Router navigation instead of window.location
-                navigate(response.dashboardPath, { replace: true });
+                const dashboardPath = response.dashboardPath || '/';
+                navigate(dashboardPath, { replace: true });
             } else {
                 // Display the specific error message from the backend
                 const errorMessage = response.error || "Login failed. Please try again.";

@@ -48,14 +48,15 @@ api.interceptors.response.use(
 // Auth API methods
 export const authAPI = {
   // Unified login for all user types (admin, restaurant owner, regular user)
-  unifiedLogin: async (email, password) => {
+  unifiedLogin: async (credentials) => {
     try {
+      const { email, password } = credentials;
       console.log('Making login request with:', { email });
       const response = await api.post('/auth/login', { email, password });
       console.log('Server response:', response.data);
       
       // Ensure we're returning the data property from the response
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Login request error:', error.response || error);
       // Handle specific error codes
@@ -100,8 +101,8 @@ export const authAPI = {
   },
   
   // Legacy login methods (to be removed once unified login is fully implemented)
-  login: async (usernameOrEmail, password) => {
-    return authAPI.unifiedLogin(usernameOrEmail, password);
+  login: async (credentials) => {
+    return authAPI.unifiedLogin(credentials);
   },
   
   // Register new user (now supports role selection)

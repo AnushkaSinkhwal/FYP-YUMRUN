@@ -16,38 +16,55 @@ const restaurantDetailsSchema = new mongoose.Schema({
     },
     description: {
         type: String,
+        required: [true, 'Restaurant description is required'],
         trim: true
     },
-    cuisineType: {
+    panNumber: {
         type: String,
+        required: [true, 'PAN number is required'],
+        trim: true,
+        validate: {
+            validator: function(v) {
+                return /^[0-9]{9}$/.test(v);
+            },
+            message: props => `${props.value} is not a valid PAN number! Must be 9 digits.`
+        }
+    },
+    approved: {
+        type: Boolean,
+        default: false
+    }
+}, { _id: false });
+
+// Delivery rider details schema
+const deliveryRiderDetailsSchema = new mongoose.Schema({
+    vehicleType: {
+        type: String,
+        enum: ['motorcycle', 'scooter', 'bicycle'],
+        required: [true, 'Vehicle type is required']
+    },
+    licenseNumber: {
+        type: String,
+        required: [true, 'License number is required'],
+        trim: true
+    },
+    vehicleRegistrationNumber: {
+        type: String,
+        required: [true, 'Vehicle registration number is required'],
         trim: true
     },
     approved: {
         type: Boolean,
         default: false
-    },
-    approvedAt: {
-        type: Date
-    },
-    approvedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
     }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
-    name: {
+    fullName: {
         type: String,
-        required: [true, 'Please provide your name'],
+        required: [true, 'Please provide your full name'],
         trim: true,
         minlength: [3, 'Name must be at least 3 characters']
-    },
-    username: {
-        type: String,
-        trim: true,
-        unique: true,
-        sparse: true, // Allows multiple null values (useful during creation)
-        minlength: [3, 'Username must be at least 3 characters']
     },
     email: {
         type: String,
@@ -62,7 +79,7 @@ const userSchema = new mongoose.Schema({
         required: [true, 'Please provide your phone number'],
         validate: {
             validator: function(v) {
-                return /^\d{10}$/.test(v);  // Validate phone number format (10 digits)
+                return /^\d{10}$/.test(v);
             },
             message: props => `${props.value} is not a valid phone number! Must be 10 digits.`
         }
@@ -70,31 +87,34 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Please provide a password'],
-        minlength: [8, 'Password must be at least 8 characters'],
+        minlength: [6, 'Password must be at least 6 characters'],
         select: false
+    },
+    role: {
+        type: String,
+        enum: ['customer', 'restaurantOwner', 'deliveryRider', 'admin'],
+        default: 'customer'
     },
     healthCondition: {
         type: String,
         enum: ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'],
         default: 'Healthy'
     },
-    isAdmin: {
-        type: Boolean,
-        default: false
-    },
-    isRestaurantOwner: {
-        type: Boolean,
-        default: false
-    },
-    isDeliveryStaff: {
-        type: Boolean,
-        default: false
-    },
     restaurantDetails: {
         type: restaurantDetailsSchema,
         required: function() {
-            return this.isRestaurantOwner === true;
+            return this.role === 'restaurantOwner';
         }
+    },
+    deliveryRiderDetails: {
+        type: deliveryRiderDetailsSchema,
+        required: function() {
+            return this.role === 'deliveryRider';
+        }
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     },
     createdAt: {
         type: Date,
@@ -111,49 +131,12 @@ userSchema.virtual('id').get(function () {
     return this._id.toHexString();
 });
 
-// Virtual for full name
-userSchema.virtual('fullName').get(function() {
-    return this.name;
-});
-
-// Function to generate username from email
-const generateUsernameFromEmail = (email) => {
-    if (!email) return null;
-    const parts = email.split('@');
-    return parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-};
-
-// Pre-save hook to generate username from email if not provided
-userSchema.pre('save', async function(next) {
-    // Generate username from email if not provided
-    if (!this.username) {
-        let baseUsername = generateUsernameFromEmail(this.email);
-        let username = baseUsername;
-        let count = 1;
-        
-        // Check if username exists and add number if it does
-        let userExists = await mongoose.models.User.findOne({ username });
-        while (userExists) {
-            username = `${baseUsername}${count}`;
-            count++;
-            userExists = await mongoose.models.User.findOne({ username });
-        }
-        
-        this.username = username;
-    }
-    next();
-});
-
 // Pre-save hook to hash password
 userSchema.pre('save', async function(next) {
-    // Only hash the password if it's been modified (or is new)
     if (!this.isModified('password')) return next();
     
     try {
-        // Generate a salt
         const salt = await bcrypt.genSalt(10);
-        
-        // Hash the password with the salt
         this.password = await bcrypt.hash(this.password, salt);
         next();
     } catch (error) {
