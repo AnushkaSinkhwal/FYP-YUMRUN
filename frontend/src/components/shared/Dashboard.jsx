@@ -1,18 +1,11 @@
 import { useState, useEffect } from "react";
-import { FaUtensils, FaShoppingCart, FaEdit, FaChartLine } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { Card, Badge, Button, Spinner, Tabs, TabsList, TabsTrigger, TabsContent } from "../ui";
 import PropTypes from 'prop-types';
 
-const Dashboard = ({ role = 'user', stats = [], quickActions = [], recentActivity = [] }) => {
-  const [dashboardData, setDashboardData] = useState({
-    loading: true,
-    error: null,
-    data: {}
-  });
-
-  const [notifications, setNotifications] = useState([]);
+const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -34,20 +27,9 @@ const Dashboard = ({ role = 'user', stats = [], quickActions = [], recentActivit
       // const response = await api.getDashboard(role);
       
       // Simulated data
-      setDashboardData({
-        loading: false,
-        error: null,
-        data: {}
-      });
-      
       setIsLoading(false);
     } catch (err) {
       console.error('Dashboard error:', err);
-      setDashboardData(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load dashboard data'
-      }));
       setIsLoading(false);
     }
   };
@@ -122,11 +104,13 @@ const Dashboard = ({ role = 'user', stats = [], quickActions = [], recentActivit
                   <h3 className="text-lg font-semibold mb-1">{action.title}</h3>
                   <p className="text-sm opacity-80 mb-4">{action.description}</p>
                   <Button
-                    variant="outline"
-                    className="bg-white hover:bg-gray-50 border-transparent"
+                    variant="secondary"
+                    className="w-full bg-white text-gray-800 hover:bg-gray-100 border-transparent shadow-sm"
                     asChild
                   >
-                    <Link to={action.link}>{action.buttonText}</Link>
+                    <Link to={action.link} className="inline-flex items-center justify-center">
+                      {action.buttonText}
+                    </Link>
                   </Button>
                 </div>
               </Card>
@@ -214,7 +198,6 @@ const Dashboard = ({ role = 'user', stats = [], quickActions = [], recentActivit
 };
 
 Dashboard.propTypes = {
-  role: PropTypes.oneOf(['admin', 'restaurantOwner', 'deliveryUser', 'user']).isRequired,
   stats: PropTypes.arrayOf(PropTypes.shape({
     title: PropTypes.string.isRequired,
     count: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,

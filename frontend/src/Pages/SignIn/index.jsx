@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
@@ -7,18 +7,16 @@ import { Button, Input, Label, Checkbox, Alert, Card, Container } from "../../co
 
 const SignIn = () => {
     const context = useContext(MyContext);
-    const { login, error: authError, isLoading } = useAuth();
+    const { login } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
     const [loginAttempted, setLoginAttempted] = useState(false);
+    const [loading, setLoading] = useState(false);
     
-    const navigate = useNavigate();
     const location = useLocation();
     
-    // Get the redirect path, or default to home
-    const from = location.state?.from?.pathname || "/";
     // Get any success message passed from other pages
     const successMessage = location.state?.message || "";
     
@@ -41,30 +39,29 @@ const SignIn = () => {
         }
     }, []);
 
-    const validateEmail = (email) => {
-        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-        return re.test(String(email).toLowerCase()) || email.includes('@');
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         setLoginAttempted(true);
         
         // Clear previous errors
-        setError("");
         localStorage.removeItem('signinError');
         
-        // Validate input
+        // Validate required fields
         if (!email || !password) {
             setError("Please fill in all fields");
             localStorage.setItem('signinError', "Please fill in all fields");
+            setLoading(false);
             return;
         }
         
-        // Validate email format (if it looks like an email)
-        if (email.includes('@') && !validateEmail(email)) {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
             setError("Please enter a valid email address");
             localStorage.setItem('signinError', "Please enter a valid email address");
+            setLoading(false);
             return;
         }
         
@@ -77,34 +74,23 @@ const SignIn = () => {
         
         try {
             // Attempt to login
-            const result = await login(email, password);
+            const response = await login(email, password);
             
-            if (result && result.success) {
-                // If user is admin, redirect to admin dashboard
-                if (result.user.isAdmin) {
-                    navigate('/admin/dashboard', { replace: true });
-                    return;
-                }
-                
-                // If user is restaurant owner, redirect to restaurant dashboard
-                if (result.user.isRestaurantOwner) {
-                    navigate('/restaurant/dashboard', { replace: true });
-                    return;
-                }
-                
-                // Redirect to previous page or home for other users
-                navigate(from, { replace: true });
+            if (response.success) {
+                // Force a hard redirect to the dashboard
+                window.location.href = response.dashboardPath;
             } else {
                 // Display the specific error message from the backend
-                const errorMessage = result?.error || "Authentication failed. Please check your credentials.";
+                const errorMessage = response.error || "Login failed. Please try again.";
                 setError(errorMessage);
                 localStorage.setItem('signinError', errorMessage);
             }
         } catch (err) {
-            console.error("Login error:", err);
-            const errorMessage = "An unexpected error occurred. Please try again later.";
+            const errorMessage = err.message || "An unexpected error occurred. Please try again later.";
             setError(errorMessage);
             localStorage.setItem('signinError', errorMessage);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -155,9 +141,9 @@ const SignIn = () => {
                             </Alert>
                         )}
                         
-                        {(error || authError) && (
+                        {error && (
                             <Alert variant="error" className="mb-4">
-                                {error || authError}
+                                {error}
                             </Alert>
                         )}
                         
@@ -174,9 +160,11 @@ const SignIn = () => {
                                 </Label>
                                 <Input
                                     id="email"
+                                    name="email"
+                                    type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Enter your email or username"
+                                    placeholder="Enter your email"
                                     required
                                     className="w-full"
                                 />
@@ -189,6 +177,7 @@ const SignIn = () => {
                                 <Input
                                     type="password"
                                     id="password"
+                                    name="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="Enter your password"
@@ -217,10 +206,10 @@ const SignIn = () => {
                                 type="submit" 
                                 variant="brand"
                                 size="full"
-                                disabled={isLoading}
+                                disabled={loading}
                                 className="mt-6"
                             >
-                                {isLoading ? "Signing in..." : "Sign In"}
+                                {loading ? "Signing in..." : "Sign In"}
                             </Button>
                             
                             <div className="mt-4 text-center">

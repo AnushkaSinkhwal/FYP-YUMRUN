@@ -50,15 +50,20 @@ export const authAPI = {
   // Unified login for all user types (admin, restaurant owner, regular user)
   unifiedLogin: async (email, password) => {
     try {
+      console.log('Making login request with:', { email });
       const response = await api.post('/auth/login', { email, password });
+      console.log('Server response:', response.data);
       
+      // Ensure we're returning the data property from the response
       return response.data;
     } catch (error) {
+      console.error('Login request error:', error.response || error);
       // Handle specific error codes
       if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
         const { data, status } = error.response;
+        console.log('Error response:', { status, data });
         
         if (status === 401) {
           return { 
@@ -78,12 +83,14 @@ export const authAPI = {
         }
       } else if (error.request) {
         // The request was made but no response was received
+        console.log('No response received from server');
         return { 
           success: false, 
           error: 'No response from server. Please check your internet connection.'
         };
       } else {
         // Something happened in setting up the request that triggered an Error
+        console.log('Request setup error:', error.message);
         return { 
           success: false, 
           error: error.message || 'Connection error. Please try again.'

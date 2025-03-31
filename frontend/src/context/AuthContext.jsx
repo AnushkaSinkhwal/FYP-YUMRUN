@@ -6,6 +6,21 @@ import PropTypes from 'prop-types';
 // Create the auth context
 const AuthContext = createContext();
 
+// Helper function to get dashboard path based on role
+const getDashboardPath = (role) => {
+  switch (role?.toLowerCase()) {
+    case 'admin':
+      return '/admin/dashboard';
+    case 'restaurantowner':
+      return '/restaurant/dashboard';
+    case 'deliveryuser':
+      return '/delivery/dashboard';
+    case 'user':
+    default:
+      return '/user/dashboard';
+  }
+};
+
 // Auth provider component
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -101,10 +116,31 @@ export const AuthProvider = ({ children }) => {
       if (response.success) {
         const { token, user } = response;
         
-        // Ensure role is properly set
-        if (!user.role) {
-          user.role = 'user';
+        // Validate user data
+        if (!user || typeof user !== 'object') {
+          throw new Error('Invalid user data received from server');
         }
+        
+        // Extract and normalize role
+        let normalizedRole;
+        if (typeof user.role === 'string') {
+          normalizedRole = user.role.toLowerCase().trim();
+        } else if (user.userType) {
+          normalizedRole = user.userType.toLowerCase().trim();
+        } else if (user.isAdmin === true) {
+          normalizedRole = 'admin';
+        } else {
+          normalizedRole = 'user';
+        }
+        
+        // Validate normalized role
+        const validRoles = ['admin', 'restaurantowner', 'deliveryuser', 'user'];
+        if (!validRoles.includes(normalizedRole)) {
+          normalizedRole = 'user';
+        }
+        
+        // Update user object with normalized role
+        user.role = normalizedRole;
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
@@ -114,25 +150,29 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(user);
         setIsLoading(false);
         
-        // Return success with user data for redirection decisions
+        // Get the correct dashboard path based on the normalized role
+        const dashboardPath = getDashboardPath(normalizedRole);
+        
+        // Return success with user data and dashboard path for redirection
         return { 
           success: true, 
           user,
-          role: user.role,
-          isAdmin: user.role === 'admin',
-          isRestaurantOwner: user.role === 'restaurantOwner',
-          isDeliveryStaff: user.role === 'deliveryUser'
+          role: normalizedRole,
+          dashboardPath,
+          isAdmin: normalizedRole === 'admin',
+          isRestaurantOwner: normalizedRole === 'restaurantowner',
+          isDeliveryStaff: normalizedRole === 'deliveryuser'
         };
       } else {
-        setError(response.error || 'Login failed');
+        const errorMessage = response.error || 'Login failed';
+        setError(errorMessage);
         setIsLoading(false);
         return { 
           success: false, 
-          error: response.error || 'Login failed. Please check your credentials.' 
+          error: errorMessage
         };
       }
     } catch (error) {
-      console.error('Login error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
@@ -217,10 +257,10 @@ export const AuthProvider = ({ children }) => {
   };
   
   // Helper functions to check user roles
-  const isAdmin = () => currentUser?.role === 'admin';
-  const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner';
-  const isDeliveryStaff = () => currentUser?.role === 'deliveryUser';
-  const isRegularUser = () => currentUser?.role === 'user';
+  const isAdmin = () => currentUser?.role?.toLowerCase() === 'admin';
+  const isRestaurantOwner = () => currentUser?.role?.toLowerCase() === 'restaurantowner';
+  const isDeliveryStaff = () => currentUser?.role?.toLowerCase() === 'deliveryuser';
+  const isRegularUser = () => currentUser?.role?.toLowerCase() === 'user';
   
   // Context value
   const value = {
