@@ -22,7 +22,7 @@ import {
   FaGift
 } from 'react-icons/fa';
 
-const DashboardLayout = ({ role = 'user', children }) => {
+const DashboardLayout = ({ children }) => {
   const location = useLocation();
   const dropdownRef = useRef(null);
   const { currentUser, logout } = useAuth();
@@ -30,6 +30,9 @@ const DashboardLayout = ({ role = 'user', children }) => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
+  // Get user role from currentUser
+  const userRole = currentUser?.role?.toLowerCase() || 'user';
   
   // Navigation items based on role
   const getNavItems = () => {
@@ -42,14 +45,14 @@ const DashboardLayout = ({ role = 'user', children }) => {
         { path: '/admin/deliveries', label: 'Deliveries', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
-      restaurantOwner: [
+      restaurantowner: [
         { path: '/restaurant/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/menu', label: 'Menu', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/analytics', label: 'Analytics', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
-      deliveryUser: [
+      deliveryuser: [
         { path: '/delivery/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/delivery/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/delivery/history', label: 'History', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
@@ -64,7 +67,7 @@ const DashboardLayout = ({ role = 'user', children }) => {
         { path: '/user/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
     };
-    return items[role] || items.user;
+    return items[userRole] || items.user;
   };
 
   useEffect(() => {
@@ -115,11 +118,11 @@ const DashboardLayout = ({ role = 'user', children }) => {
   const getRoleTitle = () => {
     const titles = {
       admin: 'Admin Panel',
-      restaurantOwner: 'Restaurant Panel',
-      deliveryUser: 'Delivery Panel',
+      restaurantowner: 'Restaurant Panel',
+      deliveryuser: 'Delivery Panel',
       user: 'User Dashboard'
     };
-    return titles[role] || 'Dashboard';
+    return titles[userRole] || 'Dashboard';
   };
 
   return (
@@ -141,7 +144,7 @@ const DashboardLayout = ({ role = 'user', children }) => {
       >
         {/* Logo and brand */}
         <div className="flex items-center justify-between h-16 px-4 bg-yumrun-primary dark:bg-yumrun-primary text-white">
-          <Link to={`/${role}/dashboard`} className="font-bold text-lg">
+          <Link to={`/${userRole}/dashboard`} className="font-bold text-lg">
             {getRoleTitle()}
           </Link>
           
@@ -201,7 +204,7 @@ const DashboardLayout = ({ role = 'user', children }) => {
             <div className="flex items-center space-x-4">
               {/* Notifications */}
               <Link 
-                to={`/${role}/notifications`}
+                to={`/${userRole}/notifications`}
                 className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
               >
                 <FaBell className="w-5 h-5" />
@@ -229,7 +232,7 @@ const DashboardLayout = ({ role = 'user', children }) => {
                 {showProfileDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50">
                     <Link
-                      to={`/${role}/profile`}
+                      to={`/${userRole}/profile`}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setShowProfileDropdown(false)}
                     >
@@ -261,7 +264,6 @@ const DashboardLayout = ({ role = 'user', children }) => {
 };
 
 DashboardLayout.propTypes = {
-  role: PropTypes.oneOf(['admin', 'restaurantOwner', 'deliveryUser', 'user']),
   children: PropTypes.node
 };
 

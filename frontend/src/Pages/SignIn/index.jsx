@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
@@ -8,6 +8,7 @@ import { Button, Input, Label, Checkbox, Alert, Card, Container } from "../../co
 const SignIn = () => {
     const context = useContext(MyContext);
     const { login } = useAuth();
+    const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -20,11 +21,11 @@ const SignIn = () => {
     // Get any success message passed from other pages
     const successMessage = location.state?.message || "";
     
-    // Hide header and footer for auth pages
-    context.setisHeaderFooterShow(false);
-
-    // Check for remembered email and error message on component mount
+    // Hide header and footer for auth pages - moved to useEffect
     useEffect(() => {
+        context.setisHeaderFooterShow(false);
+        
+        // Check for remembered email and error message
         const rememberedEmail = localStorage.getItem('rememberedEmail');
         const storedError = localStorage.getItem('signinError');
         
@@ -37,7 +38,12 @@ const SignIn = () => {
             setError(storedError);
             localStorage.removeItem('signinError'); // Clear the error after displaying
         }
-    }, []);
+        
+        // Cleanup function to restore header/footer when component unmounts
+        return () => {
+            context.setisHeaderFooterShow(true);
+        };
+    }, [context]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -73,19 +79,29 @@ const SignIn = () => {
         }
         
         try {
+            console.log('Attempting login with:', { email });
             // Attempt to login
             const response = await login(email, password);
+            console.log('Login response:', response);
             
             if (response.success) {
-                // Force a hard redirect to the dashboard
-                window.location.href = response.dashboardPath;
+                console.log('Login successful, redirecting to:', response.dashboardPath);
+                // Check stored user data
+                const storedUserData = localStorage.getItem('userData');
+                const userData = storedUserData ? JSON.parse(storedUserData) : null;
+                console.log('Stored user data:', userData);
+                
+                // Use React Router navigation instead of window.location
+                navigate(response.dashboardPath, { replace: true });
             } else {
                 // Display the specific error message from the backend
                 const errorMessage = response.error || "Login failed. Please try again.";
+                console.error('Login failed:', errorMessage);
                 setError(errorMessage);
                 localStorage.setItem('signinError', errorMessage);
             }
         } catch (err) {
+            console.error('Login error:', err);
             const errorMessage = err.message || "An unexpected error occurred. Please try again later.";
             setError(errorMessage);
             localStorage.setItem('signinError', errorMessage);

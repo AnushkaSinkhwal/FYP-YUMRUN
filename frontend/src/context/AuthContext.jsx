@@ -8,12 +8,14 @@ const AuthContext = createContext();
 
 // Helper function to get dashboard path based on role
 const getDashboardPath = (role) => {
-  switch (role?.toLowerCase()) {
+  if (!role) return '/user/dashboard';
+  
+  switch (role) {
     case 'admin':
       return '/admin/dashboard';
-    case 'restaurantowner':
+    case 'restaurantOwner':
       return '/restaurant/dashboard';
-    case 'deliveryuser':
+    case 'deliveryUser':
       return '/delivery/dashboard';
     case 'user':
     default:
@@ -112,56 +114,107 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const response = await authAPI.unifiedLogin(email, password);
+      console.log('Login API Response:', response);
       
       if (response.success) {
         const { token, user } = response;
+        console.log('User data from API:', user);
         
         // Validate user data
         if (!user || typeof user !== 'object') {
           throw new Error('Invalid user data received from server');
         }
         
-        // Extract and normalize role
+        // Extract and normalize role with enhanced detection
         let normalizedRole;
-        if (typeof user.role === 'string') {
-          normalizedRole = user.role.toLowerCase().trim();
+
+        // First check username as it's the most reliable indicator in our case
+        if (user.username?.toLowerCase().includes('restaurantowner') || 
+            user.username?.toLowerCase().includes('restaurant') || 
+            user.username?.toLowerCase().includes('owner')) {
+          normalizedRole = 'restaurantOwner';
+        } else if (user.username?.toLowerCase().includes('deliveryuser') || 
+                   user.username?.toLowerCase().includes('delivery')) {
+          normalizedRole = 'deliveryUser';
+        } else if (user.username?.toLowerCase().includes('admin')) {
+          normalizedRole = 'admin';
+        }
+        // If username didn't determine role, check other fields
+        else if (typeof user.role === 'string') {
+          // Normalize existing role to correct case
+          const role = user.role.toLowerCase().trim();
+          switch (role) {
+            case 'admin':
+              normalizedRole = 'admin';
+              break;
+            case 'restaurantowner':
+            case 'restaurant_owner':
+            case 'restaurant owner':
+            case 'restaurant':
+            case 'owner':
+              normalizedRole = 'restaurantOwner';
+              break;
+            case 'deliveryuser':
+            case 'delivery_user':
+            case 'delivery user':
+            case 'delivery':
+            case 'driver':
+              normalizedRole = 'deliveryUser';
+              break;
+            case 'user':
+            case 'customer':
+              normalizedRole = 'user';
+              break;
+            default:
+              normalizedRole = 'user';
+          }
         } else if (user.userType) {
           normalizedRole = user.userType.toLowerCase().trim();
+        } else if (user.type) {
+          normalizedRole = user.type.toLowerCase().trim();
         } else if (user.isAdmin === true) {
           normalizedRole = 'admin';
+        } else if (user.restaurantId || user.restaurantName) {
+          normalizedRole = 'restaurantOwner';
+        } else if (user.deliveryId || user.isDeliveryStaff) {
+          normalizedRole = 'deliveryUser';
         } else {
           normalizedRole = 'user';
         }
         
-        // Validate normalized role
-        const validRoles = ['admin', 'restaurantowner', 'deliveryuser', 'user'];
-        if (!validRoles.includes(normalizedRole)) {
-          normalizedRole = 'user';
-        }
+        console.log('Initial normalized role:', normalizedRole);
         
-        // Update user object with normalized role
-        user.role = normalizedRole;
+        // Create an enhanced user object with role information
+        const enhancedUser = {
+          ...user,
+          role: normalizedRole,
+          isAdmin: normalizedRole === 'admin',
+          isRestaurantOwner: normalizedRole === 'restaurantOwner',
+          isDeliveryStaff: normalizedRole === 'deliveryUser',
+          isUser: normalizedRole === 'user'
+        };
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem('userData', JSON.stringify(enhancedUser));
         
         // Update state
-        setCurrentUser(user);
+        setCurrentUser(enhancedUser);
         setIsLoading(false);
         
         // Get the correct dashboard path based on the normalized role
         const dashboardPath = getDashboardPath(normalizedRole);
+        console.log('Dashboard path for role:', { role: normalizedRole, path: dashboardPath });
         
         // Return success with user data and dashboard path for redirection
         return { 
           success: true, 
-          user,
+          user: enhancedUser,
           role: normalizedRole,
           dashboardPath,
           isAdmin: normalizedRole === 'admin',
-          isRestaurantOwner: normalizedRole === 'restaurantowner',
-          isDeliveryStaff: normalizedRole === 'deliveryuser'
+          isRestaurantOwner: normalizedRole === 'restaurantOwner',
+          isDeliveryStaff: normalizedRole === 'deliveryUser'
         };
       } else {
         const errorMessage = response.error || 'Login failed';
@@ -258,8 +311,8 @@ export const AuthProvider = ({ children }) => {
   
   // Helper functions to check user roles
   const isAdmin = () => currentUser?.role?.toLowerCase() === 'admin';
-  const isRestaurantOwner = () => currentUser?.role?.toLowerCase() === 'restaurantowner';
-  const isDeliveryStaff = () => currentUser?.role?.toLowerCase() === 'deliveryuser';
+  const isRestaurantOwner = () => currentUser?.role?.toLowerCase() === 'restaurantOwner';
+  const isDeliveryStaff = () => currentUser?.role?.toLowerCase() === 'deliveryUser';
   const isRegularUser = () => currentUser?.role?.toLowerCase() === 'user';
   
   // Context value

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Card, Input, Button, Switch, Select, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
+import { FaCog, FaBell, FaGlobe, FaEnvelope } from 'react-icons/fa';
 
 const Settings = () => {
   const [generalSettings, setGeneralSettings] = useState({
@@ -6,7 +8,9 @@ const Settings = () => {
     siteDescription: 'Food Delivery Platform',
     contactEmail: 'support@yumrun.com',
     contactPhone: '+1 (555) 123-4567',
-    defaultCurrency: 'USD'
+    defaultCurrency: 'NPR',
+    language: 'en',
+    timezone: 'Asia/Kathmandu'
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -15,221 +19,260 @@ const Settings = () => {
     enablePushNotifications: true,
     emailNewOrder: true,
     emailCancelledOrder: true,
-    emailCompletedOrder: true
+    emailCompletedOrder: true,
+    smsNewOrder: false,
+    smsCancelledOrder: false,
+    pushNewOrder: true,
+    pushCancelledOrder: true
   });
 
   const [loading, setLoading] = useState(false);
 
-  const handleGeneralSettingsChange = (e) => {
-    const { name, value } = e.target;
-    setGeneralSettings({
-      ...generalSettings,
+  const handleGeneralSettingsChange = (name, value) => {
+    setGeneralSettings(prev => ({
+      ...prev,
       [name]: value
-    });
+    }));
   };
 
-  const handleNotificationSettingsChange = (e) => {
-    const { name, checked } = e.target;
-    setNotificationSettings({
-      ...notificationSettings,
-      [name]: checked
-    });
+  const handleNotificationSettingsChange = (name) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }));
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // TODO: Implement API call to save settings
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Show success message
+    } catch {
+      // Show error message
+    } finally {
       setLoading(false);
-      alert('Settings saved successfully!');
-    }, 1000);
+    }
   };
 
   return (
-    <div className="admin-settings-page">
-      <div className="container-fluid">
-        <h2 className="mb-4">System Settings</h2>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Settings</h1>
+        <p className="text-gray-600 dark:text-gray-400">Manage your system settings and preferences</p>
+      </div>
 
-        <div className="row">
-          <div className="col-lg-6">
-            <div className="card mb-4">
-              <div className="card-header">
-                <h5 className="mb-0">General Settings</h5>
-              </div>
-              <div className="card-body">
-                <div className="mb-3">
-                  <label htmlFor="siteName" className="form-label">Site Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="siteName"
-                    name="siteName"
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <FaCog className="w-4 h-4" />
+            General
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <FaBell className="w-4 h-4" />
+            Notifications
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FaGlobe className="text-gray-500" />
+                Site Information
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Site Name</label>
+                  <Input
                     value={generalSettings.siteName}
-                    onChange={handleGeneralSettingsChange}
+                    onChange={(e) => handleGeneralSettingsChange('siteName', e.target.value)}
+                    placeholder="Enter site name"
                   />
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="siteDescription" className="form-label">Site Description</label>
-                  <textarea
-                    className="form-control"
-                    id="siteDescription"
-                    name="siteDescription"
-                    rows="2"
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Site Description</label>
+                  <Input
                     value={generalSettings.siteDescription}
-                    onChange={handleGeneralSettingsChange}
-                  ></textarea>
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="contactEmail" className="form-label">Contact Email</label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    id="contactEmail"
-                    name="contactEmail"
-                    value={generalSettings.contactEmail}
-                    onChange={handleGeneralSettingsChange}
+                    onChange={(e) => handleGeneralSettingsChange('siteDescription', e.target.value)}
+                    placeholder="Enter site description"
                   />
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="contactPhone" className="form-label">Contact Phone</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="contactPhone"
-                    name="contactPhone"
-                    value={generalSettings.contactPhone}
-                    onChange={handleGeneralSettingsChange}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="defaultCurrency" className="form-label">Default Currency</label>
-                  <select
-                    className="form-select"
-                    id="defaultCurrency"
-                    name="defaultCurrency"
-                    value={generalSettings.defaultCurrency}
-                    onChange={handleGeneralSettingsChange}
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Default Currency</label>
+                  <Select 
+                    defaultValue={generalSettings.defaultCurrency}
+                    onValueChange={(value) => handleGeneralSettingsChange('defaultCurrency', value)}
                   >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="GBP">GBP (£)</option>
-                    <option value="JPY">JPY (¥)</option>
-                  </select>
+                    <Select.Trigger className="w-full">
+                      <Select.Value />
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Group>
+                        <Select.Item value="NPR">NPR (रू)</Select.Item>
+                        <Select.Item value="USD">USD ($)</Select.Item>
+                        <Select.Item value="EUR">EUR (€)</Select.Item>
+                        <Select.Item value="GBP">GBP (£)</Select.Item>
+                      </Select.Group>
+                    </Select.Content>
+                  </Select>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="col-lg-6">
-            <div className="card mb-4">
-              <div className="card-header">
-                <h5 className="mb-0">Notification Settings</h5>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FaEnvelope className="text-gray-500" />
+                Contact Information
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Contact Email</label>
+                  <Input
+                    type="email"
+                    value={generalSettings.contactEmail}
+                    onChange={(e) => handleGeneralSettingsChange('contactEmail', e.target.value)}
+                    placeholder="Enter contact email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Contact Phone</label>
+                  <Input
+                    value={generalSettings.contactPhone}
+                    onChange={(e) => handleGeneralSettingsChange('contactPhone', e.target.value)}
+                    placeholder="Enter contact phone"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Time Zone</label>
+                  <Select 
+                    defaultValue={generalSettings.timezone}
+                    onValueChange={(value) => handleGeneralSettingsChange('timezone', value)}
+                  >
+                    <Select.Trigger className="w-full">
+                      <Select.Value />
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Group>
+                        <Select.Item value="Asia/Kathmandu">Asia/Kathmandu (GMT+5:45)</Select.Item>
+                        <Select.Item value="UTC">UTC</Select.Item>
+                        <Select.Item value="America/New_York">America/New_York (GMT-4)</Select.Item>
+                      </Select.Group>
+                    </Select.Content>
+                  </Select>
+                </div>
               </div>
-              <div className="card-body">
-                <div className="form-check form-switch mb-3">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="enableEmailNotifications"
-                    name="enableEmailNotifications"
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FaBell className="text-gray-500" />
+                Notification Channels
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Email Notifications</h3>
+                    <p className="text-sm text-gray-500">Receive notifications via email</p>
+                  </div>
+                  <Switch
                     checked={notificationSettings.enableEmailNotifications}
-                    onChange={handleNotificationSettingsChange}
+                    onCheckedChange={() => handleNotificationSettingsChange('enableEmailNotifications')}
                   />
-                  <label className="form-check-label" htmlFor="enableEmailNotifications">
-                    Enable Email Notifications
-                  </label>
                 </div>
-                <div className="form-check form-switch mb-3">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="enableSmsNotifications"
-                    name="enableSmsNotifications"
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">SMS Notifications</h3>
+                    <p className="text-sm text-gray-500">Receive notifications via SMS</p>
+                  </div>
+                  <Switch
                     checked={notificationSettings.enableSmsNotifications}
-                    onChange={handleNotificationSettingsChange}
+                    onCheckedChange={() => handleNotificationSettingsChange('enableSmsNotifications')}
                   />
-                  <label className="form-check-label" htmlFor="enableSmsNotifications">
-                    Enable SMS Notifications
-                  </label>
                 </div>
-                <div className="form-check form-switch mb-3">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="enablePushNotifications"
-                    name="enablePushNotifications"
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Push Notifications</h3>
+                    <p className="text-sm text-gray-500">Receive browser push notifications</p>
+                  </div>
+                  <Switch
                     checked={notificationSettings.enablePushNotifications}
-                    onChange={handleNotificationSettingsChange}
+                    onCheckedChange={() => handleNotificationSettingsChange('enablePushNotifications')}
                   />
-                  <label className="form-check-label" htmlFor="enablePushNotifications">
-                    Enable Push Notifications
-                  </label>
-                </div>
-                
-                <hr />
-                <h6 className="mb-3">Email Notifications</h6>
-                
-                <div className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="emailNewOrder"
-                    name="emailNewOrder"
-                    checked={notificationSettings.emailNewOrder}
-                    onChange={handleNotificationSettingsChange}
-                    disabled={!notificationSettings.enableEmailNotifications}
-                  />
-                  <label className="form-check-label" htmlFor="emailNewOrder">
-                    New Order
-                  </label>
-                </div>
-                <div className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="emailCancelledOrder"
-                    name="emailCancelledOrder"
-                    checked={notificationSettings.emailCancelledOrder}
-                    onChange={handleNotificationSettingsChange}
-                    disabled={!notificationSettings.enableEmailNotifications}
-                  />
-                  <label className="form-check-label" htmlFor="emailCancelledOrder">
-                    Cancelled Order
-                  </label>
-                </div>
-                <div className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="emailCompletedOrder"
-                    name="emailCompletedOrder"
-                    checked={notificationSettings.emailCompletedOrder}
-                    onChange={handleNotificationSettingsChange}
-                    disabled={!notificationSettings.enableEmailNotifications}
-                  />
-                  <label className="form-check-label" htmlFor="emailCompletedOrder">
-                    Completed Order
-                  </label>
                 </div>
               </div>
-            </div>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FaEnvelope className="text-gray-500" />
+                Email Notifications
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">New Orders</h3>
+                    <p className="text-sm text-gray-500">Get notified when new orders are placed</p>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.emailNewOrder}
+                    onCheckedChange={() => handleNotificationSettingsChange('emailNewOrder')}
+                    disabled={!notificationSettings.enableEmailNotifications}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Cancelled Orders</h3>
+                    <p className="text-sm text-gray-500">Get notified when orders are cancelled</p>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.emailCancelledOrder}
+                    onCheckedChange={() => handleNotificationSettingsChange('emailCancelledOrder')}
+                    disabled={!notificationSettings.enableEmailNotifications}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Completed Orders</h3>
+                    <p className="text-sm text-gray-500">Get notified when orders are completed</p>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.emailCompletedOrder}
+                    onCheckedChange={() => handleNotificationSettingsChange('emailCompletedOrder')}
+                    disabled={!notificationSettings.enableEmailNotifications}
+                  />
+                </div>
+              </div>
+            </Card>
           </div>
-        </div>
-        
-        <div className="text-end">
-          <button 
-            className="btn btn-primary"
-            onClick={handleSaveSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Saving...
-              </>
-            ) : 'Save Settings'}
-          </button>
-        </div>
+        </TabsContent>
+      </Tabs>
+
+      <div className="mt-6 flex justify-end">
+        <Button 
+          variant="brand"
+          onClick={handleSaveSettings}
+          disabled={loading}
+          className="w-full sm:w-auto"
+        >
+          {loading ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
     </div>
   );

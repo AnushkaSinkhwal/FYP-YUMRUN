@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
-import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem, Container } from "../../components/ui";
+import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem, Container, Switch } from "../../components/ui";
 
 const SignUp = () => {
     const context = useContext(MyContext);
@@ -65,6 +65,14 @@ const SignUp = () => {
         const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
         return re.test(String(email).toLowerCase());
     };
+
+    const [timezone, setTimezone] = useState("Asia/Kathmandu");
+    const [defaultCurrency, setDefaultCurrency] = useState("NPR");
+    const [notificationPreferences, setNotificationPreferences] = useState({
+        enableEmailNotifications: true,
+        enableSmsNotifications: false,
+        enablePushNotifications: true
+    });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -139,7 +147,15 @@ const SignUp = () => {
             email,
             password,
             phone: contact,
-            role
+            role,
+            timezone,
+            defaultCurrency,
+            notificationPreferences,
+            settings: {
+                emailNotifications: notificationPreferences.enableEmailNotifications,
+                smsNotifications: notificationPreferences.enableSmsNotifications,
+                pushNotifications: notificationPreferences.enablePushNotifications
+            }
         };
         
         // Add role-specific data
@@ -212,119 +228,196 @@ const SignUp = () => {
                                 </RadioGroup>
                             </div>
                             
-                            <div className="space-y-2">
-                                <Label htmlFor="fullName">
-                                    Full Name
-                                </Label>
-                                <Input
-                                    type="text"
-                                    id="fullName"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    placeholder="Enter your full name"
-                                    required
-                                    className="w-full"
-                                />
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <Label htmlFor="email">
-                                    Email Address
-                                </Label>
-                                <Input
-                                    type="email"
-                                    id="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Enter your email address"
-                                    required
-                                    className="w-full"
-                                />
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <Label htmlFor="contact">
-                                    Contact Number
-                                </Label>
-                                <Input
-                                    type="tel"
-                                    id="contact"
-                                    value={contact}
-                                    onChange={(e) => setContact(e.target.value)}
-                                    placeholder="Enter your contact number"
-                                    required
-                                    className="w-full"
-                                />
-                            </div>
-                            
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Personal Information</h3>
                                 <div className="space-y-2">
-                                    <Label htmlFor="password">
-                                        Password
-                                    </Label>
+                                    <Label htmlFor="fullName">Full Name</Label>
                                     <Input
-                                        type="password"
-                                        id="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Create a password"
+                                        type="text"
+                                        id="fullName"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        placeholder="Enter your full name"
                                         required
                                         className="w-full"
                                     />
-                                    {passwordStrength && (
-                                        <div className={`text-xs mt-1 ${
-                                            passwordStrength === "weak" ? "text-red-500" : 
-                                            passwordStrength === "medium" ? "text-amber-500" : 
-                                            "text-green-500"
-                                        }`}>
-                                            Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
-                                        </div>
-                                    )}
                                 </div>
                                 
                                 <div className="space-y-2">
-                                    <Label htmlFor="confirmPassword">
-                                        Confirm Password
-                                    </Label>
+                                    <Label htmlFor="email">Email Address</Label>
                                     <Input
-                                        type="password"
-                                        id="confirmPassword"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        placeholder="Confirm your password"
+                                        type="email"
+                                        id="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="Enter your email address"
+                                        required
+                                        className="w-full"
+                                    />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <Label htmlFor="contact">Contact Number</Label>
+                                    <Input
+                                        type="tel"
+                                        id="contact"
+                                        value={contact}
+                                        onChange={(e) => setContact(e.target.value)}
+                                        placeholder="Enter your contact number"
                                         required
                                         className="w-full"
                                     />
                                 </div>
                             </div>
-                            
+
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Account Settings</h3>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="timezone">Time Zone</Label>
+                                        <Select
+                                            id="timezone"
+                                            value={timezone}
+                                            onValueChange={setTimezone}
+                                            className="w-full"
+                                        >
+                                            <option value="Asia/Kathmandu">Asia/Kathmandu (GMT+5:45)</option>
+                                            <option value="UTC">UTC</option>
+                                            <option value="America/New_York">America/New_York (GMT-4)</option>
+                                        </Select>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label htmlFor="defaultCurrency">Default Currency</Label>
+                                        <Select
+                                            id="defaultCurrency"
+                                            value={defaultCurrency}
+                                            onValueChange={setDefaultCurrency}
+                                            className="w-full"
+                                        >
+                                            <option value="NPR">NPR (रू)</option>
+                                            <option value="USD">USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                            <option value="GBP">GBP (£)</option>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Notification Preferences</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label>Email Notifications</Label>
+                                            <p className="text-sm text-gray-500">Receive updates via email</p>
+                                        </div>
+                                        <Switch
+                                            checked={notificationPreferences.enableEmailNotifications}
+                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                                ...prev,
+                                                enableEmailNotifications: checked
+                                            }))}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label>SMS Notifications</Label>
+                                            <p className="text-sm text-gray-500">Receive updates via SMS</p>
+                                        </div>
+                                        <Switch
+                                            checked={notificationPreferences.enableSmsNotifications}
+                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                                ...prev,
+                                                enableSmsNotifications: checked
+                                            }))}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label>Push Notifications</Label>
+                                            <p className="text-sm text-gray-500">Receive browser notifications</p>
+                                        </div>
+                                        <Switch
+                                            checked={notificationPreferences.enablePushNotifications}
+                                            onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                                ...prev,
+                                                enablePushNotifications: checked
+                                            }))}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Security</h3>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password">Password</Label>
+                                        <Input
+                                            type="password"
+                                            id="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Create a password"
+                                            required
+                                            className="w-full"
+                                        />
+                                        {passwordStrength && (
+                                            <div className={`text-xs mt-1 ${
+                                                passwordStrength === "weak" ? "text-red-500" : 
+                                                passwordStrength === "medium" ? "text-amber-500" : 
+                                                "text-green-500"
+                                            }`}>
+                                                Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                        <Input
+                                            type="password"
+                                            id="confirmPassword"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="Confirm your password"
+                                            required
+                                            className="w-full"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Role-specific fields */}
                             {role === "user" && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="healthCondition">
-                                        Health Condition
-                                    </Label>
-                                    <Select
-                                        id="healthCondition"
-                                        value={healthCondition}
-                                        onChange={(e) => setHealthCondition(e.target.value)}
-                                        required
-                                        className="w-full"
-                                    >
-                                        <option value="Healthy">Healthy</option>
-                                        <option value="Diabetes">Diabetes</option>
-                                        <option value="Heart Condition">Heart Condition</option>
-                                        <option value="Hypertension">Hypertension</option>
-                                        <option value="Other">Other</option>
-                                    </Select>
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-gray-700">Health Information</h3>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="healthCondition">Health Condition</Label>
+                                        <Select
+                                            id="healthCondition"
+                                            value={healthCondition}
+                                            onValueChange={setHealthCondition}
+                                            className="w-full"
+                                        >
+                                            <option value="Healthy">Healthy</option>
+                                            <option value="Diabetes">Diabetes</option>
+                                            <option value="Heart Condition">Heart Condition</option>
+                                            <option value="Hypertension">Hypertension</option>
+                                            <option value="Other">Other</option>
+                                        </Select>
+                                    </div>
                                 </div>
                             )}
                             
                             {role === "restaurantOwner" && (
-                                <>
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-gray-700">Restaurant Information</h3>
                                     <div className="space-y-2">
-                                        <Label htmlFor="restaurantName">
-                                            Restaurant Name
-                                        </Label>
+                                        <Label htmlFor="restaurantName">Restaurant Name</Label>
                                         <Input
                                             type="text"
                                             id="restaurantName"
@@ -337,9 +430,7 @@ const SignUp = () => {
                                     </div>
                                     
                                     <div className="space-y-2">
-                                        <Label htmlFor="restaurantAddress">
-                                            Restaurant Address
-                                        </Label>
+                                        <Label htmlFor="restaurantAddress">Restaurant Address</Label>
                                         <Input
                                             type="text"
                                             id="restaurantAddress"
@@ -350,7 +441,7 @@ const SignUp = () => {
                                             className="w-full"
                                         />
                                     </div>
-                                </>
+                                </div>
                             )}
                             
                             <Button
