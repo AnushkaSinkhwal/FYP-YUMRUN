@@ -5,6 +5,8 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator'); // For validation
 const jwt = require('jsonwebtoken');
 const { auth } = require('../middleware/auth');
+const Notification = require('../models/notification');
+const RestaurantApproval = require('../models/restaurantApproval');
 
 // Sign Up Route
 router.post(
@@ -161,41 +163,188 @@ router.post('/login', async (req, res) => {
 
 // User Profile Routes
 
-// GET user profile
+/**
+ * @route   GET /api/user/profile
+ * @desc    Get the current user's profile
+ * @access  Private
+ */
 router.get('/profile', auth, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        // Prepare response based on user type
-        const userData = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            isAdmin: user.isAdmin,
-            isRestaurantOwner: user.isRestaurantOwner,
-            isDeliveryStaff: user.isDeliveryStaff
-        };
-
-        // Add role-specific data
-        if (!user.isAdmin && !user.isRestaurantOwner && !user.isDeliveryStaff) {
-            userData.healthCondition = user.healthCondition;
-        }
-
-        if (user.isRestaurantOwner && user.restaurantDetails) {
-            userData.restaurantDetails = user.restaurantDetails;
-        }
-
-        res.status(200).json({
-            success: true,
-            user: userData
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
+    
+    return res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching profile'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/user/profile
+ * @desc    Update the current user's profile
+ * @access  Private
+ */
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { fullName, phone, healthCondition } = req.body;
+    
+    // Find the user
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Store original values for change tracking
+    const changes = {};
+    
+    // Update fields if provided
+    if (fullName && fullName !== user.fullName) {
+      changes.fullName = { from: user.fullName, to: fullName };
+      user.fullName = fullName;
+    }
+    
+    if (phone && phone !== user.phone) {
+      changes.phone = { from: user.phone, to: phone };
+      user.phone = phone;
+    }
+    
+    if (healthCondition && healthCondition !== user.healthCondition) {
+      changes.healthCondition = { from: user.healthCondition, to: healthCondition };
+      user.healthCondition = healthCondition;
+    }
+    
+    // Save user
+    await user.save();
+    
+    // No approval needed for basic profile updates
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating profile'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/user/profile/email
+ * @desc    Request to update user's email (requires admin approval)
+ * @access  Private
+ */
+router.put('/profile/email', auth, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+    
+    // Check if email is already in use
+    const existingUser = await User.findOne({ email, _id: { $ne: req.user.userId } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already in use'
+      });
+    }
+    
+    // Find the user
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Create an approval request
+    const approvalRequest = new RestaurantApproval({
+      userId: user._id,
+      type: 'EMAIL_CHANGE',
+      details: {
+        oldEmail: user.email,
+        newEmail: email
+      },
+      status: 'PENDING'
+    });
+    
+    await approvalRequest.save();
+    
+    // Notify admin of the request
+    const adminNotification = new Notification({
+      userId: null, // For all admins
+      title: 'Email Change Request',
+      message: `User ${user.fullName} has requested to change their email from ${user.email} to ${email}.`,
+      type: 'APPROVAL_REQUEST',
+      status: 'UNREAD',
+      metadata: {
+        approvalId: approvalRequest._id
+      }
+    });
+    
+    await adminNotification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Email change request submitted for approval',
+      approvalRequest
+    });
+  } catch (error) {
+    console.error('Email change request error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error submitting email change request'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/user/approval-requests
+ * @desc    Get all approval requests for the current user
+ * @access  Private
+ */
+router.get('/approval-requests', auth, async (req, res) => {
+  try {
+    const approvalRequests = await RestaurantApproval.find({ userId: req.user.userId })
+      .sort({ createdAt: -1 });
+    
+    return res.status(200).json({
+      success: true,
+      approvalRequests
+    });
+  } catch (error) {
+    console.error('Get approval requests error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching approval requests'
+    });
+  }
 });
 
 // PUT update health details (regular users only)
@@ -224,113 +373,6 @@ router.put('/health-details', auth, async (req, res) => {
                 name: user.name,
                 email: user.email,
                 healthCondition: user.healthCondition
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// PUT update user profile
-router.put('/profile', auth, async (req, res) => {
-    try {
-        // Find the current user data to compare changes
-        const currentUser = await User.findById(req.user.id);
-        if (!currentUser) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        // Check if this is a restaurant owner (for approval process)
-        const isRestaurantOwner = currentUser.isRestaurantOwner;
-        const hasChanges = req.body.name !== currentUser.name || 
-                         req.body.email !== currentUser.email || 
-                         req.body.phone !== currentUser.phone;
-
-        // For restaurant owners, if there are changes, we create a pending request
-        // and don't immediately apply changes
-        if (isRestaurantOwner && hasChanges) {
-            // In a real implementation, save to a Notifications or PendingChanges collection
-            // For this mock implementation, we'll return a success message
-            
-            // For a real app, you would:
-            // 1. Create a notification in the database
-            // 2. Return the original user data until approved
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Your profile update request has been submitted for approval. Changes will be applied once approved by an administrator.',
-                user: {
-                    id: currentUser._id,
-                    name: currentUser.name,
-                    email: currentUser.email,
-                    phone: currentUser.phone,
-                    isAdmin: currentUser.isAdmin,
-                    isRestaurantOwner: currentUser.isRestaurantOwner,
-                    isDeliveryStaff: currentUser.isDeliveryStaff,
-                    restaurantDetails: currentUser.restaurantDetails
-                }
-            });
-        }
-        
-        // For regular users and admins, apply changes immediately
-        const updatedFields = {};
-        
-        // Only update fields that are provided
-        if (req.body.name) updatedFields.name = req.body.name;
-        if (req.body.phone) updatedFields.phone = req.body.phone;
-        
-        // Email change requires special verification (in a real app)
-        // For now, just update it
-        if (req.body.email && req.body.email !== currentUser.email) {
-            // Check if the new email is already in use
-            const emailExists = await User.findOne({ email: req.body.email });
-            if (emailExists) {
-                return res.status(400).json({ success: false, message: 'Email already in use' });
-            }
-            updatedFields.email = req.body.email;
-        }
-        
-        // Update restaurant details if applicable and provided
-        if (isRestaurantOwner && req.body.restaurantDetails) {
-            // Don't allow changes to approval status via this route
-            const { name, address, description, cuisineType } = req.body.restaurantDetails;
-            
-            if (!currentUser.restaurantDetails) {
-                currentUser.restaurantDetails = {};
-            }
-            
-            if (name) updatedFields['restaurantDetails.name'] = name;
-            if (address) updatedFields['restaurantDetails.address'] = address;
-            if (description) updatedFields['restaurantDetails.description'] = description;
-            if (cuisineType) updatedFields['restaurantDetails.cuisineType'] = cuisineType;
-        }
-        
-        // Update health condition for regular users
-        if (!isRestaurantOwner && !currentUser.isAdmin && !currentUser.isDeliveryStaff && req.body.healthCondition) {
-            updatedFields.healthCondition = req.body.healthCondition;
-        }
-
-        // Update the user
-        const updatedUser = await User.findByIdAndUpdate(
-            req.user.id,
-            { $set: updatedFields },
-            { new: true }
-        );
-
-        // Return the updated user
-        res.status(200).json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: updatedUser._id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                phone: updatedUser.phone,
-                healthCondition: updatedUser.healthCondition,
-                isAdmin: updatedUser.isAdmin,
-                isRestaurantOwner: updatedUser.isRestaurantOwner,
-                isDeliveryStaff: updatedUser.isDeliveryStaff,
-                ...(updatedUser.restaurantDetails && { restaurantDetails: updatedUser.restaurantDetails })
             }
         });
     } catch (error) {

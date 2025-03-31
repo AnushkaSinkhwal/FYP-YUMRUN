@@ -115,6 +115,21 @@ export const authAPI = {
     return api.get('/auth/me');
   },
   
+  // Update user profile
+  updateProfile: async (profileData) => {
+    return api.put('/user/profile', profileData);
+  },
+  
+  // Request email change (requires admin approval)
+  requestEmailChange: async (newEmail) => {
+    return api.put('/user/profile/email', { email: newEmail });
+  },
+  
+  // Get user's approval requests
+  getApprovalRequests: async () => {
+    return api.get('/user/approval-requests');
+  },
+  
   // Logout user (client-side)
   logout: async () => {
     localStorage.removeItem('authToken');
@@ -148,6 +163,21 @@ export const adminAPI = {
   // Delete user (admin only)
   deleteUser: async (userId) => {
     return api.delete(`/admin/users/${userId}`);
+  },
+  
+  // Update admin's own profile
+  updateProfile: async (profileData) => {
+    return api.put('/admin/profile', profileData);
+  },
+  
+  // Get all pending approval requests
+  getApprovalRequests: async () => {
+    return api.get('/admin/approval-requests');
+  },
+  
+  // Process an approval request (approve or reject)
+  processApprovalRequest: async (requestId, { status, feedback }) => {
+    return api.post(`/admin/approval/${requestId}`, { status, feedback });
   },
   
   // Get all deliveries
@@ -188,16 +218,6 @@ export const adminAPI = {
   // Process notification (approve/reject)
   processNotification: async (notificationId, action) => {
     return api.post(`/admin/notifications/${notificationId}/process`, { action });
-  },
-  
-  // Approve user profile changes
-  approveProfileChanges: async (userId, changes) => {
-    return api.post(`/admin/users/${userId}/approve-changes`, changes);
-  },
-  
-  // Reject user profile changes
-  rejectProfileChanges: async (userId, reason) => {
-    return api.post(`/admin/users/${userId}/reject-changes`, { reason });
   }
 };
 

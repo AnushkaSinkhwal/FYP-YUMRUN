@@ -174,7 +174,7 @@ router.get('/users/:userId', auth, isAdmin, async (req, res) => {
  */
 router.put('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
-    const { name, email, phone, isAdmin, isRestaurantOwner, isDeliveryStaff } = req.body;
+    const { fullName, email, phone, role, isActive } = req.body;
     
     // Find the user
     const user = await User.findById(req.params.userId);
@@ -187,17 +187,25 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
     }
     
     // Update user fields
-    if (name) user.name = name;
+    if (fullName) user.fullName = fullName;
     if (email) user.email = email;
     if (phone) user.phone = phone;
-    
-    // Update role fields if provided
-    if (isAdmin !== undefined) user.isAdmin = isAdmin;
-    if (isRestaurantOwner !== undefined) user.isRestaurantOwner = isRestaurantOwner;
-    if (isDeliveryStaff !== undefined) user.isDeliveryStaff = isDeliveryStaff;
+    if (role !== undefined) user.role = role;
+    if (isActive !== undefined) user.isActive = isActive;
     
     // Save the updated user
     await user.save();
+    
+    // Send notification about the update
+    const notification = new Notification({
+      userId: user._id,
+      title: 'Profile Updated',
+      message: `Your profile information was updated by an administrator.`,
+      type: 'PROFILE_UPDATE',
+      status: 'UNREAD'
+    });
+    
+    await notification.save();
     
     return res.status(200).json({
       success: true,
@@ -209,6 +217,47 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error updating user'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/profile
+ * @desc    Update admin's own profile
+ * @access  Private/Admin
+ */
+router.put('/profile', auth, isAdmin, async (req, res) => {
+  try {
+    const { fullName, email, phone } = req.body;
+    
+    // Find the admin user
+    const admin = await User.findById(req.user.userId);
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+    
+    // Update admin fields
+    if (fullName) admin.fullName = fullName;
+    if (email) admin.email = email;
+    if (phone) admin.phone = phone;
+    
+    // Save the updated admin
+    await admin.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: admin
+    });
+  } catch (error) {
+    console.error('Update admin profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating profile'
     });
   }
 });
@@ -814,6 +863,78 @@ router.post('/notifications/:id', auth, isAdmin, (req, res) => {
             message: 'Server error. Please try again.'
         });
     }
+});
+
+/**
+ * @route   POST /api/admin/approval/:requestId
+ * @desc    Approve or reject a change request
+ * @access  Private/Admin
+ */
+router.post('/approval/:requestId', auth, isAdmin, async (req, res) => {
+  try {
+    const { status, feedback } = req.body;
+    
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value'
+      });
+    }
+    
+    // Find the approval request
+    const approvalRequest = await RestaurantApproval.findById(req.params.requestId);
+    
+    if (!approvalRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Approval request not found'
+      });
+    }
+    
+    // Update the request status
+    approvalRequest.status = status;
+    approvalRequest.feedback = feedback || '';
+    approvalRequest.processedAt = Date.now();
+    approvalRequest.processedBy = req.user.userId;
+    
+    await approvalRequest.save();
+    
+    // If approved, update the user/restaurant details
+    if (status === 'APPROVED' && approvalRequest.type === 'RESTAURANT_REGISTRATION') {
+      const user = await User.findById(approvalRequest.userId);
+      if (user) {
+        if (user.restaurantDetails) {
+          user.restaurantDetails.approved = true;
+        }
+        await user.save();
+      }
+    }
+    
+    // Create notification for the user
+    const notification = new Notification({
+      userId: approvalRequest.userId,
+      title: `Request ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+      message: status === 'APPROVED' 
+        ? 'Your request has been approved by the administrator.' 
+        : `Your request has been rejected. Reason: ${feedback || 'No specific reason provided.'}`,
+      type: 'APPROVAL_UPDATE',
+      status: 'UNREAD'
+    });
+    
+    await notification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: `Request ${status === 'APPROVED' ? 'approved' : 'rejected'} successfully`,
+      approvalRequest
+    });
+  } catch (error) {
+    console.error('Approval request error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error processing approval request'
+    });
+  }
 });
 
 module.exports = router; 

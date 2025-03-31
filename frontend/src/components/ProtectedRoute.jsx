@@ -31,10 +31,11 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         return <Navigate to="/admin/dashboard" replace />;
       case 'restaurantOwner':
         return <Navigate to="/restaurant/dashboard" replace />;
-      case 'deliveryUser':
+      case 'deliveryRider':
         return <Navigate to="/delivery/dashboard" replace />;
+      case 'customer':
       default:
-        return <Navigate to="/user/dashboard" replace />;
+        return <Navigate to="/" replace />;
     }
   }
   
@@ -45,7 +46,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 // PropTypes validation
 ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
-  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['admin', 'restaurantOwner', 'deliveryUser', 'user']))
+  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['admin', 'restaurantOwner', 'deliveryRider', 'customer']))
 };
 
 ProtectedRoute.defaultProps = {

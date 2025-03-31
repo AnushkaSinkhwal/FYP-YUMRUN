@@ -7,7 +7,7 @@ const { auth } = require('../middleware/auth');
 
 /**
  * @route   POST /api/auth/login
- * @desc    Login user (all types)
+ * @desc    Login user (all types including admin)
  * @access  Public
  */
 router.post('/login', async (req, res) => {
@@ -76,12 +76,23 @@ router.post('/login', async (req, res) => {
       deliveryRiderDetails: user.deliveryRiderDetails
     };
 
+    // Determine dashboard redirect based on user role
+    let dashboardPath = '/';
+    if (user.role === 'admin') {
+      dashboardPath = '/admin/dashboard'; // Admin dashboard
+    } else if (user.role === 'restaurantOwner') {
+      dashboardPath = '/restaurant/dashboard'; // Restaurant dashboard
+    } else if (user.role === 'deliveryRider') {
+      dashboardPath = '/delivery/dashboard'; // Delivery dashboard
+    }
+
     // Return success response
     return res.status(200).json({
       success: true,
       message: 'Login successful',
       token,
-      user: userData
+      user: userData,
+      dashboardPath // Include the dashboard path
     });
   } catch (error) {
     console.error('Login error:', error);

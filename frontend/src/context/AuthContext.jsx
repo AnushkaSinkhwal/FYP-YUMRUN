@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       
       // This is a successful API response
       if (response.data && response.data.success) {
-        const { token, user } = response.data;
+        const { token, user, dashboardPath } = response.data;
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
@@ -75,7 +75,8 @@ export const AuthProvider = ({ children }) => {
         return { 
           success: true, 
           user,
-          dashboardPath: getDashboardPath(user.role)
+          // Use the server-provided dashboard path or calculate it
+          dashboardPath: dashboardPath || getDashboardPath(user.role)
         };
       } else {
         // Unexpected response format
@@ -118,7 +119,11 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(user);
         setIsLoading(false);
         
-        return { success: true, user };
+        return { 
+          success: true, 
+          user,
+          dashboardPath: getDashboardPath(user.role)
+        };
       } else {
         setError(response.data.message || 'Registration failed');
         setIsLoading(false);
@@ -127,6 +132,39 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Registration error:', error);
       const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+  
+  // Update profile
+  const updateProfile = async (profileData) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authAPI.updateProfile(profileData);
+      
+      if (response.data.success) {
+        const { user } = response.data;
+        
+        // Update stored user data
+        localStorage.setItem('userData', JSON.stringify(user));
+        
+        // Update state
+        setCurrentUser(user);
+        setIsLoading(false);
+        
+        return { success: true, user };
+      } else {
+        setError(response.data.message || 'Profile update failed');
+        setIsLoading(false);
+        return { success: false, error: response.data.message || 'Profile update failed' };
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      const errorMessage = error.response?.data?.message || 'Profile update failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };
@@ -154,6 +192,7 @@ export const AuthProvider = ({ children }) => {
     register,
     login,
     logout,
+    updateProfile,
     isCustomer,
     isRestaurantOwner,
     isDeliveryRider,
