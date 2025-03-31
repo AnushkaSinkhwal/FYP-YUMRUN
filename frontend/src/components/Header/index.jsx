@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Logo from '../../assets/images/logo.png'; // Updated logo path
 import CityDropdown from "../CityDropdown";
-import { FaRegUserCircle, FaSearch, FaMapMarkerAlt, FaSignOutAlt, FaUser } from "react-icons/fa";
+import { FaRegUserCircle, FaSearch, FaMapMarkerAlt, FaSignOutAlt, FaUser, FaUtensils } from "react-icons/fa";
 import { RiDashboardLine } from "react-icons/ri";
 import { BsTelephone } from "react-icons/bs";
 import { MdOutlineEmail } from "react-icons/md";
@@ -214,6 +214,17 @@ const Header = () => {
                         >
                           <RiDashboardLine className="mr-2" />
                           Admin Dashboard
+                        </Link>
+                      )}
+                      
+                      {currentUser.isRestaurantOwner && (
+                        <Link 
+                          to="/restaurant/dashboard" 
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                          onClick={() => setShowUserDropdown(false)}
+                        >
+                          <FaUtensils className="mr-2" />
+                          Restaurant Dashboard
                         </Link>
                       )}
                       

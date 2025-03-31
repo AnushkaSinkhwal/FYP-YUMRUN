@@ -23,8 +23,17 @@ export {
 } from "./dialog";
 export { Input } from "./input";
 export { Label } from "./label";
+export { Progress } from "./progress";
 export { RadioGroup, RadioGroupItem } from "./radio-group";
-export { Select } from "./select";
+export { 
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from "./select";
 export { Separator } from "./separator";
 export { Spinner } from "./spinner";
-export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs"; 
+export { Switch } from "./switch";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+export { Textarea } from "./textarea"; 

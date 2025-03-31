@@ -25,6 +25,22 @@ const SignIn = () => {
     // Hide header and footer for auth pages
     context.setisHeaderFooterShow(false);
 
+    // Check for remembered email and error message on component mount
+    useEffect(() => {
+        const rememberedEmail = localStorage.getItem('rememberedEmail');
+        const storedError = localStorage.getItem('signinError');
+        
+        if (rememberedEmail) {
+            setEmail(rememberedEmail);
+            setRememberMe(true);
+        }
+        
+        if (storedError) {
+            setError(storedError);
+            localStorage.removeItem('signinError'); // Clear the error after displaying
+        }
+    }, []);
+
     const validateEmail = (email) => {
         const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
         return re.test(String(email).toLowerCase()) || email.includes('@');
@@ -36,16 +52,19 @@ const SignIn = () => {
         
         // Clear previous errors
         setError("");
+        localStorage.removeItem('signinError');
         
         // Validate input
         if (!email || !password) {
             setError("Please fill in all fields");
+            localStorage.setItem('signinError', "Please fill in all fields");
             return;
         }
         
         // Validate email format (if it looks like an email)
         if (email.includes('@') && !validateEmail(email)) {
             setError("Please enter a valid email address");
+            localStorage.setItem('signinError', "Please enter a valid email address");
             return;
         }
         
@@ -67,15 +86,25 @@ const SignIn = () => {
                     return;
                 }
                 
-                // Redirect to previous page or home
+                // If user is restaurant owner, redirect to restaurant dashboard
+                if (result.user.isRestaurantOwner) {
+                    navigate('/restaurant/dashboard', { replace: true });
+                    return;
+                }
+                
+                // Redirect to previous page or home for other users
                 navigate(from, { replace: true });
             } else {
                 // Display the specific error message from the backend
-                setError(result?.error || "Authentication failed. Please check your credentials.");
+                const errorMessage = result?.error || "Authentication failed. Please check your credentials.";
+                setError(errorMessage);
+                localStorage.setItem('signinError', errorMessage);
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError("An unexpected error occurred. Please try again later.");
+            const errorMessage = "An unexpected error occurred. Please try again later.";
+            setError(errorMessage);
+            localStorage.setItem('signinError', errorMessage);
         }
     };
 
@@ -103,21 +132,12 @@ const SignIn = () => {
         }
     };
 
-    // Check for remembered email on component mount
-    useEffect(() => {
-        const rememberedEmail = localStorage.getItem('rememberedEmail');
-        if (rememberedEmail) {
-            setEmail(rememberedEmail);
-            setRememberMe(true);
-        }
-    }, []);
-
     return (
         <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-white to-[#ffe9e2] p-5">
             <Container className="max-w-5xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white rounded-lg shadow-xl overflow-hidden">
+                <div className="grid grid-cols-1 gap-8 overflow-hidden bg-white rounded-lg shadow-xl md:grid-cols-2">
                     {/* Left side - Sign In Form */}
-                    <div className="p-8 flex flex-col justify-center">
+                    <div className="flex flex-col justify-center p-8">
                         <div className="flex justify-center mb-6">
                             <Link to="/">
                                 <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
@@ -125,7 +145,7 @@ const SignIn = () => {
                         </div>
                         
                         <div className="mb-6 text-center">
-                            <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back!</h1>
+                            <h1 className="mb-2 text-2xl font-bold text-gray-800">Welcome Back!</h1>
                             <p className="text-gray-600">Sign in to access your YumRun account</p>
                         </div>
                         
@@ -184,11 +204,11 @@ const SignIn = () => {
                                         checked={rememberMe}
                                         onChange={(e) => setRememberMe(e.target.checked)}
                                     />
-                                    <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+                                    <label htmlFor="remember" className="block ml-2 text-sm text-gray-700">
                                         Remember me
                                     </label>
                                 </div>
-                                <Link to="/forgot-password" className="text-sm text-yumrun-orange hover:text-yumrun-orange-dark hover:underline font-medium">
+                                <Link to="/forgot-password" className="text-sm font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
                                     Forgot password?
                                 </Link>
                             </div>
@@ -203,10 +223,10 @@ const SignIn = () => {
                                 {isLoading ? "Signing in..." : "Sign In"}
                             </Button>
                             
-                            <div className="text-center mt-4">
+                            <div className="mt-4 text-center">
                                 <p className="text-sm text-gray-600">
                                     Don&apos;t have an account?{" "}
-                                    <Link to="/signup" className="text-yumrun-orange hover:text-yumrun-orange-dark hover:underline font-medium">
+                                    <Link to="/signup" className="font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
                                         Sign up
                                     </Link>
                                 </p>
@@ -215,35 +235,35 @@ const SignIn = () => {
                     </div>
                     
                     {/* Right side - User Role Information */}
-                    <div className="hidden md:flex flex-col justify-center p-8 bg-gradient-to-br from-orange-50 to-orange-100">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Test Accounts</h2>
-                        <p className="text-gray-600 mb-6">
+                    <div className="flex-col justify-center hidden p-8 md:flex bg-gradient-to-br from-orange-50 to-orange-100">
+                        <h2 className="mb-4 text-xl font-bold text-gray-800">Test Accounts</h2>
+                        <p className="mb-6 text-gray-600">
                             YumRun supports multiple user roles. Choose an account type to test:
                         </p>
                         
                         <div className="space-y-4">
-                            <Card className="p-4 hover:bg-orange-50 transition cursor-pointer" onClick={() => fillTestCredentials('admin')}>
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('admin')}>
                                 <h3 className="font-medium text-gray-800">Admin</h3>
                                 <p className="text-sm text-gray-600">Manage users, restaurants, and system settings</p>
-                                <div className="text-xs text-gray-500 mt-1">Email: admin@yumrun.com</div>
+                                <div className="mt-1 text-xs text-gray-500">Email: admin@yumrun.com</div>
                             </Card>
                             
-                            <Card className="p-4 hover:bg-orange-50 transition cursor-pointer" onClick={() => fillTestCredentials('restaurant')}>
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('restaurant')}>
                                 <h3 className="font-medium text-gray-800">Restaurant Owner</h3>
                                 <p className="text-sm text-gray-600">Manage your restaurant menu and orders</p>
-                                <div className="text-xs text-gray-500 mt-1">Email: owner@yumrun.com</div>
+                                <div className="mt-1 text-xs text-gray-500">Email: owner@yumrun.com</div>
                             </Card>
                             
-                            <Card className="p-4 hover:bg-orange-50 transition cursor-pointer" onClick={() => fillTestCredentials('user')}>
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('user')}>
                                 <h3 className="font-medium text-gray-800">Customer</h3>
                                 <p className="text-sm text-gray-600">Order food from restaurants</p>
-                                <div className="text-xs text-gray-500 mt-1">Email: user@yumrun.com</div>
+                                <div className="mt-1 text-xs text-gray-500">Email: user@yumrun.com</div>
                             </Card>
                             
-                            <Card className="p-4 hover:bg-orange-50 transition cursor-pointer" onClick={() => fillTestCredentials('delivery')}>
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('delivery')}>
                                 <h3 className="font-medium text-gray-800">Delivery Staff</h3>
                                 <p className="text-sm text-gray-600">Manage and deliver orders</p>
-                                <div className="text-xs text-gray-500 mt-1">Email: delivery@yumrun.com</div>
+                                <div className="mt-1 text-xs text-gray-500">Email: delivery@yumrun.com</div>
                             </Card>
                         </div>
                         

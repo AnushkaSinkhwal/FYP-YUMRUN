@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { Spinner } from '../components/ui';
 
 // Component to protect routes that require authentication
-const ProtectedRoute = ({ children, requireAdmin = false, requireRestaurantOwner = false, requireDeliveryStaff = false }) => {
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { currentUser, isLoading } = useAuth();
   const location = useLocation();
   
@@ -23,17 +23,19 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireRestaurantOwner
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
   
-  // Check specific role requirements
-  if (requireAdmin && !currentUser.isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-  
-  if (requireRestaurantOwner && !currentUser.isRestaurantOwner) {
-    return <Navigate to="/" replace />;
-  }
-  
-  if (requireDeliveryStaff && !currentUser.isDeliveryStaff) {
-    return <Navigate to="/" replace />;
+  // If roles are specified, check if user has required role
+  if (allowedRoles.length > 0 && !allowedRoles.includes(currentUser.role)) {
+    // Redirect to appropriate dashboard based on user role
+    switch (currentUser.role) {
+      case 'admin':
+        return <Navigate to="/admin/dashboard" replace />;
+      case 'restaurantOwner':
+        return <Navigate to="/restaurant/dashboard" replace />;
+      case 'deliveryUser':
+        return <Navigate to="/delivery/dashboard" replace />;
+      default:
+        return <Navigate to="/user/dashboard" replace />;
+    }
   }
   
   // If all checks pass, render the protected content
@@ -43,9 +45,11 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireRestaurantOwner
 // PropTypes validation
 ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
-  requireAdmin: PropTypes.bool,
-  requireRestaurantOwner: PropTypes.bool,
-  requireDeliveryStaff: PropTypes.bool
+  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['admin', 'restaurantOwner', 'deliveryUser', 'user']))
+};
+
+ProtectedRoute.defaultProps = {
+  allowedRoles: []
 };
 
 export default ProtectedRoute; 

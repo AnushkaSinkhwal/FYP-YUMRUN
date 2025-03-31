@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
-import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem } from "../../components/ui";
+import { Button, Input, Select, Label, Alert, Card, Spinner, RadioGroup, RadioGroupItem, Container } from "../../components/ui";
 
 const SignUp = () => {
     const context = useContext(MyContext);
@@ -27,6 +27,15 @@ const SignUp = () => {
     // Hide header and footer for auth pages
     context.setisHeaderFooterShow(false);
 
+    // Check for stored error on component mount
+    useEffect(() => {
+        const storedError = localStorage.getItem('signupError');
+        if (storedError) {
+            setError(storedError);
+            localStorage.removeItem('signupError'); // Clear the error after displaying
+        }
+    }, []);
+
     useEffect(() => {
         // Check password strength when password changes
         if (!password) {
@@ -34,7 +43,7 @@ const SignUp = () => {
             return;
         }
         
-        // Simple password strength checker
+        // Enhanced password strength checker
         const hasLowerCase = /[a-z]/.test(password);
         const hasUpperCase = /[A-Z]/.test(password);
         const hasNumber = /\d/.test(password);
@@ -62,47 +71,64 @@ const SignUp = () => {
         
         // Clear previous errors
         setError("");
+        localStorage.removeItem('signupError');
         
-        // Enhanced validation
+        // Enhanced validation with specific error messages
         if (!fullName.trim()) {
-            setError("Full name is required");
+            const errorMessage = "Full name is required";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
         if (!email.trim()) {
-            setError("Email is required");
+            const errorMessage = "Email is required";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
         if (!validateEmail(email)) {
-            setError("Please enter a valid email address");
+            const errorMessage = "Please enter a valid email address";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
         if (!contact.trim()) {
-            setError("Contact number is required");
+            const errorMessage = "Contact number is required";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters long");
+        if (password.length < 8) {
+            const errorMessage = "Password must be at least 8 characters long";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
         if (password !== confirmPassword) {
-            setError("Passwords do not match");
+            const errorMessage = "Passwords do not match";
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
             return;
         }
         
         // Restaurant owner validation
         if (role === "restaurantOwner") {
             if (!restaurantName.trim()) {
-                setError("Restaurant name is required");
+                const errorMessage = "Restaurant name is required";
+                setError(errorMessage);
+                localStorage.setItem('signupError', errorMessage);
                 return;
             }
             
             if (!restaurantAddress.trim()) {
-                setError("Restaurant address is required");
+                const errorMessage = "Restaurant address is required";
+                setError(errorMessage);
+                localStorage.setItem('signupError', errorMessage);
                 return;
             }
         }
@@ -124,227 +150,272 @@ const SignUp = () => {
             userData.restaurantAddress = restaurantAddress;
         }
         
-        console.log("Submitting registration form:", userData);
-        
         try {
             const result = await register(userData);
-            console.log("Registration result:", result);
             
             if (result && result.success) {
-                console.log("Registration successful, redirecting to signin");
                 navigate("/signin", { 
                     replace: true,
                     state: { message: "Account created successfully! Please sign in." }
                 });
             } else {
-                console.error("Registration failed:", result?.error);
-                setError(result?.error || "Registration failed");
+                const errorMessage = result?.error || "Registration failed";
+                setError(errorMessage);
+                localStorage.setItem('signupError', errorMessage);
             }
         } catch (err) {
-            console.error("Registration error:", err);
-            setError("An unexpected error occurred: " + (err.message || err));
+            const errorMessage = "An unexpected error occurred: " + (err.message || err);
+            setError(errorMessage);
+            localStorage.setItem('signupError', errorMessage);
         }
     };
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-white to-[#ffe9e2] p-5">
-            <div className="w-full max-w-lg">
-                <Card>
-                    <div className="flex justify-center mb-6">
-                        <Link to="/">
-                            <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
-                        </Link>
-                    </div>
-                    
-                    <div className="mb-8 text-center">
-                        <h1 className="text-2xl font-bold text-gray-800 mb-2">Create Account</h1>
-                        <p className="text-gray-600">Join YumRun to discover amazing food in your area!</p>
-                    </div>
-                    
-                    {(error || authError) && (
-                        <Alert variant="error">
-                            {error || authError}
-                        </Alert>
-                    )}
-                    
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label className="font-medium">I want to register as:</Label>
-                            <RadioGroup 
-                                value={role} 
-                                onValueChange={setRole}
-                                className="flex gap-4"
-                            >
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="user" id="user" />
-                                    <Label htmlFor="user">Customer</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
-                                    <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
-                                </div>
-                            </RadioGroup>
+            <Container className="max-w-5xl">
+                <div className="grid grid-cols-1 gap-8 overflow-hidden bg-white rounded-lg shadow-xl md:grid-cols-2">
+                    {/* Left side - Sign Up Form */}
+                    <div className="flex flex-col justify-center p-8">
+                        <div className="flex justify-center mb-6">
+                            <Link to="/">
+                                <img src={Logo} alt="YumRun Logo" className="max-w-[120px]" />
+                            </Link>
                         </div>
                         
-                        <div className="space-y-2">
-                            <Label htmlFor="fullName">
-                                Full Name
-                            </Label>
-                            <Input
-                                type="text"
-                                id="fullName"
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                placeholder="Enter your full name"
-                                required
-                            />
+                        <div className="mb-6 text-center">
+                            <h1 className="mb-2 text-2xl font-bold text-gray-800">Create Account</h1>
+                            <p className="text-gray-600">Join YumRun to discover amazing food in your area!</p>
                         </div>
                         
-                        <div className="space-y-2">
-                            <Label htmlFor="email">
-                                Email Address
-                            </Label>
-                            <Input
-                                type="email"
-                                id="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Enter your email address"
-                                required
-                            />
-                        </div>
+                        {(error || authError) && (
+                            <Alert variant="error" className="mb-4">
+                                {error || authError}
+                            </Alert>
+                        )}
                         
-                        <div className="space-y-2">
-                            <Label htmlFor="contact">
-                                Contact Number
-                            </Label>
-                            <Input
-                                type="tel"
-                                id="contact"
-                                value={contact}
-                                onChange={(e) => setContact(e.target.value)}
-                                placeholder="Enter your contact number"
-                                required
-                            />
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="space-y-2">
-                                <Label htmlFor="password">
-                                    Password
-                                </Label>
-                                <Input
-                                    type="password"
-                                    id="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Create a password"
-                                    required
-                                />
-                                {passwordStrength && (
-                                    <div className={`text-xs mt-1 ${
-                                        passwordStrength === "weak" ? "text-red-500" : 
-                                        passwordStrength === "medium" ? "text-amber-500" : 
-                                        "text-green-500"
-                                    }`}>
-                                        Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                                <Label className="font-medium">I want to register as:</Label>
+                                <RadioGroup 
+                                    value={role} 
+                                    onValueChange={setRole}
+                                    className="flex gap-4"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="user" id="user" />
+                                        <Label htmlFor="user">Customer</Label>
                                     </div>
-                                )}
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
+                                        <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
+                                    </div>
+                                </RadioGroup>
                             </div>
                             
                             <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">
-                                    Confirm Password
+                                <Label htmlFor="fullName">
+                                    Full Name
                                 </Label>
                                 <Input
-                                    type="password"
-                                    id="confirmPassword"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Confirm your password"
+                                    type="text"
+                                    id="fullName"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    placeholder="Enter your full name"
                                     required
+                                    className="w-full"
                                 />
                             </div>
-                        </div>
-                        
-                        {role === "user" && (
+                            
                             <div className="space-y-2">
-                                <Label htmlFor="healthCondition">
-                                    Health Condition
+                                <Label htmlFor="email">
+                                    Email Address
                                 </Label>
-                                <Select
-                                    id="healthCondition"
-                                    value={healthCondition}
-                                    onChange={(e) => setHealthCondition(e.target.value)}
+                                <Input
+                                    type="email"
+                                    id="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Enter your email address"
                                     required
-                                >
-                                    <option value="Healthy">Healthy</option>
-                                    <option value="Diabetes">Diabetes</option>
-                                    <option value="Heart Condition">Heart Condition</option>
-                                    <option value="Hypertension">Hypertension</option>
-                                    <option value="Other">Other</option>
-                                </Select>
+                                    className="w-full"
+                                />
                             </div>
-                        )}
-                        
-                        {role === "restaurantOwner" && (
-                            <>
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="contact">
+                                    Contact Number
+                                </Label>
+                                <Input
+                                    type="tel"
+                                    id="contact"
+                                    value={contact}
+                                    onChange={(e) => setContact(e.target.value)}
+                                    placeholder="Enter your contact number"
+                                    required
+                                    className="w-full"
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="restaurantName">
-                                        Restaurant Name
+                                    <Label htmlFor="password">
+                                        Password
                                     </Label>
                                     <Input
-                                        type="text"
-                                        id="restaurantName"
-                                        value={restaurantName}
-                                        onChange={(e) => setRestaurantName(e.target.value)}
-                                        placeholder="Enter your restaurant name"
+                                        type="password"
+                                        id="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Create a password"
                                         required
+                                        className="w-full"
                                     />
+                                    {passwordStrength && (
+                                        <div className={`text-xs mt-1 ${
+                                            passwordStrength === "weak" ? "text-red-500" : 
+                                            passwordStrength === "medium" ? "text-amber-500" : 
+                                            "text-green-500"
+                                        }`}>
+                                            Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 <div className="space-y-2">
-                                    <Label htmlFor="restaurantAddress">
-                                        Restaurant Address
+                                    <Label htmlFor="confirmPassword">
+                                        Confirm Password
                                     </Label>
                                     <Input
-                                        type="text"
-                                        id="restaurantAddress"
-                                        value={restaurantAddress}
-                                        onChange={(e) => setRestaurantAddress(e.target.value)}
-                                        placeholder="Enter your restaurant address"
+                                        type="password"
+                                        id="confirmPassword"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Confirm your password"
                                         required
+                                        className="w-full"
                                     />
                                 </div>
-                            </>
-                        )}
-                        
-                        <Button
-                            type="submit"
-                            variant="brand"
-                            size="full"
-                            disabled={isLoading}
-                            className="mt-6"
-                        >
-                            {isLoading ? (
+                            </div>
+                            
+                            {role === "user" && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="healthCondition">
+                                        Health Condition
+                                    </Label>
+                                    <Select
+                                        id="healthCondition"
+                                        value={healthCondition}
+                                        onChange={(e) => setHealthCondition(e.target.value)}
+                                        required
+                                        className="w-full"
+                                    >
+                                        <option value="Healthy">Healthy</option>
+                                        <option value="Diabetes">Diabetes</option>
+                                        <option value="Heart Condition">Heart Condition</option>
+                                        <option value="Hypertension">Hypertension</option>
+                                        <option value="Other">Other</option>
+                                    </Select>
+                                </div>
+                            )}
+                            
+                            {role === "restaurantOwner" && (
                                 <>
-                                    <Spinner size="sm" className="mr-2 text-white" />
-                                    Creating Account...
+                                    <div className="space-y-2">
+                                        <Label htmlFor="restaurantName">
+                                            Restaurant Name
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            id="restaurantName"
+                                            value={restaurantName}
+                                            onChange={(e) => setRestaurantName(e.target.value)}
+                                            placeholder="Enter your restaurant name"
+                                            required
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label htmlFor="restaurantAddress">
+                                            Restaurant Address
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            id="restaurantAddress"
+                                            value={restaurantAddress}
+                                            onChange={(e) => setRestaurantAddress(e.target.value)}
+                                            placeholder="Enter your restaurant address"
+                                            required
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </>
-                            ) : "Sign Up"}
-                        </Button>
+                            )}
+                            
+                            <Button
+                                type="submit"
+                                variant="brand"
+                                size="full"
+                                disabled={isLoading}
+                                className="mt-6"
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Spinner size="sm" className="mr-2 text-white" />
+                                        Creating Account...
+                                    </>
+                                ) : "Sign Up"}
+                            </Button>
+                            
+                            <div className="mt-4 text-center">
+                                <p className="text-sm text-gray-600">
+                                    Already have an account?{" "}
+                                    <Link to="/signin" className="font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
+                                        Sign in
+                                    </Link>
+                                </p>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    {/* Right side - Information */}
+                    <div className="flex-col justify-center hidden p-8 md:flex bg-gradient-to-br from-orange-50 to-orange-100">
+                        <h2 className="mb-4 text-xl font-bold text-gray-800">Join YumRun Today</h2>
+                        <p className="mb-6 text-gray-600">
+                            Whether you&apos;re a food lover or a restaurant owner, YumRun has something for everyone:
+                        </p>
                         
-                        <div className="text-center mt-4">
-                            <p className="text-sm text-gray-600">
-                                Already have an account?{" "}
-                                <Link to="/signin" className="text-yumrun-orange hover:text-yumrun-orange-dark hover:underline font-medium">
-                                    Sign in
-                                </Link>
-                            </p>
+                        <div className="space-y-4">
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50">
+                                <h3 className="font-medium text-gray-800">For Customers</h3>
+                                <p className="text-sm text-gray-600">Order delicious food from your favorite restaurants</p>
+                                <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
+                                    <li>Browse menus from multiple restaurants</li>
+                                    <li>Track your orders in real-time</li>
+                                    <li>Get personalized food recommendations</li>
+                                    <li>Save your favorite restaurants</li>
+                                </ul>
+                            </Card>
+                            
+                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50">
+                                <h3 className="font-medium text-gray-800">For Restaurant Owners</h3>
+                                <p className="text-sm text-gray-600">Grow your business with YumRun</p>
+                                <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
+                                    <li>Manage your menu easily</li>
+                                    <li>Track orders and deliveries</li>
+                                    <li>Get insights and analytics</li>
+                                    <li>Reach more customers</li>
+                                </ul>
+                            </Card>
                         </div>
-                    </form>
-                </Card>
-            </div>
+                        
+                        <div className="mt-6 text-sm text-gray-500">
+                            <p>By creating an account, you agree to our Terms of Service and Privacy Policy</p>
+                        </div>
+                    </div>
+                </div>
+            </Container>
         </div>
     );
 };

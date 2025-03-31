@@ -43,7 +43,12 @@ export const AuthProvider = ({ children }) => {
           const userDataString = localStorage.getItem('userData');
           
           if (userDataString) {
-            setCurrentUser(JSON.parse(userDataString));
+            const userData = JSON.parse(userDataString);
+            // Ensure role is properly set
+            if (!userData.role) {
+              userData.role = 'user';
+            }
+            setCurrentUser(userData);
             setIsLoading(false);
           } else {
             try {
@@ -51,6 +56,10 @@ export const AuthProvider = ({ children }) => {
               const response = await authAPI.getCurrentUser();
               if (response.data.success) {
                 const userData = response.data.user;
+                // Ensure role is properly set
+                if (!userData.role) {
+                  userData.role = 'user';
+                }
                 localStorage.setItem('userData', JSON.stringify(userData));
                 setCurrentUser(userData);
               }
@@ -92,6 +101,11 @@ export const AuthProvider = ({ children }) => {
       if (response.success) {
         const { token, user } = response;
         
+        // Ensure role is properly set
+        if (!user.role) {
+          user.role = 'user';
+        }
+        
         // Save to localStorage
         localStorage.setItem('authToken', token);
         localStorage.setItem('userData', JSON.stringify(user));
@@ -104,9 +118,10 @@ export const AuthProvider = ({ children }) => {
         return { 
           success: true, 
           user,
-          isAdmin: user.isAdmin,
-          isRestaurantOwner: user.isRestaurantOwner,
-          isDeliveryStaff: user.isDeliveryStaff
+          role: user.role,
+          isAdmin: user.role === 'admin',
+          isRestaurantOwner: user.role === 'restaurantOwner',
+          isDeliveryStaff: user.role === 'deliveryUser'
         };
       } else {
         setError(response.error || 'Login failed');
@@ -132,6 +147,11 @@ export const AuthProvider = ({ children }) => {
     
     try {
       console.log('Registering user with:', userData);
+      
+      // Ensure role is properly set
+      if (!userData.role) {
+        userData.role = 'user';
+      }
       
       // userData should include: name, email, password, phone, role, and any role-specific fields
       const response = await authAPI.register(userData);
@@ -191,14 +211,16 @@ export const AuthProvider = ({ children }) => {
   // Logout user
   const logout = () => {
     authAPI.logout();
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
     setCurrentUser(null);
   };
   
   // Helper functions to check user roles
-  const isAdmin = () => currentUser?.isAdmin === true;
-  const isRestaurantOwner = () => currentUser?.isRestaurantOwner === true;
-  const isDeliveryStaff = () => currentUser?.isDeliveryStaff === true;
-  const isRegularUser = () => !isAdmin() && !isRestaurantOwner() && !isDeliveryStaff();
+  const isAdmin = () => currentUser?.role === 'admin';
+  const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner';
+  const isDeliveryStaff = () => currentUser?.role === 'deliveryUser';
+  const isRegularUser = () => currentUser?.role === 'user';
   
   // Context value
   const value = {

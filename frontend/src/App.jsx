@@ -30,6 +30,35 @@ import AdminNotifications from "./Pages/admin/Notifications";
 import AdminDeliveries from "./Pages/admin/Deliveries";
 import AdminOrders from "./Pages/admin/Orders";
 import AdminProfile from "./Pages/admin/Profile";
+import RestaurantApprovals from "./Pages/admin/RestaurantApprovals";
+
+// Restaurant imports
+import RestaurantLayout from "./components/restaurant/RestaurantLayout";
+import RestaurantDashboard from "./Pages/restaurant/Dashboard";
+import RestaurantMenu from "./Pages/restaurant/Menu";
+import RestaurantOrders from "./Pages/restaurant/Orders";
+import RestaurantProfile from "./Pages/restaurant/Profile";
+import RestaurantAnalytics from "./Pages/restaurant/Analytics";
+import RestaurantNotifications from "./Pages/restaurant/Notifications";
+
+// Delivery imports
+import DeliveryLayout from "./components/delivery/DeliveryLayout";
+import DeliveryDashboard from "./Pages/delivery/Dashboard";
+import DeliveryOrders from "./Pages/delivery/Orders";
+import DeliveryHistory from "./Pages/delivery/History";
+import DeliveryProfile from "./Pages/delivery/Profile";
+import DeliveryEarnings from "./Pages/delivery/Earnings";
+import DeliveryNotifications from "./Pages/delivery/Notifications";
+
+// User imports
+import UserLayout from "./components/user/UserLayout";
+import UserDashboard from "./Pages/user/Dashboard";
+import UserOrders from "./Pages/user/Orders";
+import UserProfile from "./Pages/user/Profile";
+import UserFavorites from "./Pages/user/Favorites";
+import UserReviews from "./Pages/user/Reviews";
+import UserRewards from "./Pages/user/Rewards";
+import UserNotifications from "./Pages/user/Notifications";
 
 // Create a RouteChangeDetector component
 const RouteChangeDetector = () => {
@@ -155,7 +184,7 @@ function App() {
           <Routes>
             {/* Admin Routes */}
             <Route path="/admin" element={
-              <ProtectedRoute requireAdmin={true}>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <AdminLayout />
               </ProtectedRoute>
             }>
@@ -170,6 +199,7 @@ function App() {
               <Route path="notifications" element={<AdminNotifications />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="profile" element={<AdminProfile />} />
+              <Route path="restaurant-approvals" element={<RestaurantApprovals />} />
             </Route>
             
             {/* User Routes */}
@@ -256,6 +286,52 @@ function App() {
                 <BackToTop />
               </>
             } />
+
+            {/* Restaurant Routes */}
+            <Route path="/restaurant" element={
+              <ProtectedRoute allowedRoles={['restaurantOwner']}>
+                <RestaurantLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<RestaurantDashboard />} />
+              <Route path="dashboard" element={<RestaurantDashboard />} />
+              <Route path="menu" element={<RestaurantMenu />} />
+              <Route path="orders" element={<RestaurantOrders />} />
+              <Route path="profile" element={<RestaurantProfile />} />
+              <Route path="analytics" element={<RestaurantAnalytics />} />
+              <Route path="notifications" element={<RestaurantNotifications />} />
+            </Route>
+            
+            {/* Delivery Routes */}
+            <Route path="/delivery" element={
+              <ProtectedRoute allowedRoles={['deliveryUser']}>
+                <DeliveryLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<DeliveryDashboard />} />
+              <Route path="dashboard" element={<DeliveryDashboard />} />
+              <Route path="orders" element={<DeliveryOrders />} />
+              <Route path="history" element={<DeliveryHistory />} />
+              <Route path="profile" element={<DeliveryProfile />} />
+              <Route path="earnings" element={<DeliveryEarnings />} />
+              <Route path="notifications" element={<DeliveryNotifications />} />
+            </Route>
+
+            {/* User Routes */}
+            <Route path="/user" element={
+              <ProtectedRoute allowedRoles={['user']}>
+                <UserLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<UserDashboard />} />
+              <Route path="dashboard" element={<UserDashboard />} />
+              <Route path="orders" element={<UserOrders />} />
+              <Route path="profile" element={<UserProfile />} />
+              <Route path="favorites" element={<UserFavorites />} />
+              <Route path="reviews" element={<UserReviews />} />
+              <Route path="rewards" element={<UserRewards />} />
+              <Route path="notifications" element={<UserNotifications />} />
+            </Route>
           </Routes>
         </MyContext.Provider>
       </AuthProvider>

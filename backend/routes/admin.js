@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Notification = require('../models/notification');
 const { auth, isAdmin, adminOnly } = require('../middleware/auth');
+const RestaurantApproval = require('../models/restaurantApproval');
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -614,13 +615,110 @@ router.get('/statistics', auth, isAdmin, async (req, res) => {
 });
 
 // GET restaurant approval requests
-router.get('/restaurant-approvals', auth, isAdmin, (req, res) => {
-    res.status(200).json({ message: 'Restaurant approval requests' });
+router.get('/restaurant-approvals', auth, isAdmin, async (req, res) => {
+    try {
+        const pendingApprovals = await RestaurantApproval.find({ status: 'pending' })
+            .populate('restaurantId', 'name email phone restaurantName restaurantAddress')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            pendingApprovals
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
-// POST approve/reject restaurant
-router.post('/restaurant-approvals/:id', auth, isAdmin, (req, res) => {
-    res.status(200).json({ message: `Process restaurant approval for ID: ${req.params.id}` });
+// Approve restaurant profile changes
+router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (req, res) => {
+    try {
+        const approval = await RestaurantApproval.findById(req.params.approvalId);
+        
+        if (!approval) {
+            return res.status(404).json({
+                success: false,
+                error: 'Approval request not found'
+            });
+        }
+
+        if (approval.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                error: 'This request has already been processed'
+            });
+        }
+
+        // Update restaurant profile
+        const restaurant = await User.findById(approval.restaurantId);
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                error: 'Restaurant not found'
+            });
+        }
+
+        // Update restaurant data
+        restaurant.name = approval.requestedData.name;
+        restaurant.email = approval.requestedData.email;
+        restaurant.phone = approval.requestedData.phone;
+        restaurant.restaurantName = approval.requestedData.restaurantName;
+        restaurant.restaurantAddress = approval.requestedData.restaurantAddress;
+
+        await restaurant.save();
+
+        // Update approval status
+        approval.status = 'approved';
+        await approval.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile changes approved successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Reject restaurant profile changes
+router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (req, res) => {
+    try {
+        const approval = await RestaurantApproval.findById(req.params.approvalId);
+        
+        if (!approval) {
+            return res.status(404).json({
+                success: false,
+                error: 'Approval request not found'
+            });
+        }
+
+        if (approval.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                error: 'This request has already been processed'
+            });
+        }
+
+        // Update approval status
+        approval.status = 'rejected';
+        await approval.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile changes rejected successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // GET all delivery staff approval requests
