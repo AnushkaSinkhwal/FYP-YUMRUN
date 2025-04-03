@@ -62,12 +62,6 @@ const RestaurantMenu = () => {
     setError(null);
     
     try {
-      if (!isRestaurantOwner()) {
-        setError('You must be logged in as a restaurant owner to view menu items');
-        setIsLoading(false);
-        return;
-      }
-
       const token = localStorage.getItem('authToken');
       if (!token) {
         setError('Authentication token not found. Please log in again.');
@@ -83,6 +77,8 @@ const RestaurantMenu = () => {
       
       if (response.data.success) {
         setMenuItems(response.data.data);
+      } else {
+        setError(response.data.message || 'Failed to fetch menu items');
       }
     } catch (err) {
       console.error('Error fetching menu items:', err);
@@ -157,12 +153,6 @@ const RestaurantMenu = () => {
     setError(null);
     
     try {
-      if (!isRestaurantOwner()) {
-        setError('You must be logged in as a restaurant owner to add menu items');
-        setIsSubmitting(false);
-        return;
-      }
-
       // Validate required fields
       if (!formData.name || !formData.description || !formData.price) {
         setError('Please fill all required fields');

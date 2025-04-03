@@ -10,7 +10,13 @@ const normalizeUserData = (userData) => {
   if (!userData) return null;
   
   // If role is already defined, use it
-  if (userData.role) return userData;
+  if (userData.role) {
+    // Convert 'restaurantOwner' to 'restaurant' for consistency
+    if (userData.role === 'restaurantOwner') {
+      return { ...userData, role: 'restaurant' };
+    }
+    return userData;
+  }
   
   // Otherwise, determine role from legacy isRole properties
   let role = 'customer'; // default role
@@ -18,7 +24,7 @@ const normalizeUserData = (userData) => {
   if (userData.isAdmin) {
     role = 'admin';
   } else if (userData.isRestaurantOwner) {
-    role = 'restaurantOwner';
+    role = 'restaurant';
   } else if (userData.isDeliveryStaff || userData.isDeliveryRider) {
     role = 'deliveryRider';
   }
@@ -33,6 +39,7 @@ const getDashboardPath = (role) => {
     case 'admin':
       return '/admin/dashboard';
     case 'restaurantOwner':
+    case 'restaurant':
       return '/restaurant/dashboard';
     case 'deliveryRider':
       return '/delivery/dashboard';

@@ -291,7 +291,7 @@ function App() {
 
             {/* Restaurant Routes */}
             <Route path="/restaurant" element={
-              <ProtectedRoute allowedRoles={['restaurantOwner']}>
+              <ProtectedRoute allowedRoles={['restaurantOwner', 'restaurant']}>
                 <RestaurantLayout />
               </ProtectedRoute>
             }>

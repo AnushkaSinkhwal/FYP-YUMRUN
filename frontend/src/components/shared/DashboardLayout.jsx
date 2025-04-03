@@ -23,7 +23,7 @@ import {
   FaSignOutAlt
 } from 'react-icons/fa';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, role }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -33,8 +33,17 @@ const DashboardLayout = ({ children }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
-  // Get user role from currentUser
-  const userRole = currentUser?.role?.toLowerCase() || 'user';
+  // Debug user data
+  useEffect(() => {
+    console.log('DashboardLayout - currentUser:', currentUser);
+    console.log('DashboardLayout - passed role prop:', role);
+  }, [currentUser, role]);
+  
+  // Get user role from props, currentUser, or default to fallback
+  const userRole = role || (currentUser?.role?.toLowerCase()) || 
+    (currentUser?.isRestaurantOwner ? 'restaurant' : 
+     currentUser?.isAdmin ? 'admin' : 
+     currentUser?.isDeliveryRider ? 'deliveryuser' : 'user');
   
   // Get user details
   const [userData, setUserData] = useState({
@@ -284,10 +293,13 @@ const DashboardLayout = ({ children }) => {
           <ul className="space-y-1">
             {getNavItems().map((item) => (
               <li key={item.path}>
-                <Link
-                  to={item.path}
+                <div
+                  onClick={() => {
+                    console.log('Navigating to:', item.path);
+                    navigate(item.path);
+                  }}
                   className={`
-                    flex items-center px-4 py-2 text-sm rounded-md transition-colors
+                    flex items-center px-4 py-2 text-sm rounded-md transition-colors cursor-pointer
                     ${location.pathname === item.path
                       ? 'bg-yumrun-primary text-white'
                       : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -301,7 +313,7 @@ const DashboardLayout = ({ children }) => {
                       {notificationCount > 9 ? '9+' : notificationCount}
                     </span>
                   )}
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
@@ -345,7 +357,7 @@ const DashboardLayout = ({ children }) => {
               {/* Profile dropdown */}
               <div className="relative" ref={dropdownRef}>
                 <button
-                  className="flex items-center space-x-2 p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="flex items-center p-2 space-x-2 text-gray-600 rounded-full dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 >
                   <img
@@ -356,11 +368,11 @@ const DashboardLayout = ({ children }) => {
                   <span className="hidden md:block">{userData.name}</span>
                 </button>
                 {showProfileDropdown && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="absolute right-0 z-50 w-56 mt-2 bg-white rounded-md shadow-lg dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{userData.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userData.email}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getRoleTitle()}</p>
+                      <p className="text-xs text-gray-500 truncate dark:text-gray-400">{userData.email}</p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getRoleTitle()}</p>
                     </div>
                     <div className="py-1">
                       <Link 
@@ -368,21 +380,21 @@ const DashboardLayout = ({ children }) => {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setShowProfileDropdown(false)}
                       >
-                        <FaUser className="mr-2 h-4 w-4" /> Profile
+                        <FaUser className="w-4 h-4 mr-2" /> Profile
                       </Link>
                       <Link 
                         to={`/${userRole}/settings`} 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setShowProfileDropdown(false)}
                       >
-                        <FaCog className="mr-2 h-4 w-4" /> Settings
+                        <FaCog className="w-4 h-4 mr-2" /> Settings
                       </Link>
                       <div className="border-t border-gray-200 dark:border-gray-700"></div>
                       <button
-                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={handleLogout}
                       >
-                        <FaSignOutAlt className="mr-2 h-4 w-4" /> Logout
+                        <FaSignOutAlt className="w-4 h-4 mr-2" /> Logout
                       </button>
                     </div>
                   </div>
@@ -402,7 +414,8 @@ const DashboardLayout = ({ children }) => {
 };
 
 DashboardLayout.propTypes = {
-  children: PropTypes.node
+  children: PropTypes.node,
+  role: PropTypes.string
 };
 
 export default DashboardLayout; 
