@@ -306,7 +306,7 @@ function App() {
             
             {/* Delivery Routes */}
             <Route path="/delivery" element={
-              <ProtectedRoute allowedRoles={['deliveryUser']}>
+              <ProtectedRoute allowedRoles={['deliveryRider']}>
                 <DeliveryLayout />
               </ProtectedRoute>
             }>
@@ -321,7 +321,7 @@ function App() {
 
             {/* User Routes */}
             <Route path="/user" element={
-              <ProtectedRoute allowedRoles={['user']}>
+              <ProtectedRoute allowedRoles={['customer']}>
                 <UserLayout />
               </ProtectedRoute>
             }>

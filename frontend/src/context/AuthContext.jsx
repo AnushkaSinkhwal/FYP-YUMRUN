@@ -5,6 +5,28 @@ import PropTypes from 'prop-types';
 // Create the auth context
 export const AuthContext = createContext();
 
+// Helper function to normalize user data to ensure role property
+const normalizeUserData = (userData) => {
+  if (!userData) return null;
+  
+  // If role is already defined, use it
+  if (userData.role) return userData;
+  
+  // Otherwise, determine role from legacy isRole properties
+  let role = 'customer'; // default role
+  
+  if (userData.isAdmin) {
+    role = 'admin';
+  } else if (userData.isRestaurantOwner) {
+    role = 'restaurantOwner';
+  } else if (userData.isDeliveryStaff || userData.isDeliveryRider) {
+    role = 'deliveryRider';
+  }
+  
+  // Return a new object with the role property added
+  return { ...userData, role };
+};
+
 // Helper function to get dashboard path based on user role
 const getDashboardPath = (role) => {
   switch (role) {
@@ -33,7 +55,9 @@ export const AuthProvider = ({ children }) => {
     
     if (token && userData) {
       try {
-        setCurrentUser(JSON.parse(userData));
+        const parsedUserData = JSON.parse(userData);
+        // Normalize user data to ensure role property
+        setCurrentUser(normalizeUserData(parsedUserData));
       } catch (error) {
         console.error('Error parsing stored user data:', error);
         localStorage.removeItem('authToken');
@@ -64,19 +88,22 @@ export const AuthProvider = ({ children }) => {
       if (response.data && response.data.success) {
         const { token, user, dashboardPath } = response.data;
         
+        // Normalize user data to ensure role property
+        const normalizedUser = normalizeUserData(user);
+        
         // Save to localStorage
         localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem('userData', JSON.stringify(normalizedUser));
         
         // Update state
-        setCurrentUser(user);
+        setCurrentUser(normalizedUser);
         setIsLoading(false);
         
         return { 
           success: true, 
-          user,
+          user: normalizedUser,
           // Use the server-provided dashboard path or calculate it
-          dashboardPath: dashboardPath || getDashboardPath(user.role)
+          dashboardPath: dashboardPath || getDashboardPath(normalizedUser.role)
         };
       } else {
         // Unexpected response format
@@ -111,18 +138,21 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { token, user } = response.data;
         
+        // Normalize user data to ensure role property
+        const normalizedUser = normalizeUserData(user);
+        
         // Save to localStorage
         localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem('userData', JSON.stringify(normalizedUser));
         
         // Update state
-        setCurrentUser(user);
+        setCurrentUser(normalizedUser);
         setIsLoading(false);
         
         return { 
           success: true, 
-          user,
-          dashboardPath: getDashboardPath(user.role)
+          user: normalizedUser,
+          dashboardPath: getDashboardPath(normalizedUser.role)
         };
       } else {
         setError(response.data.message || 'Registration failed');
@@ -149,14 +179,17 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { user } = response.data;
         
+        // Normalize user data to ensure role property
+        const normalizedUser = normalizeUserData(user);
+        
         // Update stored user data
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem('userData', JSON.stringify(normalizedUser));
         
         // Update state
-        setCurrentUser(user);
+        setCurrentUser(normalizedUser);
         setIsLoading(false);
         
-        return { success: true, user };
+        return { success: true, user: normalizedUser };
       } else {
         setError(response.data.message || 'Profile update failed');
         setIsLoading(false);
@@ -179,10 +212,18 @@ export const AuthProvider = ({ children }) => {
   };
   
   // Role check helpers
-  const isCustomer = () => currentUser?.role === 'customer';
-  const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner';
-  const isDeliveryRider = () => currentUser?.role === 'deliveryRider';
-  const isAdmin = () => currentUser?.role === 'admin';
+  const isCustomer = () => currentUser?.role === 'customer' || 
+    (!currentUser?.role && !currentUser?.isAdmin && !currentUser?.isRestaurantOwner && !currentUser?.isDeliveryRider);
+    
+  const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner' || 
+    currentUser?.isRestaurantOwner === true;
+    
+  const isDeliveryRider = () => currentUser?.role === 'deliveryRider' || 
+    currentUser?.isDeliveryRider === true || 
+    currentUser?.isDeliveryStaff === true;
+    
+  const isAdmin = () => currentUser?.role === 'admin' || 
+    currentUser?.isAdmin === true;
   
   // Context value
   const value = {

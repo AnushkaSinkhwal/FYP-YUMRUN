@@ -24,18 +24,26 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   }
   
   // If roles are specified, check if user has required role
-  if (allowedRoles.length > 0 && !allowedRoles.includes(currentUser.role)) {
-    // Redirect to appropriate dashboard based on user role
-    switch (currentUser.role) {
-      case 'admin':
-        return <Navigate to="/admin/dashboard" replace />;
-      case 'restaurantOwner':
-        return <Navigate to="/restaurant/dashboard" replace />;
-      case 'deliveryRider':
-        return <Navigate to="/delivery/dashboard" replace />;
-      case 'customer':
-      default:
-        return <Navigate to="/" replace />;
+  if (allowedRoles.length > 0) {
+    // Determine the user's role from either role property or legacy isRole properties
+    const userRole = currentUser.role || 
+      (currentUser.isAdmin ? 'admin' : 
+       currentUser.isRestaurantOwner ? 'restaurantOwner' : 
+       currentUser.isDeliveryRider ? 'deliveryRider' : 'customer');
+    
+    if (!allowedRoles.includes(userRole)) {
+      // Redirect to appropriate dashboard based on user role
+      switch (userRole) {
+        case 'admin':
+          return <Navigate to="/admin/dashboard" replace />;
+        case 'restaurantOwner':
+          return <Navigate to="/restaurant/dashboard" replace />;
+        case 'deliveryRider':
+          return <Navigate to="/delivery/dashboard" replace />;
+        case 'customer':
+        default:
+          return <Navigate to="/" replace />;
+      }
     }
   }
   
