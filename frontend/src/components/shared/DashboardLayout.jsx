@@ -18,7 +18,9 @@ import {
   FaCog,
   FaHeart,
   FaStar,
-  FaGift
+  FaGift,
+  FaUser,
+  FaSignOutAlt
 } from 'react-icons/fa';
 
 const DashboardLayout = ({ children }) => {
@@ -76,6 +78,7 @@ const DashboardLayout = ({ children }) => {
         { path: '/user/reviews', label: 'Reviews', icon: <FaStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/rewards', label: 'Rewards', icon: <FaGift className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/user/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
     };
     return items[userRole] || items.user;
@@ -365,21 +368,21 @@ const DashboardLayout = ({ children }) => {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setShowProfileDropdown(false)}
                       >
-                        <i className="bx bx-user mr-2"></i> Profile
+                        <FaUser className="mr-2 h-4 w-4" /> Profile
                       </Link>
                       <Link 
                         to={`/${userRole}/settings`} 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setShowProfileDropdown(false)}
                       >
-                        <i className="bx bx-cog mr-2"></i> Settings
+                        <FaCog className="mr-2 h-4 w-4" /> Settings
                       </Link>
                       <div className="border-t border-gray-200 dark:border-gray-700"></div>
                       <button
                         className="flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={handleLogout}
                       >
-                        <i className="bx bx-power-off mr-2"></i> Logout
+                        <FaSignOutAlt className="mr-2 h-4 w-4" /> Logout
                       </button>
                     </div>
                   </div>

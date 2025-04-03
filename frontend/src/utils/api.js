@@ -291,19 +291,34 @@ export const restaurantAPI = {
 
 // User API methods
 export const userAPI = {
+  // Get user profile
+  getUserProfile: async () => {
+    return api.get('/user/profile');
+  },
+  
   // Update user profile
   updateProfile: async (userData) => {
-    return api.put('/users/profile', userData);
+    return api.put('/user/profile', userData);
+  },
+  
+  // Update user settings
+  updateSettings: async (settings) => {
+    return api.put('/user/settings', settings);
+  },
+  
+  // Request email change (requires admin approval)
+  requestEmailChange: async (newEmail) => {
+    return api.put('/user/profile/email', { email: newEmail });
   },
   
   // Change password
   changePassword: async (passwordData) => {
-    return api.put('/users/change-password', passwordData);
+    return api.put('/user/change-password', passwordData);
   },
   
   // Get profile change status
   getProfileChangeStatus: async () => {
-    return api.get('/users/profile/change-status');
+    return api.get('/user/profile/change-status');
   },
   
   // Get user notifications

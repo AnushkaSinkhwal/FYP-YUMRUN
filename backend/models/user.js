@@ -140,6 +140,25 @@ const userSchema = new mongoose.Schema({
         enum: ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'],
         default: 'Healthy'
     },
+    settings: {
+        type: Object,
+        default: {
+            notifications: {
+                orderUpdates: true,
+                promotions: false,
+                newsletters: false,
+                deliveryUpdates: true
+            },
+            preferences: {
+                darkMode: false,
+                language: 'en'
+            },
+            privacy: {
+                shareOrderHistory: false,
+                allowLocationTracking: true
+            }
+        }
+    },
     restaurantDetails: {
         type: restaurantDetailsSchema,
         required: function() {

@@ -435,6 +435,109 @@ router.put('/health-details', auth, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/user/settings
+ * @desc    Get user settings
+ * @access  Private
+ */
+router.get('/settings', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        // Return user settings or default settings if not set
+        const settings = user.settings || {
+            notifications: {
+                orderUpdates: true,
+                promotions: false,
+                newsletters: false,
+                deliveryUpdates: true
+            },
+            preferences: {
+                darkMode: false,
+                language: 'en'
+            },
+            privacy: {
+                shareOrderHistory: false,
+                allowLocationTracking: true
+            }
+        };
+        
+        res.status(200).json({
+            success: true,
+            settings
+        });
+    } catch (error) {
+        console.error('Get settings error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error retrieving settings: ' + error.message 
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/user/settings
+ * @desc    Update user settings
+ * @access  Private
+ */
+router.put('/settings', auth, async (req, res) => {
+    try {
+        const { notifications, preferences, privacy } = req.body;
+        
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        // Initialize settings object if it doesn't exist
+        if (!user.settings) {
+            user.settings = {};
+        }
+        
+        // Update settings with provided values or keep existing
+        if (notifications) {
+            user.settings.notifications = {
+                ...user.settings.notifications,
+                ...notifications
+            };
+        }
+        
+        if (preferences) {
+            user.settings.preferences = {
+                ...user.settings.preferences,
+                ...preferences
+            };
+        }
+        
+        if (privacy) {
+            user.settings.privacy = {
+                ...user.settings.privacy,
+                ...privacy
+            };
+        }
+        
+        // Save the updated user
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Settings updated successfully',
+            settings: user.settings
+        });
+    } catch (error) {
+        console.error('Update settings error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating settings: ' + error.message 
+        });
+    }
+});
+
 // Change password
 router.put('/change-password', auth, [
     body('currentPassword').notEmpty().withMessage('Current password is required'),

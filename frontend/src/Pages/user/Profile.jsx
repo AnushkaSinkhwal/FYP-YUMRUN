@@ -1,43 +1,87 @@
-import { useState } from 'react';
-import { Card, Button, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui';
-import { FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaLock, FaCreditCard } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { Card, Button, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Alert } from '../../components/ui';
+import { FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaLock, FaCreditCard, FaInfoCircle } from 'react-icons/fa';
+import { userAPI } from '../../utils/api';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  
   const [profile, setProfile] = useState({
-    name: "John Doe",
-    phone: "+1 234 567 8900",
-    email: "john.doe@example.com",
-    address: "123 Customer Street, City, Country",
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
     language: "en",
     notifications: {
       orderUpdates: true,
       promotions: true,
       newsletters: false,
       deliveryUpdates: true
-    },
-    paymentMethods: [
-      {
-        id: 1,
-        type: "Credit Card",
-        last4: "4242",
-        expiry: "12/25",
-        isDefault: true
-      },
-      {
-        id: 2,
-        type: "PayPal",
-        email: "john.doe@example.com",
-        isDefault: false
-      }
-    ],
-    preferences: {
-      deliveryInstructions: "Please ring the doorbell",
-      favoriteRestaurants: ["Burger Palace", "Pizza Express"],
-      dietaryRestrictions: ["No peanuts"],
-      preferredDeliveryTime: "Evening"
     }
   });
+  
+  // Track original values to detect changes
+  const [originalProfile, setOriginalProfile] = useState({});
+
+  useEffect(() => {
+    fetchUserProfile();
+    checkApprovalStatus();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await userAPI.getUserProfile();
+      
+      if (response.data.success) {
+        const userData = response.data.user;
+        setProfile({
+          name: userData.name || "",
+          phone: userData.phone || "",
+          email: userData.email || "",
+          address: userData.address || "",
+          language: userData.language || "en",
+          notifications: userData.notifications || {
+            orderUpdates: true,
+            promotions: true,
+            newsletters: false,
+            deliveryUpdates: true
+          }
+        });
+        setOriginalProfile({
+          name: userData.name || "",
+          phone: userData.phone || "",
+          email: userData.email || "",
+          address: userData.address || "",
+          language: userData.language || "en",
+        });
+      } else {
+        setError("Failed to load profile data");
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      setError("Failed to connect to the server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkApprovalStatus = async () => {
+    try {
+      const response = await userAPI.getProfileChangeStatus();
+      
+      if (response.data.success) {
+        setApprovalStatus(response.data);
+      }
+    } catch (error) {
+      console.error("Error checking approval status:", error);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,10 +101,87 @@ const UserProfile = () => {
     }));
   };
 
-  const handleSave = () => {
-    // TODO: Implement API call to save profile
-    setIsEditing(false);
+  // Determine if any field has changed
+  const hasChanges = () => {
+    return (
+      profile.name !== originalProfile.name ||
+      profile.phone !== originalProfile.phone ||
+      profile.email !== originalProfile.email ||
+      profile.address !== originalProfile.address ||
+      profile.language !== originalProfile.language
+    );
   };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      
+      // If email changed, we need admin approval
+      if (profile.email !== originalProfile.email) {
+        const response = await userAPI.requestEmailChange(profile.email);
+        
+        if (response.data.success) {
+          setSuccess("Email change request submitted for admin approval");
+          setIsEditing(false);
+          
+          // Refresh approval status
+          await checkApprovalStatus();
+        } else {
+          setError(response.data.message || "Failed to submit email change request");
+        }
+      } else {
+        // For other fields, just update directly
+        const changes = {
+          name: profile.name !== originalProfile.name ? profile.name : undefined,
+          phone: profile.phone !== originalProfile.phone ? profile.phone : undefined,
+          address: profile.address !== originalProfile.address ? profile.address : undefined,
+          language: profile.language !== originalProfile.language ? profile.language : undefined,
+          notifications: profile.notifications
+        };
+        
+        // Filter out undefined values
+        Object.keys(changes).forEach(key => 
+          changes[key] === undefined && delete changes[key]
+        );
+        
+        // Only make API call if there are changes
+        if (Object.keys(changes).length > 0) {
+          const response = await userAPI.updateProfile(changes);
+          
+          if (response.data.success) {
+            setSuccess("Profile updated successfully");
+            setIsEditing(false);
+            
+            // Update original profile with new values
+            setOriginalProfile({
+              ...originalProfile,
+              ...changes
+            });
+          } else {
+            setError(response.data.message || "Failed to update profile");
+          }
+        } else {
+          setSuccess("No changes to save");
+          setIsEditing(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      setError("Failed to save profile changes");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,11 +191,61 @@ const UserProfile = () => {
           <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button variant="outline" onClick={() => {
+              setIsEditing(false);
+              // Reset to original values
+              setProfile({
+                ...originalProfile,
+                notifications: profile.notifications // Keep notification settings
+              });
+              setError(null);
+              setSuccess(null);
+            }}>Cancel</Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={!hasChanges() || saving}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         )}
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <FaInfoCircle className="h-4 w-4" />
+          <span>{error}</span>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert variant="success">
+          <FaInfoCircle className="h-4 w-4" />
+          <span>{success}</span>
+        </Alert>
+      )}
+
+      {approvalStatus && approvalStatus.hasPendingChanges && (
+        <Alert>
+          <FaInfoCircle className="h-4 w-4" />
+          <span>
+            You have pending profile changes awaiting admin approval.
+            {approvalStatus.pendingChanges?.email && 
+              ` Email change from ${originalProfile.email} to ${approvalStatus.pendingChanges.email} is in review.`
+            }
+          </span>
+        </Alert>
+      )}
+
+      {approvalStatus && approvalStatus.hasRejectedChanges && (
+        <Alert variant="destructive">
+          <FaInfoCircle className="h-4 w-4" />
+          <span>
+            Your recent profile changes were rejected.
+            Reason: {approvalStatus.rejectionReason || "No reason provided"}
+          </span>
+        </Alert>
+      )}
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
@@ -119,10 +290,15 @@ const UserProfile = () => {
                 type="email"
                 value={profile.email}
                 onChange={handleInputChange}
-                disabled={!isEditing}
+                disabled={!isEditing || approvalStatus?.hasPendingChanges}
                 className="pl-10"
               />
             </div>
+            {isEditing && (
+              <p className="text-xs text-amber-600">
+                Email changes require admin approval.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -147,7 +323,11 @@ const UserProfile = () => {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="language">Preferred Language</Label>
-            <Select value={profile.language} onValueChange={(value) => setProfile(prev => ({ ...prev, language: value }))} disabled={!isEditing}>
+            <Select 
+              value={profile.language} 
+              onValueChange={(value) => setProfile(prev => ({ ...prev, language: value }))} 
+              disabled={!isEditing}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>
@@ -158,37 +338,6 @@ const UserProfile = () => {
                 <SelectItem value="de">German</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Delivery Instructions</Label>
-            <Textarea
-              value={profile.preferences.deliveryInstructions}
-              onChange={(e) => setProfile(prev => ({
-                ...prev,
-                preferences: {
-                  ...prev.preferences,
-                  deliveryInstructions: e.target.value
-                }
-              }))}
-              disabled={!isEditing}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Dietary Restrictions</Label>
-            <Input
-              value={profile.preferences.dietaryRestrictions.join(', ')}
-              onChange={(e) => setProfile(prev => ({
-                ...prev,
-                preferences: {
-                  ...prev.preferences,
-                  dietaryRestrictions: e.target.value.split(',').map(item => item.trim())
-                }
-              }))}
-              disabled={!isEditing}
-            />
           </div>
         </div>
       </Card>
@@ -218,49 +367,18 @@ const UserProfile = () => {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Payment Methods</h2>
+        <h2 className="text-lg font-semibold mb-4">Security</h2>
         <div className="space-y-4">
-          {profile.paymentMethods.map(method => (
-            <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <FaCreditCard className="h-6 w-6 text-gray-400" />
-                <div>
-                  <p className="font-medium">{method.type}</p>
-                  {method.type === "Credit Card" ? (
-                    <p className="text-sm text-gray-500">•••• {method.last4} • Expires {method.expiry}</p>
-                  ) : (
-                    <p className="text-sm text-gray-500">{method.email}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {method.isDefault && (
-                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full dark:bg-green-800/30 dark:text-green-300">
-                    Default
-                  </span>
-                )}
-                <Button variant="outline" size="sm" disabled={!isEditing}>
-                  Edit
-                </Button>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FaLock className="h-5 w-5 text-gray-400" />
+              <div>
+                <Label>Password</Label>
+                <p className="text-sm text-gray-500">Last changed: Never</p>
               </div>
             </div>
-          ))}
-          <Button variant="outline" className="w-full" disabled={!isEditing}>
-            Add Payment Method
-          </Button>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Account Security</h2>
-        <div className="space-y-4">
-          <Button variant="outline" className="w-full justify-start gap-2">
-            <FaLock className="h-4 w-4" />
-            Change Password
-          </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
-            Delete Account
-          </Button>
+            <Button variant="outline">Change Password</Button>
+          </div>
         </div>
       </Card>
     </div>

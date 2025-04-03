@@ -435,12 +435,13 @@ router.get('/notifications/count', auth, isAdmin, async (req, res) => {
 
 /**
  * @route   POST /api/admin/notifications/:notificationId/process
- * @desc    Process a notification (approve/reject)
- * @access  Private/Admin
+ * @desc    Process a notification (approve/reject user profile changes)
+ * @access  Private - Admin only
  */
 router.post('/notifications/:notificationId/process', auth, isAdmin, async (req, res) => {
   try {
     const { action, reason } = req.body;
+    const { notificationId } = req.params;
     
     if (!action || !['approve', 'reject'].includes(action)) {
       return res.status(400).json({
@@ -449,16 +450,8 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
       });
     }
     
-    // If rejecting, require a reason
-    if (action === 'reject' && !reason) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection reason is required'
-      });
-    }
-    
     // Find the notification
-    const notification = await Notification.findById(req.params.notificationId);
+    const notification = await Notification.findById(notificationId);
     
     if (!notification) {
       return res.status(404).json({
@@ -467,97 +460,186 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
       });
     }
     
-    // Check if notification is already processed
+    // Only process pending notifications
     if (notification.status !== 'PENDING') {
       return res.status(400).json({
         success: false,
-        message: `Notification is already ${notification.status.toLowerCase()}`
-      });
-    }
-    
-    // Get the user
-    const user = await User.findById(notification.userId);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
+        message: `Cannot process notification with status "${notification.status}"`
       });
     }
     
     // Process based on notification type
-    if (action === 'approve') {
-      if (notification.type === 'PROFILE_UPDATE') {
-        // Apply the changes to the user profile
-        const changes = notification.data;
-        
-        // Update user fields
-        if (changes.name) user.name = changes.name;
-        if (changes.email) user.email = changes.email;
-        if (changes.phone) user.phone = changes.phone;
-        
-        // Update restaurant details if applicable
-        if (changes.restaurantDetails && user.isRestaurantOwner) {
-          if (!user.restaurantDetails) {
-            user.restaurantDetails = {};
+    switch (notification.type) {
+      case 'PROFILE_UPDATE':
+        // Handle user profile update
+        if (action === 'approve') {
+          // Get the user
+          const user = await User.findById(notification.userId);
+          
+          if (!user) {
+            return res.status(404).json({
+              success: false,
+              message: 'User not found'
+            });
           }
           
-          if (changes.restaurantDetails.name) {
-            user.restaurantDetails.name = changes.restaurantDetails.name;
+          // Update the user's profile with the requested changes
+          if (notification.data.email) {
+            user.email = notification.data.email;
           }
           
-          if (changes.restaurantDetails.address) {
-            user.restaurantDetails.address = changes.restaurantDetails.address;
-          }
-          
-          if (changes.restaurantDetails.description) {
-            user.restaurantDetails.description = changes.restaurantDetails.description;
-          }
-          
-          if (changes.restaurantDetails.cuisineType) {
-            user.restaurantDetails.cuisineType = changes.restaurantDetails.cuisineType;
-          }
-        }
-        
-        // Save the updated user
-        await user.save();
-      } else if (notification.type === 'RESTAURANT_REGISTRATION') {
-        // Approve a restaurant registration
-        if (user.restaurantDetails) {
-          user.restaurantDetails.approved = true;
-          user.restaurantDetails.approvedAt = new Date();
-          user.restaurantDetails.approvedBy = req.user._id;
-          
-          // Save the updated user
           await user.save();
+          
+          // Update notification status
+          notification.status = 'APPROVED';
+          notification.processedBy = req.user.id;
+          notification.processedAt = new Date();
+          await notification.save();
+          
+          // Create a notification for the user about the approval
+          const userNotification = new Notification({
+            userId: notification.userId,
+            type: 'SYSTEM',
+            title: 'Profile Update Approved',
+            message: 'Your requested profile changes have been approved by the admin.',
+            isRead: false,
+            data: {}
+          });
+          
+          await userNotification.save();
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Profile update approved successfully'
+          });
+        } else {
+          // Reject - need a reason
+          if (!reason) {
+            return res.status(400).json({
+              success: false,
+              message: 'Rejection reason is required'
+            });
+          }
+          
+          // Update notification status
+          notification.status = 'REJECTED';
+          notification.processedBy = req.user.id;
+          notification.processedAt = new Date();
+          notification.rejectionReason = reason;
+          await notification.save();
+          
+          // Create a notification for the user about the rejection
+          const userNotification = new Notification({
+            userId: notification.userId,
+            type: 'SYSTEM',
+            title: 'Profile Update Rejected',
+            message: `Your requested profile changes have been rejected by the admin. Reason: ${reason}`,
+            isRead: false,
+            data: {}
+          });
+          
+          await userNotification.save();
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Profile update rejected successfully'
+          });
         }
-      }
-      
-      // Update notification status
-      notification.status = 'APPROVED';
-    } else {
-      // Reject the notification
-      notification.status = 'REJECTED';
-      notification.rejectionReason = reason;
+        
+      case 'RESTAURANT_UPDATE':
+        // Handle restaurant update
+        if (action === 'approve') {
+          // Get the restaurant
+          const restaurant = await Restaurant.findById(notification.data.restaurantId);
+          
+          if (!restaurant) {
+            return res.status(404).json({
+              success: false,
+              message: 'Restaurant not found'
+            });
+          }
+          
+          // Update the restaurant with the requested changes
+          if (notification.data.restaurantDetails) {
+            const { name, address, cuisine, description, openingHours, contactInfo } = notification.data.restaurantDetails;
+            
+            if (name) restaurant.name = name;
+            if (address) restaurant.address = address;
+            if (cuisine) restaurant.cuisine = cuisine;
+            if (description) restaurant.description = description;
+            if (openingHours) restaurant.openingHours = openingHours;
+            if (contactInfo) restaurant.contactInfo = contactInfo;
+          }
+          
+          await restaurant.save();
+          
+          // Update notification status
+          notification.status = 'APPROVED';
+          notification.processedBy = req.user.id;
+          notification.processedAt = new Date();
+          await notification.save();
+          
+          // Create a notification for the restaurant owner
+          const ownerNotification = new Notification({
+            userId: notification.userId,
+            type: 'SYSTEM',
+            title: 'Restaurant Update Approved',
+            message: 'Your requested restaurant profile changes have been approved by the admin.',
+            isRead: false,
+            data: {}
+          });
+          
+          await ownerNotification.save();
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Restaurant update approved successfully'
+          });
+        } else {
+          // Reject - need a reason
+          if (!reason) {
+            return res.status(400).json({
+              success: false,
+              message: 'Rejection reason is required'
+            });
+          }
+          
+          // Update notification status
+          notification.status = 'REJECTED';
+          notification.processedBy = req.user.id;
+          notification.processedAt = new Date();
+          notification.rejectionReason = reason;
+          await notification.save();
+          
+          // Create a notification for the restaurant owner
+          const ownerNotification = new Notification({
+            userId: notification.userId,
+            type: 'SYSTEM',
+            title: 'Restaurant Update Rejected',
+            message: `Your requested restaurant profile changes have been rejected by the admin. Reason: ${reason}`,
+            isRead: false,
+            data: {}
+          });
+          
+          await ownerNotification.save();
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Restaurant update rejected successfully'
+          });
+        }
+        
+      default:
+        return res.status(400).json({
+          success: false,
+          message: `Notification type "${notification.type}" cannot be processed`
+        });
     }
-    
-    // Update common fields
-    notification.processedBy = req.user._id;
-    notification.processedAt = new Date();
-    
-    // Save the notification
-    await notification.save();
-    
-    return res.status(200).json({
-      success: true,
-      message: `Notification ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
-      notification
-    });
   } catch (error) {
-    console.error('Process notification error:', error);
+    console.error('Error processing notification:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error processing notification'
+      message: 'Server error while processing notification'
     });
   }
 });

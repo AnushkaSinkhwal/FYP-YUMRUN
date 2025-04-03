@@ -59,6 +59,7 @@ import UserFavorites from "./Pages/user/Favorites";
 import UserReviews from "./Pages/user/Reviews";
 import UserRewards from "./Pages/user/Rewards";
 import UserNotifications from "./Pages/user/Notifications";
+import UserSettings from "./Pages/user/Settings";
 
 // Create a RouteChangeDetector component
 const RouteChangeDetector = () => {
@@ -328,6 +329,7 @@ function App() {
               <Route path="dashboard" element={<UserDashboard />} />
               <Route path="orders" element={<UserOrders />} />
               <Route path="profile" element={<UserProfile />} />
+              <Route path="settings" element={<UserSettings />} />
               <Route path="favorites" element={<UserFavorites />} />
               <Route path="reviews" element={<UserReviews />} />
               <Route path="rewards" element={<UserRewards />} />
