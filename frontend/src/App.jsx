@@ -1,6 +1,6 @@
 // import 'bootstrap/dist/css/bootstrap.min.css';
 // import './App.css';
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, Navigate } from "react-router-dom";
 import Home from "./Pages/Home";
 import Header from "./components/Header";
 import Footer from './components/footer';
@@ -191,6 +191,7 @@ function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="restaurants" element={<AdminRestaurants />} />
+              <Route path="restaurant" element={<Navigate to="/admin/restaurants" replace />} />
               <Route path="categories" element={<AdminCategory />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="users" element={<AdminUsers />} />

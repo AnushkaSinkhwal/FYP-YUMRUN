@@ -216,8 +216,76 @@ export const adminAPI = {
   },
   
   // Process notification (approve/reject)
-  processNotification: async (notificationId, action) => {
-    return api.post(`/admin/notifications/${notificationId}/process`, { action });
+  processNotification: async (notificationId, action, data = {}) => {
+    return api.post(`/admin/notifications/${notificationId}/process`, { action, ...data });
+  },
+  
+  // Get pending restaurant profile approvals
+  getRestaurantApprovals: async () => {
+    return api.get('/admin/restaurant-approvals');
+  },
+  
+  // Get count of pending restaurant profile approvals
+  getRestaurantApprovalsCount: async () => {
+    return api.get('/admin/restaurant-approvals/count');
+  },
+  
+  // Approve restaurant profile changes
+  approveRestaurantChanges: async (approvalId) => {
+    return api.post(`/admin/restaurant-approvals/${approvalId}/approve`);
+  },
+  
+  // Reject restaurant profile changes
+  rejectRestaurantChanges: async (approvalId, reason) => {
+    return api.post(`/admin/restaurant-approvals/${approvalId}/reject`, { reason });
+  }
+};
+
+// Restaurant API methods
+export const restaurantAPI = {
+  // Get restaurant profile
+  getProfile: async () => {
+    return api.get('/restaurant/profile');
+  },
+  
+  // Update restaurant profile
+  updateProfile: async (profileData) => {
+    return api.put('/restaurant/profile', profileData);
+  },
+  
+  // Submit profile changes for approval
+  submitProfileChanges: async (changes) => {
+    return api.post('/restaurant/profile/changes', changes);
+  },
+  
+  // Get profile change status
+  getProfileChangeStatus: async () => {
+    return api.get('/restaurant/profile/changes/status');
+  },
+  
+  // Get restaurant notifications
+  getNotifications: async () => {
+    return api.get('/restaurant/notifications');
+  },
+  
+  // Get unread notification count
+  getUnreadNotificationCount: async () => {
+    return api.get('/restaurant/notifications/unread-count');
+  },
+  
+  // Mark notification as read
+  markNotificationAsRead: async (notificationId) => {
+    return api.put(`/restaurant/notifications/${notificationId}/read`);
+  },
+  
+  // Mark all notifications as read
+  markAllNotificationsAsRead: async () => {
+    return api.put('/restaurant/notifications/mark-all-read');
+  },
+  
+  // Delete notification
+  deleteNotification: async (notificationId) => {
+    return api.delete(`/restaurant/notifications/${notificationId}`);
   }
 };
 
@@ -236,6 +304,31 @@ export const userAPI = {
   // Get profile change status
   getProfileChangeStatus: async () => {
     return api.get('/users/profile/change-status');
+  },
+  
+  // Get user notifications
+  getNotifications: async () => {
+    return api.get('/user/notifications');
+  },
+  
+  // Get unread notification count
+  getUnreadNotificationCount: async () => {
+    return api.get('/user/notifications/unread-count');
+  },
+  
+  // Mark notification as read
+  markNotificationAsRead: async (notificationId) => {
+    return api.put(`/user/notifications/${notificationId}/read`);
+  },
+  
+  // Mark all notifications as read
+  markAllNotificationsAsRead: async () => {
+    return api.put('/user/notifications/mark-all-read');
+  },
+  
+  // Delete notification
+  deleteNotification: async (notificationId) => {
+    return api.delete(`/user/notifications/${notificationId}`);
   }
 };
 

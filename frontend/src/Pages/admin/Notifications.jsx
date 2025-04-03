@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../utils/api';
 import { Card, Button, Alert, Spinner, Badge } from '../../components/ui';
+import PropTypes from 'prop-types';
 
 const NotificationItem = ({ notification, onProcess }) => {
   const getStatusBadge = (status) => {
@@ -39,9 +40,9 @@ const NotificationItem = ({ notification, onProcess }) => {
   return (
     <Card className="mb-4">
       <div className="p-4">
-        <div className="flex justify-between items-start mb-3">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-lg font-semibold mb-1">
+            <h3 className="mb-1 text-lg font-semibold">
               {notification.title || getNotificationTitle(notification.type)}
             </h3>
             <p className="text-sm text-gray-500">
@@ -54,8 +55,8 @@ const NotificationItem = ({ notification, onProcess }) => {
         <p className="mb-4">{notification.message}</p>
         
         {notification.type === 'PROFILE_UPDATE' && notification.data && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-md mb-4">
-            <h4 className="font-medium mb-2">Requested Changes:</h4>
+          <div className="p-3 mb-4 rounded-md bg-gray-50 dark:bg-gray-800">
+            <h4 className="mb-2 font-medium">Requested Changes:</h4>
             <ul className="space-y-1">
               {notification.data.name && (
                 <li>
@@ -91,7 +92,7 @@ const NotificationItem = ({ notification, onProcess }) => {
         )}
         
         {notification.status === 'PENDING' && (
-          <div className="flex space-x-2 mt-2">
+          <div className="flex mt-2 space-x-2">
             <Button 
               variant="success" 
               size="sm"
@@ -125,6 +126,30 @@ const NotificationItem = ({ notification, onProcess }) => {
   );
 };
 
+// Define prop types for the NotificationItem component
+NotificationItem.propTypes = {
+  notification: PropTypes.shape({
+    _id: PropTypes.string.isRequired,
+    title: PropTypes.string,
+    type: PropTypes.string.isRequired,
+    message: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+    createdAt: PropTypes.string.isRequired,
+    processedAt: PropTypes.string,
+    rejectionReason: PropTypes.string,
+    data: PropTypes.shape({
+      name: PropTypes.string,
+      email: PropTypes.string,
+      phone: PropTypes.string,
+      restaurantDetails: PropTypes.shape({
+        name: PropTypes.string,
+        address: PropTypes.string
+      })
+    })
+  }).isRequired,
+  onProcess: PropTypes.func.isRequired
+};
+
 const AdminNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,25 +161,30 @@ const AdminNotifications = () => {
   
   // Fetch notifications on component mount
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await adminAPI.getNotifications();
-        if (response.data.success) {
-          setNotifications(response.data.notifications);
-        } else {
-          setError('Failed to load notifications');
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-        setError('An error occurred while fetching notifications');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     fetchNotifications();
   }, []);
+  
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminAPI.getNotifications();
+      if (response?.data?.success) {
+        setNotifications(response.data.notifications || []);
+        
+        // If there are no notifications, don't show an error
+        if (response.data.notifications?.length === 0) {
+          setError(null);
+        }
+      } else {
+        setError('Failed to load notifications. ' + (response?.data?.message || ''));
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setError('An error occurred while fetching notifications. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleProcess = async (notificationId, action) => {
     if (action === 'reject') {
@@ -190,7 +220,7 @@ const AdminNotifications = () => {
       }
     } catch (error) {
       console.error(`Error ${action}ing notification:`, error);
-      setError(`An error occurred while ${action}ing the notification`);
+      setError(`An error occurred while ${action}ing the notification. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -246,9 +276,9 @@ const AdminNotifications = () => {
   };
   
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container px-4 py-6 mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Notifications</h1>
+        <h1 className="mb-2 text-2xl font-bold">Notifications</h1>
         <p className="text-gray-600">
           Manage user profile update requests and restaurant registrations
         </p>
@@ -295,11 +325,11 @@ const AdminNotifications = () => {
       
       {/* Rejection Dialog */}
       {showRejectionDialog && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Provide Rejection Reason</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-semibold">Provide Rejection Reason</h3>
             <textarea
-              className="w-full p-2 border rounded-md mb-4 dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 mb-4 border rounded-md dark:bg-gray-700 dark:border-gray-600"
               rows="3"
               placeholder="Enter reason for rejection"
               value={rejectionReason}

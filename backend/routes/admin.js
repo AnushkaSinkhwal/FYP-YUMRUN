@@ -174,7 +174,7 @@ router.get('/users/:userId', auth, isAdmin, async (req, res) => {
  */
 router.put('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
-    const { fullName, email, phone, role, isActive } = req.body;
+    const { fullName, email, phone, role, isActive, healthCondition } = req.body;
     
     // Find the user
     const user = await User.findById(req.params.userId);
@@ -186,23 +186,70 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
       });
     }
     
-    // Update user fields
-    if (fullName) user.fullName = fullName;
-    if (email) user.email = email;
-    if (phone) user.phone = phone;
-    if (role !== undefined) user.role = role;
-    if (isActive !== undefined) user.isActive = isActive;
+    // Track changes for logging
+    const changes = {};
     
-    // Save the updated user
-    await user.save();
+    // Update user fields with validation
+    if (fullName && fullName !== user.fullName) {
+      changes.fullName = { from: user.fullName, to: fullName };
+      user.fullName = fullName;
+    }
+    
+    if (email && email !== user.email) {
+      // Check if email is already in use
+      const existingUser = await User.findOne({ email, _id: { $ne: user._id } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already in use by another account'
+        });
+      }
+      changes.email = { from: user.email, to: email };
+      user.email = email;
+    }
+    
+    // Handle phone number update with validation
+    if (phone && phone !== user.phone) {
+      // Validate phone number format (10 digits)
+      if (!/^\d{10}$/.test(phone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be exactly 10 digits'
+        });
+      }
+      changes.phone = { from: user.phone, to: phone };
+      user.phone = phone;
+    }
+    
+    if (role !== undefined && role !== user.role) {
+      changes.role = { from: user.role, to: role };
+      user.role = role;
+    }
+    
+    if (isActive !== undefined && isActive !== user.isActive) {
+      changes.isActive = { from: user.isActive, to: isActive };
+      user.isActive = isActive;
+    }
+    
+    if (healthCondition && healthCondition !== user.healthCondition) {
+      changes.healthCondition = { from: user.healthCondition, to: healthCondition };
+      user.healthCondition = healthCondition;
+    }
+    
+    // Save the updated user with a promise to ensure it completes
+    const savedUser = await user.save();
+    
+    // Log that the save was successful with changes
+    console.log(`User updated by admin. User ID: ${savedUser._id}, Changes:`, changes);
     
     // Send notification about the update
     const notification = new Notification({
-      userId: user._id,
+      userId: savedUser._id,
       title: 'Profile Updated',
       message: `Your profile information was updated by an administrator.`,
       type: 'PROFILE_UPDATE',
-      status: 'UNREAD'
+      status: 'UNREAD',
+      data: changes
     });
     
     await notification.save();
@@ -210,13 +257,13 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'User updated successfully',
-      user
+      user: savedUser
     });
   } catch (error) {
     console.error('Update user error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error updating user'
+      message: 'Error updating user: ' + error.message
     });
   }
 });
@@ -240,24 +287,48 @@ router.put('/profile', auth, isAdmin, async (req, res) => {
       });
     }
     
-    // Update admin fields
-    if (fullName) admin.fullName = fullName;
-    if (email) admin.email = email;
-    if (phone) admin.phone = phone;
+    // Update admin fields with validation
+    if (fullName && fullName !== admin.fullName) admin.fullName = fullName;
     
-    // Save the updated admin
-    await admin.save();
+    if (email && email !== admin.email) {
+      // Check if email is already in use
+      const existingUser = await User.findOne({ email, _id: { $ne: req.user.userId } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already in use by another account'
+        });
+      }
+      admin.email = email;
+    }
+    
+    if (phone && phone !== admin.phone) {
+      // Validate phone number format (10 digits)
+      if (!/^\d{10}$/.test(phone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be exactly 10 digits'
+        });
+      }
+      admin.phone = phone;
+    }
+    
+    // Save the updated admin with a promise
+    const savedAdmin = await admin.save();
+    
+    // Log the update
+    console.log(`Admin profile updated. Admin ID: ${savedAdmin._id}, Email: ${savedAdmin.email}, Phone: ${savedAdmin.phone}`);
     
     return res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user: admin
+      user: savedAdmin
     });
   } catch (error) {
     console.error('Update admin profile error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error updating profile'
+      message: 'Error updating profile: ' + error.message
     });
   }
 });
@@ -682,6 +753,27 @@ router.get('/restaurant-approvals', auth, isAdmin, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/admin/restaurant-approvals/count
+ * @desc    Get count of pending restaurant approvals
+ * @access  Private/Admin
+ */
+router.get('/restaurant-approvals/count', auth, isAdmin, async (req, res) => {
+    try {
+        const count = await RestaurantApproval.countDocuments({ status: 'pending' });
+        
+        res.status(200).json({
+            success: true,
+            count
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Approve restaurant profile changes
 router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (req, res) => {
     try {
@@ -710,25 +802,169 @@ router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (r
             });
         }
 
-        // Update restaurant data
-        restaurant.name = approval.requestedData.name;
-        restaurant.email = approval.requestedData.email;
-        restaurant.phone = approval.requestedData.phone;
-        restaurant.restaurantName = approval.requestedData.restaurantName;
-        restaurant.restaurantAddress = approval.requestedData.restaurantAddress;
-
-        await restaurant.save();
-
-        // Update approval status
-        approval.status = 'approved';
-        await approval.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'Profile changes approved successfully'
+        console.log("Current restaurant data:", {
+            name: restaurant.name,
+            email: restaurant.email,
+            phone: restaurant.phone,
+            restaurantName: restaurant.restaurantDetails?.name,
+            restaurantAddress: restaurant.restaurantDetails?.address
         });
+
+        console.log("Requested changes:", approval.requestedData);
+
+        // Track changes for logging
+        const changes = {};
+
+        // Update restaurant data with validation
+        if (approval.requestedData.name && approval.requestedData.name !== restaurant.name) {
+            changes.name = { from: restaurant.name, to: approval.requestedData.name };
+            restaurant.name = approval.requestedData.name;
+        }
+        
+        if (approval.requestedData.email && approval.requestedData.email !== restaurant.email) {
+            // Check if email is already in use
+            const existingUser = await User.findOne({ 
+                email: approval.requestedData.email, 
+                _id: { $ne: approval.restaurantId } 
+            });
+            
+            if (existingUser) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Email is already in use by another account'
+                });
+            }
+            
+            changes.email = { from: restaurant.email, to: approval.requestedData.email };
+            restaurant.email = approval.requestedData.email;
+        }
+        
+        // Handle phone number with validation
+        if (approval.requestedData.phone && approval.requestedData.phone !== restaurant.phone) {
+            // Validate phone number format (10 digits)
+            if (!/^\d{10}$/.test(approval.requestedData.phone)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Phone number must be exactly 10 digits'
+                });
+            }
+            
+            changes.phone = { from: restaurant.phone, to: approval.requestedData.phone };
+            restaurant.phone = approval.requestedData.phone;
+        }
+        
+        // Ensure restaurant details exist
+        if (!restaurant.restaurantDetails) {
+            restaurant.restaurantDetails = {};
+        }
+        
+        // Update restaurant details
+        if (approval.requestedData.restaurantName) {
+            changes.restaurantName = { 
+                from: restaurant.restaurantDetails?.name || '', 
+                to: approval.requestedData.restaurantName 
+            };
+            restaurant.restaurantDetails.name = approval.requestedData.restaurantName;
+        }
+        
+        if (approval.requestedData.restaurantAddress) {
+            changes.restaurantAddress = { 
+                from: restaurant.restaurantDetails?.address || '', 
+                to: approval.requestedData.restaurantAddress 
+            };
+            restaurant.restaurantDetails.address = approval.requestedData.restaurantAddress;
+        }
+
+        // Log changes before saving
+        console.log("Applying changes:", changes);
+
+        // First try to save without validation in case there are schema issues
+        try {
+            // Save changes with a promise and bypass validation
+            const savedRestaurant = await restaurant.save({ validateBeforeSave: false });
+            
+            // Log the update with specific changes
+            console.log(`Restaurant profile approved by admin. Restaurant ID: ${savedRestaurant._id}, Changes:`, changes);
+            
+            // Update approval status
+            approval.status = 'approved';
+            approval.processedBy = req.user.userId;
+            approval.processedAt = new Date();
+            await approval.save();
+            
+            // Create notification for restaurant owner
+            const notification = new Notification({
+                type: 'PROFILE_UPDATE',
+                title: 'Profile Update Approved',
+                message: 'Your profile update request has been approved by the administrator.',
+                userId: restaurant._id,
+                status: 'PENDING',
+                data: changes
+            });
+            
+            await notification.save();
+
+            // Double-check that changes were applied correctly
+            const updatedRestaurant = await User.findById(restaurant._id);
+            console.log("Updated restaurant data:", {
+                name: updatedRestaurant.name,
+                email: updatedRestaurant.email,
+                phone: updatedRestaurant.phone,
+                restaurantName: updatedRestaurant.restaurantDetails?.name,
+                restaurantAddress: updatedRestaurant.restaurantDetails?.address
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Profile changes approved successfully',
+                restaurant: {
+                    id: savedRestaurant._id,
+                    name: savedRestaurant.name,
+                    email: savedRestaurant.email,
+                    phone: savedRestaurant.phone,
+                    restaurantDetails: savedRestaurant.restaurantDetails
+                }
+            });
+        } catch (saveError) {
+            console.error('Error saving restaurant profile:', saveError);
+            
+            // If there was an issue, try saving with individual field updates
+            console.log("Attempting alternative save approach...");
+            
+            // Update fields directly using findByIdAndUpdate
+            const updateFields = {};
+            
+            if (changes.name) updateFields.name = changes.name.to;
+            if (changes.email) updateFields.email = changes.email.to;
+            if (changes.phone) updateFields.phone = changes.phone.to;
+            
+            if (changes.restaurantName || changes.restaurantAddress) {
+                updateFields.restaurantDetails = restaurant.restaurantDetails;
+            }
+            
+            const updatedRestaurant = await User.findByIdAndUpdate(
+                restaurant._id,
+                { $set: updateFields },
+                { new: true, runValidators: true }
+            );
+            
+            console.log("Restaurant updated with alternative approach:", updatedRestaurant);
+            
+            // Update approval status
+            approval.status = 'approved';
+            approval.processedBy = req.user.userId;
+            approval.processedAt = new Date();
+            await approval.save();
+            
+            return res.status(200).json({
+                success: true,
+                message: 'Profile changes approved successfully with alternative method',
+                restaurant: updatedRestaurant
+            });
+        }
     } catch (error) {
-        res.status(500).json({
+        console.error('Error approving restaurant profile:', error);
+        return res.status(500).json({
             success: false,
             error: error.message
         });
@@ -738,6 +974,15 @@ router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (r
 // Reject restaurant profile changes
 router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (req, res) => {
     try {
+        const { reason } = req.body;
+        
+        if (!reason) {
+            return res.status(400).json({
+                success: false,
+                error: 'Rejection reason is required'
+            });
+        }
+        
         const approval = await RestaurantApproval.findById(req.params.approvalId);
         
         if (!approval) {
@@ -756,13 +1001,35 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
 
         // Update approval status
         approval.status = 'rejected';
+        approval.processedBy = req.user.userId;
+        approval.processedAt = new Date();
+        approval.rejectionReason = reason;
         await approval.save();
+        
+        // Create notification for restaurant owner
+        const notification = new Notification({
+            type: 'PROFILE_UPDATE',
+            title: 'Profile Update Rejected',
+            message: 'Your profile update request has been rejected by the administrator.',
+            userId: approval.restaurantId,
+            status: 'PENDING',
+            data: {
+                reason: reason,
+                approvalId: approval._id,
+                rejectedAt: new Date()
+            }
+        });
+        
+        await notification.save();
+        
+        console.log(`Restaurant profile changes rejected. Restaurant ID: ${approval.restaurantId}, Reason: ${reason}`);
 
         res.status(200).json({
             success: true,
             message: 'Profile changes rejected successfully'
         });
     } catch (error) {
+        console.error('Error rejecting restaurant profile:', error);
         res.status(500).json({
             success: false,
             error: error.message

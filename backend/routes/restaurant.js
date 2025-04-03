@@ -6,6 +6,7 @@ const User = require('../models/user');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const Notification = require('../models/notification');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -46,23 +47,43 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
             });
         }
         
-        // Return restaurant profile information
+        // Check for pending approval changes
+        const pendingApproval = await RestaurantApproval.findOne({
+            restaurantId: req.user.userId,
+            status: 'pending'
+        });
+        
+        // Prepare the profile data with current values
+        const profileData = {
+            name: user.restaurantDetails?.name || '',
+            description: user.restaurantDetails?.description || '',
+            address: user.restaurantDetails?.address || '',
+            phone: user.phone || '',
+            email: user.email || '',
+            openingHours: user.restaurantDetails?.openingHours || {},
+            cuisine: user.restaurantDetails?.cuisine || [],
+            isOpen: user.restaurantDetails?.isOpen !== undefined ? user.restaurantDetails.isOpen : true,
+            deliveryRadius: user.restaurantDetails?.deliveryRadius || 5,
+            minimumOrder: user.restaurantDetails?.minimumOrder || 0,
+            deliveryFee: user.restaurantDetails?.deliveryFee || 0,
+            logo: user.restaurantDetails?.logo || null,
+            coverImage: user.restaurantDetails?.coverImage || null
+        };
+        
+        // Return restaurant profile information with pending changes if they exist
         return res.status(200).json({
             success: true,
-            data: {
-                name: user.restaurantDetails?.name || '',
-                description: user.restaurantDetails?.description || '',
-                address: user.restaurantDetails?.address || '',
-                phone: user.phone || '',
-                email: user.email || '',
-                openingHours: user.restaurantDetails?.openingHours || {},
-                cuisine: user.restaurantDetails?.cuisine || [],
-                isOpen: user.restaurantDetails?.isOpen !== undefined ? user.restaurantDetails.isOpen : true,
-                deliveryRadius: user.restaurantDetails?.deliveryRadius || 5,
-                minimumOrder: user.restaurantDetails?.minimumOrder || 0,
-                deliveryFee: user.restaurantDetails?.deliveryFee || 0,
-                logo: user.restaurantDetails?.logo || null,
-                coverImage: user.restaurantDetails?.coverImage || null
+            data: profileData,
+            pendingChanges: pendingApproval ? {
+                hasPendingChanges: true,
+                name: pendingApproval.requestedData.name,
+                email: pendingApproval.requestedData.email,
+                phone: pendingApproval.requestedData.phone,
+                restaurantName: pendingApproval.requestedData.restaurantName,
+                restaurantAddress: pendingApproval.requestedData.restaurantAddress,
+                submittedAt: pendingApproval.createdAt
+            } : {
+                hasPendingChanges: false
             }
         });
     } catch (error) {
@@ -113,7 +134,18 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
         if (name) user.restaurantDetails.name = name;
         if (description) user.restaurantDetails.description = description;
         if (address) user.restaurantDetails.address = address;
-        if (phone) user.phone = phone;
+        
+        // Handle phone number update with validation
+        if (phone && phone !== user.phone) {
+            // Validate phone number format (10 digits)
+            if (!/^\d{10}$/.test(phone)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Phone number must be exactly 10 digits'
+                });
+            }
+            user.phone = phone;
+        }
         
         // Handle JSON fields
         if (openingHours) {
@@ -184,33 +216,36 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
             }
         }
         
-        // Save updated user
-        await user.save();
+        // Explicitly save the user with a promise
+        const savedUser = await user.save();
+        
+        // Log the successful update
+        console.log(`Restaurant profile updated successfully. User ID: ${savedUser._id}, Phone: ${savedUser.phone}`);
         
         return res.status(200).json({
             success: true,
             message: 'Restaurant profile updated successfully',
             data: {
-                name: user.restaurantDetails.name,
-                description: user.restaurantDetails.description,
-                address: user.restaurantDetails.address,
-                phone: user.phone,
-                email: user.email,
-                openingHours: user.restaurantDetails.openingHours || {},
-                cuisine: user.restaurantDetails.cuisine || [],
-                isOpen: user.restaurantDetails.isOpen !== undefined ? user.restaurantDetails.isOpen : true,
-                deliveryRadius: user.restaurantDetails.deliveryRadius || 5,
-                minimumOrder: user.restaurantDetails.minimumOrder || 0,
-                deliveryFee: user.restaurantDetails.deliveryFee || 0,
-                logo: user.restaurantDetails.logo || null,
-                coverImage: user.restaurantDetails.coverImage || null
+                name: savedUser.restaurantDetails.name,
+                description: savedUser.restaurantDetails.description,
+                address: savedUser.restaurantDetails.address,
+                phone: savedUser.phone,
+                email: savedUser.email,
+                openingHours: savedUser.restaurantDetails.openingHours || {},
+                cuisine: savedUser.restaurantDetails.cuisine || [],
+                isOpen: savedUser.restaurantDetails.isOpen !== undefined ? savedUser.restaurantDetails.isOpen : true,
+                deliveryRadius: savedUser.restaurantDetails.deliveryRadius || 5,
+                minimumOrder: savedUser.restaurantDetails.minimumOrder || 0,
+                deliveryFee: savedUser.restaurantDetails.deliveryFee || 0,
+                logo: savedUser.restaurantDetails.logo || null,
+                coverImage: savedUser.restaurantDetails.coverImage || null
             }
         });
     } catch (error) {
         console.error('Error updating restaurant profile:', error);
         return res.status(500).json({ 
             success: false, 
-            message: 'Server error. Please try again.' 
+            message: 'Server error: ' + error.message
         });
     }
 });
@@ -305,6 +340,176 @@ router.get('/pending-changes', auth, async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/notifications/unread-count
+ * @desc    Get unread notification count for a restaurant
+ * @access  Private/RestaurantOwner
+ */
+router.get('/notifications/unread-count', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const count = await Notification.countDocuments({ 
+            userId: req.user.userId,
+            status: 'PENDING'
+        });
+        
+        return res.status(200).json({
+            success: true,
+            count
+        });
+    } catch (error) {
+        console.error('Error getting notification count:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error. Please try again.' 
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/notifications
+ * @desc    Get notifications for a restaurant
+ * @access  Private/RestaurantOwner
+ */
+router.get('/notifications', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const notifications = await Notification.find({ 
+            userId: req.user.userId 
+        }).sort({ createdAt: -1 });
+        
+        return res.status(200).json({
+            success: true,
+            notifications
+        });
+    } catch (error) {
+        console.error('Error getting notifications:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error. Please try again.' 
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/profile/changes/status
+ * @desc    Get status of any pending restaurant profile changes
+ * @access  Private/RestaurantOwner
+ */
+router.get('/profile/changes/status', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const pendingApproval = await RestaurantApproval.findOne({
+            restaurantId: req.user.userId,
+            status: 'pending'
+        });
+        
+        return res.status(200).json({
+            success: true,
+            hasPendingChanges: !!pendingApproval,
+            pendingApproval: pendingApproval || null
+        });
+    } catch (error) {
+        console.error('Error checking profile changes status:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error. Please try again.' 
+        });
+    }
+});
+
+/**
+ * @route   POST /api/restaurant/profile/changes
+ * @desc    Submit restaurant profile changes for approval
+ * @access  Private/RestaurantOwner
+ */
+router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User not found' 
+            });
+        }
+        
+        // Check if there's already a pending approval
+        const existingPendingApproval = await RestaurantApproval.findOne({
+            restaurantId: userId,
+            status: 'pending'
+        });
+        
+        if (existingPendingApproval) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'You already have pending changes awaiting approval' 
+            });
+        }
+        
+        // Extract fields from request body
+        const { name, email, phone, restaurantName, restaurantAddress } = req.body;
+        
+        // Validate phone number if provided
+        if (phone && !/^\d{10}$/.test(phone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phone number must be exactly 10 digits'
+            });
+        }
+        
+        // Create a new approval request
+        const approvalRequest = new RestaurantApproval({
+            restaurantId: userId,
+            currentData: {
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                restaurantName: user.restaurantDetails?.name || '',
+                restaurantAddress: user.restaurantDetails?.address || ''
+            },
+            requestedData: {
+                name: name || user.name,
+                email: email || user.email,
+                phone: phone || user.phone,
+                restaurantName: restaurantName || user.restaurantDetails?.name || '',
+                restaurantAddress: restaurantAddress || user.restaurantDetails?.address || ''
+            },
+            status: 'pending'
+        });
+        
+        const savedApproval = await approvalRequest.save();
+        
+        // Create a notification for admins
+        const notification = new Notification({
+            type: 'RESTAURANT_UPDATE',
+            title: 'Restaurant Profile Update Request',
+            message: `Restaurant ${user.restaurantDetails?.name || 'owner'} has requested profile changes.`,
+            userId: userId,
+            status: 'PENDING',
+            data: {
+                approvalId: savedApproval._id,
+                changes: savedApproval.requestedData
+            }
+        });
+        
+        await notification.save();
+        
+        // Log the approval request
+        console.log(`Restaurant profile changes submitted for approval. Restaurant ID: ${userId}, Requested phone: ${phone || 'unchanged'}`);
+        
+        return res.status(201).json({
+            success: true,
+            message: 'Profile changes submitted for approval',
+            approvalRequest: savedApproval
+        });
+    } catch (error) {
+        console.error('Error submitting profile changes:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error. Please try again: ' + error.message
         });
     }
 });

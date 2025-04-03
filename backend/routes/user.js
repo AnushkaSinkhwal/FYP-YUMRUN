@@ -221,6 +221,14 @@ router.put('/profile', auth, async (req, res) => {
     }
     
     if (phone && phone !== user.phone) {
+      // Validate phone number format (10 digits)
+      if (!/^\d{10}$/.test(phone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be exactly 10 digits'
+        });
+      }
+      
       changes.phone = { from: user.phone, to: phone };
       user.phone = phone;
     }
@@ -230,20 +238,23 @@ router.put('/profile', auth, async (req, res) => {
       user.healthCondition = healthCondition;
     }
     
-    // Save user
-    await user.save();
+    // Explicitly call save with a promise to ensure it completes
+    const savedUser = await user.save();
+    
+    // Log that the save was successful
+    console.log(`User profile updated successfully. User ID: ${savedUser._id}, Phone updated from ${changes.phone?.from} to ${savedUser.phone}`);
     
     // No approval needed for basic profile updates
     return res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user
+      user: savedUser
     });
   } catch (error) {
     console.error('Update profile error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error updating profile'
+      message: 'Error updating profile: ' + error.message
     });
   }
 });
@@ -361,22 +372,66 @@ router.put('/health-details', auth, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Only regular users can update health details' });
         }
 
-        // Update health condition
-        user.healthCondition = req.body.healthCondition;
-        await user.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'Health details updated successfully',
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                healthCondition: user.healthCondition
-            }
-        });
+        const { healthCondition } = req.body;
+        
+        // Validate health condition
+        if (!healthCondition) {
+            return res.status(400).json({ success: false, message: 'Health condition is required' });
+        }
+        
+        const validHealthConditions = ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'];
+        if (!validHealthConditions.includes(healthCondition)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid health condition. Must be one of: ' + validHealthConditions.join(', ')
+            });
+        }
+        
+        // Only update if value changed
+        if (healthCondition !== user.healthCondition) {
+            // Record the change
+            const change = { 
+                healthCondition: { 
+                    from: user.healthCondition, 
+                    to: healthCondition 
+                }
+            };
+            
+            // Update health condition
+            user.healthCondition = healthCondition;
+            
+            // Save with a promise
+            const savedUser = await user.save();
+            
+            // Log the change
+            console.log(`User health details updated. User ID: ${savedUser._id}, Health condition: ${savedUser.healthCondition}`);
+            
+            res.status(200).json({
+                success: true,
+                message: 'Health details updated successfully',
+                user: {
+                    id: savedUser._id,
+                    name: savedUser.name,
+                    email: savedUser.email,
+                    healthCondition: savedUser.healthCondition
+                }
+            });
+        } else {
+            // No change needed
+            res.status(200).json({
+                success: true,
+                message: 'No changes made to health details',
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    healthCondition: user.healthCondition
+                }
+            });
+        }
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Update health details error:', error);
+        res.status(500).json({ success: false, message: 'Server error: ' + error.message });
     }
 });
 
@@ -408,19 +463,35 @@ router.put('/change-password', auth, [
             return res.status(400).json({ success: false, message: 'Current password is incorrect' });
         }
 
+        // Make sure new password is different from the current one
+        const isSamePassword = await bcrypt.compare(newPassword, user.password);
+        if (isSamePassword) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'New password must be different from current password' 
+            });
+        }
+
         // Hash the new password
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
 
-        // Save the updated user
-        await user.save();
+        // Save the updated user with a promise to ensure it completes
+        const savedUser = await user.save();
+        
+        // Log the password change (without exposing the password itself)
+        console.log(`Password updated for user ID: ${savedUser._id}, at: ${new Date().toISOString()}`);
 
         res.status(200).json({
             success: true,
             message: 'Password updated successfully'
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Password update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating password: ' + error.message 
+        });
     }
 });
 
@@ -479,6 +550,168 @@ router.get('/profile/change-status', auth, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error fetching profile change status'
+        });
+    }
+});
+
+/**
+ * @route   GET /api/user/notifications
+ * @desc    Get user's notifications
+ * @access  Private
+ */
+router.get('/notifications', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        const notifications = await Notification.find({
+            userId: req.user._id
+        }).sort({ createdAt: -1 });
+        
+        return res.status(200).json({
+            success: true,
+            notifications: notifications.map(notification => ({
+                _id: notification._id,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                status: notification.status,
+                isRead: notification.isRead || false,
+                createdAt: notification.createdAt,
+                data: notification.data
+            }))
+        });
+    } catch (error) {
+        console.error('Get user notifications error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching notifications'
+        });
+    }
+});
+
+/**
+ * @route   GET /api/user/notifications/unread-count
+ * @desc    Get count of unread notifications
+ * @access  Private
+ */
+router.get('/notifications/unread-count', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        const count = await Notification.countDocuments({
+            userId: req.user._id,
+            isRead: { $ne: true }
+        });
+        
+        return res.status(200).json({
+            success: true,
+            count
+        });
+    } catch (error) {
+        console.error('Get unread notifications count error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching notification count'
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/user/notifications/:id/read
+ * @desc    Mark a notification as read
+ * @access  Private
+ */
+router.put('/notifications/:id/read', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        const notification = await Notification.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        });
+        
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+        
+        notification.isRead = true;
+        await notification.save();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Notification marked as read'
+        });
+    } catch (error) {
+        console.error('Mark notification as read error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error marking notification as read'
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/user/notifications/mark-all-read
+ * @desc    Mark all notifications as read
+ * @access  Private
+ */
+router.put('/notifications/mark-all-read', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        await Notification.updateMany(
+            { userId: req.user._id, isRead: { $ne: true } },
+            { $set: { isRead: true } }
+        );
+        
+        return res.status(200).json({
+            success: true,
+            message: 'All notifications marked as read'
+        });
+    } catch (error) {
+        console.error('Mark all notifications as read error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error marking all notifications as read'
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/user/notifications/:id
+ * @desc    Delete a notification
+ * @access  Private
+ */
+router.delete('/notifications/:id', auth, async (req, res) => {
+    try {
+        const Notification = require('../models/notification');
+        
+        const notification = await Notification.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        });
+        
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+        
+        await notification.deleteOne();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Notification deleted'
+        });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error deleting notification'
         });
     }
 });

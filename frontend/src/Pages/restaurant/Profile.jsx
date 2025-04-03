@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Input, Textarea, Label, Switch, Alert } from '../../components/ui';
-import { FaUpload, FaSave, FaTimes } from 'react-icons/fa';
-import { useAuth } from '../../context/AuthContext';
-import axios from 'axios';
+import { FaUpload, FaSave, FaTimes, FaInfoCircle } from 'react-icons/fa';
+import { restaurantAPI } from '../../utils/api';
 
 const RestaurantProfile = () => {
-  const { currentUser } = useAuth();
   const [profile, setProfile] = useState({
     name: '',
     description: '',
@@ -27,8 +25,14 @@ const RestaurantProfile = () => {
     minimumOrder: 15,
     deliveryFee: 2.99,
     logo: null,
-    coverImage: null
+    coverImage: null,
+    pendingApproval: false
   });
+  
+  // Store original data separately
+  const [originalData, setOriginalData] = useState(null);
+  // Store pending changes separately
+  const [pendingChanges, setPendingChanges] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,62 +47,59 @@ const RestaurantProfile = () => {
   const fetchRestaurantProfile = async () => {
     setLoading(true);
     try {
-      // Use the restaurant details from the current user initially
-      if (currentUser && currentUser.restaurantDetails) {
-        setProfile(prevProfile => ({
-          ...prevProfile,
-          name: currentUser.restaurantDetails.name || '',
-          address: currentUser.restaurantDetails.address || '',
-          description: currentUser.restaurantDetails.description || '',
-          email: currentUser.email || '',
-          phone: currentUser.phone || '',
-        }));
-      }
-
-      // Try both endpoints - first singular, then plural if singular fails
+      // Get profile data from API
       try {
-        // First try the singular endpoint
-        const response = await axios.get('/api/restaurant/profile', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
+        const response = await restaurantAPI.getProfile();
 
         if (response.data.success) {
           const restaurantData = response.data.data;
+          const pendingData = response.data.pendingChanges;
+          
+          // Store the original data
+          setOriginalData(restaurantData);
+          
+          // Set profile with original data
           setProfile(prevProfile => ({
             ...prevProfile,
             ...restaurantData,
             // Make sure openingHours has the correct structure if coming from API
-            openingHours: restaurantData.openingHours || prevProfile.openingHours
+            openingHours: restaurantData.openingHours || prevProfile.openingHours,
+            pendingApproval: pendingData?.hasPendingChanges || false
           }));
+          
+          // If there are pending changes, store them separately
+          if (pendingData?.hasPendingChanges) {
+            setPendingChanges({
+              name: pendingData.restaurantName,
+              address: pendingData.restaurantAddress,
+              phone: pendingData.phone,
+              email: pendingData.email,
+              submittedAt: new Date(pendingData.submittedAt).toLocaleDateString()
+            });
+            
+            // If we're in edit mode, show the pending values
+            if (!isEditing) {
+              setProfile(prevProfile => ({
+                ...prevProfile,
+                name: pendingData.restaurantName || prevProfile.name,
+                address: pendingData.restaurantAddress || prevProfile.address,
+                phone: pendingData.phone || prevProfile.phone,
+                email: pendingData.email || prevProfile.email,
+                pendingApproval: true
+              }));
+            }
+            
+            // Show pending changes alert
+            setSuccess('Your profile changes are pending admin approval. You can see both current and pending values below.');
+          }
         }
       } catch (error) {
-        console.log('Singular endpoint failed, trying plural endpoint', error.message);
-        
-        // If singular endpoint fails, try the plural endpoint
-        const pluralResponse = await axios.get('/api/restaurants/profile', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
-
-        if (pluralResponse.data.success) {
-          const restaurantData = pluralResponse.data.data;
-          setProfile(prevProfile => ({
-            ...prevProfile,
-            ...restaurantData,
-            // Make sure openingHours has the correct structure if coming from API
-            openingHours: restaurantData.openingHours || prevProfile.openingHours
-          }));
-        }
+        console.error('Error fetching restaurant profile from API:', error);
+        setError('Failed to load restaurant profile. Please try again later.');
       }
     } catch (err) {
-      console.error('Error fetching restaurant profile:', err);
-      // Don't set error if we at least have the basic info from currentUser
-      if (!currentUser?.restaurantDetails?.name) {
-        setError('Failed to load restaurant profile. Using default information.');
-      }
+      console.error('Error in fetchRestaurantProfile:', err);
+      setError('Failed to load restaurant profile. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -154,122 +155,72 @@ const RestaurantProfile = () => {
     setSuccess(null);
     
     try {
-      // Create FormData to handle file uploads
-      const formData = new FormData();
+      // Extract the changes to submit for approval
+      const changes = {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        restaurantName: profile.name,  // Map name to restaurantName for the API
+        restaurantAddress: profile.address // Map address to restaurantAddress for the API
+      };
       
-      // Append basic text fields
-      formData.append('name', profile.name);
-      formData.append('description', profile.description);
-      formData.append('address', profile.address);
-      formData.append('phone', profile.phone);
+      // Submit profile changes
+      const profileChangesResponse = await restaurantAPI.submitProfileChanges(changes);
       
-      // Handle complex fields
-      if (profile.openingHours) {
-        formData.append('openingHours', JSON.stringify(profile.openingHours));
-      }
-      
-      if (profile.cuisine && profile.cuisine.length > 0) {
-        formData.append('cuisine', JSON.stringify(profile.cuisine));
-      }
-      
-      // Handle boolean fields
-      formData.append('isOpen', profile.isOpen);
-      
-      // Handle number fields
-      if (profile.deliveryRadius) {
-        formData.append('deliveryRadius', profile.deliveryRadius);
-      }
-      
-      if (profile.minimumOrder) {
-        formData.append('minimumOrder', profile.minimumOrder);
-      }
-      
-      if (profile.deliveryFee) {
-        formData.append('deliveryFee', profile.deliveryFee);
-      }
-      
-      // Handle file uploads if they exist and are not data URLs
-      if (profile.logo && profile.logo instanceof File) {
-        formData.append('logo', profile.logo);
-      } else if (profile.logo && profile.logo.startsWith('data:')) {
-        // Convert data URL to File object
-        const logoFile = dataURLtoFile(profile.logo, 'logo.png');
-        formData.append('logo', logoFile);
-      }
-      
-      if (profile.coverImage && profile.coverImage instanceof File) {
-        formData.append('coverImage', profile.coverImage);
-      } else if (profile.coverImage && profile.coverImage.startsWith('data:')) {
-        // Convert data URL to File object
-        const coverFile = dataURLtoFile(profile.coverImage, 'cover.png');
-        formData.append('coverImage', coverFile);
-      }
-
-      // Try both endpoints - first singular, then plural if singular fails
-      try {
-        // First try the singular endpoint
-        const response = await axios.put('/api/restaurant/profile', formData, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-
-        if (response.data.success) {
-          setSuccess('Restaurant profile updated successfully!');
-          setIsEditing(false);
-          updateLocalStorage(profile);
-        }
-      } catch (error) {
-        console.log('Singular endpoint failed, trying plural endpoint', error.message);
+      if (profileChangesResponse.data.success) {
+        setSuccess('Profile changes submitted for admin approval. You will be notified once approved.');
         
-        // If singular endpoint fails, try the plural endpoint
-        const pluralResponse = await axios.put('/api/restaurants/profile', formData, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-            'Content-Type': 'multipart/form-data'
-          }
+        // Store the pending changes
+        setPendingChanges({
+          name: profile.name,
+          address: profile.address,
+          phone: profile.phone,
+          email: profile.email,
+          submittedAt: new Date().toLocaleDateString()
         });
-
-        if (pluralResponse.data.success) {
-          setSuccess('Restaurant profile updated successfully!');
-          setIsEditing(false);
-          updateLocalStorage(profile);
-        }
+        
+        // Update state to show pending status
+        setProfile(prev => ({
+          ...prev,
+          pendingApproval: true
+        }));
+        
+        setIsEditing(false);
+        
+        // Refresh the profile data to get the latest from the backend
+        fetchRestaurantProfile();
+      } else {
+        setError(profileChangesResponse.data.message || 'Failed to submit profile changes. Please try again.');
       }
     } catch (err) {
       console.error('Failed to update profile:', err);
-      setError(err.response?.data?.message || 'Failed to update restaurant profile. Please try again.');
+      setError(err.response?.data?.message || 'Failed to connect to the server. Please try again later.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Helper function to convert data URL to File
-  const dataURLtoFile = (dataurl, filename) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
+  // Reset to original data
+  const handleCancelEdit = () => {
+    if (originalData) {
+      // If we have pending changes and we're editing, restore the pending values
+      if (pendingChanges && profile.pendingApproval) {
+        setProfile(prev => ({
+          ...prev,
+          name: pendingChanges.name || originalData.name,
+          address: pendingChanges.address || originalData.address,
+          phone: pendingChanges.phone || originalData.phone,
+          email: pendingChanges.email || originalData.email
+        }));
+      } else {
+        // Otherwise just restore original values
+        setProfile(prev => ({
+          ...prev,
+          ...originalData
+        }));
+      }
     }
-    return new File([u8arr], filename, { type: mime });
-  };
-
-  // Helper function to update localStorage
-  const updateLocalStorage = (profileData) => {
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    if (userData) {
-      userData.restaurantDetails = {
-        ...userData.restaurantDetails,
-        name: profileData.name,
-        address: profileData.address,
-        description: profileData.description
-      };
-      localStorage.setItem('userData', JSON.stringify(userData));
-    }
+    setIsEditing(false);
   };
 
   if (loading) {
@@ -280,308 +231,341 @@ const RestaurantProfile = () => {
     );
   }
 
-  return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Restaurant Profile</h1>
-        <div className="flex gap-2">
-          {isEditing ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditing(false)}
-                disabled={isSubmitting}
-              >
-                <FaTimes className="mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                <FaSave className="mr-2" />
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)}>
-              Edit Profile
-            </Button>
-          )}
-        </div>
+  // Helper function to show pending value if it exists
+  const renderPendingValue = (fieldName, fieldLabel) => {
+    if (!pendingChanges || !pendingChanges[fieldName] || !profile.pendingApproval) return null;
+    
+    // Only show if the pending value is different from the original
+    if (pendingChanges[fieldName] === originalData?.[fieldName]) return null;
+    
+    return (
+      <div className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+        <span className="font-medium">Pending {fieldLabel}:</span> {pendingChanges[fieldName]}
       </div>
+    );
+  };
 
-      {error && (
-        <Alert variant="error" className="mb-4">
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert variant="success" className="mb-4">
-          {success}
-        </Alert>
-      )}
-
-      <div className="grid grid-cols-1 gap-6">
-        {/* Basic Information */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Basic Information</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Restaurant Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={profile.name}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                placeholder="Enter restaurant name"
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                name="address"
-                value={profile.address}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                placeholder="Enter restaurant address"
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={profile.phone}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                placeholder="Enter phone number"
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                value={profile.email}
-                onChange={handleInputChange}
-                disabled={!isEditing || true} // Email is always disabled as it's the login id
-                placeholder="Enter email address"
-                className="w-full"
-              />
-            </div>
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Restaurant Profile</h1>
+          <div className="flex gap-2">
+            {isEditing ? (
+              <>
+                <Button 
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                >
+                  <FaTimes className="mr-2" />
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  <FaSave className="mr-2" />
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)} disabled={loading}>
+                Edit Profile
+              </Button>
+            )}
           </div>
-        </Card>
+        </div>
 
-        {/* Description */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Description</h2>
-          <div>
-            <Label htmlFor="description">About Your Restaurant</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={profile.description}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-              rows={4}
-              placeholder="Describe your restaurant, its specialties, and unique features"
-            />
-          </div>
-        </Card>
+        {profile.pendingApproval && (
+          <Alert variant="warning" className="mb-6">
+            <div className="flex items-center">
+              <FaInfoCircle className="mr-2 text-amber-500" />
+              <div>
+                <p className="font-medium">Profile changes awaiting approval</p>
+                <p className="text-sm">Your recent profile changes submitted on {pendingChanges?.submittedAt} are pending admin approval. You&apos;ll be notified once they&apos;re reviewed.</p>
+              </div>
+            </div>
+          </Alert>
+        )}
 
-        {/* Business Settings */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Business Settings</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="deliveryRadius">Delivery Radius (km)</Label>
-              <Input
-                id="deliveryRadius"
-                name="deliveryRadius"
-                type="number"
-                value={profile.deliveryRadius}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="minimumOrder">Minimum Order ($)</Label>
-              <Input
-                id="minimumOrder"
-                name="minimumOrder"
-                type="number"
-                value={profile.minimumOrder}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="deliveryFee">Delivery Fee ($)</Label>
-              <Input
-                id="deliveryFee"
-                name="deliveryFee"
-                type="number"
-                value={profile.deliveryFee}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isOpen"
-                checked={profile.isOpen}
-                onCheckedChange={(checked) => setProfile(prev => ({ ...prev, isOpen: checked }))}
-                disabled={!isEditing}
-              />
-              <Label htmlFor="isOpen">Restaurant is Open</Label>
-            </div>
-          </div>
-        </Card>
+        {error && (
+          <Alert variant="error" className="mb-4">
+            {error}
+          </Alert>
+        )}
 
-        {/* Opening Hours */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Opening Hours</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {Object.entries(profile.openingHours).map(([day, hours]) => (
-              <div key={day} className="flex items-center space-x-2">
-                <Label className="w-24 capitalize">{day}</Label>
+        {success && (
+          <Alert variant="success" className="mb-4">
+            {success}
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 gap-6">
+          {/* Basic Information */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Basic Information</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Restaurant Name</Label>
                 <Input
-                  type="time"
-                  value={hours.open}
-                  onChange={(e) => handleOpeningHoursChange(day, 'open', e.target.value)}
+                  id="name"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleInputChange}
                   disabled={!isEditing}
-                  className="w-32"
+                  placeholder="Enter restaurant name"
+                  className="w-full"
                 />
-                <span>to</span>
+                {renderPendingValue('name', 'name')}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
                 <Input
-                  type="time"
-                  value={hours.close}
-                  onChange={(e) => handleOpeningHoursChange(day, 'close', e.target.value)}
+                  id="address"
+                  name="address"
+                  value={profile.address}
+                  onChange={handleInputChange}
                   disabled={!isEditing}
-                  className="w-32"
+                  placeholder="Enter restaurant address"
+                  className="w-full"
+                />
+                {renderPendingValue('address', 'address')}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={profile.phone}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  placeholder="Enter phone number"
+                  className="w-full"
+                />
+                {renderPendingValue('phone', 'phone number')}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  value={profile.email}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || true} // Email is always disabled as it's the login id
+                  placeholder="Enter email address"
+                  className="w-full"
+                />
+                {renderPendingValue('email', 'email')}
+              </div>
+            </div>
+          </Card>
+
+          {/* Description */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Description</h2>
+            <div>
+              <Label htmlFor="description">About Your Restaurant</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={profile.description}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                rows={4}
+                placeholder="Describe your restaurant, its specialties, and unique features"
+              />
+            </div>
+          </Card>
+
+          {/* Business Settings */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Business Settings</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="deliveryRadius">Delivery Radius (km)</Label>
+                <Input
+                  id="deliveryRadius"
+                  name="deliveryRadius"
+                  type="number"
+                  value={profile.deliveryRadius}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
                 />
               </div>
-            ))}
-          </div>
-        </Card>
+              <div>
+                <Label htmlFor="minimumOrder">Minimum Order ($)</Label>
+                <Input
+                  id="minimumOrder"
+                  name="minimumOrder"
+                  type="number"
+                  value={profile.minimumOrder}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                />
+              </div>
+              <div>
+                <Label htmlFor="deliveryFee">Delivery Fee ($)</Label>
+                <Input
+                  id="deliveryFee"
+                  name="deliveryFee"
+                  type="number"
+                  value={profile.deliveryFee}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isOpen"
+                  checked={profile.isOpen}
+                  onCheckedChange={(checked) => setProfile(prev => ({ ...prev, isOpen: checked }))}
+                  disabled={!isEditing}
+                />
+                <Label htmlFor="isOpen">Restaurant is Open</Label>
+              </div>
+            </div>
+          </Card>
 
-        {/* Cuisine Types */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Cuisine Types</h2>
-          <div>
-            <Label htmlFor="cuisine">Select Cuisine Types</Label>
-            <select
-              id="cuisine"
-              multiple
-              value={profile.cuisine}
-              onChange={handleCuisineChange}
-              disabled={!isEditing}
-              className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
-            >
-              <option value="Healthy">Healthy</option>
-              <option value="Vegetarian">Vegetarian</option>
-              <option value="Vegan">Vegan</option>
-              <option value="Italian">Italian</option>
-              <option value="Chinese">Chinese</option>
-              <option value="Japanese">Japanese</option>
-              <option value="Mexican">Mexican</option>
-              <option value="Indian">Indian</option>
-              <option value="Nepalese">Nepalese</option>
-              <option value="Fast Food">Fast Food</option>
-              <option value="Dessert">Dessert</option>
-              <option value="Breakfast">Breakfast</option>
-            </select>
-          </div>
-        </Card>
-
-        {/* Images */}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Restaurant Images</h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div>
-              <Label htmlFor="logo" className="block mb-2">Restaurant Logo</Label>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-32 h-32 overflow-hidden bg-gray-200 rounded-lg dark:bg-gray-700">
-                  {profile.logo ? (
-                    <img 
-                      src={profile.logo} 
-                      alt="Restaurant logo" 
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-500">No Logo</span>
-                  )}
+          {/* Opening Hours */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Opening Hours</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {Object.entries(profile.openingHours).map(([day, hours]) => (
+                <div key={day} className="flex items-center space-x-2">
+                  <Label className="w-24 capitalize">{day}</Label>
+                  <Input
+                    type="time"
+                    value={hours.open}
+                    onChange={(e) => handleOpeningHoursChange(day, 'open', e.target.value)}
+                    disabled={!isEditing}
+                    className="w-32"
+                  />
+                  <span>to</span>
+                  <Input
+                    type="time"
+                    value={hours.close}
+                    onChange={(e) => handleOpeningHoursChange(day, 'close', e.target.value)}
+                    disabled={!isEditing}
+                    className="w-32"
+                  />
                 </div>
-                {isEditing && (
-                  <div>
-                    <Input
+              ))}
+            </div>
+          </Card>
+
+          {/* Cuisine Types */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Cuisine Types</h2>
+            <div>
+              <Label htmlFor="cuisine">Select Cuisine Types</Label>
+              <select
+                id="cuisine"
+                multiple
+                value={profile.cuisine}
+                onChange={handleCuisineChange}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
+              >
+                <option value="Healthy">Healthy</option>
+                <option value="Vegetarian">Vegetarian</option>
+                <option value="Vegan">Vegan</option>
+                <option value="Italian">Italian</option>
+                <option value="Chinese">Chinese</option>
+                <option value="Japanese">Japanese</option>
+                <option value="Mexican">Mexican</option>
+                <option value="Indian">Indian</option>
+                <option value="Nepalese">Nepalese</option>
+                <option value="Fast Food">Fast Food</option>
+                <option value="Dessert">Dessert</option>
+                <option value="Breakfast">Breakfast</option>
+              </select>
+            </div>
+          </Card>
+
+          {/* Images */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">Restaurant Images</h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <Label htmlFor="logo">Restaurant Logo</Label>
+                <div className="mt-2 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md">
+                  {profile.logo ? (
+                    <div className="relative w-full h-40">
+                      <img
+                        src={profile.logo}
+                        alt="Restaurant Logo"
+                        className="h-full w-full object-contain"
+                      />
+                      {isEditing && (
+                        <button
+                          onClick={() => setProfile({ ...profile, logo: null })}
+                          className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full"
+                        >
+                          <FaTimes className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <FaUpload className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-1 text-sm text-gray-500">Upload your restaurant logo</p>
+                    </div>
+                  )}
+                  {isEditing && (
+                    <input
                       id="logo"
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleImageUpload('logo', e)}
-                      disabled={!isEditing}
-                      className="hidden"
+                      className="mt-4 w-full text-sm"
                     />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => document.getElementById('logo').click()}
-                    >
-                      <FaUpload className="mr-2" />
-                      Upload Logo
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="coverImage" className="block mb-2">Cover Image</Label>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-32 h-32 overflow-hidden bg-gray-200 rounded-lg dark:bg-gray-700">
-                  {profile.coverImage ? (
-                    <img 
-                      src={profile.coverImage} 
-                      alt="Restaurant cover" 
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-500">No Cover</span>
                   )}
                 </div>
-                {isEditing && (
-                  <div>
-                    <Input
+              </div>
+              
+              <div>
+                <Label htmlFor="coverImage">Cover Image</Label>
+                <div className="mt-2 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md">
+                  {profile.coverImage ? (
+                    <div className="relative w-full h-40">
+                      <img
+                        src={profile.coverImage}
+                        alt="Cover Image"
+                        className="h-full w-full object-cover"
+                      />
+                      {isEditing && (
+                        <button
+                          onClick={() => setProfile({ ...profile, coverImage: null })}
+                          className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full"
+                        >
+                          <FaTimes className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <FaUpload className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-1 text-sm text-gray-500">Upload a cover image</p>
+                    </div>
+                  )}
+                  {isEditing && (
+                    <input
                       id="coverImage"
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleImageUpload('coverImage', e)}
-                      disabled={!isEditing}
-                      className="hidden"
+                      className="mt-4 w-full text-sm"
                     />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => document.getElementById('coverImage').click()}
-                    >
-                      <FaUpload className="mr-2" />
-                      Upload Cover
-                    </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
 };
 
-export default RestaurantProfile; 
+export default RestaurantProfile;

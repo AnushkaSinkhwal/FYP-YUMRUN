@@ -1,50 +1,39 @@
-import { useState } from 'react';
-import { Card, Button, Input } from '../../components/ui';
+import { useState, useEffect } from 'react';
+import { Card, Button, Input, Spinner } from '../../components/ui';
 import { FaSearch, FaBell, FaCheck, FaInfo, FaGift, FaShoppingBag } from 'react-icons/fa';
+import { userAPI } from '../../utils/api';
 
 const UserNotifications = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Sample data - replace with API data
-  const notifications = [
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order Delivered',
-      message: 'Your order #123456 from Burger Palace has been delivered successfully.',
-      status: 'unread',
-      createdAt: '2024-03-15T10:30:00',
-      link: '/orders/123456'
-    },
-    {
-      id: 2,
-      type: 'reward',
-      title: 'New Reward Available',
-      message: 'You have enough points to redeem a free delivery!',
-      status: 'unread',
-      createdAt: '2024-03-15T09:15:00',
-      link: '/rewards'
-    },
-    {
-      id: 3,
-      type: 'system',
-      title: 'System Update',
-      message: 'We have updated our app with new features. Check them out!',
-      status: 'read',
-      createdAt: '2024-03-14T15:45:00',
-      link: '/updates'
-    },
-    {
-      id: 4,
-      type: 'order',
-      title: 'Order Confirmed',
-      message: 'Your order #123457 from Pizza Express has been confirmed.',
-      status: 'read',
-      createdAt: '2024-03-14T12:20:00',
-      link: '/orders/123457'
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const response = await userAPI.getNotifications();
+
+      if (response.data.success) {
+        setNotifications(response.data.notifications || []);
+      } else {
+        setError('Failed to load notifications: ' + (response.data.message || 'Unknown error'));
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setError('Failed to connect to the server. Please try again later.');
+      setNotifications([]);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
   const filteredNotifications = notifications.filter(notification =>
     notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -52,36 +41,68 @@ const UserNotifications = () => {
   );
 
   const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'order':
+    switch (type.toUpperCase()) {
+      case 'ORDER':
         return <FaShoppingBag className="h-5 w-5 text-blue-500" />;
-      case 'reward':
+      case 'REWARD':
         return <FaGift className="h-5 w-5 text-yellow-500" />;
-      case 'system':
+      case 'SYSTEM':
         return <FaInfo className="h-5 w-5 text-green-500" />;
       default:
         return <FaBell className="h-5 w-5 text-gray-500" />;
     }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'unread' ? 'bg-blue-100 dark:bg-blue-900/30' : '';
+  const getStatusColor = (isRead) => {
+    return !isRead ? 'bg-blue-100 dark:bg-blue-900/30' : '';
   };
 
   const filterNotifications = (status) => {
     if (status === 'all') return filteredNotifications;
-    return filteredNotifications.filter(notification => notification.status === status);
+    return filteredNotifications.filter(notification => 
+      status === 'unread' ? !notification.isRead : notification.isRead
+    );
   };
 
-  const markAsRead = (id) => {
-    // TODO: Implement API call to mark notification as read
-    console.log('Mark as read:', id);
+  const markAsRead = async (id) => {
+    try {
+      await userAPI.markNotificationAsRead(id);
+      
+      // Update state
+      setNotifications(notifications.map(notification => 
+        notification._id === id ? { ...notification, isRead: true } : notification
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      
+      // Update state anyway for better UX
+      setNotifications(notifications.map(notification => 
+        notification._id === id ? { ...notification, isRead: true } : notification
+      ));
+    }
   };
 
-  const markAllAsRead = () => {
-    // TODO: Implement API call to mark all notifications as read
-    console.log('Mark all as read');
+  const markAllAsRead = async () => {
+    try {
+      await userAPI.markAllNotificationsAsRead();
+      
+      // Update state
+      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      
+      // Update state anyway for better UX
+      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -126,7 +147,7 @@ const UserNotifications = () => {
 
       <div className="space-y-4">
         {filterNotifications(activeTab).map(notification => (
-          <Card key={notification.id} className={`p-4 ${getStatusColor(notification.status)}`}>
+          <Card key={notification._id} className={`p-4 ${getStatusColor(!notification.isRead)}`}>
             <div className="flex items-start gap-4">
               <div className="mt-1">
                 {getNotificationIcon(notification.type)}
@@ -140,19 +161,25 @@ const UserNotifications = () => {
                       {new Date(notification.createdAt).toLocaleString()}
                     </p>
                   </div>
-                  {notification.status === 'unread' && (
+                  {!notification.isRead && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => markAsRead(notification._id)}
                     >
                       <FaCheck className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
-                <Button variant="link" className="p-0 h-auto mt-2">
-                  View Details
-                </Button>
+                {notification.data && notification.data.actionUrl && (
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto mt-2"
+                    onClick={() => window.location.href = notification.data.actionUrl}
+                  >
+                    View Details
+                  </Button>
+                )}
               </div>
             </div>
           </Card>

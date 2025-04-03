@@ -27,7 +27,7 @@ const testUsers = [
   // Restaurant owner
   {
     name: 'Restaurant Owner',
-    username: 'restaurantowner',
+    username: 'restaurant',
     phone: '9876543210',
     email: 'owner@yumrun.com',
     password: 'Secret@123',

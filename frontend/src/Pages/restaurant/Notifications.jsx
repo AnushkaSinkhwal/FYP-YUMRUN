@@ -1,129 +1,180 @@
-import { useState } from 'react';
-import { Card, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
-import { FaBell, FaCheck, FaInfo } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { Card, Button, Alert, Spinner } from '../../components/ui';
+import { FaCheckCircle, FaBell, FaTrash, FaCheck } from 'react-icons/fa';
+import { restaurantAPI } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const RestaurantNotifications = () => {
-  const [notifications] = useState([
-    {
-      id: 1,
-      type: 'order',
-      title: 'New Order Received',
-      message: 'Order #123 has been placed by John Doe',
-      status: 'unread',
-      createdAt: new Date().toISOString(),
-      link: '/restaurant/orders/123'
-    },
-    {
-      id: 2,
-      type: 'profile_update',
-      title: 'Profile Update Approved',
-      message: 'Your restaurant profile changes have been approved by admin',
-      status: 'read',
-      createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      link: '/restaurant/profile'
-    },
-    {
-      id: 3,
-      type: 'system',
-      title: 'System Maintenance',
-      message: 'Scheduled maintenance will occur tomorrow at 2 AM',
-      status: 'unread',
-      createdAt: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      link: null
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await restaurantAPI.getNotifications();
+
+      if (response.data.success) {
+        setNotifications(response.data.notifications || []);
+      } else {
+        setError('Failed to load notifications: ' + (response.data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setError('Failed to connect to the server. Please try again later.');
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await restaurantAPI.markNotificationAsRead(notificationId);
+
+      // Update local state
+      setNotifications(notifications.map(notification => 
+        notification._id === notificationId ? { ...notification, isRead: true } : notification
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      
+      // Update UI anyway for better user experience
+      setNotifications(notifications.map(notification => 
+        notification._id === notificationId ? { ...notification, isRead: true } : notification
+      ));
+    }
+  };
+
+  const deleteNotification = async (notificationId) => {
+    try {
+      await restaurantAPI.deleteNotification(notificationId);
+
+      // Remove from local state
+      setNotifications(notifications.filter(notification => notification._id !== notificationId));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      
+      // Remove from UI anyway for better user experience
+      setNotifications(notifications.filter(notification => notification._id !== notificationId));
+    }
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'restaurant_profile_update':
+        return <FaCheckCircle className="text-green-500" />;
       case 'order':
-        return <FaBell className="w-5 h-5 text-blue-500" />;
-      case 'profile_update':
-        return <FaCheck className="w-5 h-5 text-green-500" />;
-      case 'system':
-        return <FaInfo className="w-5 h-5 text-yellow-500" />;
+        return <FaBell className="text-blue-500" />;
       default:
-        return <FaBell className="w-5 h-5 text-gray-500" />;
+        return <FaBell className="text-gray-500" />;
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'unread':
-        return 'warning';
-      case 'read':
-        return 'default';
-      default:
-        return 'default';
+  const markAllAsRead = async () => {
+    try {
+      await restaurantAPI.markAllNotificationsAsRead();
+
+      // Update all notifications as read in local state
+      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      
+      // Update UI anyway for better user experience
+      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
     }
   };
 
-  const filterNotifications = (status) => {
-    return notifications.filter(notification => notification.status === status);
-  };
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
+    <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Notifications</h1>
-        <Button variant="outline" className="flex items-center gap-2">
-          <FaCheck className="w-4 h-4" />
-          Mark All as Read
-        </Button>
+        <h1 className="text-2xl font-bold text-gray-800">Notifications</h1>
+        
+        {notifications.some(notification => !notification.isRead) && (
+          <Button variant="outline" size="sm" onClick={markAllAsRead}>
+            <FaCheck className="mr-2" />
+            Mark All as Read
+          </Button>
+        )}
       </div>
 
-      <Tabs defaultValue="unread" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="unread">Unread</TabsTrigger>
-          <TabsTrigger value="read">Read</TabsTrigger>
-        </TabsList>
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
 
-        {['unread', 'read'].map(status => (
-          <TabsContent key={status} value={status}>
-            <div className="space-y-4">
-              {filterNotifications(status).map(notification => (
-                <Card key={notification.id} className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                          {notification.title}
-                        </h3>
-                        <Badge variant={getStatusColor(notification.status)}>
-                          {notification.status}
-                        </Badge>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">
-                          {new Date(notification.createdAt).toLocaleString()}
-                        </span>
-                        {notification.link && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={notification.link}>View Details</a>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+      {notifications.length === 0 ? (
+        <Card className="p-6 text-center">
+          <FaBell className="mx-auto text-4xl text-gray-400 mb-2" />
+          <p className="text-gray-600">You have no notifications</p>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {notifications.map((notification) => (
+            <Card 
+              key={notification._id} 
+              className={`p-4 ${!notification.isRead ? 'border-l-4 border-yumrun-primary' : ''}`}
+            >
+              <div className="flex items-start">
+                <div className="mr-4 mt-1">
+                  {getNotificationIcon(notification.type)}
+                </div>
+                
+                <div className="flex-1">
+                  <div className="flex justify-between">
+                    <h3 className={`font-medium ${!notification.isRead ? 'text-gray-800' : 'text-gray-600'}`}>
+                      {notification.title}
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      {new Date(notification.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                </Card>
-              ))}
-
-              {filterNotifications(status).length === 0 && (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No {status} notifications
+                  
+                  <p className={`mt-1 text-sm ${!notification.isRead ? 'text-gray-700' : 'text-gray-500'}`}>
+                    {notification.message}
                   </p>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+                  
+                  <div className="mt-2 flex justify-end space-x-2">
+                    {!notification.isRead && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => markAsRead(notification._id)}
+                      >
+                        Mark as Read
+                      </Button>
+                    )}
+                    
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => deleteNotification(notification._id)}
+                    >
+                      <FaTrash className="mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

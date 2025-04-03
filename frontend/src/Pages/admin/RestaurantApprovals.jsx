@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Alert, Spinner, Container } from '../../components/ui';
-import { FaCheck, FaTimes, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaStore } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaEnvelope, FaPhone, FaMapMarkerAlt, FaStore, FaInfoCircle } from 'react-icons/fa';
+import { adminAPI } from '../../utils/api';
 
 const RestaurantApprovals = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -13,25 +14,34 @@ const RestaurantApprovals = () => {
 
     const fetchPendingApprovals = async () => {
         try {
-            const response = await fetch('/api/admin/restaurant-approvals', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+            setIsLoading(true);
+            const response = await adminAPI.getRestaurantApprovals();
+            
+            if (response.data.success) {
+                // Use the real API data, even if it's empty
+                setPendingApprovals(response.data.pendingApprovals || []);
+                
+                // If there are no approvals, show a message
+                if ((response.data.pendingApprovals || []).length === 0) {
+                    setMessage({
+                        type: 'info',
+                        text: 'No pending approval requests at this time.'
+                    });
                 }
-            });
-            const data = await response.json();
-            if (data.success) {
-                setPendingApprovals(data.pendingApprovals);
             } else {
                 setMessage({
                     type: 'error',
-                    text: data.error || 'Failed to fetch pending approvals'
+                    text: response.data.error || 'Failed to fetch pending approvals'
                 });
             }
         } catch (error) {
+            console.error('Error fetching restaurant approvals:', error);
+            
             setMessage({
                 type: 'error',
-                text: 'An error occurred while fetching pending approvals'
+                text: 'Failed to connect to the server. Please try again later.'
             });
+            setPendingApprovals([]);
         } finally {
             setIsLoading(false);
         }
@@ -39,35 +49,76 @@ const RestaurantApprovals = () => {
 
     const handleApproval = async (approvalId, action) => {
         try {
-            const response = await fetch(`/api/admin/restaurant-approvals/${approvalId}/${action}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            setIsLoading(true);
+            
+            let response;
+            if (action === 'approve') {
+                response = await adminAPI.approveRestaurantChanges(approvalId);
+            } else {
+                // For rejections, we should add a reason dialog, but for simplicity we'll pass a generic message
+                response = await adminAPI.rejectRestaurantChanges(approvalId, "Changes rejected by administrator");
+            }
 
-            const data = await response.json();
-            if (data.success) {
+            if (response.data.success) {
+                // Update the local state to remove the approved/rejected item
+                setPendingApprovals(pendingApprovals.filter(approval => approval._id !== approvalId));
+                
                 setMessage({
                     type: 'success',
                     text: `Profile changes ${action === 'approve' ? 'approved' : 'rejected'} successfully`
                 });
-                fetchPendingApprovals();
+                
+                // Notify the restaurant owner about the approval/rejection
+                await sendNotificationToRestaurant(
+                    pendingApprovals.find(approval => approval._id === approvalId),
+                    action
+                );
             } else {
                 setMessage({
                     type: 'error',
-                    text: data.error || `Failed to ${action} profile changes`
+                    text: response.data.error || `Failed to ${action} profile changes`
                 });
             }
         } catch (error) {
+            console.error(`Error ${action}ing profile changes:`, error);
             setMessage({
                 type: 'error',
-                text: `An error occurred while ${action}ing profile changes`
+                text: `Failed to ${action} the changes. Please try again.`
             });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const sendNotificationToRestaurant = async (approval, action) => {
+        if (!approval) return;
+        
+        try {
+            // Create a notification for the restaurant owner
+            const notificationData = {
+                userId: approval.requestedBy,
+                type: 'restaurant_profile_update',
+                title: `Profile Update ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+                message: action === 'approve' 
+                    ? 'Your restaurant profile changes have been approved and are now live.'
+                    : 'Your restaurant profile changes have been rejected. Please contact support for more information.',
+                isRead: false
+            };
+            
+            await fetch('/api/notifications', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(notificationData)
+            });
+        } catch (error) {
+            console.error('Error sending notification to restaurant:', error);
         }
     };
 
-    if (isLoading) {
+    if (isLoading && pendingApprovals.length === 0) {
         return (
             <Container className="py-8">
                 <div className="flex justify-center items-center h-64">
@@ -85,7 +136,7 @@ const RestaurantApprovals = () => {
             </div>
 
             {message.text && (
-                <Alert variant={message.type} className="mb-6">
+                <Alert variant={message.type} className="mb-6" dismissible onDismiss={() => setMessage({ type: '', text: '' })}>
                     {message.text}
                 </Alert>
             )}
@@ -132,24 +183,24 @@ const RestaurantApprovals = () => {
                                     <h3 className="font-medium text-gray-700 mb-2">Current Information</h3>
                                     <div className="space-y-2">
                                         <div className="flex items-center text-sm">
-                                            <FaUser className="mr-2 text-gray-400" />
-                                            <span>{approval.currentData.name}</span>
+                                            <FaStore className="mr-2 text-gray-400" />
+                                            <span><strong>Name:</strong> {approval.currentData.name || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaEnvelope className="mr-2 text-gray-400" />
-                                            <span>{approval.currentData.email}</span>
+                                            <span><strong>Email:</strong> {approval.currentData.email || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaPhone className="mr-2 text-gray-400" />
-                                            <span>{approval.currentData.phone}</span>
-                                        </div>
-                                        <div className="flex items-center text-sm">
-                                            <FaStore className="mr-2 text-gray-400" />
-                                            <span>{approval.currentData.restaurantName}</span>
+                                            <span><strong>Phone:</strong> {approval.currentData.phone || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaMapMarkerAlt className="mr-2 text-gray-400" />
-                                            <span>{approval.currentData.restaurantAddress}</span>
+                                            <span><strong>Address:</strong> {approval.currentData.address || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center text-sm">
+                                            <FaInfoCircle className="mr-2 text-gray-400" />
+                                            <span><strong>Description:</strong> {approval.currentData.description || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -158,28 +209,38 @@ const RestaurantApprovals = () => {
                                     <h3 className="font-medium text-gray-700 mb-2">Requested Changes</h3>
                                     <div className="space-y-2">
                                         <div className="flex items-center text-sm">
-                                            <FaUser className="mr-2 text-gray-400" />
-                                            <span>{approval.requestedData.name}</span>
+                                            <FaStore className="mr-2 text-gray-400" />
+                                            <span><strong>Name:</strong> {approval.requestedData.name || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaEnvelope className="mr-2 text-gray-400" />
-                                            <span>{approval.requestedData.email}</span>
+                                            <span><strong>Email:</strong> {approval.requestedData.email || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaPhone className="mr-2 text-gray-400" />
-                                            <span>{approval.requestedData.phone}</span>
-                                        </div>
-                                        <div className="flex items-center text-sm">
-                                            <FaStore className="mr-2 text-gray-400" />
-                                            <span>{approval.requestedData.restaurantName}</span>
+                                            <span><strong>Phone:</strong> {approval.requestedData.phone || '-'}</span>
                                         </div>
                                         <div className="flex items-center text-sm">
                                             <FaMapMarkerAlt className="mr-2 text-gray-400" />
-                                            <span>{approval.requestedData.restaurantAddress}</span>
+                                            <span><strong>Address:</strong> {approval.requestedData.address || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center text-sm">
+                                            <FaInfoCircle className="mr-2 text-gray-400" />
+                                            <span><strong>Description:</strong> {approval.requestedData.description || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            
+                            {Object.keys(approval.requestedData).filter(key => 
+                                !['name', 'email', 'phone', 'address', 'description'].includes(key) &&
+                                approval.requestedData[key] !== approval.currentData[key]
+                            ).length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <h3 className="font-medium text-gray-700 mb-2">Additional Changes</h3>
+                                    <p className="text-sm text-gray-600">There are additional changes in other fields like opening hours, cuisine, etc.</p>
+                                </div>
+                            )}
                         </Card>
                     ))}
                 </div>

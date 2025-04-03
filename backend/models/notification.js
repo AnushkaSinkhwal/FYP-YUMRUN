@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['PROFILE_UPDATE', 'RESTAURANT_UPDATE', 'RESTAURANT_REGISTRATION', 'SYSTEM'],
+    enum: ['PROFILE_UPDATE', 'RESTAURANT_UPDATE', 'RESTAURANT_REGISTRATION', 'SYSTEM', 'ORDER', 'REWARD'],
     required: true
   },
   title: {
@@ -24,6 +24,10 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: ['PENDING', 'APPROVED', 'REJECTED'],
     default: 'PENDING'
+  },
+  isRead: {
+    type: Boolean,
+    default: false
   },
   data: {
     type: mongoose.Schema.Types.Mixed,
@@ -55,6 +59,7 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ status: 1 });
 notificationSchema.index({ userId: 1 });
 notificationSchema.index({ type: 1 });
+notificationSchema.index({ isRead: 1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 

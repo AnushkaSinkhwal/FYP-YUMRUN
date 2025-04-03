@@ -1,15 +1,14 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { MyContext } from '../../App';
 import PropTypes from 'prop-types';
+import { adminAPI, restaurantAPI, userAPI } from '../../utils/api';
 import { 
   FaHome, 
   FaUtensils, 
   FaShoppingCart, 
   FaBell, 
-  FaUserCircle, 
-  FaSignOutAlt, 
   FaBars, 
   FaTimes,
   FaEdit,
@@ -24,6 +23,7 @@ import {
 
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const { currentUser, logout } = useAuth();
   const { setIsAdminPath } = useContext(MyContext);
@@ -34,33 +34,44 @@ const DashboardLayout = ({ children }) => {
   // Get user role from currentUser
   const userRole = currentUser?.role?.toLowerCase() || 'user';
   
+  // Get user details
+  const [userData, setUserData] = useState({
+    name: '',
+    email: '',
+  });
+  
   // Navigation items based on role
   const getNavItems = () => {
     const items = {
       admin: [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/admin/restaurant', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/restaurants', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/admin/users', label: 'Users', icon: <FaUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/deliveries', label: 'Deliveries', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/admin/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
-      restaurantowner: [
+      restaurant: [
         { path: '/restaurant/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/menu', label: 'Menu', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/restaurant/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/restaurant/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/analytics', label: 'Analytics', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
       deliveryuser: [
         { path: '/delivery/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/delivery/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/delivery/history', label: 'History', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/delivery/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
       user: [
         { path: '/user/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/user/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/user/favorites', label: 'Favorites', icon: <FaHeart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/reviews', label: 'Reviews', icon: <FaStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/rewards', label: 'Rewards', icon: <FaGift className="w-4 h-4 sm:w-5 sm:h-5" /> },
@@ -99,10 +110,77 @@ const DashboardLayout = ({ children }) => {
   
   const fetchNotificationCount = async () => {
     try {
-      // TODO: Replace with actual API call based on role
-      setNotificationCount(3); // Simulated count
+      if (userRole === 'admin') {
+        // Check for pending restaurant approvals
+        try {
+          const response = await adminAPI.getRestaurantApprovalsCount();
+          
+          if (response.data.success) {
+            setNotificationCount(response.data.count || 0);
+            console.log('Admin notification count:', response.data.count);
+          } else {
+            setNotificationCount(0);
+            console.error('Failed to fetch admin approval count');
+          }
+        } catch (error) {
+          console.error('Error fetching approval count:', error);
+          setNotificationCount(0);
+        }
+      } else if (userRole === 'restaurant') {
+        // For restaurant owners, check for unread notifications
+        try {
+          const response = await restaurantAPI.getUnreadNotificationCount();
+          
+          if (response.data.success) {
+            setNotificationCount(response.data.count || 0);
+            console.log('Restaurant notification count:', response.data.count);
+          } else {
+            setNotificationCount(0);
+            console.error('Failed to fetch restaurant notification count');
+          }
+        } catch (error) {
+          console.error('Error fetching restaurant notification count:', error);
+          setNotificationCount(0);
+        }
+      } else if (userRole === 'deliveryuser') {
+        // For delivery users, check for unread notifications
+        try {
+          const response = await userAPI.getUnreadNotificationCount();
+          
+          if (response.data.success) {
+            setNotificationCount(response.data.count || 0);
+            console.log('Delivery user notification count:', response.data.count);
+          } else {
+            setNotificationCount(0);
+            console.error('Failed to fetch delivery user notification count');
+          }
+        } catch (error) {
+          console.error('Error fetching delivery user notification count:', error);
+          setNotificationCount(0);
+        }
+      } else if (userRole === 'user') {
+        // For regular users, check for unread notifications
+        try {
+          const response = await userAPI.getUnreadNotificationCount();
+          
+          if (response.data.success) {
+            setNotificationCount(response.data.count || 0);
+            console.log('User notification count:', response.data.count);
+          } else {
+            setNotificationCount(0);
+            console.error('Failed to fetch user notification count');
+          }
+        } catch (error) {
+          console.error('Error fetching user notification count:', error);
+          setNotificationCount(0);
+        }
+      } else {
+        // Default - no notifications for other roles
+        setNotificationCount(0);
+      }
     } catch (err) {
       console.error('Failed to fetch notification count:', err);
+      setNotificationCount(0);
     }
   };
   
@@ -118,15 +196,57 @@ const DashboardLayout = ({ children }) => {
   const getRoleTitle = () => {
     const titles = {
       admin: 'Admin Panel',
-      restaurantowner: 'Restaurant Panel',
+      restaurant: 'Restaurant Panel',
       deliveryuser: 'Delivery Panel',
       user: 'User Dashboard'
     };
     return titles[userRole] || 'Dashboard';
   };
 
+  const getNotificationLink = () => {
+    switch(userRole) {
+      case 'admin':
+        return '/admin/notifications';
+      case 'restaurant':
+        return '/restaurant/notifications';
+      case 'deliveryuser':
+        return '/delivery/notifications';
+      case 'user':
+      default:
+        return '/user/notifications';
+    }
+  };
+
+  useEffect(() => {
+    // Fetch user details based on role
+    const fetchUserDetails = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        let response;
+        if (userRole === 'restaurant') {
+          response = await restaurantAPI.getRestaurantProfile();
+        } else if (userRole === 'admin' || userRole === 'user' || userRole === 'deliveryuser') {
+          response = await userAPI.getUserProfile();
+        }
+
+        if (response && response.data && response.data.success) {
+          setUserData({
+            name: response.data.user.name || response.data.restaurant.name || 'User',
+            email: response.data.user.email || response.data.restaurant.email || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      }
+    };
+
+    fetchUserDetails();
+  }, [userRole]);
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="flex h-screen text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       {/* Mobile sidebar overlay */}
       {isMobileSidebarOpen && (
         <div 
@@ -143,8 +263,8 @@ const DashboardLayout = ({ children }) => {
         `}
       >
         {/* Logo and brand */}
-        <div className="flex items-center justify-between h-16 px-4 bg-yumrun-primary dark:bg-yumrun-primary text-white">
-          <Link to={`/${userRole}/dashboard`} className="font-bold text-lg">
+        <div className="flex items-center justify-between h-16 px-4 text-white bg-yumrun-primary dark:bg-yumrun-primary">
+          <Link to={`/${userRole}/dashboard`} className="text-lg font-bold">
             {getRoleTitle()}
           </Link>
           
@@ -173,6 +293,11 @@ const DashboardLayout = ({ children }) => {
                 >
                   {item.icon}
                   <span className="ml-3">{item.label}</span>
+                  {item.badge && (
+                    <span className="flex items-center justify-center w-5 h-5 ml-auto text-xs font-bold text-white bg-red-600 rounded-full">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}
@@ -181,72 +306,82 @@ const DashboardLayout = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex flex-col flex-1">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm z-10">
-          <div className="px-4 py-3 flex items-center justify-between">
+        <header className="z-10 bg-white shadow-sm dark:bg-gray-800">
+          <div className="flex items-center justify-between px-4 py-3">
             {/* Mobile menu button */}
             <button
-              className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yumrun-primary lg:hidden"
+              className="p-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yumrun-primary lg:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <FaBars className="w-5 h-5" />
             </button>
             
-            {/* Page title - show current path */}
-            <div className="hidden md:block">
-              <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200 capitalize">
-                {location.pathname.split('/').pop().replace('-', ' ')}
-              </h1>
+            {/* Dashboard title for large screens */}
+            <div className="hidden lg:block">
+              <h1 className="text-xl font-semibold">{getRoleTitle()}</h1>
             </div>
             
-            {/* Header right */}
-            <div className="flex items-center space-x-4">
+            {/* Right-side controls */}
+            <div className="flex items-center space-x-3">
               {/* Notifications */}
-              <Link 
-                to={`/${userRole}/notifications`}
-                className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+              <button 
+                onClick={() => navigate(getNotificationLink())}
+                className="relative p-2 text-gray-600 rounded-full dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Notifications"
               >
                 <FaBell className="w-5 h-5" />
                 {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 h-5 w-5 flex items-center justify-center text-xs font-bold text-white bg-red-600 rounded-full">
+                  <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-600 rounded-full">
                     {notificationCount > 9 ? '9+' : notificationCount}
                   </span>
                 )}
-              </Link>
+              </button>
               
               {/* Profile dropdown */}
               <div className="relative" ref={dropdownRef}>
                 <button
-                  className="flex items-center focus:outline-none"
+                  className="flex items-center space-x-2 p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 >
-                  <span className="hidden md:block mr-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {currentUser?.name || 'User'}
-                  </span>
-                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center justify-center">
-                    <FaUserCircle className="w-7 h-7" />
-                  </div>
+                  <img
+                    className="w-8 h-8 rounded-full"
+                    src="/assets/img/default-avatar.png"
+                    alt="User Avatar"
+                  />
+                  <span className="hidden md:block">{userData.name}</span>
                 </button>
-                
                 {showProfileDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50">
-                    <Link
-                      to={`/${userRole}/profile`}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => setShowProfileDropdown(false)}
-                    >
-                      <FaUserCircle className="mr-2" />
-                      Profile Settings
-                    </Link>
-                    
-                    <button
-                      className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={handleLogout}
-                    >
-                      <FaSignOutAlt className="mr-2" />
-                      Logout
-                    </button>
+                  <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{userData.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userData.email}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getRoleTitle()}</p>
+                    </div>
+                    <div className="py-1">
+                      <Link 
+                        to={`/${userRole}/profile`} 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setShowProfileDropdown(false)}
+                      >
+                        <i className="bx bx-user mr-2"></i> Profile
+                      </Link>
+                      <Link 
+                        to={`/${userRole}/settings`} 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setShowProfileDropdown(false)}
+                      >
+                        <i className="bx bx-cog mr-2"></i> Settings
+                      </Link>
+                      <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                      <button
+                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={handleLogout}
+                      >
+                        <i className="bx bx-power-off mr-2"></i> Logout
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
