@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { auth, isRestaurantOwner } = require('../middleware/auth');
 const Order = require('../models/order');
 const Restaurant = require('../models/restaurant');
+const User = require('../models/user');
 const { 
   createOrderNotification, 
   createRestaurantOrderNotification 
@@ -171,78 +172,101 @@ router.get('/user/:userId', auth, async (req, res) => {
     }
 });
 
-// GET restaurant orders
-router.get('/restaurant/:restaurantId', auth, async (req, res) => {
+// GET restaurant orders for the logged-in owner
+router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        // Ensure restaurant owner can only see their own restaurant's orders
-        if (req.user.role === 'restaurantowner') {
-            const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
-            
-            if (!restaurant || restaurant._id.toString() !== req.params.restaurantId) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Not authorized to view these orders' 
-                });
-            }
+        // Assuming isRestaurantOwner middleware attaches restaurantId to req.user
+        if (!req.user.restaurantId) {
+            console.error('Middleware did not attach restaurantId to user object for owner:', req.user.userId);
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Could not determine the restaurant for this owner.' 
+            });
         }
-        
-        const orders = await Order.find({ restaurantId: req.params.restaurantId })
+        const restaurantId = req.user.restaurantId;
+
+        // Fetch orders for the owner's restaurant, populating user details
+        const orders = await Order.find({ restaurantId: restaurantId }) 
+            .populate('userId', 'fullName email phone') // Populate customer details
             .sort({ createdAt: -1 });
             
-        res.status(200).json({ success: true, orders });
+        res.status(200).json({ success: true, data: orders });
     } catch (error) {
-        console.error(`Error fetching orders for restaurant ${req.params.restaurantId}:`, error);
+        console.error(`Error fetching orders for restaurant owner ${req.user.userId}:`, error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// POST update order status
-router.post('/:id/status', auth, async (req, res) => {
+// POST update order status (Restaurant Owner only)
+router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
     try {
         const { status } = req.body;
-        
+        const orderId = req.params.id;
+        const ownerUserId = req.user.userId;
+
+        // Assuming isRestaurantOwner middleware attaches restaurantId to req.user
+        if (!req.user.restaurantId) {
+            console.error('Middleware did not attach restaurantId to user object for owner:', ownerUserId);
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Could not verify restaurant ownership.' 
+            });
+        }
+        const ownerRestaurantId = req.user.restaurantId;
+
         if (!status) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Please provide a status' 
-            });
+            return res.status(400).json({ success: false, message: 'Please provide a status' });
         }
         
-        // Valid status transitions
         const validStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
-        
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid status' 
-            });
+            return res.status(400).json({ success: false, message: 'Invalid status' });
         }
         
-        const order = await Order.findById(req.params.id);
+        const order = await Order.findById(orderId);
         
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
+
+        // Verify the order belongs to the restaurant owner using the restaurantId from middleware
+        if (order.restaurantId.toString() !== ownerRestaurantId.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
+        }
+
+        // Check for valid status transitions (optional, depends on business logic)
+        // Example: Cannot go from DELIVERED back to PENDING
+        // Add logic here if needed
         
         // Update status
         order.status = status;
         order.statusUpdates.push({
             status,
             timestamp: new Date(),
-            updatedBy: req.user._id
+            updatedBy: ownerUserId // Log which user performed the update
         });
         
         await order.save();
         
+        // Consider sending notification to the customer about the status update
+        // await createUserOrderStatusUpdateNotification(order, order.userId);
+        
+        // Populate user details in the response
+        const updatedOrder = await Order.findById(order._id)
+            .populate('userId', 'fullName email phone');
+
         res.status(200).json({ 
             success: true, 
             message: 'Order status updated successfully', 
-            order 
+            data: updatedOrder 
         });
     } catch (error) {
         console.error(`Error updating status for order ${req.params.id}:`, error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
+
+// DELETE order (Optional - maybe only admin?)
+// Add DELETE route if needed, with appropriate authorization
 
 module.exports = router; 

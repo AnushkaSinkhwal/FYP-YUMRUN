@@ -316,6 +316,16 @@ export const restaurantAPI = {
   // Delete an offer
   deleteOffer: async (offerId) => {
     return api.delete(`/offers/${offerId}`);
+  },
+  
+  // Get orders for the restaurant
+  getOrders: async () => {
+    return api.get('/orders/restaurant');
+  },
+  
+  // Update order status
+  updateOrderStatus: async (orderId, status) => {
+    return api.post(`/orders/${orderId}/status`, { status });
   }
 };
 
