@@ -40,6 +40,7 @@ import RestaurantOrders from "./Pages/restaurant/Orders";
 import RestaurantProfile from "./Pages/restaurant/Profile";
 import RestaurantAnalytics from "./Pages/restaurant/Analytics";
 import RestaurantNotifications from "./Pages/restaurant/Notifications";
+import RestaurantOffers from "./Pages/restaurant/Offers";
 
 // Delivery imports
 import DeliveryLayout from "./components/delivery/DeliveryLayout";
@@ -302,6 +303,7 @@ function App() {
               <Route path="profile" element={<RestaurantProfile />} />
               <Route path="analytics" element={<RestaurantAnalytics />} />
               <Route path="notifications" element={<RestaurantNotifications />} />
+              <Route path="offers" element={<RestaurantOffers />} />
             </Route>
             
             {/* Delivery Routes */}

@@ -286,6 +286,36 @@ export const restaurantAPI = {
   // Delete notification
   deleteNotification: async (notificationId) => {
     return api.delete(`/restaurant/notifications/${notificationId}`);
+  },
+  
+  // Get all offers for the restaurant
+  getOffers: async () => {
+    return api.get('/offers/restaurant');
+  },
+  
+  // Get a specific offer
+  getOffer: async (offerId) => {
+    return api.get(`/offers/${offerId}`);
+  },
+  
+  // Create a new offer
+  createOffer: async (offerData) => {
+    return api.post('/offers', offerData);
+  },
+  
+  // Update an offer
+  updateOffer: async (offerId, offerData) => {
+    return api.put(`/offers/${offerId}`, offerData);
+  },
+  
+  // Toggle offer active status
+  toggleOfferActive: async (offerId) => {
+    return api.patch(`/offers/${offerId}/toggle-active`);
+  },
+  
+  // Delete an offer
+  deleteOffer: async (offerId) => {
+    return api.delete(`/offers/${offerId}`);
   }
 };
 

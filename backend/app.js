@@ -36,6 +36,7 @@ const restaurantsRoutes = require('./routes/restaurants');
 const adminRoutes = require('./routes/admin');
 const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
+const offerRoutes = require('./routes/offers');
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -48,6 +49,7 @@ app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/offers', offerRoutes);
 
 // API Status Route
 app.get('/api/status', (req, res) => {

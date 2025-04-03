@@ -1,4 +1,4 @@
-import { FaUtensils, FaShoppingCart, FaChartLine, FaStore } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 
 const RestaurantDashboard = () => {
@@ -26,6 +26,13 @@ const RestaurantDashboard = () => {
       link: "/restaurant/menu",
     },
     {
+      title: "Active Offers",
+      count: 3,
+      icon: <FaGift size={24} />,
+      color: "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300",
+      link: "/restaurant/offers",
+    },
+    {
       title: "Total Revenue",
       count: "$25,000",
       icon: <FaChartLine size={24} />,
@@ -51,6 +58,14 @@ const RestaurantDashboard = () => {
       gradient: "bg-gradient-to-r from-blue-500 to-blue-700",
       link: "/restaurant/menu",
       buttonText: "Go to Menu"
+    },
+    {
+      title: "Manage Offers",
+      description: "Create and manage special offers",
+      icon: <FaGift className="h-8 w-8 mb-2" />,
+      gradient: "bg-gradient-to-r from-red-500 to-red-700",
+      link: "/restaurant/offers",
+      buttonText: "Manage Offers"
     },
     {
       title: "View Analytics",
