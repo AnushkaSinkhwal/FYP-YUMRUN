@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { restaurantAPI } from '../../utils/api';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow, 
+  Card, 
+  CardHeader,
+  CardContent,
+  CardFooter,
   Button, 
   Badge, 
   Alert, 
@@ -15,9 +13,10 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogDescription, 
-  DialogFooter 
+  DialogFooter,
+  Separator 
 } from '../../components/ui';
-import { FaEye, FaCheckCircle, FaTimesCircle, FaTruck, FaHourglassHalf } from 'react-icons/fa';
+import { FaEye, FaCheckCircle, FaTimesCircle, FaTruck, FaHourglassHalf, FaCalendarAlt, FaUser, FaDollarSign } from 'react-icons/fa';
 import { format } from 'date-fns';
 
 const ORDER_STATUS = [
@@ -172,39 +171,47 @@ const RestaurantOrders = () => {
           <p>No orders found.</p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order._id}>
-                <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                <TableCell>{format(new Date(order.createdAt), 'PPP p')}</TableCell>
-                <TableCell>{order.userId?.fullName || 'N/A'}</TableCell>
-                <TableCell>${order.grandTotal.toFixed(2)}</TableCell>
-                <TableCell>
-                  <Badge className={`${STATUS_COLORS[order.status]} px-2 py-1`}>
-                    {STATUS_ICONS[order.status]}{order.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => openDetailsDialog(order)}>
-                    <FaEye className="mr-1" /> Details
-                  </Button>
-                  {renderActionButton(order)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {orders.map((order) => (
+            <Card key={order._id} className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <div>
+                  <h3 className="font-semibold">{order.orderNumber}</h3>
+                  <p className="text-sm text-gray-500">{format(new Date(order.createdAt), 'PPP p')}</p>
+                </div>
+                <Badge className={`${STATUS_COLORS[order.status]} px-2 py-1`}>
+                  {STATUS_ICONS[order.status]}{order.status}
+                </Badge>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center">
+                    <FaUser className="mr-2 text-gray-400" /> 
+                    <span>{order.userId?.fullName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <FaDollarSign className="mr-2 text-gray-400" /> 
+                    <span>${order.grandTotal?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <FaCalendarAlt className="mr-2 text-gray-400" /> 
+                    <span>{order.items?.length || 0} items</span>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between pt-2 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => openDetailsDialog(order)}
+                >
+                  <FaEye className="mr-1" /> Details
+                </Button>
+                {renderActionButton(order)}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Order Details Dialog */}
@@ -235,26 +242,29 @@ const RestaurantOrders = () => {
               
               <div>
                 <h4 className="mb-2 font-semibold">Order Items</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedOrder.items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>${item.price.toFixed(2)}</TableCell>
-                        <TableCell>${(item.price * item.quantity).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <div className="min-w-full">
+                        <div className="grid grid-cols-4 gap-4 p-3 font-semibold text-gray-700 bg-gray-100 dark:bg-gray-800 dark:text-gray-300">
+                          <div>Item</div>
+                          <div className="text-center">Quantity</div>
+                          <div className="text-center">Price</div>
+                          <div className="text-right">Subtotal</div>
+                        </div>
+                        <Separator />
+                        {selectedOrder.items.map((item, index) => (
+                          <div key={index} className="grid grid-cols-4 gap-4 p-3 text-sm border-b last:border-0">
+                            <div>{item.name}</div>
+                            <div className="text-center">{item.quantity}</div>
+                            <div className="text-center">${item.price?.toFixed(2) || '0.00'}</div>
+                            <div className="text-right">${(item.price * item.quantity)?.toFixed(2) || '0.00'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
               
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -262,16 +272,16 @@ const RestaurantOrders = () => {
                     <h4 className="mb-1 font-semibold">Payment Details</h4>
                     <p><strong>Method:</strong> {selectedOrder.paymentMethod}</p>
                     <p><strong>Status:</strong> {selectedOrder.paymentStatus}</p>
-                    <p><strong>Subtotal:</strong> ${selectedOrder.totalPrice.toFixed(2)}</p>
-                    <p><strong>Delivery Fee:</strong> ${selectedOrder.deliveryFee.toFixed(2)}</p>
-                    <p><strong>Tax:</strong> ${selectedOrder.tax.toFixed(2)}</p>
-                    <p><strong>Tip:</strong> ${selectedOrder.tip.toFixed(2)}</p>
-                    <p className="font-bold"><strong>Grand Total:</strong> ${selectedOrder.grandTotal.toFixed(2)}</p>
+                    <p><strong>Subtotal:</strong> ${selectedOrder.totalPrice?.toFixed(2) || '0.00'}</p>
+                    <p><strong>Delivery Fee:</strong> ${selectedOrder.deliveryFee?.toFixed(2) || '0.00'}</p>
+                    <p><strong>Tax:</strong> ${selectedOrder.tax?.toFixed(2) || '0.00'}</p>
+                    <p><strong>Tip:</strong> ${selectedOrder.tip?.toFixed(2) || '0.00'}</p>
+                    <p className="font-bold"><strong>Grand Total:</strong> ${selectedOrder.grandTotal?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div>
                     <h4 className="mb-1 font-semibold">Status History</h4>
                     <ul className="space-y-1 text-sm">
-                      {selectedOrder.statusUpdates.map((update, index) => (
+                      {(selectedOrder.statusUpdates || []).map((update, index) => (
                         <li key={index}>
                           <Badge className={`${STATUS_COLORS[update.status]} mr-2`}>{update.status}</Badge> 
                           {format(new Date(update.timestamp), 'Pp')}
