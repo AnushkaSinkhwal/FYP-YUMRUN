@@ -35,6 +35,16 @@ const ProductDetails = () => {
     "Mozzarella Cheese": { calories: 150, protein: 10, carbs: 2, fat: 12 },
     "Pepperoni": { calories: 180, protein: 8, carbs: 1, fat: 15 },
     "Olives": { calories: 40, protein: 1, carbs: 4, fat: 3 },
+    "BellPeppers": { calories: 25, protein: 1, carbs: 5, fat: 0 },
+    "Onions": { calories: 20, protein: 0, carbs: 5, fat: 0 },
+    "ItalianSausage": { calories: 160, protein: 10, carbs: 2, fat: 13 },
+  };
+
+  const cookingMethods = {
+    "Firewood Oven": { caloriesAdjustment: 1.0, description: "Traditional cooking method for authentic taste" },
+    "Electric Oven": { caloriesAdjustment: 0.9, description: "Energy-efficient cooking with consistent results" },
+    "Air Fryer": { caloriesAdjustment: 0.8, description: "Low-fat cooking method, reduces calories" },
+    "Stovetop": { caloriesAdjustment: 1.1, description: "Quick cooking method for thin-crust pizzas" },
   };
 
   const calculatePrice = () => {
@@ -64,6 +74,15 @@ const ProductDetails = () => {
     totalProtein = totalProtein * (servingSize / 2);
     totalCarbs = totalCarbs * (servingSize / 2);
     totalFat = totalFat * (servingSize / 2);
+    
+    // Apply cooking method adjustment
+    const cookingAdjustment = cookingMethods[cookingMethod]?.caloriesAdjustment || 1.0;
+    totalCalories = Math.round(totalCalories * cookingAdjustment);
+    
+    // Round values for better display
+    totalProtein = Math.round(totalProtein);
+    totalCarbs = Math.round(totalCarbs);
+    totalFat = Math.round(totalFat);
 
     return { totalCalories, totalProtein, totalCarbs, totalFat };
   };
@@ -110,9 +129,11 @@ const ProductDetails = () => {
             <FormControl fullWidth className="mt-3">
               <InputLabel sx={{ top: '-8px' }}>Cooking Method</InputLabel>
               <Select value={cookingMethod} onChange={(e) => setCookingMethod(e.target.value)}>
-                <MenuItem value="Firewood Oven">Firewood Oven</MenuItem>
-                <MenuItem value="Electric Oven">Electric Oven</MenuItem>
-                
+                {Object.keys(cookingMethods).map((method) => (
+                  <MenuItem key={method} value={method}>
+                    {method} - {cookingMethods[method].description}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 
@@ -127,29 +148,52 @@ const ProductDetails = () => {
 
             <div className="mt-3">
               <h5>Choose Ingredients:</h5>
-              {Object.keys(ingredientPrices).map((ingredient) => (
-                <div key={ingredient}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIngredients.includes(ingredient)}
-                    onChange={() => toggleIngredient(ingredient)}
-                  />
-                  <label className="ml-2">
-                    {ingredient} (+Rs.{ingredientPrices[ingredient]})
-                  </label>
-                </div>
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(ingredientPrices).map((ingredient) => (
+                  <div key={ingredient} className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIngredients.includes(ingredient)}
+                      onChange={() => toggleIngredient(ingredient)}
+                      id={`ingredient-${ingredient}`}
+                    />
+                    <label className="ml-2" htmlFor={`ingredient-${ingredient}`}>
+                      {ingredient} (+Rs.{ingredientPrices[ingredient]})
+                      {nutritionalValues[ingredient] && (
+                        <span className="text-xs block text-gray-500">
+                          {nutritionalValues[ingredient].calories} kcal
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <p className="mt-3">
-              <strong>Estimated Calories:</strong> {calculateNutrition().totalCalories} kcal
-            </p>
-            <p className="mt-3">
-              <strong>Macronutrients:</strong><br />
-              Protein: {calculateNutrition().totalProtein}g <br />
-              Carbs: {calculateNutrition().totalCarbs}g <br />
-              Fat: {calculateNutrition().totalFat}g
-            </p>
+            <div className="mt-5 p-4 bg-gray-50 rounded-lg">
+              <h5 className="font-bold mb-2">Nutritional Information</h5>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="font-bold text-xl">{calculateNutrition().totalCalories}</div>
+                  <div className="text-sm text-gray-500">Calories</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-xl">{calculateNutrition().totalProtein}g</div>
+                  <div className="text-sm text-gray-500">Protein</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-xl">{calculateNutrition().totalCarbs}g</div>
+                  <div className="text-sm text-gray-500">Carbs</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-xl">{calculateNutrition().totalFat}g</div>
+                  <div className="text-sm text-gray-500">Fat</div>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                * Nutritional values update dynamically based on your customizations
+              </div>
+            </div>
 
             <TextField
               fullWidth

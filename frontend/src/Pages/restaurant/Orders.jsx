@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { restaurantAPI } from '../../utils/api';
 import { 
   Card, 
@@ -16,19 +16,10 @@ import {
   DialogFooter,
   Separator 
 } from '../../components/ui';
-import { FaEye, FaCheckCircle, FaTimesCircle, FaTruck, FaHourglassHalf, FaCalendarAlt, FaUser, FaDollarSign } from 'react-icons/fa';
+import { FaEye, FaCheckCircle, FaTimesCircle, FaTruck, FaHourglassHalf, FaCalendarAlt, FaUser, FaDollarSign, FaSync } from 'react-icons/fa';
 import { format } from 'date-fns';
 
-const ORDER_STATUS = [
-  'PENDING',
-  'CONFIRMED',
-  'PREPARING',
-  'READY',
-  'OUT_FOR_DELIVERY',
-  'DELIVERED',
-  'CANCELLED'
-];
-
+// Status colors for display
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   CONFIRMED: 'bg-blue-100 text-blue-800',
@@ -49,98 +40,173 @@ const STATUS_ICONS = {
   CANCELLED: <FaTimesCircle className="inline mr-1 text-red-500" />
 };
 
+// Status flow definition - what status can follow each current status
+const STATUS_FLOW = {
+  PENDING: 'CONFIRMED',
+  CONFIRMED: 'PREPARING',
+  PREPARING: 'READY',
+  READY: 'OUT_FOR_DELIVERY',
+  OUT_FOR_DELIVERY: 'DELIVERED',
+  // Terminal states
+  DELIVERED: null,
+  CANCELLED: null
+};
+
 const RestaurantOrders = () => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isConfirmStatusDialogOpen, setIsConfirmStatusDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState({ orderId: null, newStatus: null });
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    setIsLoading(true);
+  // Memoize the fetchOrders function to avoid recreation on each render
+  const fetchOrders = useCallback(async (showLoadingState = true) => {
+    if (showLoadingState) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     setError(null);
+    
     try {
       const response = await restaurantAPI.getOrders();
-      if (response.data.success) {
+      if (response?.data?.success) {
         setOrders(response.data.data || []);
       } else {
-        setError(response.data.message || 'Failed to fetch orders');
+        setError(response?.data?.message || 'Failed to fetch orders');
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError(err.response?.data?.message || 'Failed to fetch orders. Please try again.');
+      setError(err?.response?.data?.message || 'Failed to fetch orders. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Auto-refresh orders every 2 minutes
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchOrders(false); // Don't show full loading state on auto-refresh
+    }, 120000); // 2 minutes
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [fetchOrders]);
 
   const openDetailsDialog = (order) => {
     setSelectedOrder(order);
     setIsDetailsDialogOpen(true);
   };
 
-  const handleStatusUpdate = async (orderId, newStatus) => {
+  const initiateStatusUpdate = (orderId, newStatus) => {
+    // Find the order to update
+    const orderToUpdate = orders.find(order => order._id === orderId);
+    if (!orderToUpdate) {
+      setError('Order not found.');
+      return;
+    }
+    
+    setPendingStatusUpdate({ orderId, newStatus });
+    setSelectedOrder(orderToUpdate);
+    setIsConfirmStatusDialogOpen(true);
+  };
+
+  const handleStatusUpdate = async () => {
+    const { orderId, newStatus } = pendingStatusUpdate;
+    if (!orderId || !newStatus) {
+      setError('Missing information for status update.');
+      return;
+    }
+    
     setIsUpdatingStatus(true);
     setError(null);
     setSuccess(null);
+    
     try {
       const response = await restaurantAPI.updateOrderStatus(orderId, newStatus);
-      if (response.data.success) {
-        setSuccess('Order status updated successfully!');
+      if (response?.data?.success) {
+        setSuccess(`Order status updated to ${newStatus} successfully!`);
+        
         // Update the order in the local state
         setOrders(prevOrders => 
           prevOrders.map(order => 
-            order._id === orderId ? { ...order, status: newStatus, statusUpdates: [...order.statusUpdates, { status: newStatus, timestamp: new Date() }] } : order
+            order._id === orderId 
+              ? { 
+                  ...order, 
+                  status: newStatus, 
+                  statusUpdates: [
+                    ...(order.statusUpdates || []), 
+                    { status: newStatus, timestamp: new Date() }
+                  ] 
+                } 
+              : order
           )
         );
+        
+        // Close dialog after successful update
+        setIsConfirmStatusDialogOpen(false);
       } else {
-        setError(response.data.message || 'Failed to update order status');
+        setError(response?.data?.message || 'Failed to update order status');
       }
     } catch (err) {
       console.error('Error updating order status:', err);
-      setError(err.response?.data?.message || 'Failed to update order status. Please try again.');
+      setError(err?.response?.data?.message || 'Failed to update order status. Please try again.');
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
   const getNextStatus = (currentStatus) => {
-    const currentIndex = ORDER_STATUS.indexOf(currentStatus);
-    // Define the flow: PENDING -> CONFIRMED -> PREPARING -> READY -> OUT_FOR_DELIVERY -> DELIVERED
-    const flow = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-    if (currentIndex >= 0 && currentIndex < flow.length - 1) {
-      return flow[currentIndex + 1];
+    return STATUS_FLOW[currentStatus] || null;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      return format(new Date(dateString), 'PPP p');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
     }
-    return null; // No next status if already DELIVERED or CANCELLED
   };
 
   const renderActionButton = (order) => {
+    if (!order || !order.status) return null;
+    
     const nextStatus = getNextStatus(order.status);
-    if (order.status === 'DELIVERED' || order.status === 'CANCELLED') {
-      return <Badge className={`${STATUS_COLORS[order.status]} px-2 py-1`}>{STATUS_ICONS[order.status]}{order.status}</Badge>;
+    
+    if (!nextStatus) {
+      // Terminal state, just show the badge
+      return <Badge className={`${STATUS_COLORS[order.status] || 'bg-gray-100'} px-2 py-1`}>
+        {STATUS_ICONS[order.status] || null}{order.status}
+      </Badge>;
     }
     
-    if (nextStatus) {
-        return (
-            <Button 
-                size="sm" 
-                onClick={() => handleStatusUpdate(order._id, nextStatus)}
-                disabled={isUpdatingStatus}
-            >
-                {isUpdatingStatus ? 'Updating...' : `Mark as ${nextStatus}`}
-            </Button>
-        );
-    }
-
-    // Fallback for unexpected cases or if logic needs adjustment
-    return null;
+    return (
+      <Button 
+        size="sm" 
+        onClick={() => initiateStatusUpdate(order._id, nextStatus)}
+        disabled={isUpdatingStatus}
+      >
+        {isUpdatingStatus && pendingStatusUpdate.orderId === order._id ? 
+          'Updating...' : 
+          `Mark as ${nextStatus}`
+        }
+      </Button>
+    );
   };
 
   if (isLoading) {
@@ -153,7 +219,21 @@ const RestaurantOrders = () => {
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-2xl font-bold text-gray-800 dark:text-gray-100">Order Management</h1>
+      <div className="flex flex-wrap items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Order Management</h1>
+        <div className="flex items-center space-x-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="flex items-center space-x-1"
+            onClick={() => fetchOrders(false)}
+            disabled={isRefreshing}
+          >
+            <FaSync className={isRefreshing ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </Button>
+        </div>
+      </div>
 
       {error && (
         <Alert variant="error" className="mb-4">
@@ -176,11 +256,11 @@ const RestaurantOrders = () => {
             <Card key={order._id} className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <div>
-                  <h3 className="font-semibold">{order.orderNumber}</h3>
-                  <p className="text-sm text-gray-500">{format(new Date(order.createdAt), 'PPP p')}</p>
+                  <h3 className="font-semibold">{order.orderNumber || `Order #${order._id?.substring(0, 6)}`}</h3>
+                  <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
                 </div>
-                <Badge className={`${STATUS_COLORS[order.status]} px-2 py-1`}>
-                  {STATUS_ICONS[order.status]}{order.status}
+                <Badge className={`${STATUS_COLORS[order.status] || 'bg-gray-100'} px-2 py-1`}>
+                  {STATUS_ICONS[order.status] || null}{order.status || 'UNKNOWN'}
                 </Badge>
               </CardHeader>
               <CardContent className="pt-2">
@@ -218,7 +298,7 @@ const RestaurantOrders = () => {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Order Details - {selectedOrder?.orderNumber}</DialogTitle>
+            <DialogTitle>Order Details - {selectedOrder?.orderNumber || `Order #${selectedOrder?._id?.substring(0, 6)}`}</DialogTitle>
             <DialogDescription>
               Detailed view of the order.
             </DialogDescription>
@@ -234,9 +314,15 @@ const RestaurantOrders = () => {
                 </div>
                 <div>
                   <h4 className="mb-1 font-semibold">Delivery Address</h4>
-                  <p>{selectedOrder.deliveryAddress?.street}</p>
-                  <p>{selectedOrder.deliveryAddress?.city}, {selectedOrder.deliveryAddress?.state} {selectedOrder.deliveryAddress?.zipCode}</p>
-                  <p>{selectedOrder.deliveryAddress?.country}</p>
+                  <p>{selectedOrder.deliveryAddress?.street || 'N/A'}</p>
+                  {selectedOrder.deliveryAddress?.city && (
+                    <p>
+                      {selectedOrder.deliveryAddress.city}
+                      {selectedOrder.deliveryAddress.state ? `, ${selectedOrder.deliveryAddress.state}` : ''}  
+                      {selectedOrder.deliveryAddress.zipCode ? ` ${selectedOrder.deliveryAddress.zipCode}` : ''}
+                    </p>
+                  )}
+                  <p>{selectedOrder.deliveryAddress?.country || ''}</p>
                 </div>
               </div>
               
@@ -253,14 +339,18 @@ const RestaurantOrders = () => {
                           <div className="text-right">Subtotal</div>
                         </div>
                         <Separator />
-                        {selectedOrder.items.map((item, index) => (
-                          <div key={index} className="grid grid-cols-4 gap-4 p-3 text-sm border-b last:border-0">
-                            <div>{item.name}</div>
-                            <div className="text-center">{item.quantity}</div>
-                            <div className="text-center">${item.price?.toFixed(2) || '0.00'}</div>
-                            <div className="text-right">${(item.price * item.quantity)?.toFixed(2) || '0.00'}</div>
-                          </div>
-                        ))}
+                        {selectedOrder.items?.length > 0 ? (
+                          selectedOrder.items.map((item, index) => (
+                            <div key={index} className="grid grid-cols-4 gap-4 p-3 text-sm border-b last:border-0">
+                              <div>{item.name || 'Unnamed item'}</div>
+                              <div className="text-center">{item.quantity || 0}</div>
+                              <div className="text-center">${item.price?.toFixed(2) || '0.00'}</div>
+                              <div className="text-right">${((item.price || 0) * (item.quantity || 0)).toFixed(2)}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-center text-gray-500">No items found</div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -270,8 +360,8 @@ const RestaurantOrders = () => {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                  <div>
                     <h4 className="mb-1 font-semibold">Payment Details</h4>
-                    <p><strong>Method:</strong> {selectedOrder.paymentMethod}</p>
-                    <p><strong>Status:</strong> {selectedOrder.paymentStatus}</p>
+                    <p><strong>Method:</strong> {selectedOrder.paymentMethod || 'N/A'}</p>
+                    <p><strong>Status:</strong> {selectedOrder.paymentStatus || 'N/A'}</p>
                     <p><strong>Subtotal:</strong> ${selectedOrder.totalPrice?.toFixed(2) || '0.00'}</p>
                     <p><strong>Delivery Fee:</strong> ${selectedOrder.deliveryFee?.toFixed(2) || '0.00'}</p>
                     <p><strong>Tax:</strong> ${selectedOrder.tax?.toFixed(2) || '0.00'}</p>
@@ -280,14 +370,20 @@ const RestaurantOrders = () => {
                 </div>
                 <div>
                     <h4 className="mb-1 font-semibold">Status History</h4>
-                    <ul className="space-y-1 text-sm">
-                      {(selectedOrder.statusUpdates || []).map((update, index) => (
-                        <li key={index}>
-                          <Badge className={`${STATUS_COLORS[update.status]} mr-2`}>{update.status}</Badge> 
-                          {format(new Date(update.timestamp), 'Pp')}
-                        </li>
-                      ))}
-                    </ul>
+                    {selectedOrder.statusUpdates?.length > 0 ? (
+                      <ul className="space-y-1 text-sm">
+                        {selectedOrder.statusUpdates.map((update, index) => (
+                          <li key={index}>
+                            <Badge className={`${STATUS_COLORS[update.status] || 'bg-gray-100'} mr-2`}>
+                              {update.status}
+                            </Badge> 
+                            {formatDate(update.timestamp)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-500">No status updates recorded</p>
+                    )}
                 </div>
               </div>
               {selectedOrder.specialInstructions && (
@@ -300,6 +396,42 @@ const RestaurantOrders = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Status Update Dialog */}
+      <Dialog open={isConfirmStatusDialogOpen} onOpenChange={setIsConfirmStatusDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Status Update</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to update the status of this order?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p><strong>Order:</strong> {selectedOrder?.orderNumber || `Order #${selectedOrder?._id?.substring(0, 6)}`}</p>
+            <p className="mt-2">
+              <strong>Current Status:</strong>{' '}
+              <Badge className={`${STATUS_COLORS[selectedOrder?.status] || 'bg-gray-100'}`}>
+                {selectedOrder?.status || 'UNKNOWN'}
+              </Badge>
+            </p>
+            <p className="mt-2">
+              <strong>New Status:</strong>{' '}
+              <Badge className={`${STATUS_COLORS[pendingStatusUpdate.newStatus] || 'bg-gray-100'}`}>
+                {pendingStatusUpdate.newStatus || 'UNKNOWN'}
+              </Badge>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmStatusDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={handleStatusUpdate}
+              disabled={isUpdatingStatus}
+            >
+              {isUpdatingStatus ? 'Updating...' : 'Confirm Update'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

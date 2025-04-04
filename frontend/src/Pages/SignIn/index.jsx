@@ -62,8 +62,8 @@ const SignIn = () => {
             return;
         }
         
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        // Validate email format more precisely
+        const emailRegex = /^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/i;
         if (!emailRegex.test(email)) {
             setError("Please enter a valid email address");
             localStorage.setItem('signinError', "Please enter a valid email address");
@@ -167,6 +167,18 @@ const SignIn = () => {
                         {loginAttempted && !email && !password && (
                             <Alert variant="error" className="mb-4">
                                 Please enter both email and password
+                            </Alert>
+                        )}
+                        
+                        {loginAttempted && email && !password && (
+                            <Alert variant="error" className="mb-4">
+                                Please enter your password
+                            </Alert>
+                        )}
+                        
+                        {loginAttempted && !email && password && (
+                            <Alert variant="error" className="mb-4">
+                                Please enter your email
                             </Alert>
                         )}
                         

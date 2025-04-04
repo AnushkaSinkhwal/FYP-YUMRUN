@@ -142,18 +142,28 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.register(userData);
       
+      // Check if the response indicates an error
+      if (!response.data.success) {
+        setError(response.data.message || 'Registration failed');
+        setIsLoading(false);
+        return { success: false, error: response.data.message || 'Registration failed' };
+      }
+      
       if (response.data.success) {
-        const { token, user } = response.data;
+        const { user } = response.data;
+        // Original response provides token but we're not using it since we're not auto-logging in
+        // const { token, user } = response.data;
         
         // Normalize user data to ensure role property
         const normalizedUser = normalizeUserData(user);
         
+        // For auto-login after registration, uncomment these:
         // Save to localStorage
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(normalizedUser));
-        
+        // localStorage.setItem('authToken', token);
+        // localStorage.setItem('userData', JSON.stringify(normalizedUser));
         // Update state
-        setCurrentUser(normalizedUser);
+        // setCurrentUser(normalizedUser);
+        
         setIsLoading(false);
         
         return { 
@@ -168,7 +178,22 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      // Handle specific API error responses
+      if (error.response) {
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.status === 409) {
+          errorMessage = 'User with this email already exists.';
+        } else if (error.response.status === 400) {
+          errorMessage = 'Invalid registration data. Please check your information.';
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = 'No response from server. Please check your internet connection.';
+      }
+      
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };

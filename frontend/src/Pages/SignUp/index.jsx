@@ -55,14 +55,13 @@ const SignUp = () => {
         const hasNumber = /\d/.test(formData.password);
         const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password);
         const hasMinLength = formData.password.length >= 6;
-        const hasMinLetters = (formData.password.match(/[a-zA-Z]/g) || []).length >= 6;
         
-        const requirements = [hasLetter, hasNumber, hasSpecialChar, hasMinLength, hasMinLetters];
+        const requirements = [hasLetter, hasNumber, hasSpecialChar, hasMinLength];
         const strengthScore = requirements.filter(Boolean).length;
         
-        if (strengthScore <= 3) {
+        if (strengthScore <= 2) {
             setPasswordStrength("weak");
-        } else if (strengthScore === 4) {
+        } else if (strengthScore === 3) {
             setPasswordStrength("medium");
         } else {
             setPasswordStrength("strong");
@@ -70,7 +69,7 @@ const SignUp = () => {
     }, [formData.password]);
 
     const validateEmail = (email) => {
-        return email.toLowerCase().endsWith('@gmail.com');
+        return email.match(/^([a-zA-Z0-9_\-.]+)@(gmail\.com)$/i);
     };
 
     const validatePhone = (phone) => {
@@ -80,6 +79,15 @@ const SignUp = () => {
     const validatePAN = (pan) => {
         // PAN format validation for Nepal
         return /^[0-9]{9}$/.test(pan);
+    };
+
+    const validatePassword = (password) => {
+        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
+        const hasMinLength = password.length >= 6;
+        
+        return hasLetter && hasNumber && hasSpecialChar && hasMinLength;
     };
 
     const handleSubmit = async (e) => {
@@ -136,11 +144,7 @@ const SignUp = () => {
         }
         
         // Validate password
-        if (!formData.password || formData.password.length < 6 || 
-            !/[a-zA-Z]/.test(formData.password) || 
-            !/\d/.test(formData.password) || 
-            !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password) ||
-            (formData.password.match(/[a-zA-Z]/g) || []).length < 6) {
+        if (!validatePassword(formData.password)) {
             setError("Password must contain at least 6 letters, 1 number, and 1 special character");
             return;
         }
@@ -439,7 +443,7 @@ const SignUp = () => {
                                             Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
                                         </div>
                                     )}
-                                    <p className="text-xs text-gray-500">Must contain 6+ letters, 1 number, and 1 special character</p>
+                                    <p className="text-xs text-gray-500">Must contain at least 6 characters, including 1 number and 1 special character</p>
                                 </div>
                                 
                                 <div className="space-y-2">
