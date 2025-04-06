@@ -124,6 +124,11 @@ const userSchema = new mongoose.Schema({
             message: props => `${props.value} is not a valid phone number! Must be 10 digits.`
         }
     },
+    address: {
+        type: String,
+        required: [true, 'Please provide your home address'],
+        trim: true
+    },
     password: {
         type: String,
         required: [true, 'Please provide a password'],
@@ -139,6 +144,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'],
         default: 'Healthy'
+    },
+    favorites: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'MenuItem'
+        }],
+        default: []
     },
     settings: {
         type: Object,

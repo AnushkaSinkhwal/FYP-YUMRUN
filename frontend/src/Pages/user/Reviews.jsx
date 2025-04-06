@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Card, Button, Input, Textarea } from '../../components/ui';
-import { FaSearch, FaStar, FaClock, FaUtensils, FaMapMarkerAlt, FaEdit, FaTrash } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { Card, Button, Input, Textarea, Alert, Spinner } from '../../components/ui';
+import { FaSearch, FaStar, FaClock, FaUtensils, FaEdit, FaTrash } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
 
 const UserReviews = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -8,53 +9,126 @@ const UserReviews = () => {
   const [editingReview, setEditingReview] = useState(null);
   const [reviewText, setReviewText] = useState('');
   const [rating, setRating] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { isAuthenticated } = useAuth();
+  
+  // Fetch reviews from API
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!isAuthenticated) {
+        return;
+      }
 
-  // Sample data - replace with API data
-  const reviews = [
-    {
-      id: 1,
-      restaurant: "Burger Palace",
-      image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
-      rating: 4.5,
-      text: "Great burgers and fast delivery! The fries were crispy and the service was excellent.",
-      date: "2024-03-15",
-      orderNumber: "ORD-123456",
-      cuisine: "American",
-      address: "123 Food Street, City"
-    },
-    {
-      id: 2,
-      restaurant: "Pizza Express",
-      image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
-      rating: 5,
-      text: "Best pizza in town! The crust was perfect and the toppings were fresh.",
-      date: "2024-03-10",
-      orderNumber: "ORD-123457",
-      cuisine: "Italian",
-      address: "456 Pizza Avenue, City"
-    }
-  ];
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch('/api/reviews/user');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch reviews');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setReviews(data.data.reviews || []);
+        } else {
+          throw new Error(data.error.message || 'Failed to fetch reviews');
+        }
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+        setError('Unable to load reviews. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchReviews();
+  }, [isAuthenticated]);
 
   const filteredReviews = reviews.filter(review =>
-    review.restaurant.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    review.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    review.menuItem?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    review.restaurant?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleEditReview = (review) => {
     setEditingReview(review);
-    setReviewText(review.text);
+    setReviewText(review.comment);
     setRating(review.rating);
   };
 
-  const handleSaveReview = () => {
-    // TODO: Implement API call to update review
-    setEditingReview(null);
+  const handleSaveReview = async () => {
+    if (!editingReview) return;
+    
+    try {
+      const response = await fetch(`/api/reviews/${editingReview.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating,
+          comment: reviewText
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update review');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update the reviews state
+        setReviews(reviews.map(review => 
+          review.id === editingReview.id
+            ? { ...review, rating, comment: reviewText }
+            : review
+        ));
+        setEditingReview(null);
+      } else {
+        throw new Error(data.error?.message || 'Failed to update review');
+      }
+    } catch (err) {
+      console.error('Error updating review:', err);
+      setError('Failed to update review. Please try again.');
+    }
   };
 
-  const handleDeleteReview = (id) => {
-    // TODO: Implement API call to delete review
-    console.log('Delete review:', id);
+  const handleDeleteReview = async (id) => {
+    try {
+      const response = await fetch(`/api/reviews/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete review');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Remove the deleted review from state
+        setReviews(reviews.filter(review => review.id !== id));
+      } else {
+        throw new Error(data.error?.message || 'Failed to delete review');
+      }
+    } catch (err) {
+      console.error('Error deleting review:', err);
+      setError('Failed to delete review. Please try again.');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,6 +144,12 @@ const UserReviews = () => {
           />
         </div>
       </div>
+
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
 
       <div className="flex gap-2 border-b">
         <Button
@@ -92,12 +172,12 @@ const UserReviews = () => {
             <div className="flex items-start justify-between">
               <div className="flex gap-4">
                 <img
-                  src={review.image}
-                  alt={review.restaurant}
+                  src={review.menuItem?.image || `https://source.unsplash.com/random/300x200/?food`}
+                  alt={review.menuItem?.name}
                   className="w-24 h-24 object-cover rounded-lg"
                 />
                 <div>
-                  <h3 className="font-semibold text-lg">{review.restaurant}</h3>
+                  <h3 className="font-semibold text-lg">{review.menuItem?.name}</h3>
                   <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                     <FaStar className="text-yellow-400" />
                     <span>{review.rating}</span>
@@ -107,13 +187,8 @@ const UserReviews = () => {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                     <FaUtensils className="text-gray-400" />
-                    <span>{review.cuisine}</span>
+                    <span>{review.restaurant?.name}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                    <FaMapMarkerAlt className="text-gray-400" />
-                    <span>{review.address}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">Order #{review.orderNumber}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -169,7 +244,7 @@ const UserReviews = () => {
                 </div>
               </div>
             ) : (
-              <p className="mt-4 text-gray-600">{review.text}</p>
+              <p className="mt-4 text-gray-600">{review.comment}</p>
             )}
           </Card>
         ))}

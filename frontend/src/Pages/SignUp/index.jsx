@@ -16,6 +16,7 @@ const SignUp = () => {
         phone: "",
         password: "",
         confirmPassword: "",
+        address: "",
         // Customer specific fields
         healthCondition: "Healthy",
         // Restaurant owner specific fields
@@ -82,12 +83,11 @@ const SignUp = () => {
     };
 
     const validatePassword = (password) => {
-        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasLetters = /[a-zA-Z]{6,}/.test(password);
         const hasNumber = /\d/.test(password);
         const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
-        const hasMinLength = password.length >= 6;
         
-        return hasLetter && hasNumber && hasSpecialChar && hasMinLength;
+        return hasLetters && hasNumber && hasSpecialChar;
     };
 
     const handleSubmit = async (e) => {
@@ -99,6 +99,12 @@ const SignUp = () => {
         // Validate common fields
         if (!formData.fullName.trim()) {
             setError("Full name is required");
+            return;
+        }
+
+        // Validate address field
+        if (!formData.address.trim()) {
+            setError("Home address is required");
             return;
         }
 
@@ -159,6 +165,7 @@ const SignUp = () => {
             fullName: formData.fullName,
             email: formData.email,
             phone: formData.phone,
+            address: formData.address,
             password: formData.password,
             role: role
         };
@@ -280,6 +287,20 @@ const SignUp = () => {
                                         className="w-full"
                                     />
                                     <p className="text-xs text-gray-500">Must be a Gmail address</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="address">Home Address*</Label>
+                                    <Input
+                                        type="text"
+                                        id="address"
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter your home address"
+                                        required
+                                        className="w-full"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -443,7 +464,7 @@ const SignUp = () => {
                                             Password strength: {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
                                         </div>
                                     )}
-                                    <p className="text-xs text-gray-500">Must contain at least 6 characters, including 1 number and 1 special character</p>
+                                    <p className="text-xs text-gray-500">Must contain at least 6 letters, 1 number and 1 special character</p>
                                 </div>
                                 
                                 <div className="space-y-2">

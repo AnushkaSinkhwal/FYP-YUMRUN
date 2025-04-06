@@ -62,6 +62,48 @@ const menuItemSchema = mongoose.Schema({
         type: Number,
         default: 0,
     },
+    sodium: {
+        type: Number,
+        default: 0,
+    },
+    sugar: {
+        type: Number,
+        default: 0,
+    },
+    fiber: {
+        type: Number,
+        default: 0,
+    },
+    healthAttributes: {
+        isDiabeticFriendly: {
+            type: Boolean,
+            default: false,
+        },
+        isLowSodium: {
+            type: Boolean,
+            default: false,
+        },
+        isHeartHealthy: {
+            type: Boolean,
+            default: false,
+        },
+        isLowGlycemicIndex: {
+            type: Boolean,
+            default: false,
+        },
+        isHighProtein: {
+            type: Boolean,
+            default: false,
+        },
+        isLowCarb: {
+            type: Boolean,
+            default: false,
+        },
+    },
+    allergens: {
+        type: [String],
+        default: [],
+    },
     isVegetarian: {
         type: Boolean,
         default: false,
