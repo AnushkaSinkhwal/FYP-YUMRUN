@@ -37,4 +37,5 @@ export { Separator } from "./separator";
 export { Spinner } from "./spinner";
 export { Switch } from "./switch";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
-export { Textarea } from "./textarea"; 
+export { Textarea } from "./textarea";
+export { Toast, ToastContainer } from "./toast"; 

@@ -13,6 +13,7 @@ import {
   Badge
 } from '../ui';
 import { cn } from "../../lib/utils";
+import { useCart } from '../../context/CartContext';
 
 const ProductItem = ({ 
     itemView = "four", 
@@ -26,7 +27,7 @@ const ProductItem = ({
     imgSrc = "https://fmdadmin.foodmandu.com//Images/Vendor/269/Logo/web_240423103631_200624060757.listing-fire-and-ice.png" 
 }) => {
     const context = useContext(MyContext);
-    const [showTooltip, setShowTooltip] = useState(false);
+    const { addToCart } = useCart();
     const [cartButtonClass, setCartButtonClass] = useState('');
     const [favoriteActive, setFavoriteActive] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
@@ -45,8 +46,15 @@ const ProductItem = ({
             setCartButtonClass('');
         }, 800);
 
-        // Here you would also add the item to cart in your state management system
-        console.log(`Added ${name} to cart`);
+        // Add the item to cart using the CartContext
+        addToCart({
+            id,
+            name,
+            price: parseFloat(newPrice),
+            image: imgSrc,
+            rating,
+            restaurant: location
+        }, 1);
     };
     
     const toggleFavorite = (e) => {

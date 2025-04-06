@@ -15,6 +15,7 @@ import Profile from './Pages/Profile';
 import SearchResults from "./Pages/Search";
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import BackToTop from './components/BackToTop';
 import ScrollToTop from './components/ScrollToTop';
@@ -175,186 +176,188 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CartProvider>
-          <MyContext.Provider value={values}>
-            <ScrollToTop />
-            <RouteChangeDetector />
-            {isLoading && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <Spinner size="lg" className="text-white" />
-              </div>
-            )}
-            <a href="#main-content" className="skip-to-content">Skip to content</a>
-            
-            <Routes>
-              {/* Admin Routes */}
-              <Route path="/admin" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<AdminDashboard />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="restaurants" element={<AdminRestaurants />} />
-                <Route path="restaurant" element={<Navigate to="/admin/restaurants" replace />} />
-                <Route path="categories" element={<AdminCategory />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="deliveries" element={<AdminDeliveries />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="notifications" element={<AdminNotifications />} />
-                <Route path="settings" element={<AdminSettings />} />
-                <Route path="profile" element={<AdminProfile />} />
-                <Route path="restaurant-approvals" element={<RestaurantApprovals />} />
-              </Route>
+        <ToastProvider>
+          <CartProvider>
+            <MyContext.Provider value={values}>
+              <ScrollToTop />
+              <RouteChangeDetector />
+              {isLoading && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <Spinner size="lg" className="text-white" />
+                </div>
+              )}
+              <a href="#main-content" className="skip-to-content">Skip to content</a>
               
-              {/* User Routes */}
-              <Route path="/" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <Home />
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/cat/:id" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <Listing />
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/search" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <SearchResults />
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/product/:id" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <ProductDetails />
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/cart" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <ProtectedRoute>
-                      <Cart />
-                    </ProtectedRoute>
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/signin" element={
-                <>
-                  <main id="main-content">
-                    <SignIn />
-                  </main>
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
-              
-              <Route path="/signup" element={
-                <>
-                  <main id="main-content">
-                    <SignUp />
-                  </main>
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
+              <Routes>
+                {/* Admin Routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="restaurants" element={<AdminRestaurants />} />
+                  <Route path="restaurant" element={<Navigate to="/admin/restaurants" replace />} />
+                  <Route path="categories" element={<AdminCategory />} />
+                  <Route path="products" element={<AdminProducts />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="deliveries" element={<AdminDeliveries />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                  <Route path="profile" element={<AdminProfile />} />
+                  <Route path="restaurant-approvals" element={<RestaurantApprovals />} />
+                </Route>
+                
+                {/* User Routes */}
+                <Route path="/" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <Home />
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/cat/:id" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <Listing />
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/search" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <SearchResults />
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/product/:id" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <ProductDetails />
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/cart" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <ProtectedRoute>
+                        <Cart />
+                      </ProtectedRoute>
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/signin" element={
+                  <>
+                    <main id="main-content">
+                      <SignIn />
+                    </main>
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
+                
+                <Route path="/signup" element={
+                  <>
+                    <main id="main-content">
+                      <SignUp />
+                    </main>
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
 
-              <Route path="/profile" element={
-                <>
-                  {isHeaderFooterShow && <Header />}
-                  <main id="main-content">
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  </main>
-                  {isHeaderFooterShow && <Footer />}
-                  {isOpenProductModel && <ProductModel />}
-                  <BackToTop />
-                </>
-              } />
+                <Route path="/profile" element={
+                  <>
+                    {isHeaderFooterShow && <Header />}
+                    <main id="main-content">
+                      <ProtectedRoute>
+                        <Profile />
+                      </ProtectedRoute>
+                    </main>
+                    {isHeaderFooterShow && <Footer />}
+                    {isOpenProductModel && <ProductModel />}
+                    <BackToTop />
+                  </>
+                } />
 
-              {/* Restaurant Routes */}
-              <Route path="/restaurant" element={
-                <ProtectedRoute allowedRoles={['restaurantOwner', 'restaurant']}>
-                  <RestaurantLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<RestaurantDashboard />} />
-                <Route path="dashboard" element={<RestaurantDashboard />} />
-                <Route path="menu" element={<RestaurantMenu />} />
-                <Route path="orders" element={<RestaurantOrders />} />
-                <Route path="profile" element={<RestaurantProfile />} />
-                <Route path="analytics" element={<RestaurantAnalytics />} />
-                <Route path="notifications" element={<RestaurantNotifications />} />
-                <Route path="offers" element={<RestaurantOffers />} />
-              </Route>
-              
-              {/* Delivery Routes */}
-              <Route path="/delivery" element={
-                <ProtectedRoute allowedRoles={['deliveryRider']}>
-                  <DeliveryLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<DeliveryDashboard />} />
-                <Route path="dashboard" element={<DeliveryDashboard />} />
-                <Route path="orders" element={<DeliveryOrders />} />
-                <Route path="history" element={<DeliveryHistory />} />
-                <Route path="profile" element={<DeliveryProfile />} />
-                <Route path="earnings" element={<DeliveryEarnings />} />
-                <Route path="notifications" element={<DeliveryNotifications />} />
-              </Route>
+                {/* Restaurant Routes */}
+                <Route path="/restaurant" element={
+                  <ProtectedRoute allowedRoles={['restaurantOwner', 'restaurant']}>
+                    <RestaurantLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<RestaurantDashboard />} />
+                  <Route path="dashboard" element={<RestaurantDashboard />} />
+                  <Route path="menu" element={<RestaurantMenu />} />
+                  <Route path="orders" element={<RestaurantOrders />} />
+                  <Route path="profile" element={<RestaurantProfile />} />
+                  <Route path="analytics" element={<RestaurantAnalytics />} />
+                  <Route path="notifications" element={<RestaurantNotifications />} />
+                  <Route path="offers" element={<RestaurantOffers />} />
+                </Route>
+                
+                {/* Delivery Routes */}
+                <Route path="/delivery" element={
+                  <ProtectedRoute allowedRoles={['deliveryRider']}>
+                    <DeliveryLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<DeliveryDashboard />} />
+                  <Route path="dashboard" element={<DeliveryDashboard />} />
+                  <Route path="orders" element={<DeliveryOrders />} />
+                  <Route path="history" element={<DeliveryHistory />} />
+                  <Route path="profile" element={<DeliveryProfile />} />
+                  <Route path="earnings" element={<DeliveryEarnings />} />
+                  <Route path="notifications" element={<DeliveryNotifications />} />
+                </Route>
 
-              {/* User Routes */}
-              <Route path="/user" element={
-                <ProtectedRoute allowedRoles={['customer']}>
-                  <UserLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<UserDashboard />} />
-                <Route path="dashboard" element={<UserDashboard />} />
-                <Route path="orders" element={<UserOrders />} />
-                <Route path="profile" element={<UserProfile />} />
-                <Route path="settings" element={<UserSettings />} />
-                <Route path="favorites" element={<UserFavorites />} />
-                <Route path="reviews" element={<UserReviews />} />
-                <Route path="rewards" element={<UserRewards />} />
-                <Route path="notifications" element={<UserNotifications />} />
-              </Route>
-            </Routes>
-          </MyContext.Provider>
-        </CartProvider>
+                {/* User Routes */}
+                <Route path="/user" element={
+                  <ProtectedRoute allowedRoles={['customer']}>
+                    <UserLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<UserDashboard />} />
+                  <Route path="dashboard" element={<UserDashboard />} />
+                  <Route path="orders" element={<UserOrders />} />
+                  <Route path="profile" element={<UserProfile />} />
+                  <Route path="settings" element={<UserSettings />} />
+                  <Route path="favorites" element={<UserFavorites />} />
+                  <Route path="reviews" element={<UserReviews />} />
+                  <Route path="rewards" element={<UserRewards />} />
+                  <Route path="notifications" element={<UserNotifications />} />
+                </Route>
+              </Routes>
+            </MyContext.Provider>
+          </CartProvider>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -10,7 +10,7 @@ const RelatedProducts = () => {
       <div className="col-md-9 productRow">
         <div className="d-flex align-items-center mt-3">
           <div className="info w-75">
-            <h3 className="mb-0 hd">RELATED PRODUCTS</h3>
+            <h3 className="mb-0 hd">RECOMMENDED ADD-ONS</h3>
           </div>
         </div>
 

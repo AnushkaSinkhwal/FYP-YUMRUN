@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useToast } from './ToastContext';
+import PropTypes from 'prop-types';
 
 const CartContext = createContext();
 
@@ -13,6 +15,9 @@ export const CartProvider = ({ children }) => {
     return savedCart ? JSON.parse(savedCart) : [];
   });
   
+  // Access toast functionality
+  const { addToast } = useToast();
+  
   // Calculate cart statistics
   const [cartStats, setCartStats] = useState({
     totalItems: 0,
@@ -26,8 +31,11 @@ export const CartProvider = ({ children }) => {
     const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
     const subTotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
     
-    // You can add shipping logic here if needed
-    const shipping = 0; // Free shipping by default
+    // Calculate shipping based on subtotal
+    let shipping = 0;
+    if (subTotal > 0 && subTotal < 1000) {
+      shipping = 100; // Rs. 100 delivery fee for orders under Rs. 1000
+    }
     
     setCartStats({
       totalItems: itemCount,
@@ -48,24 +56,46 @@ export const CartProvider = ({ children }) => {
         cartItem => cartItem.id === item.id
       );
 
+      let updatedItems;
+      let message;
+
       if (existingItemIndex >= 0) {
         // Update quantity if item exists
-        const updatedItems = [...prevItems];
+        updatedItems = [...prevItems];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
           quantity: updatedItems[existingItemIndex].quantity + quantity
         };
-        return updatedItems;
+        message = `Updated ${item.name} quantity in cart`;
       } else {
         // Add new item if it doesn't exist
-        return [...prevItems, { ...item, quantity }];
+        updatedItems = [...prevItems, { ...item, quantity }];
+        message = `Added ${item.name} to cart`;
       }
+
+      // Show toast notification
+      addToast(message, { 
+        type: 'success',
+        duration: 3000
+      });
+
+      return updatedItems;
     });
   };
 
   // Remove item from cart
   const removeFromCart = (itemId) => {
+    // Get item name before removing it
+    const itemToRemove = cartItems.find(item => item.id === itemId);
+    
     setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+    
+    if (itemToRemove) {
+      addToast(`Removed ${itemToRemove.name} from cart`, { 
+        type: 'info',
+        duration: 3000
+      });
+    }
   };
 
   // Update item quantity
@@ -75,16 +105,27 @@ export const CartProvider = ({ children }) => {
       return;
     }
     
+    const itemToUpdate = cartItems.find(item => item.id === itemId);
+    const oldQuantity = itemToUpdate?.quantity || 0;
+    
     setCartItems(prevItems => 
       prevItems.map(item => 
         item.id === itemId ? { ...item, quantity } : item
       )
     );
+    
+    if (itemToUpdate && quantity !== oldQuantity) {
+      addToast(`Updated ${itemToUpdate.name} quantity to ${quantity}`, { 
+        type: 'info',
+        duration: 2000
+      });
+    }
   };
 
   // Clear cart
   const clearCart = () => {
     setCartItems([]);
+    addToast('Cart cleared', { type: 'info' });
   };
 
   // Calculate subtotal for a specific item
@@ -108,6 +149,10 @@ export const CartProvider = ({ children }) => {
       {children}
     </CartContext.Provider>
   );
+};
+
+CartProvider.propTypes = {
+  children: PropTypes.node.isRequired
 };
 
 export default CartContext; 

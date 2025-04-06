@@ -1,367 +1,260 @@
-import { useState } from "react";
-import { Rating, Button, TextField, Tabs, Tab, Box, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert } from "@mui/material";
-import { BsCartFill, BsHeartFill } from "react-icons/bs";
-import { useParams, useNavigate } from "react-router-dom";
-import ProductZoom from "../../components/ProductZoom";
-import QuantityBox from "../../components/QuantityBox";
-import RelatedProducts from "./RelatedProducts";
-import { useCart } from "../../context/CartContext";
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { FaHeart, FaUtensils } from 'react-icons/fa';
+import ProductZoom from '../../components/ProductZoom';
+import ProductSummary from '../../components/ProductSummary';
+import ProductFeatures from '../../components/ProductFeatures';
+import ProductReviews from '../../components/ProductReviews';
+import RelatedProducts from './RelatedProducts';
 
 const ProductDetails = () => {
-  const [value, setValue] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [servingSize, setServingSize] = useState(2);
-  const [cookingMethod, setCookingMethod] = useState("Firewood Oven");
-  const [quantity, setQuantity] = useState(1);
-  const [showAlert, setShowAlert] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState("");
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { addToCart } = useCart();
-  
-  const [selectedIngredients, setSelectedIngredients] = useState([
-    "Fresh Dough",
-    "Tomato Sauce",
-    "Mozzarella Cheese",
-    "Pepperoni",
-  ]);
+    const { id } = useParams();
+    const [product, setProduct] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [servingSize, setServingSize] = useState('medium');
+    const [quantity, setQuantity] = useState(1);
+    const [activeTab, setActiveTab] = useState('features');
+    const [specialInstructions, setSpecialInstructions] = useState('');
 
-  const basePrice = 520;
-  const discountPercentage = 0.15;
-  const originalPrice = Math.round(basePrice / (1 - discountPercentage));
+    // Fetch product data when component mounts
+    useEffect(() => {
+        // Simulate API call with setTimeout
+        setTimeout(() => {
+            // Mock product data
+            const mockProduct = {
+                id: id,
+                name: "Classic Margherita Pizza",
+                category: "Italian",
+                rating: 4.5,
+                ratingCount: 128,
+                price: 12.99,
+                description: "Our authentic Margherita pizza features a thin, crispy crust topped with fresh tomato sauce, mozzarella cheese, and basil leaves. Made with the finest ingredients and baked to perfection.",
+                availability: true,
+                discount: 10,
+                features: [
+                    "Fresh ingredients sourced locally",
+                    "Made-to-order for maximum freshness",
+                    "No artificial preservatives",
+                    "Gluten-free options available",
+                    "Customizable toppings and ingredients"
+                ],
+                nutritionalInfo: {
+                    calories: 285,
+                    fat: 10.5,
+                    carbs: 34,
+                    protein: 15,
+                    sodium: 520,
+                    allergens: ["Wheat", "Dairy"]
+                },
+                servingSizes: [
+                    { id: 'small', name: 'Small (8")', priceMultiplier: 0.8 },
+                    { id: 'medium', name: 'Medium (12")', priceMultiplier: 1 },
+                    { id: 'large', name: 'Large (16")', priceMultiplier: 1.2 },
+                ]
+            };
+            
+            setProduct(mockProduct);
+            setLoading(false);
+        }, 500);
+    }, [id]);
 
-  const ingredientPrices = {
-    Pepperoni: 50,
-    Olives: 30,
-    BellPeppers: 20,
-    Onions: 20,
-    ItalianSausage: 40,
-  };
-
-  const nutritionalValues = {
-    "Fresh Dough": { calories: 200, protein: 5, carbs: 30, fat: 5 },
-    "Tomato Sauce": { calories: 50, protein: 2, carbs: 10, fat: 1 },
-    "Mozzarella Cheese": { calories: 150, protein: 10, carbs: 2, fat: 12 },
-    "Pepperoni": { calories: 180, protein: 8, carbs: 1, fat: 15 },
-    "Olives": { calories: 40, protein: 1, carbs: 4, fat: 3 },
-    "BellPeppers": { calories: 25, protein: 1, carbs: 5, fat: 0 },
-    "Onions": { calories: 20, protein: 0, carbs: 5, fat: 0 },
-    "ItalianSausage": { calories: 160, protein: 10, carbs: 2, fat: 13 },
-  };
-
-  const cookingMethods = {
-    "Firewood Oven": { caloriesAdjustment: 1.0, description: "Traditional cooking method for authentic taste" },
-    "Electric Oven": { caloriesAdjustment: 0.9, description: "Energy-efficient cooking with consistent results" },
-    "Air Fryer": { caloriesAdjustment: 0.8, description: "Low-fat cooking method, reduces calories" },
-    "Stovetop": { caloriesAdjustment: 1.1, description: "Quick cooking method for thin-crust pizzas" },
-  };
-
-  const calculatePrice = () => {
-    let extraCost = selectedIngredients.reduce(
-      (sum, ingredient) => sum + (ingredientPrices[ingredient] || 0),
-      0
-    );
-    return (basePrice + extraCost) * (servingSize / 2);
-  };
-
-  const calculateNutrition = () => {
-    let totalCalories = 0;
-    let totalProtein = 0;
-    let totalCarbs = 0;
-    let totalFat = 0;
-
-    selectedIngredients.forEach((ingredient) => {
-      const nutrient = nutritionalValues[ingredient] || {};
-      totalCalories += nutrient.calories || 0;
-      totalProtein += nutrient.protein || 0;
-      totalCarbs += nutrient.carbs || 0;
-      totalFat += nutrient.fat || 0;
-    });
-
-    // Adjust according to serving size
-    totalCalories = totalCalories * (servingSize / 2);
-    totalProtein = totalProtein * (servingSize / 2);
-    totalCarbs = totalCarbs * (servingSize / 2);
-    totalFat = totalFat * (servingSize / 2);
-    
-    // Apply cooking method adjustment
-    const cookingAdjustment = cookingMethods[cookingMethod]?.caloriesAdjustment || 1.0;
-    totalCalories = Math.round(totalCalories * cookingAdjustment);
-    
-    // Round values for better display
-    totalProtein = Math.round(totalProtein);
-    totalCarbs = Math.round(totalCarbs);
-    totalFat = Math.round(totalFat);
-
-    return { totalCalories, totalProtein, totalCarbs, totalFat };
-  };
-
-  const toggleIngredient = (ingredient) => {
-    setSelectedIngredients((prev) =>
-      prev.includes(ingredient)
-        ? prev.filter((item) => item !== ingredient)
-        : [...prev, ingredient]
-    );
-  };
-
-  const handleAddToCart = () => {
-    const currentPrice = calculatePrice();
-    const product = {
-      id: id || "1", // Use the ID from URL params or default to "1"
-      name: "All Natural Italian-Style Fire and Meat Pizza",
-      image: "https://assets.surlatable.com/m/15a89c2d9c6c1345/72_dpi_webp-REC-283110_Pizza.jpg",
-      price: currentPrice,
-      quantity: quantity,
-      ingredients: selectedIngredients,
-      servingSize: servingSize,
-      cookingMethod: cookingMethod,
-      specialRequests: specialRequests,
-      restaurant: "Namaste",
-      rating: 4.5
+    const handleQuantityChange = (action) => {
+        if (action === 'decrease' && quantity > 1) {
+            setQuantity(quantity - 1);
+        } else if (action === 'increase') {
+            setQuantity(quantity + 1);
+        }
     };
-    
-    addToCart(product, quantity);
-    setShowAlert(true);
-  };
 
-  const handleOrderNow = () => {
-    handleAddToCart();
-    navigate('/cart');
-  };
+    const handleServingSizeChange = (size) => {
+        setServingSize(size);
+    };
 
-  const handleCloseAlert = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
+    const addToCart = () => {
+        // Logic to add to cart
+        console.log('Added to order:', { 
+            product, 
+            quantity, 
+            servingSize,
+            specialInstructions,
+            total: calculateTotalPrice()
+        });
+        
+        // Here you would dispatch to your cart state/store
+    };
+
+    const calculateTotalPrice = () => {
+        if (!product) return 0;
+        
+        const basePrice = product.discount > 0 
+            ? product.price * (1 - product.discount / 100) 
+            : product.price;
+            
+        const sizeMultiplier = product.servingSizes.find(size => size.id === servingSize)?.priceMultiplier || 1;
+        
+        return (basePrice * sizeMultiplier * quantity).toFixed(2);
+    };
+
+    if (loading) {
+        return (
+            <div className="container mx-auto py-5">
+                <div className="flex justify-center items-center h-96">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yumrun-primary"></div>
+                </div>
+            </div>
+        );
     }
-    setShowAlert(false);
-  };
 
-  return (
-    <section className="productDetails section">
-      <div className="container">
-        <div className="row">
-          <div className="col-md-4 pl-5">
-            <ProductZoom />
-          </div>
-
-          <div className="col-md-7 pl-5 pr-5">
-            <h2 className="hd text-capitalize">All Natural Italian-Style Fire and Meat Pizza</h2>
-
-            <ul className="list list-inline">
-              <li className="list-inline-item">
-                <span className="text-light mr-2">Restaurant: </span><span>Namaste</span>
-              </li>
-              <li className="list-inline-item">
-                <Rating name="read-only" value={4.5} precision={0.5} readOnly size="small" />
-                <span className="text-light cursor"> 1 Review </span>
-              </li>
-            </ul>
-
-            <div className="d-flex info">
-              <span className="oldPrice">Rs.{originalPrice}</span>
-              <span className="netPrice text-danger ml-2">Rs.520</span>
-            </div>
-            <span className="badge badge-success">IN STOCK</span>
-
-            <p className="mt-3">
-              Customize your pizza with your favorite ingredients and preferred cooking method. You can also monitor your daily intake by viewing comprehensive macronutrient and calorie breakdowns for each meal.
-            </p>
-
-            <FormControl fullWidth className="mt-3">
-              <InputLabel sx={{ top: '-8px' }}>Cooking Method</InputLabel>
-              <Select value={cookingMethod} onChange={(e) => setCookingMethod(e.target.value)}>
-                {Object.keys(cookingMethods).map((method) => (
-                  <MenuItem key={method} value={method}>
-                    {method} - {cookingMethods[method].description}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth className="mt-5">
-              <InputLabel sx={{ top: '-8px' }}>Serving Size</InputLabel>
-              <Select value={servingSize} onChange={(e) => setServingSize(e.target.value)}>
-                <MenuItem value={1}>1 Person</MenuItem>
-                <MenuItem value={2}>2-3 People</MenuItem>
-                <MenuItem value={3}>4-5 People</MenuItem>
-              </Select>
-            </FormControl>
-
-            <div className="mt-3">
-              <h5>Choose Ingredients:</h5>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.keys(ingredientPrices).map((ingredient) => (
-                  <div key={ingredient} className="flex items-center mb-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedIngredients.includes(ingredient)}
-                      onChange={() => toggleIngredient(ingredient)}
-                      id={`ingredient-${ingredient}`}
-                    />
-                    <label className="ml-2" htmlFor={`ingredient-${ingredient}`}>
-                      {ingredient} (+Rs.{ingredientPrices[ingredient]})
-                      {nutritionalValues[ingredient] && (
-                        <span className="text-xs block text-gray-500">
-                          {nutritionalValues[ingredient].calories} kcal
-                        </span>
-                      )}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-5 p-4 bg-gray-50 rounded-lg">
-              <h5 className="font-bold mb-2">Nutritional Information</h5>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="font-bold text-xl">{calculateNutrition().totalCalories}</div>
-                  <div className="text-sm text-gray-500">Calories</div>
+    return (
+        <div className="product-details py-8 bg-gray-50">
+            <div className="container mx-auto px-4">
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="mb-6 lg:mb-0">
+                            <ProductZoom />
+                        </div>
+                        <div>
+                            <ProductSummary product={product} />
+                            
+                            {/* Size Selection */}
+                            <div className="mt-6 mb-4">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Size</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {product.servingSizes.map((size) => (
+                                        <button
+                                            key={size.id}
+                                            className={`px-4 py-2 rounded-md font-medium transition-all ${
+                                                servingSize === size.id
+                                                    ? 'bg-yumrun-primary text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                            onClick={() => handleServingSizeChange(size.id)}
+                                        >
+                                            {size.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Quantity Selector */}
+                            <div className="my-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Quantity</h3>
+                                <div className="flex items-center">
+                                    <button
+                                        className="w-10 h-10 rounded-l-lg bg-gray-100 flex items-center justify-center border border-gray-300 hover:bg-gray-200"
+                                        onClick={() => handleQuantityChange('decrease')}
+                                        disabled={quantity <= 1}
+                                    >
+                                        <span className="text-xl">-</span>
+                                    </button>
+                                    <input
+                                        type="number"
+                                        className="w-16 h-10 border-t border-b border-gray-300 text-center font-medium text-gray-700"
+                                        value={quantity}
+                                        readOnly
+                                    />
+                                    <button
+                                        className="w-10 h-10 rounded-r-lg bg-gray-100 flex items-center justify-center border border-gray-300 hover:bg-gray-200"
+                                        onClick={() => handleQuantityChange('increase')}
+                                    >
+                                        <span className="text-xl">+</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Special Instructions */}
+                            <div className="my-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Special Instructions</h3>
+                                <textarea
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yumrun-primary"
+                                    placeholder="Any special requests for your order? (e.g., no onions, extra spicy, etc.)"
+                                    rows="3"
+                                    value={specialInstructions}
+                                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                                ></textarea>
+                            </div>
+                            
+                            {/* Total Price */}
+                            <div className="my-6">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-lg font-medium text-gray-900">Total:</span>
+                                    <span className="text-2xl font-bold text-yumrun-primary">
+                                        ${calculateTotalPrice()}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                                <button
+                                    onClick={addToCart}
+                                    className="px-6 py-3 flex-1 bg-yumrun-primary text-white font-medium rounded-lg flex items-center justify-center gap-2 hover:bg-yumrun-primary-dark transition-colors"
+                                >
+                                    <FaUtensils /> Add to Order
+                                </button>
+                                <button 
+                                    className="px-6 py-3 flex-1 border-2 border-yumrun-primary text-yumrun-primary font-medium rounded-lg flex items-center justify-center gap-2 hover:bg-yumrun-primary hover:text-white transition-colors"
+                                >
+                                    <FaHeart /> Save for Later
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="text-center">
-                  <div className="font-bold text-xl">{calculateNutrition().totalProtein}g</div>
-                  <div className="text-sm text-gray-500">Protein</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-bold text-xl">{calculateNutrition().totalCarbs}g</div>
-                  <div className="text-sm text-gray-500">Carbs</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-bold text-xl">{calculateNutrition().totalFat}g</div>
-                  <div className="text-sm text-gray-500">Fat</div>
-                </div>
-              </div>
-              <div className="mt-2 text-xs text-gray-500">
-                * Nutritional values update dynamically based on your customizations
-              </div>
-            </div>
 
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-              placeholder="Write any special requests for your order here..."
-              className="mt-3"
-              value={specialRequests}
-              onChange={(e) => setSpecialRequests(e.target.value)}
-            />
+                {/* Product Details Tabs */}
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+                    <div className="mb-4 border-b border-gray-200">
+                        <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
+                            <li className="mr-2">
+                                <button
+                                    className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                                        activeTab === 'features'
+                                            ? 'text-yumrun-primary border-yumrun-primary'
+                                            : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                                    }`}
+                                    onClick={() => setActiveTab('features')}
+                                >
+                                    Ingredients & Nutrition
+                                </button>
+                            </li>
+                            <li className="mr-2">
+                                <button
+                                    className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                                        activeTab === 'reviews'
+                                            ? 'text-yumrun-primary border-yumrun-primary'
+                                            : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                                    }`}
+                                    onClick={() => setActiveTab('reviews')}
+                                >
+                                    Reviews
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div className="p-4">
+                        {activeTab === 'features' && (
+                            <ProductFeatures 
+                                features={product.features}
+                                nutritionalInfo={product.nutritionalInfo}
+                            />
+                        )}
+                        
+                        {activeTab === 'reviews' && (
+                            <ProductReviews productId={id} />
+                        )}
+                    </div>
+                </div>
 
-            <div className="mt-3">
-              <h5>Updated Price:</h5>
-              <span className="netPrice text-danger">Rs.{calculatePrice()}</span>
+                {/* Related Products */}
+                <div className="mt-10">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Recommended Add-ons</h2>
+                    <RelatedProducts />
+                </div>
             </div>
-
-            <div className="d-flex align-items-center mt-4">
-              <QuantityBox 
-                initialValue={quantity} 
-                onChange={(newQuantity) => setQuantity(newQuantity)} 
-              />
-              <Button 
-                className="btn-blue btn-lg btn-bog btn-round ml-3"
-                onClick={handleAddToCart}
-              >
-                <BsCartFill /> &nbsp; Add to Cart
-              </Button>
-              <Button 
-                className="btn-blue btn-lg btn-bog btn-round ml-3"
-                onClick={handleOrderNow}
-              >
-                Order Now
-              </Button>
-              <div
-                className="favorite-container ml-3 position-relative"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-              >
-                <BsHeartFill className="favorite-icon" />
-                {isHovered && (
-                  <span className="favorite-text position-absolute" style={{ left: "50%", transform: "translateX(-50%)", background: "#000", color: "#fff", padding: "5px", borderRadius: "5px" }}>
-                    Add to Favorite
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
-
-        {/* Tabs Section */}
-        <Box sx={{ width: "100%" }} className="tabs">
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs value={value} onChange={(event, newValue) => setValue(newValue)} aria-label="product details tabs">
-              <Tab label="Description" className="itemTab" />
-              <Tab label="Reviews" className="itemTab" />
-            </Tabs>
-          </Box>
-
-          {/* Description Tab */}
-          {value === 0 && (
-            <Box p={3}>
-              <h4 className="text-2xl font-bold mb-3">Description</h4>
-              <p>Detailed description of the product...</p>
-            </Box>
-          )}
-
-          {/* Reviews Tab */}
-          {value === 1 && (
-            <Box p={3}>
-              <h4 className="text-2xl font-bold mb-3">Reviews</h4>
-              <p>There are no reviews yet.</p>
-              <h4 className="text-2xl mt-3 font-light">Be the first one.</h4>
-              <p className="font-bold text-sm">
-                Your email address will not be published. Required fields are marked *
-              </p>
-              <p className="font-light text-sm mb-3">Your Rating *</p>
-              <Rating
-                name="simple-controlled"
-                value={value}
-                onChange={(event, newValue) => {
-                  setValue(newValue);
-                }}
-              />
-
-              {/* Review Form */}
-              <p className="mt-2 font-bold">Your Review *</p>
-              <form className="mt-4 w-full">
-                <div className="form-group w-full">
-                  <TextField
-                    id="review"
-                    label="Review"
-                    variant="outlined"
-                    className="w-full"
-                    multiline
-                    rows={5}
-                    sx={{ width: "82%", mb: 3 }}
-                  />
-                </div>
-
-                <div className="form-group d-flex" style={{ gap: "20px", marginBottom: "10px" }}>
-                  <TextField id="name" label="Name" variant="outlined" sx={{ width: "40%" }} />
-                  <TextField id="email" label="Email" variant="outlined" sx={{ width: "40%" }} />
-                </div>
-              </form>
-
-              <Button className="btn-bog" variant="contained">
-                Submit Review
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        <RelatedProducts />
-      </div>
-      <Snackbar 
-        open={showAlert} 
-        autoHideDuration={3000} 
-        onClose={handleCloseAlert}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseAlert} severity="success" sx={{ width: '100%' }}>
-          Item added to cart successfully!
-        </Alert>
-      </Snackbar>
-    </section>
-  );
+    );
 };
 
 export default ProductDetails;
