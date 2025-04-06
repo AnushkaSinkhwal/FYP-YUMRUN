@@ -1,15 +1,24 @@
 import { useState } from "react";
-import { Rating, Button, TextField, Tabs, Tab, Box, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import { Rating, Button, TextField, Tabs, Tab, Box, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert } from "@mui/material";
 import { BsCartFill, BsHeartFill } from "react-icons/bs";
+import { useParams, useNavigate } from "react-router-dom";
 import ProductZoom from "../../components/ProductZoom";
 import QuantityBox from "../../components/QuantityBox";
 import RelatedProducts from "./RelatedProducts";
+import { useCart } from "../../context/CartContext";
 
 const ProductDetails = () => {
   const [value, setValue] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [servingSize, setServingSize] = useState(2);
   const [cookingMethod, setCookingMethod] = useState("Firewood Oven");
+  const [quantity, setQuantity] = useState(1);
+  const [showAlert, setShowAlert] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState("");
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  
   const [selectedIngredients, setSelectedIngredients] = useState([
     "Fresh Dough",
     "Tomato Sauce",
@@ -93,6 +102,38 @@ const ProductDetails = () => {
         ? prev.filter((item) => item !== ingredient)
         : [...prev, ingredient]
     );
+  };
+
+  const handleAddToCart = () => {
+    const currentPrice = calculatePrice();
+    const product = {
+      id: id || "1", // Use the ID from URL params or default to "1"
+      name: "All Natural Italian-Style Fire and Meat Pizza",
+      image: "https://assets.surlatable.com/m/15a89c2d9c6c1345/72_dpi_webp-REC-283110_Pizza.jpg",
+      price: currentPrice,
+      quantity: quantity,
+      ingredients: selectedIngredients,
+      servingSize: servingSize,
+      cookingMethod: cookingMethod,
+      specialRequests: specialRequests,
+      restaurant: "Namaste",
+      rating: 4.5
+    };
+    
+    addToCart(product, quantity);
+    setShowAlert(true);
+  };
+
+  const handleOrderNow = () => {
+    handleAddToCart();
+    navigate('/cart');
+  };
+
+  const handleCloseAlert = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setShowAlert(false);
   };
 
   return (
@@ -202,6 +243,8 @@ const ProductDetails = () => {
               variant="outlined"
               placeholder="Write any special requests for your order here..."
               className="mt-3"
+              value={specialRequests}
+              onChange={(e) => setSpecialRequests(e.target.value)}
             />
 
             <div className="mt-3">
@@ -210,11 +253,22 @@ const ProductDetails = () => {
             </div>
 
             <div className="d-flex align-items-center mt-4">
-              <QuantityBox />
-              <Button className="btn-blue btn-lg btn-bog btn-round ml-3">
+              <QuantityBox 
+                initialValue={quantity} 
+                onChange={(newQuantity) => setQuantity(newQuantity)} 
+              />
+              <Button 
+                className="btn-blue btn-lg btn-bog btn-round ml-3"
+                onClick={handleAddToCart}
+              >
                 <BsCartFill /> &nbsp; Add to Cart
               </Button>
-              <Button className="btn-blue btn-lg btn-bog btn-round ml-3">Order Now</Button>
+              <Button 
+                className="btn-blue btn-lg btn-bog btn-round ml-3"
+                onClick={handleOrderNow}
+              >
+                Order Now
+              </Button>
               <div
                 className="favorite-container ml-3 position-relative"
                 onMouseEnter={() => setIsHovered(true)}
@@ -296,6 +350,16 @@ const ProductDetails = () => {
 
         <RelatedProducts />
       </div>
+      <Snackbar 
+        open={showAlert} 
+        autoHideDuration={3000} 
+        onClose={handleCloseAlert}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseAlert} severity="success" sx={{ width: '100%' }}>
+          Item added to cart successfully!
+        </Alert>
+      </Snackbar>
     </section>
   );
 };

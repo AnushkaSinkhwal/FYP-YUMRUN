@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Alert, Spinner } from '../../components/ui';
-import { FaCheckCircle, FaBell, FaTrash, FaCheck } from 'react-icons/fa';
+import { FaCheckCircle, FaBell, FaTrash, FaCheck, FaBoxOpen } from 'react-icons/fa';
 import { restaurantAPI } from '../../utils/api';
-import { useAuth } from '../../context/AuthContext';
 
 const RestaurantNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currentUser } = useAuth();
+  const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     fetchNotifications();
@@ -20,6 +19,7 @@ const RestaurantNotifications = () => {
       setError(null);
 
       const response = await restaurantAPI.getNotifications();
+      console.log('Notifications response:', response.data);
 
       if (response.data.success) {
         setNotifications(response.data.notifications || []);
@@ -36,42 +36,71 @@ const RestaurantNotifications = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      await restaurantAPI.markNotificationAsRead(notificationId);
+      const response = await restaurantAPI.markNotificationAsRead(notificationId);
+      console.log('Mark as read response:', response.data);
 
-      // Update local state
-      setNotifications(notifications.map(notification => 
-        notification._id === notificationId ? { ...notification, isRead: true } : notification
-      ));
+      if (response.data.success) {
+        // Update local state
+        setNotifications(notifications.map(notification => 
+          notification._id === notificationId ? { ...notification, isRead: true } : notification
+        ));
+        
+        setSuccess('Notification marked as read');
+      } else {
+        setError('Failed to mark notification as read: ' + (response.data.message || 'Unknown error'));
+      }
+      
+      // Clear success/error message after 3 seconds
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null);
+      }, 3000);
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      setError('Failed to mark notification as read');
       
-      // Update UI anyway for better user experience
-      setNotifications(notifications.map(notification => 
-        notification._id === notificationId ? { ...notification, isRead: true } : notification
-      ));
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
     }
   };
 
   const deleteNotification = async (notificationId) => {
     try {
-      await restaurantAPI.deleteNotification(notificationId);
+      const response = await restaurantAPI.deleteNotification(notificationId);
+      console.log('Delete notification response:', response.data);
 
-      // Remove from local state
-      setNotifications(notifications.filter(notification => notification._id !== notificationId));
+      if (response.data.success) {
+        // Remove from local state
+        setNotifications(notifications.filter(notification => notification._id !== notificationId));
+        setSuccess('Notification deleted successfully');
+      } else {
+        setError('Failed to delete notification: ' + (response.data.message || 'Unknown error'));
+      }
+      
+      // Clear success/error message after 3 seconds
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null);
+      }, 3000);
     } catch (error) {
       console.error('Error deleting notification:', error);
+      setError('Failed to delete notification');
       
-      // Remove from UI anyway for better user experience
-      setNotifications(notifications.filter(notification => notification._id !== notificationId));
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
     }
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'restaurant_profile_update':
+      case 'RESTAURANT_UPDATE':
         return <FaCheckCircle className="text-green-500" />;
-      case 'order':
-        return <FaBell className="text-blue-500" />;
+      case 'ORDER':
+        return <FaBoxOpen className="text-blue-500" />;
+      case 'SYSTEM':
+        return <FaBell className="text-purple-500" />;
       default:
         return <FaBell className="text-gray-500" />;
     }
@@ -79,15 +108,30 @@ const RestaurantNotifications = () => {
 
   const markAllAsRead = async () => {
     try {
-      await restaurantAPI.markAllNotificationsAsRead();
+      console.log('Attempting to mark all notifications as read...');
+      const response = await restaurantAPI.markAllNotificationsAsRead();
+      console.log('Mark all as read response:', response.data);
 
-      // Update all notifications as read in local state
-      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+      if (response.data.success) {
+        // Update all notifications as read in local state
+        setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+        setSuccess('All notifications marked as read');
+      } else {
+        setError('Failed to mark all notifications as read: ' + (response.data.message || 'Unknown error'));
+      }
+      
+      // Clear success/error message after 3 seconds
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null);
+      }, 3000);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+      setError('Failed to mark all notifications as read: ' + (error.response?.data?.message || error.message));
       
-      // Update UI anyway for better user experience
-      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
     }
   };
 
@@ -115,6 +159,12 @@ const RestaurantNotifications = () => {
       {error && (
         <Alert variant="error" className="mb-4">
           {error}
+        </Alert>
+      )}
+      
+      {success && (
+        <Alert variant="success" className="mb-4">
+          {success}
         </Alert>
       )}
 

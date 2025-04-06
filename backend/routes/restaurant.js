@@ -353,7 +353,7 @@ router.get('/notifications/unread-count', auth, isRestaurantOwner, async (req, r
     try {
         const count = await Notification.countDocuments({ 
             userId: req.user.userId,
-            status: 'PENDING'
+            isRead: false
         });
         
         return res.status(200).json({
@@ -389,6 +389,100 @@ router.get('/notifications', auth, isRestaurantOwner, async (req, res) => {
         return res.status(500).json({ 
             success: false, 
             message: 'Server error. Please try again.' 
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/restaurant/notifications/:id/read
+ * @desc    Mark a notification as read
+ * @access  Private/RestaurantOwner
+ */
+router.put('/notifications/:id/read', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const notification = await Notification.findOne({
+            _id: req.params.id,
+            userId: req.user.userId
+        });
+
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+
+        notification.isRead = true;
+        await notification.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Notification marked as read'
+        });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/restaurant/notifications/mark-all-read
+ * @desc    Mark all notifications as read
+ * @access  Private/RestaurantOwner
+ */
+router.put('/notifications/mark-all-read', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        await Notification.updateMany(
+            { userId: req.user.userId, isRead: false },
+            { $set: { isRead: true } }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'All notifications marked as read'
+        });
+    } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/restaurant/notifications/:id
+ * @desc    Delete a notification
+ * @access  Private/RestaurantOwner
+ */
+router.delete('/notifications/:id', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const notification = await Notification.findOne({
+            _id: req.params.id,
+            userId: req.user.userId
+        });
+
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+
+        await notification.deleteOne();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Notification deleted'
+        });
+    } catch (error) {
+        console.error('Error deleting notification:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
         });
     }
 });
@@ -488,7 +582,7 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
             title: 'Restaurant Profile Update Request',
             message: `Restaurant ${user.restaurantDetails?.name || 'owner'} has requested profile changes.`,
             userId: userId,
-            status: 'PENDING',
+            isRead: false,
             data: {
                 approvalId: savedApproval._id,
                 changes: savedApproval.requestedData

@@ -4,6 +4,32 @@ import { FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaUtensils } from 'react-icon
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 
+// API URL from environment or default
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE = API_URL.endsWith('/api') ? API_URL.substring(0, API_URL.length - 4) : API_URL;
+
+console.log('API configuration:', { 
+  API_URL,
+  API_BASE
+});
+
+// Helper function to get the complete image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  
+  // Check if the image path is already a complete URL
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  
+  // If we're using the proxy, we can just use the path relative to the origin
+  // Strip any leading / to avoid double slashes
+  const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+  
+  console.log(`Image path: ${imagePath} -> /${cleanPath}`);
+  return `/${cleanPath}`;
+};
+
 const CATEGORIES = [
   'Appetizers',
   'Main Course',
@@ -54,6 +80,8 @@ const RestaurantMenu = () => {
   const [currentItem, setCurrentItem] = useState(null);
 
   useEffect(() => {
+    console.log('RestaurantMenu component mounted, API_BASE =', API_BASE);
+    console.log('VITE_API_URL =', import.meta.env.VITE_API_URL);
     fetchMenuItems();
   }, []);
 
@@ -69,6 +97,7 @@ const RestaurantMenu = () => {
         return;
       }
 
+      console.log('Fetching menu items from API...');
       const response = await axios.get('/api/menu/restaurant', {
         headers: {
           Authorization: `Bearer ${token}`
@@ -76,7 +105,32 @@ const RestaurantMenu = () => {
       });
       
       if (response.data.success) {
-        setMenuItems(response.data.data);
+        console.log('Menu items received:', response.data.data.length);
+        
+        // Process and log each menu item's image
+        const processedItems = response.data.data.map(item => {
+          console.log(`Processing menu item: ${item.id} - ${item.name}`);
+          console.log(`Original image path: ${item.image}`);
+          
+          // For debugging, log the full path that will be used
+          if (item.image) {
+            const fullImageUrl = getImageUrl(item.image);
+            console.log(`Full image URL: ${fullImageUrl}`);
+            
+            // Test if the image URL is accessible
+            fetch(fullImageUrl, { method: 'HEAD' })
+              .then(res => {
+                console.log(`Image fetch status for ${item.id}: ${res.status} ${res.statusText}`);
+              })
+              .catch(err => {
+                console.error(`Failed to fetch image for ${item.id}:`, err);
+              });
+          }
+          
+          return item;
+        });
+        
+        setMenuItems(processedItems);
       } else {
         setError(response.data.message || 'Failed to fetch menu items');
       }
@@ -96,16 +150,23 @@ const RestaurantMenu = () => {
     } else if (type === 'file') {
       const file = e.target.files[0];
       if (file) {
+        console.log('File selected:', file.name, file.type, file.size);
         // Handle image file
         const reader = new FileReader();
         reader.onload = (event) => {
+          console.log('FileReader loaded image, preview URL length:', event.target.result.length);
           setFormData(prev => ({
             ...prev,
             image: file,
             imagePreview: event.target.result
           }));
         };
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error);
+        };
         reader.readAsDataURL(file);
+      } else {
+        console.log('No file selected or file selection canceled');
       }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -129,7 +190,7 @@ const RestaurantMenu = () => {
       price: item.price.toString(),
       category: item.category,
       image: null,
-      imagePreview: item.image,
+      imagePreview: item.image ? getImageUrl(item.image) : '',
       isAvailable: item.isAvailable,
       calories: item.calories?.toString() || '',
       protein: item.protein?.toString() || '',
@@ -188,7 +249,10 @@ const RestaurantMenu = () => {
       data.append('isGlutenFree', formData.isGlutenFree ? 'true' : 'false');
       
       if (formData.image instanceof File) {
+        console.log('Image being uploaded:', formData.image.name, formData.image.type, formData.image.size);
         data.append('image', formData.image);
+      } else {
+        console.log('No image file to upload');
       }
       
       console.log('Sending menu item data:', {
@@ -207,6 +271,12 @@ const RestaurantMenu = () => {
       });
       
       if (response.data.success) {
+        console.log('Menu item added successfully!', response.data);
+        if (response.data.data.image) {
+          console.log('Image path in response:', response.data.data.image);
+          console.log('Full image URL would be:', getImageUrl(response.data.data.image));
+        }
+        
         setSuccess('Menu item added successfully!');
         setIsAddDialogOpen(false);
         fetchMenuItems(); // Refresh the menu items
@@ -397,7 +467,12 @@ const RestaurantMenu = () => {
             <img 
               src={formData.imagePreview} 
               alt="Preview" 
-              className="h-28 w-auto object-cover rounded-md border border-gray-300" 
+              className="h-28 w-auto object-cover rounded-md border border-gray-300"
+              onError={(e) => {
+                console.error('Error loading image preview:', formData.imagePreview);
+                e.target.onerror = null;
+                e.target.src = 'https://via.placeholder.com/300x200?text=Preview+Not+Available';
+              }}
             />
           </div>
         )}
@@ -541,9 +616,18 @@ const RestaurantMenu = () => {
                   {item.image ? (
                     <div className="bg-gray-200 aspect-w-16 aspect-h-9 dark:bg-gray-700">
                       <img 
-                        src={item.image} 
+                        src={getImageUrl(item.image)} 
                         alt={item.name} 
                         className="object-cover w-full h-48"
+                        onError={(e) => {
+                          console.error('Error loading image:', item.image);
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+                          
+                          // Add border to make it clear this is a placeholder
+                          e.target.style.border = '2px dashed #ff0000';
+                          e.target.style.padding = '8px';
+                        }}
                       />
                     </div>
                   ) : (

@@ -1,26 +1,46 @@
 import { FaMinusCircle } from "react-icons/fa";
 import { FaCirclePlus } from "react-icons/fa6";
 import Button from '@mui/material/Button';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const QuantityBox = () => {
-    const [inputVal, setInputVal] = useState(1);
+const QuantityBox = ({ initialValue = 1, onChange }) => {
+    const [inputVal, setInputVal] = useState(initialValue);
+
+    // Update local state when initialValue prop changes
+    useEffect(() => {
+        setInputVal(initialValue);
+    }, [initialValue]);
 
     const minus = () => {
         if (inputVal > 1) {
-            setInputVal(inputVal - 1);
+            const newValue = inputVal - 1;
+            setInputVal(newValue);
+            if (onChange) onChange(newValue);
         }
     };
 
     const plus = () => {
-        setInputVal(inputVal + 1);
+        const newValue = inputVal + 1;
+        setInputVal(newValue);
+        if (onChange) onChange(newValue);
     };
 
     const handleChange = (event) => {
-        const value = event.target.value;
+        const value = parseInt(event.target.value, 10);
         // Check if the input is a valid positive number
-        if (value === '' || !isNaN(value) && value > 0) {
+        if (!isNaN(value) && value > 0) {
             setInputVal(value);
+            if (onChange) onChange(value);
+        } else if (event.target.value === '') {
+            setInputVal('');
+        }
+    };
+
+    const handleBlur = () => {
+        // If empty or invalid on blur, reset to 1
+        if (inputVal === '' || inputVal < 1) {
+            setInputVal(1);
+            if (onChange) onChange(1);
         }
     };
 
@@ -30,7 +50,8 @@ const QuantityBox = () => {
             <input 
                 type="text" 
                 value={inputVal}
-                onChange={handleChange}  // Correctly set the onChange handler
+                onChange={handleChange}
+                onBlur={handleBlur}
             />
             <Button onClick={plus}><FaCirclePlus /></Button>
         </div>

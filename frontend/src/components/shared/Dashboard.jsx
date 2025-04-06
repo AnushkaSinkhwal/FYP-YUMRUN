@@ -62,14 +62,14 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
   return (
     <div className="p-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <Link to={stat.link} key={index} className="group">
-            <Card className="hover:shadow-md transition-shadow duration-200 dark:bg-gray-800 h-full">
+            <Card className="h-full transition-shadow duration-200 hover:shadow-md dark:bg-gray-800">
               <div className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    <p className="mb-1 text-sm font-medium text-gray-500 dark:text-gray-400">
                       {stat.title}
                     </p>
                     <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
@@ -93,19 +93,19 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
       {/* Quick Actions */}
       {quickActions.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-100">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {quickActions.map((action, index) => (
-              <Card key={index} className="overflow-hidden dark:bg-gray-800 h-full">
+              <Card key={index} className="h-full overflow-hidden dark:bg-gray-800">
                 <div className={`p-5 ${action.gradient} text-white`}>
                   {action.icon}
-                  <h3 className="text-lg font-semibold mb-1">{action.title}</h3>
-                  <p className="text-sm opacity-80 mb-4">{action.description}</p>
+                  <h3 className="mb-1 text-lg font-semibold">{action.title}</h3>
+                  <p className="mb-4 text-sm opacity-80">{action.description}</p>
                   <Button
                     variant="secondary"
-                    className="w-full bg-white text-gray-800 hover:bg-gray-100 border-transparent shadow-sm"
+                    className="w-full text-gray-800 bg-white border-transparent shadow-sm hover:bg-gray-100"
                     asChild
                   >
                     <Link to={action.link} className="inline-flex items-center justify-center">
@@ -122,7 +122,7 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
       {/* Recent Activity */}
       {recentActivity.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-100">
             Recent Activity
           </h2>
           
@@ -175,7 +175,7 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
               <Card className="dark:bg-gray-800">
                 <div className="p-4">
                   {notifications.map((notification) => (
-                    <div key={notification.id} className="mb-4 last:mb-0 p-4 border-b last:border-0">
+                    <div key={notification.id} className="p-4 mb-4 border-b last:mb-0 last:border-0">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-gray-800 dark:text-gray-200">{notification.message}</p>
