@@ -292,17 +292,17 @@ const SignUp = () => {
                                     <Label htmlFor="healthCondition">Health Condition</Label>
                                     <Select
                                         id="healthCondition"
-                                        name="healthCondition"
                                         value={formData.healthCondition}
-                                        onChange={(e) => handleInputChange(e)}
+                                        onChange={(value) => setFormData(prev => ({ ...prev, healthCondition: value }))}
+                                        options={[
+                                            { value: "Healthy", label: "Healthy" },
+                                            { value: "Diabetes", label: "Diabetes" },
+                                            { value: "Heart Condition", label: "Heart Condition" },
+                                            { value: "Hypertension", label: "Hypertension" },
+                                            { value: "Other", label: "Other" }
+                                        ]}
                                         className="w-full"
-                                    >
-                                        <option value="Healthy">Healthy</option>
-                                        <option value="Diabetes">Diabetes</option>
-                                        <option value="Heart Condition">Heart Condition</option>
-                                        <option value="Hypertension">Hypertension</option>
-                                        <option value="Other">Other</option>
-                                    </Select>
+                                    />
                                 </div>
                             </div>
                         )}
@@ -377,15 +377,15 @@ const SignUp = () => {
                                         <Label htmlFor="vehicleType">Vehicle Type*</Label>
                                         <Select
                                             id="vehicleType"
-                                            name="vehicleType"
                                             value={formData.vehicleType}
-                                            onChange={(e) => handleInputChange(e)}
+                                            onChange={(value) => setFormData(prev => ({ ...prev, vehicleType: value }))}
+                                            options={[
+                                                { value: "motorcycle", label: "Motorcycle" },
+                                                { value: "scooter", label: "Scooter" },
+                                                { value: "bicycle", label: "Bicycle" }
+                                            ]}
                                             className="w-full"
-                                        >
-                                            <option value="motorcycle">Motorcycle</option>
-                                            <option value="scooter">Scooter</option>
-                                            <option value="bicycle">Bicycle</option>
-                                        </Select>
+                                        />
                                     </div>
                                     
                                     <div className="space-y-2">
