@@ -3,7 +3,7 @@ import banner1 from "../../assets/images/banner1.jpg";
 import banner2 from "../../assets/images/banner2.jpg";
 import banner5 from "../../assets/images/banner5.jpg";
 import { FaLongArrowAltRight, FaHeartbeat, FaLeaf, FaSeedling } from "react-icons/fa";
-import { GiGluten } from "react-icons/gi";
+import { GiWheat } from "react-icons/gi";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -310,7 +310,7 @@ const Home = () => {
                                     {user?.healthCondition === "Diabetes" && <FaSeedling className="text-green-600" />}
                                     {user?.healthCondition === "Heart Condition" && <FaHeartbeat className="text-red-600" />}
                                     {user?.healthCondition === "Hypertension" && <FaLeaf className="text-green-600" />}
-                                    {user?.healthCondition === "Gluten Free" && <GiGluten className="text-amber-600" />}
+                                    {user?.healthCondition === "Gluten Free" && <GiWheat className="text-amber-600" />}
                                     These meals are tailored to your health profile. You indicated: <strong>{user?.healthCondition}</strong>
                                 </div>
                             </Alert>
