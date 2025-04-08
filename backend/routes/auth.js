@@ -116,6 +116,7 @@ router.post('/register', async (req, res) => {
       phone,
       password, 
       role,
+      address,
       healthCondition,
       restaurantName,
       restaurantAddress,
@@ -140,6 +141,7 @@ router.post('/register', async (req, res) => {
       fullName,
       email,
       phone,
+      address,
       password, // Will be hashed by pre-save hook
       role
     };
