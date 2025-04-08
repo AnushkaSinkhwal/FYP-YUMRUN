@@ -1,44 +1,48 @@
 const mongoose = require('mongoose');
 
-const paymentSchema = mongoose.Schema({
-    payment_id: {
+const paymentSchema = new mongoose.Schema({
+    userId: {
         type: mongoose.Schema.Types.ObjectId,
-        auto: true,
-        primaryKey: true
+        ref: 'User',
+        required: true
     },
-    amount: {
-        type: Number,
-        required: true,
-    },
-    payment_method: {
-        type: String,
-        required: true,
-        enum: ['Cash on Delivery', 'Khalti', 'Card']
-    },
-    order: {
+    orderId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',
         required: true,
+        index: true
+    },
+    amount: {
+        type: Number,
+        required: true
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['KHALTI', 'CASH', 'ESEWA'],
+        required: true
     },
     status: {
         type: String,
-        required: true,
-        default: 'Pending',
-        enum: ['Pending', 'Completed', 'Failed', 'Refunded']
+        enum: ['INITIATED', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'],
+        default: 'INITIATED'
     },
-    date: {
+    transactionDetails: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+    },
+    createdAt: {
         type: Date,
-        default: Date.now,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
-});
+}, { timestamps: true });
 
-paymentSchema.virtual('id').get(function () {
-    return this._id.toHexString();
-});
+// Add index for faster lookups
+paymentSchema.index({ orderId: 1 });
+paymentSchema.index({ userId: 1 });
+paymentSchema.index({ status: 1 });
 
-paymentSchema.set('toJSON', {
-    virtuals: true,
-});
-
-exports.Payment = mongoose.model('Payment', paymentSchema);
-exports.paymentSchema = paymentSchema; 
+module.exports = mongoose.model('Payment', paymentSchema); 

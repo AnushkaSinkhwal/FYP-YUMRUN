@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FaMapMarkerAlt, FaClock, FaDollarSign, FaCheck, FaTimes, FaMotorcycle } from 'react-icons/fa';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Spinner, Alert } from '../../components/ui';
+import { FaMapMarkerAlt, FaClock, FaDollarSign, FaCheck, FaTimes, FaMotorcycle, FaInfoCircle, FaPhoneAlt, FaCheckCircle } from 'react-icons/fa';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Spinner, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 
 const DeliveryOrders = () => {
   const [activeTab, setActiveTab] = useState('available');
@@ -8,6 +9,12 @@ const DeliveryOrders = () => {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState('');
+  
+  const { currentUser } = useAuth();
 
   // Sample orders data - In production, this would come from an API
   const sampleOrders = [
@@ -70,8 +77,13 @@ const DeliveryOrders = () => {
       setLoading(true);
       setError(null);
       try {
-        // In production, this would be an API call
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+        // In production, this would be API calls:
+        // GET /api/delivery/available - for available orders
+        // GET /api/delivery/active - for orders assigned to current delivery person
+        // GET /api/delivery/history - for completed orders by this delivery person
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
         setOrders(sampleOrders);
       } catch (err) {
         setError('Failed to fetch orders. Please try again.');
@@ -82,7 +94,7 @@ const DeliveryOrders = () => {
     };
 
     fetchOrders();
-  }, [refreshKey]); // Refetch when refreshKey changes
+  }, [refreshKey]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -114,51 +126,81 @@ const DeliveryOrders = () => {
     return orders.filter(order => order.status === status);
   };
 
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrder(order);
+    setShowDetailModal(true);
+  };
+
   const handleAcceptOrder = async (orderId) => {
     setLoading(true);
+    setError(null); // Clear any previous errors
     try {
-      // Simulate API call
+      // In production, this would be a POST request to /api/delivery/accept/:orderId
+      // Example: await deliveryAPI.acceptOrder(orderId);
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Update order status locally
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? { ...order, status: 'active' }
+            ? { ...order, status: 'active', assignedTo: currentUser?.id }
             : order
         )
       );
       
-      // Show success message or notification here
+      setShowSuccessMessage('Order accepted successfully! You can now pick it up.');
+      setTimeout(() => setShowSuccessMessage(''), 3000);
     } catch (error) {
-      setError('Failed to accept order. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Failed to accept order. Please try again.';
+      setError(errorMessage);
       console.error('Error accepting order:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkDelivered = async (orderId) => {
-    setLoading(true);
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    setUpdatingStatus(true);
+    setError(null); // Clear any previous errors
     try {
-      // Simulate API call
+      // In production, this would be a POST request to /api/delivery/update-status/:orderId with
+      // uppercase status for backend compatibility
+      
+      // Simulate API call, passing the uppercase status that the backend expects
+      console.log(`Would send status ${newStatus.toUpperCase()} to backend API`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Update order status locally
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? { ...order, status: 'completed' }
+            ? { ...order, status: newStatus }
             : order
         )
       );
       
-      // Show success message or notification here
+      // If we're updating the currently selected order, update that too
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({
+          ...selectedOrder,
+          status: newStatus
+        });
+      }
+      
+      setShowSuccessMessage(`Order marked as ${newStatus}!`);
+      setTimeout(() => setShowSuccessMessage(''), 3000);
+      
+      // Close the modal if order is completed
+      if (newStatus === 'completed') {
+        setShowDetailModal(false);
+      }
     } catch (error) {
-      setError('Failed to mark order as delivered. Please try again.');
-      console.error('Error marking order as delivered:', error);
+      const errorMessage = error.response?.data?.message || `Failed to update order status to ${newStatus}. Please try again.`;
+      setError(errorMessage);
+      console.error('Error updating order status:', error);
     } finally {
-      setLoading(false);
+      setUpdatingStatus(false);
     }
   };
 
@@ -193,6 +235,12 @@ const DeliveryOrders = () => {
           {error}
         </Alert>
       )}
+      
+      {showSuccessMessage && (
+        <Alert variant="success" onClose={() => setShowSuccessMessage('')}>
+          {showSuccessMessage}
+        </Alert>
+      )}
 
       <div className="flex space-x-4 border-b border-gray-200 dark:border-gray-700">
         {['available', 'active', 'completed'].map((tab) => (
@@ -216,12 +264,30 @@ const DeliveryOrders = () => {
       <div className="space-y-4">
         {filterOrders(activeTab).length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No {activeTab} orders found
+            {activeTab === 'available' ? (
+              <>
+                <FaMotorcycle className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                <p>No available orders at the moment</p>
+                <p className="text-sm mt-1">Check back soon or refresh to see new orders</p>
+              </>
+            ) : activeTab === 'active' ? (
+              <>
+                <FaClock className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                <p>No active deliveries</p>
+                <p className="text-sm mt-1">Accept available orders to start delivering</p>
+              </>
+            ) : (
+              <>
+                <FaCheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                <p>No completed deliveries yet</p>
+                <p className="text-sm mt-1">Completed deliveries will appear here</p>
+              </>
+            )}
           </div>
         ) : (
           filterOrders(activeTab).map((order) => (
             <Card key={order.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
                 <div>
                   <CardTitle className="text-lg font-semibold">{order.restaurant}</CardTitle>
                   <p className="text-sm text-gray-500">Order #{order.id}</p>
@@ -231,7 +297,7 @@ const DeliveryOrders = () => {
                   <span className="ml-1">{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
                 </Badge>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -248,59 +314,51 @@ const DeliveryOrders = () => {
                       {formatDateTime(order.createdAt)}
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">Customer:</span> {order.customer}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">Pickup</div>
+                      <div className="text-sm text-gray-500">{order.pickupAddress}</div>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">Phone:</span> {order.customerPhone}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">Pickup:</span> {order.pickupAddress}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">Delivery:</span> {order.deliveryAddress}
+                    <div className="space-y-1 md:text-right">
+                      <div className="text-sm font-medium">Delivery</div>
+                      <div className="text-sm text-gray-500">{order.deliveryAddress}</div>
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">Order Details</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between">
-                          <span>{item.quantity}x {item.name}</span>
-                          <span>${(item.quantity * item.price).toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex justify-between font-medium">
-                          <span>Total</span>
-                          <span>${order.totalPrice.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end space-x-2">
+                  
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewOrderDetails(order)}
+                      className="text-gray-700 dark:text-gray-300"
+                    >
+                      <FaInfoCircle className="mr-1.5" />
+                      View Details
+                    </Button>
+                    
                     {order.status === 'available' && (
                       <Button
+                        variant="brand"
+                        size="sm"
                         onClick={() => handleAcceptOrder(order.id)}
                         disabled={loading}
-                        className="w-full sm:w-auto"
                       >
-                        {loading ? <Spinner className="w-4 h-4 mr-2" /> : null}
-                        Accept Order
+                        {loading ? <Spinner size="sm" className="mr-1.5" /> : <FaMotorcycle className="mr-1.5" />}
+                        Accept Delivery
                       </Button>
                     )}
+                    
                     {order.status === 'active' && (
                       <Button
-                        onClick={() => handleMarkDelivered(order.id)}
-                        disabled={loading}
-                        className="w-full sm:w-auto"
+                        variant="success"
+                        size="sm"
+                        onClick={() => handleUpdateStatus(order.id, 'completed')}
+                        disabled={updatingStatus}
+                        className="bg-green-600 hover:bg-green-700 text-white"
                       >
-                        {loading ? <Spinner className="w-4 h-4 mr-2" /> : null}
-                        Mark as Delivered
+                        {updatingStatus ? <Spinner size="sm" className="mr-1.5" /> : <FaCheck className="mr-1.5" />}
+                        Mark Delivered
                       </Button>
                     )}
                   </div>
@@ -310,6 +368,110 @@ const DeliveryOrders = () => {
           ))
         )}
       </div>
+      
+      {/* Order Details Modal */}
+      {showDetailModal && selectedOrder && (
+        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex justify-between items-center">
+                <span>Order #{selectedOrder.id}</span>
+                <Badge className={getStatusColor(selectedOrder.status)}>
+                  {getStatusIcon(selectedOrder.status)}
+                  <span className="ml-1">{selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}</span>
+                </Badge>
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">Restaurant</h3>
+                  <p className="text-gray-800 dark:text-gray-200">{selectedOrder.restaurant}</p>
+                  <p className="text-gray-600 dark:text-gray-400">{selectedOrder.pickupAddress}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">Customer</h3>
+                  <p className="text-gray-800 dark:text-gray-200">{selectedOrder.customer}</p>
+                  <p className="text-gray-600 dark:text-gray-400">{selectedOrder.deliveryAddress}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-1"
+                    onClick={() => window.open(`tel:${selectedOrder.customerPhone}`, '_blank')}
+                  >
+                    <FaPhoneAlt className="mr-1.5" />
+                    Call Customer
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Order Items</h3>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 space-y-2">
+                  {selectedOrder.items.map((item, index) => (
+                    <div key={index} className="flex justify-between py-1 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                      <div>
+                        <span className="font-medium">{item.quantity}x</span> {item.name}
+                      </div>
+                      <div className="font-medium">${(item.price * item.quantity).toFixed(2)}</div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 font-semibold">
+                    <div>Total</div>
+                    <div>${selectedOrder.totalPrice.toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Delivery Information</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Distance:</span> {selectedOrder.estimatedDistance}
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Earnings:</span> ${selectedOrder.estimatedEarnings.toFixed(2)}
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Order Time:</span> {formatDateTime(selectedOrder.createdAt)}
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter className="flex justify-end space-x-2">
+                {selectedOrder.status === 'active' && (
+                  <>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowDetailModal(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      variant="brand"
+                      onClick={() => handleUpdateStatus(selectedOrder.id, 'completed')}
+                      disabled={updatingStatus}
+                    >
+                      {updatingStatus ? <Spinner size="sm" className="mr-1.5" /> : <FaCheck className="mr-1.5" />}
+                      Mark as Delivered
+                    </Button>
+                  </>
+                )}
+                {selectedOrder.status !== 'active' && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowDetailModal(false)}
+                  >
+                    Close
+                  </Button>
+                )}
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

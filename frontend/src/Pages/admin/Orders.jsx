@@ -9,9 +9,11 @@ import {
   FaMoneyBillWave, 
   FaTruck, 
   FaCheckCircle, 
-  FaTimesCircle
+  FaTimesCircle,
+  FaMotorcycle,
+  FaUserPlus
 } from 'react-icons/fa';
-import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger } from '../../components/ui';
+import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, Select } from '../../components/ui';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -24,6 +26,11 @@ const Orders = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const itemsPerPage = 10;
+
+  // Add state for delivery staff
+  const [deliveryStaff, setDeliveryStaff] = useState([]);
+  const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState('');
+  const [isAssigningDelivery, setIsAssigningDelivery] = useState(false);
 
   // Fetch orders from API
   useEffect(() => {
@@ -195,6 +202,30 @@ const Orders = () => {
     }
   };
 
+  // Fetch delivery staff
+  const fetchDeliveryStaff = async () => {
+    try {
+      // In a real application, replace with actual API call
+      // const response = await adminAPI.getDeliveryStaff();
+      
+      // For demo, we'll use mockup data
+      const mockStaff = [
+        { id: "DS001", name: "Mike Johnson", vehicleType: "motorcycle", status: "available" },
+        { id: "DS002", name: "Sarah Williams", vehicleType: "scooter", status: "available" },
+        { id: "DS003", name: "David Brown", vehicleType: "motorcycle", status: "busy" }
+      ];
+      
+      setDeliveryStaff(mockStaff);
+    } catch (error) {
+      console.error("Error fetching delivery staff:", error);
+      setError("Failed to load delivery staff. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    fetchDeliveryStaff();
+  }, []);
+
   // Filter orders based on search query, status and active tab
   const filteredOrders = orders.filter(order => {
     // Filter by search query
@@ -249,6 +280,61 @@ const Orders = () => {
       case 'Pending': return 'warning';
       case 'Refunded': return 'danger';
       default: return 'default';
+    }
+  };
+
+  // Assign delivery staff to order
+  const handleAssignDelivery = async (orderId, staffId) => {
+    try {
+      if (!staffId || staffId.trim() === '') {
+        setError("Please select a delivery staff member");
+        return;
+      }
+      
+      setIsAssigningDelivery(true);
+      
+      // In a real application, replace with actual API call
+      // await adminAPI.assignDeliveryStaff(orderId, staffId);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Update the order in our local state to reflect the assignment
+      const updatedOrders = orders.map(order => {
+        if (order.id === selectedOrder.id) {
+          const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
+          return {
+            ...order,
+            deliveryPerson: assignedStaff.name,
+            deliveryPersonId: assignedStaff.id,
+            status: 'Out for Delivery'
+          };
+        }
+        return order;
+      });
+      
+      setOrders(updatedOrders);
+      
+      // Update selectedOrder to reflect changes
+      if (selectedOrder && selectedOrder.id === orderId) {
+        const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
+        setSelectedOrder({
+          ...selectedOrder,
+          deliveryPerson: assignedStaff.name,
+          deliveryPersonId: assignedStaff.id,
+          status: 'Out for Delivery'
+        });
+      }
+      
+      // Show success message
+      setError(null);
+      
+      setIsAssigningDelivery(false);
+      setSelectedDeliveryPerson('');
+    } catch (error) {
+      console.error("Error assigning delivery staff:", error);
+      setError("Failed to assign delivery staff. Please try again.");
+      setIsAssigningDelivery(false);
     }
   };
 
@@ -523,6 +609,64 @@ const Orders = () => {
 
             {/* Actions */}
             <div className="flex flex-wrap justify-end gap-3">
+              {/* Assign Delivery Staff Section */}
+              {(selectedOrder.status === 'Pending' || selectedOrder.status === 'Processing' || selectedOrder.status === 'Ready') && !selectedOrder.deliveryPersonId && (
+                <div className="w-full mb-4">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Assign Delivery Staff</h4>
+                  
+                  {deliveryStaff.filter(staff => staff.status === 'available').length === 0 ? (
+                    <Alert variant="warning" className="mb-2">
+                      No delivery staff currently available
+                    </Alert>
+                  ) : (
+                    <div className="flex gap-3">
+                      <Select
+                        value={selectedDeliveryPerson}
+                        onChange={(value) => setSelectedDeliveryPerson(value)}
+                        options={deliveryStaff
+                          .filter(staff => staff.status === 'available')
+                          .map(staff => ({
+                            value: staff.id,
+                            label: `${staff.name} (${staff.vehicleType})`
+                          }))}
+                        placeholder="Select delivery staff"
+                        className="flex-grow"
+                      />
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleAssignDelivery(selectedOrder.id, selectedDeliveryPerson)}
+                        disabled={!selectedDeliveryPerson || isAssigningDelivery}
+                        className="flex items-center"
+                      >
+                        {isAssigningDelivery ? (
+                          <Spinner size="sm" className="mr-2" />
+                        ) : (
+                          <FaUserPlus className="mr-1" />
+                        )}
+                        Assign
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Delivery Information (when assigned) */}
+              {selectedOrder.deliveryPersonId && (
+                <div className="w-full mb-4">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Delivery Information</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md flex items-center mb-4">
+                    <div className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 p-3 mr-3">
+                      <FaMotorcycle size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Delivery Staff</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.deliveryPerson}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <Button 
                 variant="outline" 
                 size="sm" 
