@@ -33,6 +33,7 @@ const ProductItem = ({
     const [imgLoaded, setImgLoaded] = useState(false);
 
     const viewProductDetails = () => {
+        context.setProductId(id);
         context.setIsOpenProductModel(true);
     };
 

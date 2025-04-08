@@ -92,6 +92,7 @@ function App() {
   const [isOpenProductModel, setIsOpenProductModel] = useState(false);
   const [isHeaderFooterShow, setisHeaderFooterShow] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [productId, setProductId] = useState(null);
   
   // UI state
   const [isHideSidebarAndHeader, setisHideSidebarAndHeader] = useState(false);
@@ -173,7 +174,9 @@ function App() {
     isAdminPath,
     setIsAdminPath,
     isLoading,
-    setIsLoading
+    setIsLoading,
+    productId,
+    setProductId
   };
 
   return (
@@ -219,7 +222,7 @@ function App() {
                         <Home />
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -231,7 +234,7 @@ function App() {
                         <Listing />
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -243,7 +246,7 @@ function App() {
                         <SearchResults />
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -255,7 +258,7 @@ function App() {
                         <ProductDetails />
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -269,7 +272,7 @@ function App() {
                         </ProtectedRoute>
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -284,7 +287,7 @@ function App() {
                         </ProtectedRoute>
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -299,7 +302,7 @@ function App() {
                         </ProtectedRoute>
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -309,7 +312,7 @@ function App() {
                       <main id="main-content">
                         <SignIn />
                       </main>
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -319,7 +322,7 @@ function App() {
                       <main id="main-content">
                         <SignUp />
                       </main>
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />
@@ -333,7 +336,7 @@ function App() {
                         </ProtectedRoute>
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />

@@ -22,6 +22,10 @@ const Home = () => {
     const [healthRecommendations, setHealthRecommendations] = useState([]);
     const [loadingRecs, setLoadingRecs] = useState(false);
     const [recsError, setRecsError] = useState(null);
+    const [featuredProducts, setFeaturedProducts] = useState([]);
+    const [newProducts, setNewProducts] = useState([]);
+    const [loadingProducts, setLoadingProducts] = useState(true);
+    const [productsError, setProductsError] = useState(null);
     
     const { user } = useAuth();
     
@@ -258,6 +262,45 @@ const Home = () => {
         setHealthRecommendations(recommendations);
     };
 
+    // Fetch menu items from API
+    useEffect(() => {
+        const fetchMenuItems = async () => {
+            try {
+                setLoadingProducts(true);
+                setProductsError(null);
+                
+                const response = await fetch('/api/menu');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch menu items');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Process the menu items
+                    const allItems = data.data || [];
+                    
+                    // For featured products (random selection of 5 items)
+                    const shuffled = [...allItems].sort(() => 0.5 - Math.random());
+                    setFeaturedProducts(shuffled.slice(0, 5));
+                    
+                    // For new products (most recent 4 items or another random selection)
+                    setNewProducts(shuffled.slice(5, 9));
+                } else {
+                    throw new Error(data.message || 'Failed to fetch menu items');
+                }
+            } catch (error) {
+                console.error('Error fetching menu items:', error);
+                setProductsError('Failed to load restaurant menu items');
+            } finally {
+                setLoadingProducts(false);
+            }
+        };
+        
+        fetchMenuItems();
+    }, []);
+
     // Determine number of slides based on screen width
     const getSlidesPerView = () => {
         if (windowWidth < 576) return 1.2;
@@ -438,14 +481,11 @@ const Home = () => {
                         {/* Right Section - Products */}
                         <div className="lg:col-span-9">
                             {/* Best Sellers Section */}
-                            <div className="mb-16">
-                                <div 
-                                    ref={bestSellersRef} 
-                                    className="flex flex-wrap items-center justify-between mb-6"
-                                >
+                            <div ref={bestSellersRef}>
+                                <div className="flex flex-wrap items-center justify-between mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">BEST SELLERS</h2>
-                                        <p className="text-gray-500">Do not miss the current offers.</p>
+                                        <h2 className="text-2xl font-bold text-gray-900">FEATURED RESTAURANTS</h2>
+                                        <p className="text-gray-500">Best selling restaurants in your area</p>
                                     </div>
 
                                     <Button 
@@ -456,64 +496,47 @@ const Home = () => {
                                     </Button>
                                 </div>
 
-                                <div className="product-slider">
-                                    <Swiper
-                                        slidesPerView={getSlidesPerView()}
-                                        spaceBetween={20}
-                                        pagination={{
-                                            clickable: true,
-                                            dynamicBullets: true,
-                                        }}
-                                        navigation={true}
-                                        modules={[Navigation, Pagination, Autoplay]}
-                                        autoplay={{
-                                            delay: 5000,
-                                            disableOnInteraction: false,
-                                        }}
-                                        className="product-swiper"
-                                    >
-                                        <SwiperSlide>
-                                            <ProductItem 
-                                                name="Fire And Ice Pizzeria" 
-                                                location="Thamel" 
-                                                rating={4.8}
-                                            />
-                                        </SwiperSlide>
-                                        <SwiperSlide>
-                                            <ProductItem 
-                                                name="Roadhouse Cafe" 
-                                                location="Jhamsikhel" 
-                                                rating={4.5}
-                                                oldPrice="720"
-                                                newPrice="590"
-                                            />
-                                        </SwiperSlide>
-                                        <SwiperSlide>
-                                            <ProductItem 
-                                                name="Bajeko Sekuwa" 
-                                                location="Battisputali" 
-                                                rating={4.2}
-                                                oldPrice="550"
-                                                newPrice="470"
-                                            />
-                                        </SwiperSlide>
-                                        <SwiperSlide>
-                                            <ProductItem 
-                                                name="Cafe Soma" 
-                                                location="Lalitpur" 
-                                                rating={4.0}
-                                            />
-                                        </SwiperSlide>
-                                        <SwiperSlide>
-                                            <ProductItem 
-                                                name="Tamarind Restaurant" 
-                                                location="Pulchowk" 
-                                                rating={4.3}
-                                                oldPrice="780"
-                                                newPrice="650"
-                                            />
-                                        </SwiperSlide>
-                                    </Swiper>
+                                <div className="mb-12">
+                                    {loadingProducts ? (
+                                        <div className="flex justify-center py-12">
+                                            <Spinner size="lg" />
+                                        </div>
+                                    ) : productsError ? (
+                                        <Alert variant="error" className="mb-4">
+                                            {productsError}
+                                        </Alert>
+                                    ) : featuredProducts.length > 0 ? (
+                                        <Swiper
+                                            slidesPerView={getSlidesPerView()}
+                                            spaceBetween={20}
+                                            navigation={true}
+                                            pagination={{ clickable: true }}
+                                            modules={[Navigation, Pagination, Autoplay]}
+                                            className="restaurant-swiper"
+                                            autoplay={{
+                                                delay: 5000,
+                                                disableOnInteraction: false,
+                                            }}
+                                        >
+                                            {featuredProducts.map((product) => (
+                                                <SwiperSlide key={product.id}>
+                                                    <ProductItem 
+                                                        id={product.id}
+                                                        name={product.name} 
+                                                        location={product.restaurant?.name || ''} 
+                                                        rating={product.rating || 4.0}
+                                                        oldPrice={product.oldPrice?.toString() || ''}
+                                                        newPrice={product.price.toString()}
+                                                        imgSrc={product.image}
+                                                    />
+                                                </SwiperSlide>
+                                            ))}
+                                        </Swiper>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-500">No featured restaurants available</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -533,44 +556,35 @@ const Home = () => {
                                     </Button>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                                    <div className="col-span-1">
-                                        <ProductItem 
-                                            name="Himalayan Java" 
-                                            location="Thamel" 
-                                            rating={4.7}
-                                            oldPrice="450"
-                                            newPrice="390"
-                                        />
+                                {loadingProducts ? (
+                                    <div className="flex justify-center py-12">
+                                        <Spinner size="lg" />
                                     </div>
-                                    <div className="col-span-1">
-                                        <ProductItem 
-                                            name="KFC Nepal" 
-                                            location="Durbar Marg" 
-                                            rating={4.1} 
-                                            oldPrice="680"
-                                            newPrice="599"
-                                        />
+                                ) : productsError ? (
+                                    <Alert variant="error" className="mb-4">
+                                        {productsError}
+                                    </Alert>
+                                ) : newProducts.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                                        {newProducts.map((product) => (
+                                            <div className="col-span-1" key={product.id}>
+                                                <ProductItem 
+                                                    id={product.id}
+                                                    name={product.name} 
+                                                    location={product.restaurant?.name || ''} 
+                                                    rating={product.rating || 4.0}
+                                                    oldPrice={product.oldPrice?.toString() || ''}
+                                                    newPrice={product.price.toString()}
+                                                    imgSrc={product.image}
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="col-span-1">
-                                        <ProductItem 
-                                            name="Pizza Hut" 
-                                            location="Naxal" 
-                                            rating={4.3}
-                                            oldPrice="950"
-                                            newPrice="799"
-                                        />
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-500">No new products available</p>
                                     </div>
-                                    <div className="col-span-1">
-                                        <ProductItem 
-                                            name="Bakery Cafe" 
-                                            location="Sundhara" 
-                                            rating={4.0}
-                                            oldPrice="380"
-                                            newPrice="320"
-                                        />
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
