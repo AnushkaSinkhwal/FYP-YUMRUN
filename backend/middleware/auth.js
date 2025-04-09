@@ -72,6 +72,10 @@ const isRestaurantOwner = (req, res, next) => {
       message: 'Access denied. Restaurant owner permissions required.'
     });
   }
+  
+  // Add the user's ID as the restaurantId for convenience in routes
+  req.user.restaurantId = req.user.userId;
+  
   console.log('[Auth Middleware] Restaurant owner access granted');
   next();
 };

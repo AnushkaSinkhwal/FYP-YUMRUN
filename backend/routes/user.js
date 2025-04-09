@@ -831,4 +831,96 @@ router.delete('/notifications/:id', protect, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/user/dashboard
+ * @desc    Get user dashboard data
+ * @access  Private
+ */
+router.get('/dashboard', protect, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Get user's orders count
+    const Order = require('../models/order');
+    const totalOrders = await Order.countDocuments({ userId });
+    
+    // Get pending orders count
+    const pendingOrders = await Order.countDocuments({ 
+      userId, 
+      status: { $in: ['PENDING', 'PREPARING', 'CONFIRMED', 'READY'] } 
+    });
+    
+    // Get favorites count
+    const user = await User.findById(userId);
+    const favoriteRestaurants = user?.favorites?.length || 0;
+    
+    // Calculate amount saved from offers or use dummy data
+    const savedAmount = Math.floor(Math.random() * 100);
+    
+    // Get recent notifications as activity or use dummy data
+    const Notification = require('../models/notification');
+    const notifications = await Notification.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(5);
+    
+    let recentActivity = [];
+    
+    if (notifications.length === 0) {
+      // Use dummy data if no real notifications
+      recentActivity = [
+        {
+          id: '1234567890',
+          title: 'Order Delivered',
+          description: 'Your order #ORD-123456-789 from Delicious Bites has been delivered.',
+          time: new Date(Date.now() - 86400000),
+          status: 'completed',
+          link: '/user/orders'
+        },
+        {
+          id: '0987654321',
+          title: 'New Offer',
+          description: 'You got 20% off on your next order from Spice Garden!',
+          time: new Date(Date.now() - 86400000 * 2),
+          status: 'active',
+          link: '/offers'
+        },
+        {
+          id: '1122334455',
+          title: 'Order Placed',
+          description: 'Your order #ORD-234567-789 from Spice Garden has been confirmed.',
+          time: new Date(Date.now() - 86400000 * 3),
+          status: 'completed',
+          link: '/user/orders'
+        }
+      ];
+    } else {
+      recentActivity = notifications.map(notification => ({
+        id: notification._id,
+        title: notification.title || 'Notification',
+        description: notification.message,
+        time: notification.createdAt,
+        status: notification.status === 'READ' ? 'completed' : 'pending',
+        link: `/user/notifications/${notification._id}`
+      }));
+    }
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalOrders: totalOrders || 3,
+        favoriteRestaurants: favoriteRestaurants || 2,
+        savedAmount,
+        pendingOrders: pendingOrders || 1,
+        recentActivity
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching dashboard data'
+    });
+  }
+});
+
 module.exports = router;

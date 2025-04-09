@@ -12,6 +12,8 @@ const Users = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [success, setSuccess] = useState(null);
   const itemsPerPage = 10;
 
   // Fetch users from API
@@ -24,33 +26,17 @@ const Users = () => {
       setIsLoading(true);
       setError(null);
       
-      // In a real application, replace with actual API call
-      // const response = await adminAPI.getUsers();
+      const response = await adminAPI.getUsers();
       
-      // For demo, we'll use mockup data
-      const mockUsers = [
-        { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Customer', status: 'Active', orders: 12, createdAt: '2023-01-15' },
-        { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Customer', status: 'Active', orders: 8, createdAt: '2023-02-20' },
-        { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'Restaurant Owner', status: 'Active', orders: 0, createdAt: '2023-03-10' },
-        { id: 4, name: 'Sarah Williams', email: 'sarah@example.com', role: 'Customer', status: 'Inactive', orders: 3, createdAt: '2023-01-05' },
-        { id: 5, name: 'David Brown', email: 'david@example.com', role: 'Admin', status: 'Active', orders: 0, createdAt: '2022-12-10' },
-        { id: 6, name: 'Emily Davis', email: 'emily@example.com', role: 'Customer', status: 'Active', orders: 6, createdAt: '2023-04-22' },
-        { id: 7, name: 'Alex Wilson', email: 'alex@example.com', role: 'Restaurant Owner', status: 'Pending', orders: 0, createdAt: '2023-05-18' },
-        { id: 8, name: 'Lisa Taylor', email: 'lisa@example.com', role: 'Customer', status: 'Active', orders: 15, createdAt: '2022-11-30' },
-        { id: 9, name: 'Ryan Garcia', email: 'ryan@example.com', role: 'Delivery Driver', status: 'Active', orders: 0, createdAt: '2023-06-05' },
-        { id: 10, name: 'Olivia Martin', email: 'olivia@example.com', role: 'Customer', status: 'Inactive', orders: 2, createdAt: '2023-02-28' },
-        { id: 11, name: 'James Wilson', email: 'james@example.com', role: 'Customer', status: 'Active', orders: 4, createdAt: '2023-07-12' },
-        { id: 12, name: 'Sophia Lee', email: 'sophia@example.com', role: 'Restaurant Owner', status: 'Active', orders: 0, createdAt: '2023-08-03' },
-      ];
-      
-      setTimeout(() => {
-        setUsers(mockUsers);
-        setIsLoading(false);
-      }, 600);
-      
+      if (response.data && response.data.success) {
+        setUsers(response.data.users || []);
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch users data');
+      }
     } catch (error) {
       console.error("Error fetching users:", error);
       setError("Failed to load users. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -58,10 +44,14 @@ const Users = () => {
   // Handle search and filter
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      (user.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
+    const userRole = user.isAdmin ? 'Admin' : 
+                    user.isRestaurantOwner ? 'Restaurant Owner' : 
+                    user.isDeliveryDriver ? 'Delivery Driver' : 'Customer';
+    
+    const matchesRole = filterRole === 'all' || userRole === filterRole;
     
     return matchesSearch && matchesRole;
   });
@@ -75,8 +65,9 @@ const Users = () => {
 
   // Handle user actions
   const handleEditUser = (user) => {
+    // Navigate to edit user page or open modal
     console.log('Edit user:', user);
-    // Implement edit functionality
+    // Implement edit functionality using adminAPI.updateUser(user.id, userData)
   };
 
   const confirmDeleteUser = (user) => {
@@ -85,14 +76,33 @@ const Users = () => {
   };
 
   const handleDeleteUser = async () => {
+    if (!userToDelete || !userToDelete._id) return;
+    
     try {
-      // In real app: await adminAPI.deleteUser(userToDelete.id);
-      setUsers(users.filter(u => u.id !== userToDelete.id));
-      setShowDeleteModal(false);
-      setUserToDelete(null);
+      setIsDeleting(true);
+      setError(null);
+      
+      const response = await adminAPI.deleteUser(userToDelete._id);
+      
+      if (response.data && response.data.success) {
+        // Update local state to remove the deleted user
+        setUsers(users.filter(u => u._id !== userToDelete._id));
+        setSuccess("User deleted successfully");
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to delete user');
+      }
     } catch (error) {
       console.error("Error deleting user:", error);
-      // Show error notification
+      setError("Failed to delete user: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setUserToDelete(null);
     }
   };
 
@@ -103,6 +113,17 @@ const Users = () => {
       case 'Pending': return 'warning';
       default: return 'default';
     }
+  };
+
+  const getUserRole = (user) => {
+    if (user.isAdmin) return 'Admin';
+    if (user.isRestaurantOwner) return 'Restaurant Owner';
+    if (user.isDeliveryDriver) return 'Delivery Driver';
+    return 'Customer';
+  };
+
+  const getUserStatus = (user) => {
+    return user.isActive ? 'Active' : 'Inactive';
   };
 
   return (
@@ -118,8 +139,14 @@ const Users = () => {
       </div>
 
       {error && (
-        <Alert variant="error" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert variant="success" className="mb-6 bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
+          {success}
         </Alert>
       )}
 
@@ -186,34 +213,34 @@ const Users = () => {
                   <th className="px-4 py-3 hidden md:table-cell">Email</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Orders</th>
                   <th className="px-4 py-3 hidden md:table-cell">Joined</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedUsers.map((user) => (
-                  <tr key={user.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-4 py-3 font-medium">#{user.id}</td>
-                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                  <tr key={user._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-4 py-3 font-medium">#{user._id.substring(0, 6)}</td>
+                    <td className="px-4 py-3 font-medium">{user.name || user.username}</td>
                     <td className="px-4 py-3 hidden md:table-cell">{user.email}</td>
                     <td className="px-4 py-3">
                       <Badge variant={
-                        user.role === "Admin" ? "primary" : 
-                        user.role === "Restaurant Owner" ? "success" : 
-                        user.role === "Delivery Driver" ? "info" : 
+                        user.isAdmin ? "primary" : 
+                        user.isRestaurantOwner ? "success" : 
+                        user.isDeliveryDriver ? "info" : 
                         "default"
                       }>
-                        {user.role}
+                        {getUserRole(user)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={getBadgeVariant(user.status)}>
-                        {user.status}
+                      <Badge variant={getBadgeVariant(getUserStatus(user))}>
+                        {getUserStatus(user)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">{user.orders}</td>
-                    <td className="px-4 py-3 hidden md:table-cell">{user.createdAt}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
@@ -269,19 +296,22 @@ const Users = () => {
           <Card className="max-w-md mx-auto dark:bg-gray-800 p-6">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Confirm Delete</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete the user "{userToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete the user "{userToDelete?.name || userToDelete?.username}"? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <Button 
                 variant="outline" 
                 onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
               >
                 Cancel
               </Button>
               <Button 
                 variant="destructive" 
                 onClick={handleDeleteUser}
+                disabled={isDeleting}
               >
+                {isDeleting ? <Spinner size="sm" className="mr-2" /> : <FaTrashAlt className="mr-2" />}
                 Delete
               </Button>
             </div>

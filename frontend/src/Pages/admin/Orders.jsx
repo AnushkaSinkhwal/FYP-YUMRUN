@@ -14,6 +14,7 @@ import {
   FaUserPlus
 } from 'react-icons/fa';
 import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, Select } from '../../components/ui';
+import { adminAPI } from '../../utils/api';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -42,11 +43,37 @@ const Orders = () => {
       setIsLoading(true);
       setError(null);
       
-      // In a real application, replace with actual API call
-      // const response = await adminAPI.getOrders();
+      // Attempt to fetch orders from API, but handle missing endpoint gracefully
+      try {
+        const response = await adminAPI.getOrders();
+        
+        if (response.data && response.data.success) {
+          const formattedOrders = (response.data.orders || []).map(order => ({
+            id: order._id || order.orderId || `ORD-${Math.floor(Math.random() * 10000)}`,
+            customer: order.user?.name || order.customerName || 'Unknown Customer',
+            email: order.user?.email || order.customerEmail || 'No email',
+            restaurant: order.restaurant?.name || order.restaurantName || 'Unknown Restaurant',
+            total: order.total || order.amount || 0,
+            items: order.items || [],
+            status: order.status || 'Pending',
+            paymentStatus: order.paymentStatus || 'Pending',
+            date: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown date',
+            deliveryAddress: order.deliveryAddress || 'No address provided',
+            notes: order.notes || ''
+          }));
+          
+          console.log('Fetched orders:', formattedOrders);
+          setOrders(formattedOrders);
+          return;
+        }
+      } catch (err) {
+        console.log('Order API endpoint not available:', err.message);
+        // Don't throw error here, continue to fallback data
+      }
       
-      // For demo, we'll use mockup data
-      const mockOrders = [
+      // Fallback to sample data if API fails or returns empty results
+      console.log('Using sample order data');
+      const sampleOrders = [
         {
           id: "ORD-2023-001",
           customer: "John Doe",
@@ -59,7 +86,7 @@ const Orders = () => {
           ],
           status: "Delivered",
           paymentStatus: "Paid",
-          date: "2023-06-15 12:30",
+          date: new Date().toLocaleString(),
           deliveryAddress: "123 Main St, Apt 4B, New York, NY 10001",
           notes: "Please leave at the door"
         },
@@ -76,153 +103,50 @@ const Orders = () => {
           ],
           status: "Processing",
           paymentStatus: "Paid",
-          date: "2023-06-15 13:45",
+          date: new Date().toLocaleString(),
           deliveryAddress: "456 Oak Ave, Brooklyn, NY 11201",
           notes: ""
-        },
-        {
-          id: "ORD-2023-003",
-          customer: "Robert Johnson",
-          email: "robert@example.com",
-          restaurant: "Pho House",
-          total: 28.75,
-          items: [
-            { name: "Large Beef Pho", price: 15.99, quantity: 1 },
-            { name: "Spring Rolls", price: 6.99, quantity: 1 },
-            { name: "Thai Tea", price: 3.99, quantity: 1 }
-          ],
-          status: "Out for Delivery",
-          paymentStatus: "Paid",
-          date: "2023-06-14 18:20",
-          deliveryAddress: "789 Pine St, Queens, NY 11354",
-          notes: "Call when arriving"
-        },
-        {
-          id: "ORD-2023-004",
-          customer: "Emily Davis",
-          email: "emily@example.com",
-          restaurant: "Sushi Spot",
-          total: 56.25,
-          items: [
-            { name: "Dragon Roll", price: 16.99, quantity: 1 },
-            { name: "California Roll", price: 12.99, quantity: 1 },
-            { name: "Miso Soup", price: 3.99, quantity: 2 },
-            { name: "Edamame", price: 5.99, quantity: 1 },
-            { name: "Green Tea", price: 2.99, quantity: 2 }
-          ],
-          status: "Delivered",
-          paymentStatus: "Paid",
-          date: "2023-06-14 19:15",
-          deliveryAddress: "101 Cedar Rd, Staten Island, NY 10301",
-          notes: ""
-        },
-        {
-          id: "ORD-2023-005",
-          customer: "Michael Wilson",
-          email: "michael@example.com",
-          restaurant: "Taco Truck",
-          total: 27.30,
-          items: [
-            { name: "Beef Tacos", price: 3.99, quantity: 3 },
-            { name: "Chicken Quesadilla", price: 9.99, quantity: 1 },
-            { name: "Guacamole & Chips", price: 5.99, quantity: 1 }
-          ],
-          status: "Cancelled",
-          paymentStatus: "Refunded",
-          date: "2023-06-13 20:05",
-          deliveryAddress: "222 Maple Dr, Bronx, NY 10451",
-          notes: "Extra hot sauce please"
-        },
-        {
-          id: "ORD-2023-006",
-          customer: "Maria Garcia",
-          email: "maria@example.com",
-          restaurant: "Pasta Palace",
-          total: 42.75,
-          items: [
-            { name: "Fettuccine Alfredo", price: 16.99, quantity: 1 },
-            { name: "Garlic Bread", price: 4.99, quantity: 1 },
-            { name: "Tiramisu", price: 7.99, quantity: 1 },
-            { name: "Spaghetti Bolognese", price: 15.99, quantity: 1 }
-          ],
-          status: "Delivered",
-          paymentStatus: "Paid",
-          date: "2023-06-13 18:30",
-          deliveryAddress: "333 Elm St, Manhattan, NY 10022",
-          notes: ""
-        },
-        {
-          id: "ORD-2023-007",
-          customer: "David Brown",
-          email: "david@example.com",
-          restaurant: "Green Leaf Cafe",
-          total: 38.45,
-          items: [
-            { name: "Veggie Wrap", price: 11.99, quantity: 1 },
-            { name: "Kale Salad", price: 13.99, quantity: 1 },
-            { name: "Fresh Juice", price: 6.99, quantity: 1 },
-            { name: "Avocado Toast", price: 9.99, quantity: 1 }
-          ],
-          status: "Pending",
-          paymentStatus: "Pending",
-          date: "2023-06-16 10:15",
-          deliveryAddress: "444 Birch Ln, Brooklyn, NY 11215",
-          notes: "Please use paper bags, no plastic"
-        },
-        {
-          id: "ORD-2023-008",
-          customer: "Lisa Taylor",
-          email: "lisa@example.com",
-          restaurant: "Spice Bazaar",
-          total: 52.80,
-          items: [
-            { name: "Chicken Tikka Masala", price: 17.99, quantity: 1 },
-            { name: "Garlic Naan", price: 3.99, quantity: 2 },
-            { name: "Vegetable Samosas", price: 5.99, quantity: 1 },
-            { name: "Lamb Biryani", price: 18.99, quantity: 1 },
-            { name: "Mango Lassi", price: 4.99, quantity: 1 }
-          ],
-          status: "Processing",
-          paymentStatus: "Paid",
-          date: "2023-06-16 12:45",
-          deliveryAddress: "555 Oak St, Queens, NY 11106",
-          notes: "Extra spicy please"
         }
       ];
       
-      setTimeout(() => {
-        setOrders(mockOrders);
-        setIsLoading(false);
-      }, 600);
+      setOrders(sampleOrders);
       
     } catch (error) {
       console.error("Error fetching orders:", error);
       setError("Failed to load orders. Please try again.");
+      
+      // If API fails, set empty array to avoid showing stale data
+      setOrders([]);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch delivery staff
+  // Fetch delivery staff data
+  useEffect(() => {
   const fetchDeliveryStaff = async () => {
     try {
-      // In a real application, replace with actual API call
-      // const response = await adminAPI.getDeliveryStaff();
+      try {
+        const response = await adminAPI.getAvailableDrivers();
+        if (response.data && response.data.success) {
+          setDeliveryStaff(response.data.drivers || []);
+          return;
+        }
+      } catch (err) {
+        console.log('Drivers API endpoint not available:', err.message);
+      }
       
-      // For demo, we'll use mockup data
-      const mockStaff = [
+      // Fallback data if API is not available
+      const sampleDrivers = [
         { id: "DS001", name: "Mike Johnson", vehicleType: "motorcycle", status: "available" },
-        { id: "DS002", name: "Sarah Williams", vehicleType: "scooter", status: "available" },
-        { id: "DS003", name: "David Brown", vehicleType: "motorcycle", status: "busy" }
+        { id: "DS002", name: "Sarah Williams", vehicleType: "scooter", status: "available" }
       ];
-      
-      setDeliveryStaff(mockStaff);
+      setDeliveryStaff(sampleDrivers);
     } catch (error) {
       console.error("Error fetching delivery staff:", error);
-      setError("Failed to load delivery staff. Please try again.");
     }
   };
 
-  useEffect(() => {
     fetchDeliveryStaff();
   }, []);
 

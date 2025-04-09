@@ -40,6 +40,7 @@ const offerRoutes = require('./routes/offers');
 const recommendationsRoutes = require('./routes/recommendations');
 const reviewsRoutes = require('./routes/reviews');
 const favoritesRoutes = require('./routes/favorites');
+const paymentRoutes = require('./routes/payment');
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -57,6 +58,7 @@ app.use('/api/offers', offerRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/favorites', favoritesRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // API Status Route
 app.get('/api/status', (req, res) => {
@@ -87,6 +89,11 @@ mongoose.connect(process.env.CONNECTION_STRING)
       console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
       console.log(`MongoDB Connected`);
       console.log(`CORS enabled for origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+      // Log Khalti configuration status
+      console.log(`Khalti API configuration:`, { 
+        baseUrl: process.env.NODE_ENV === 'production' ? 'https://khalti.com/api/v2' : 'https://a.khalti.com/api/v2',
+        secretKeyAvailable: !!process.env.KHALTI_SECRET_KEY
+      });
     });
   })
   .catch((err) => {

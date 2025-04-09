@@ -5,16 +5,17 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { initiateKhaltiPayment } from '../../utils/payment';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
-import { 
-  Container, 
-  Card, 
-  Button, 
-  Input, 
-  Textarea, 
+import {
+  Container,
+  Card,
+  Button,
+  Input,
+  Textarea,
   Label,
   RadioGroup,
   Alert,
-  Spinner
+  Spinner,
+  RadioGroupItem
 } from '../../components/ui';
 
 const Checkout = () => {
@@ -127,12 +128,29 @@ const Checkout = () => {
       
       // For Khalti payment
       if (paymentMethod === 'khalti') {
+        console.log('Initiating Khalti payment for order:', orderId);
+        console.log('Amount:', cartStats.total);
+        
         // Create customer details object for Khalti
         const customerDetails = {
-          fullName: deliveryAddress.fullName,
+          name: deliveryAddress.fullName,
           email: deliveryAddress.email,
           phone: deliveryAddress.phone
         };
+        
+        console.log('Customer details:', customerDetails);
+        
+        // Save cart items to session storage for payment processing
+        sessionStorage.setItem('cartItems', JSON.stringify(cartItems));
+        
+        // Save order details to session storage for retrieval after payment
+        sessionStorage.setItem('pendingOrder', JSON.stringify({
+          orderId,
+          items: cartItems,
+          amount: cartStats.total,
+          deliveryAddress,
+          paymentMethod: 'khalti'
+        }));
         
         // Initiate Khalti payment
         initiateKhaltiPayment(
@@ -140,15 +158,16 @@ const Checkout = () => {
           cartStats.total,
           customerDetails,
           (result) => {
-            setIsLoading(false);
-            if (result.success) {
-              // Payment initiated successfully
-              // The user will be redirected to Khalti payment page
-              addToast('Redirecting to payment gateway...', { type: 'info' });
-            } else {
-              // Payment initiation failed
-              addToast(result.message || 'Payment initiation failed', { type: 'error' });
+            console.log('Khalti payment result:', result);
+            
+            if (!result.success) {
+              // If payment initiation failed, show error and allow retry
+              setIsLoading(false);
+              addToast(result.message || 'Payment initiation failed. Please try again.', { type: 'error' });
             }
+            
+            // Note: We don't set isLoading to false on success because 
+            // the user will be redirected to Khalti payment page
           }
         );
       }
@@ -315,7 +334,7 @@ const Checkout = () => {
                   className="space-y-3"
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroup.Item value="khalti" id="khalti" />
+                    <RadioGroupItem value="khalti" id="khalti" />
                     <Label htmlFor="khalti" className="flex items-center cursor-pointer">
                       <img src="/images/khalti-logo.png" alt="Khalti" className="h-8 mr-2" />
                       Pay with Khalti
@@ -323,7 +342,7 @@ const Checkout = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <RadioGroup.Item value="cod" id="cod" />
+                    <RadioGroupItem value="cod" id="cod" />
                     <Label htmlFor="cod" className="cursor-pointer">
                       Cash on Delivery (COD)
                     </Label>
@@ -414,10 +433,6 @@ const Checkout = () => {
                   </div>
                 </div>
               </Card>
-              
-              <Alert variant="warning" className="mt-4">
-                <p className="text-sm">For testing purposes, Cash on Delivery (COD) is recommended.</p>
-              </Alert>
             </div>
           </div>
         </div>

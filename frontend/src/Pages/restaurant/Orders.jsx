@@ -75,15 +75,47 @@ const RestaurantOrders = () => {
     setError(null);
     
     try {
+      // Try to fetch real orders from the API
       const response = await restaurantAPI.getOrders();
+      
       if (response?.data?.success) {
-        setOrders(response.data.data || []);
+        const ordersData = response.data.data || [];
+        console.log('Successfully fetched restaurant orders:', ordersData);
+        setOrders(ordersData);
       } else {
-        setError(response?.data?.message || 'Failed to fetch orders');
+        // If API response indicates failure but returns a message
+        if (response?.data?.message) {
+          setError(response.data.message);
+          
+          // If there's an authentication issue, show a more specific error
+          if (response.data.message.includes('authenticate') || response.data.message.includes('token')) {
+            setError('Authentication error. Please log in again to continue.');
+          }
+        } else {
+          setError('Failed to fetch orders. Please try again.');
+        }
+        
+        // Set empty orders to avoid showing stale data
+        setOrders([]);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError(err?.response?.data?.message || 'Failed to fetch orders. Please try again.');
+      
+      // Check for network or server errors
+      if (err.message?.includes('Network Error')) {
+        setError('Network error. Please check your internet connection.');
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Authentication error. Please log in again to continue.');
+      } else if (err.response?.status === 404) {
+        setError('Orders endpoint not found. The API may be misconfigured.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to fetch orders. Please try again.');
+      }
+      
+      // Set empty orders to avoid showing stale data
+      setOrders([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

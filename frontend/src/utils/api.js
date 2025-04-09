@@ -248,6 +248,11 @@ export const restaurantAPI = {
     return api.get('/restaurant/profile');
   },
   
+  // Get dashboard data
+  getDashboard: async () => {
+    return api.get('/restaurant/dashboard');
+  },
+  
   // Update restaurant profile
   updateProfile: async (profileData) => {
     return api.put('/restaurant/profile', profileData);
@@ -331,6 +336,11 @@ export const restaurantAPI = {
 
 // User API methods
 export const userAPI = {
+  // Get user dashboard data
+  getDashboard: async () => {
+    return api.get('/user/dashboard');
+  },
+  
   // Get user profile
   getUserProfile: async () => {
     return api.get('/user/profile');

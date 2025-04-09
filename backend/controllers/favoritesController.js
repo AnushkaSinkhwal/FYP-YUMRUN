@@ -169,6 +169,51 @@ exports.getFavorites = async (req, res) => {
             });
         }
         
+        // If no favorites, return dummy data for testing
+        if (!user.favorites || user.favorites.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    favorites: [
+                        {
+                            _id: '60d21be9267d7acbc1230005',
+                            item_name: 'Chicken Burger',
+                            item_price: 12.99,
+                            description: 'Juicy chicken patty with lettuce, tomato, and special sauce',
+                            image: 'https://source.unsplash.com/random/300x200/?burger',
+                            category: ['Fast Food', 'Burger'],
+                            isVegetarian: false,
+                            isVegan: false,
+                            restaurant: {
+                                _id: '60d21be9267d7acbc1230002',
+                                restaurantDetails: {
+                                    name: 'Delicious Bites',
+                                    address: '123 Main St, City'
+                                }
+                            }
+                        },
+                        {
+                            _id: '60d21be9267d7acbc1230006',
+                            item_name: 'Vegetable Pizza',
+                            item_price: 15.99,
+                            description: 'Fresh vegetables on a thin crust with our special cheese blend',
+                            image: 'https://source.unsplash.com/random/300x200/?pizza',
+                            category: ['Italian', 'Pizza'],
+                            isVegetarian: true,
+                            isVegan: false,
+                            restaurant: {
+                                _id: '60d21be9267d7acbc1230007',
+                                restaurantDetails: {
+                                    name: 'Pizza Haven',
+                                    address: '456 Food St, Town'
+                                }
+                            }
+                        }
+                    ]
+                }
+            });
+        }
+        
         return res.status(200).json({
             success: true,
             data: {

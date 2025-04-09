@@ -16,23 +16,33 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currentUser } = useAuth();
+  const auth = useAuth();
+  const authUser = auth.currentUser;
 
-  // Load notifications based on user role
+  // Load notifications based on user role and auth state
   useEffect(() => {
-    if (!currentUser) return;
+    if (auth.isLoading) {
+      setLoading(true);
+      return;
+    }
+    
+    if (!auth.isAuthenticated || !authUser) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     const fetchNotifications = async () => {
-      setLoading(true);
       setError(null);
 
       try {
         let response;
         
-        // Get notifications based on user role
-        switch (currentUser.role) {
+        switch (authUser.role) {
           case 'admin':
             response = await adminAPI.getNotifications();
             break;
@@ -41,66 +51,83 @@ export const NotificationProvider = ({ children }) => {
             response = await restaurantAPI.getNotifications();
             break;
           case 'deliveryRider':
-            // Assuming there's a delivery API for notifications
-            // response = await deliveryAPI.getNotifications();
-            // For now, just set empty notifications
-            response = { data: { notifications: [] } };
+            response = { data: { success: true, notifications: [], unreadCount: 0 } };
             break;
-          default: // Regular user
+          default:
             response = await userAPI.getNotifications();
         }
 
-        if (response.data) {
-          setNotifications(response.data.notifications || []);
-          setUnreadCount(response.data.unreadCount || 0);
+        if (response?.data?.success) {
+            const fetchedNotifications = response.data.notifications || response.data.data?.notifications || [];
+            const fetchedUnreadCount = response.data.unreadCount ?? response.data.data?.unreadCount ?? 0;
+            
+            setNotifications(fetchedNotifications);
+            setUnreadCount(fetchedUnreadCount);
+        } else {
+            const errorMsg = response?.data?.error?.message || response?.data?.message || 'Failed to fetch notifications format.';
+            console.error('Notification API error:', errorMsg);
+            setError(errorMsg);
+            setNotifications([]);
+            setUnreadCount(0);
         }
+        
       } catch (err) {
         console.error('Failed to fetch notifications:', err);
-        setError('Failed to load notifications. Please try again later.');
+        if (err.response?.status !== 401) { 
+          setError('Failed to load notifications. Please try again later.');
+        }
+        setNotifications([]);
+        setUnreadCount(0);
       } finally {
-        setLoading(false);
+        if (loading) setLoading(false);
       }
     };
 
     fetchNotifications();
     
-    // Fetch notifications every 1 minute
     const intervalId = setInterval(fetchNotifications, 60000);
     
     return () => clearInterval(intervalId);
-  }, [currentUser]);
+
+  }, [auth.isLoading, auth.isAuthenticated, authUser]);
 
   // Mark a notification as read
   const markAsRead = async (notificationId) => {
-    if (!currentUser) return;
+    if (!authUser) return;
 
     try {
-      switch (currentUser.role) {
+      let response;
+      switch (authUser.role) {
         case 'admin':
-          await adminAPI.processNotification(notificationId, 'mark-read');
+          response = await adminAPI.processNotification(notificationId, 'mark-read');
           break;
         case 'restaurant':
         case 'restaurantOwner':
-          await restaurantAPI.markNotificationAsRead(notificationId);
+          response = await restaurantAPI.markNotificationAsRead(notificationId);
           break;
         case 'deliveryRider':
-          // Delivery rider notification logic
+          response = { data: { success: true } };
           break;
-        default: // Regular user
-          await userAPI.markNotificationAsRead(notificationId);
+        default:
+          response = await userAPI.markNotificationAsRead(notificationId);
       }
 
-      // Update notifications in state
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, read: true } 
-            : notification
-        )
-      );
-
-      // Update unread count
-      setUnreadCount(prevCount => Math.max(0, prevCount - 1));
+      if (response?.data?.success) {
+          setNotifications(prevNotifications => 
+            prevNotifications.map(notification => 
+              notification._id === notificationId
+                ? { ...notification, isRead: true }
+                : notification
+            )
+          );
+    
+          const notification = notifications.find(n => n._id === notificationId);
+          if (notification && !notification.isRead) {
+             setUnreadCount(prevCount => Math.max(0, prevCount - 1));
+          }
+      } else {
+          console.error('Failed to mark notification as read (API Error)');
+      }
 
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
@@ -109,31 +136,33 @@ export const NotificationProvider = ({ children }) => {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    if (!currentUser) return;
+    if (!authUser) return;
 
     try {
-      switch (currentUser.role) {
+      let response;
+      switch (authUser.role) {
         case 'admin':
-          await adminAPI.processNotification('all', 'mark-all-read');
+          response = await adminAPI.processNotification('all', 'mark-all-read');
           break;
         case 'restaurant':
         case 'restaurantOwner':
-          await restaurantAPI.markAllNotificationsAsRead();
+          response = await restaurantAPI.markAllNotificationsAsRead();
           break;
         case 'deliveryRider':
-          // Delivery rider notification logic
+          response = { data: { success: true } };
           break;
-        default: // Regular user
-          await userAPI.markAllNotificationsAsRead();
+        default:
+          response = await userAPI.markAllNotificationsAsRead();
       }
 
-      // Update all notifications to read in state
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notification => ({ ...notification, read: true }))
-      );
-
-      // Reset unread count
-      setUnreadCount(0);
+      if (response?.data?.success) {
+          setNotifications(prevNotifications => 
+            prevNotifications.map(notification => ({ ...notification, isRead: true }))
+          );
+          setUnreadCount(0);
+      } else {
+          console.error('Failed to mark all notifications as read (API Error)');
+      }
 
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
@@ -142,21 +171,20 @@ export const NotificationProvider = ({ children }) => {
 
   // Process a notification action (admin only)
   const processNotification = async (notificationId, action, data = {}) => {
-    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!authUser || authUser.role !== 'admin') return;
 
     try {
       const response = await adminAPI.processNotification(notificationId, action, data);
       
       if (response.data && response.data.success) {
-        // Remove the notification from list if it was processed
+        const notificationToProcess = notifications.find(n => n._id === notificationId);
+        
         if (action === 'approve' || action === 'reject') {
           setNotifications(prevNotifications => 
-            prevNotifications.filter(notification => notification.id !== notificationId)
+            prevNotifications.filter(notification => notification._id !== notificationId)
           );
           
-          // Update unread count if needed
-          const notificationToProcess = notifications.find(n => n.id === notificationId);
-          if (notificationToProcess && !notificationToProcess.read) {
+          if (notificationToProcess && !notificationToProcess.isRead) {
             setUnreadCount(prevCount => Math.max(0, prevCount - 1));
           }
         }
@@ -164,10 +192,10 @@ export const NotificationProvider = ({ children }) => {
         return { success: true, message: response.data.message };
       }
       
-      return { success: false, message: 'Failed to process notification' };
+      return { success: false, message: response?.data?.message || 'Failed to process notification' };
     } catch (err) {
       console.error('Failed to process notification:', err);
-      return { success: false, message: err.message || 'An error occurred' };
+      return { success: false, message: err.response?.data?.message || 'An error occurred' };
     }
   };
 

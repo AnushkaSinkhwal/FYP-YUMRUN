@@ -1,0 +1,3938 @@
+
+
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+
+    
+    <!-- tracking -->
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "lfifeohelu");
+    </script>
+    
+
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-K84RLX2');</script>
+    <!-- End Google Tag Manager -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/favicon.png">
+
+    
+        
+            <title>Digital Wallet &amp; Online Payment Services in Nepal | Khalti</title>
+            
+                
+                    
+                        
+                        <meta name="keywords" content="Digital wallet, online payment services, payment gateway, payment gateway in nepal, Digital payment in nepal, Digital payment">
+                        
+                    
+                        
+                        <meta name="description" content="Khalti is a digital wallet for instant, secure and hassle-free online payments in Nepal. Recharge your mobiles, pay bills, book tickets wherever you are.">
+                        
+                    
+                
+            
+        
+    
+
+    <link href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/css/bootstrap.css" rel="stylesheet">
+    <link href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/css/slick.css" rel="stylesheet">
+    <link href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/css/slick-theme.css" rel="stylesheet">
+    <link href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/css/phone.min.css" rel="stylesheet">
+    <link href="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/css/custom.css" rel="stylesheet">
+    <link rel="canonical" href="https://khalti.com/">
+
+    
+    <script src="https://moringa.khalti.com/focus/2.js" type="text/javascript" charset="utf-8" async="async"></script>
+    
+
+    <!-- <script src="https://moringa.khalti.com/focus/2.js" type="text/javascript" charset="utf-8" async="async"></script> -->
+    
+    
+
+    <style type="text/css">
+        
+        
+  .test-shine {
+    margin:0; padding:0px 5px 0px 0px;
+  }
+  .test-shine:after {
+    content: "";
+    content: "";
+    position: absolute;
+    top: -5%;
+    left: -5%;
+    width: 10%;
+    height: 97%;
+    opacity: 0;
+    background: rgba(255, 255, 255, 0.25);
+  }
+  /* Hover state - trigger effect */
+  .test-shine:hover:after {
+    opacity: 1;
+    left: 40%;
+    transition-property: left, top, opacity;
+    transition-duration: 0.7s, 0.7s, 0.15s;
+    transition-timing-function: ease;
+  }
+  @media screen and (min-width: 0px) and (max-width: 720px) {
+    .mobile-content { display: block; } /* show it on small screens */
+  }
+  @media screen and (min-width: 768px) and (max-width: 10000px) {
+    .mobile-content { display: none; } /* hide it elsewhere */
+  }
+  @media (max-width: 720px) {
+    .bigger-content{
+      display:none;
+    }
+    .hidden-content{
+      visibility:hidden;
+    }
+  }
+  .voice-box{
+    text-decoration: none; margin:0; padding: 0; display:block;
+    background: #fff;
+    border-radius:16px;
+  }
+  .voice-box >div{
+    background: #fff;
+  }
+  .voice-box:hover > div{
+    background:#f5f5f5;
+  }
+  p{
+    overflow-wrap: anywhere;
+  }
+  table {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    overflow-wrap: anywhere;
+  }
+  table, th, td { 
+    border: 1px solid #f2f2f2;
+    padding: 10px;
+    vertical-align:middle; 
+    text-align:center;
+  }
+  thead {
+    background: #f2f2f2;
+  }
+
+        
+        
+        
+        .navbar-light .navbar-nav .nav-item:hover .dropdown-menu {
+            overflow: auto;
+        }
+
+        .jatra-navigation-icon{
+            top: -10px;
+            z-index: -1;
+            width: 50px !important;
+            left: -8px;
+        }
+        @media (max-width: 991px) {
+            .jatra-navigation-icon{
+                top: -10px;
+                z-index: -1;
+                width: 40px !important;
+                left: -2px;
+            }
+        }
+    </style>
+
+
+
+</head>
+<script>
+    _next = window.location.href
+</script>
+<!-- Place code before /head tag -->
+<script type="text/javascript">//<![CDATA[
+// var tlJsHost = ((window.location.protocol == "https:") ? "https://secure.comodo.com/" : "http://www.trustlogo.com/");
+// document.write(unescape("%3Cscript src='" + tlJsHost + "trustlogo/javascript/trustlogo.js' type='text/javascript'%3E%3C/script%3E"));
+//]]>
+</script>
+<body id='homepage'>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K84RLX2" 
+                  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>    
+<!-- End Google Tag Manager (noscript) -->
+
+<header id="masthead" class="site-header">
+    
+        <div class="header">
+            <section class="top-bar p-2 d-none d-md-block">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-md-6 no-padding">
+                            <a href="/contact/" class="telephone">
+                                <img class="tollfree" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/icons/tollfree.png"> 1660-01-5-8888
+                            </a>
+                            <a href="https://khalti.com/download" target="_blank" rel="noopener noreferrer" class="button small orange no-border ml-3 font-weight-bold">Get App</a>
+                        </div>
+                        
+                            <div class="col-md-6">
+                                <!-- <a data-toggle="modal" data-target="#myModal" href="javascript:void(0)" class="button small font-weight-bold">Login</a> -->
+                                <a href="https://web.khalti.com/" class="button small font-weight-bold">Login</a>
+                                <a href="https://web.khalti.com/#/join" class="button small ml-2 font-weight-bold">Register</a>
+                            </div>
+                        
+                    </div>
+                </div>
+            </section>
+        </div>
+    
+
+    
+        
+<div id="navbar">
+
+    <section class="nav mobile-nav">
+        <div class="container">
+            <div class="row">
+
+                <div class="col-md-2 no-padding">
+                    <a href="/" class="logo" title="Khalti Digital Wallet">Khalti - Logo</a>
+                </div>
+
+                    <!-- small screen -->
+                    <div class="col-md-12 d-block d-md-block d-lg-none navbar navbar-expand-lg navbar-light">
+                        <div class="ham-menu float-right pt-3">
+                            <a class="mobile-login-icon" href="https://web.khalti.com/#/">Login</a>
+                            <a class="button no-border" data-toggle="collapse" href="#collapseExample" data-target="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+                                <span class="navbar-toggler-icon"></span>
+                            </a>
+                        </div>
+                        <div class="collapse mobile-submenu" id="collapseExample">
+                            <div class="top-bar p-2 d-md-none steps-mobile">
+                                <div class="col-md-6 no-padding">
+                                    <a href="tel:1660-01-5-8888" class="telephone">
+                                        <img class="tollfree" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/icons/tollfree.png" alt="tollfree"> 1660-01-5-8888
+                                    </a>
+                                </div>
+                                <div class="col-md-6">
+                                    <a href="https://web.khalti.com/" class="button small">Login</a>
+                                    <a href="https://web.khalti.com/#/join" class="button small ml-2">Register</a>
+                                </div>
+                            </div>
+
+                            <!-- <a class="d-block position-relative" href="/biggest-payment-jatra/">
+                                Jatra
+                                <img class="position-absolute jatra-navigation-icon" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/icons/jatra-navigation-icon.svg">
+                            </a> -->
+
+                                
+                                
+                                    
+                                        <a class="d-block" href="/" >Home </a>
+                                    
+                                
+                                
+                                
+                                    
+                                        <a class="d-block" href="/about/" >About Us </a>
+                                    
+                                
+                                
+                                
+                                    
+
+                                        
+
+                                            
+                                                <a
+                                                class="d-block"
+                                                href=""
+                                                data-target="#services"
+                                                data-toggle="collapse"
+                                                role="button"
+                                                aria-expanded="false"
+                                                aria-controls="collapseExample">
+                                                    Services <i class="icon-arrow-left float-right"></i>
+                                                </a>
+                                            
+
+                                            <div class="collapse mobile-collapse" id="services">
+                                                <div class="p-3">
+                                                    
+                                                        <a class="d-block" href="/payments/dth-tv-recharge/" >DTH</a>
+                                                    
+                                                        <a class="d-block" href="/payments/internet-bill-payment/" >Internet</a>
+                                                    
+                                                        <a class="d-block" href="/payments/landline-bill-payment/" >Landline</a>
+                                                    
+                                                        <a class="d-block" href="/payments/mobile-topup/" >Topup</a>
+                                                    
+                                                        <a class="d-block" href="/payments/nepal-electricity-bill-payment/" >Electricity</a>
+                                                    
+                                                        <a class="d-block" href="/payments/khanepani-nepal-water-bill-payment/" >Khanepani</a>
+                                                    
+                                                        <a class="d-block" href="/payments/insurance-premium-payment/" >Insurance</a>
+                                                    
+                                                        <a class="d-block" href="/payments/movie-ticket-booking/" >Movie</a>
+                                                    
+                                                        <a class="d-block" href="/payments/ride-sharing/" >Ride</a>
+                                                    
+                                                        <a class="d-block" href="/payments/flight-ticket-booking-in-nepal/" >Flight</a>
+                                                    
+                                                        <a class="d-block" href="/payments/events-tickets/" >Events</a>
+                                                    
+                                                        <a class="d-block" href="/bluebook-renew/" >Bluebook</a>
+                                                    
+                                                        <a class="d-block" href="/khalti-suraksha/" >Suraksha</a>
+                                                    
+                                                </div>
+                                            </div>
+                                        
+
+                                    
+                                
+                                
+                                
+                                    
+                                        <a class="d-block" href="/load-fund/" >Load Fund </a>
+                                    
+                                
+                                
+                                
+                                    
+
+                                        
+
+                                            
+                                                <!-- making it clickable to redirect to page -->
+                                                <span
+                                                class="d-block"
+                                                data-target="#business-solutions"
+                                                data-toggle="collapse"
+                                                role="button"
+                                                aria-expanded="false"
+                                                aria-controls="collapseExample">
+                                                    <a class="d-inline-block" href="/business-solutions/" >
+                                                        Business Solutions
+                                                    </a> <i class="icon-arrow-left float-right"></i>
+                                                </span>
+                                            
+
+                                            <div class="collapse mobile-collapse" id="business-solutions">
+                                                <div class="p-3">
+                                                    
+                                                        <a class="d-block" href="/payment-gateway/" >Payment Gateway</a>
+                                                    
+                                                        <a class="d-block" href="/pasal" >Pasal</a>
+                                                    
+                                                        <a class="d-block" href="/sell-on-bazaar/" >Bazaar</a>
+                                                    
+                                                        <a class="d-block" href="/school-fee-payment/" >School Fee Payment</a>
+                                                    
+                                                        <a class="d-block" href="/khalti-ma-bridge-course/" >Khalti Ma Bridge Course</a>
+                                                    
+                                                        <a class="d-block" href="/corporate" >Corporate</a>
+                                                    
+                                                        <a class="d-block" href="/agent" >Agent</a>
+                                                    
+                                                        <a class="d-block" href="/qr-merchant-payment" >QR Code</a>
+                                                    
+                                                        <a class="d-block" href="/send-money-to-nepal" >International Remittance</a>
+                                                    
+                                                </div>
+                                            </div>
+                                        
+
+                                    
+                                
+                                
+                                
+                                    
+                                        <a class="d-block" href="https://blog.khalti.com" target="_blank">Blog </a>
+                                    
+                                
+                                
+                                
+                                    
+
+                                        
+                                            
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/smart-chhori/">Smart Chori</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/kyc/">Fill KYC</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/contact/">Contact Us</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/info/support/">Support (FAQ)</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/info/charges/">Charges and Cashback</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/info/khalti-quiz/">Khalit Quiz</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/bank-transfer/">Bank Transfer</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/transfer-request/">Transfer/Request</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="/info/disputepolicy/">Dispute Policy</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="https://blog.khalti.com/careers/">Careers</a>
+                                                
+                                            
+                                                
+                                                    <a class="d-block" href="https://blog.khalti.com/khalti-agents/">Khalti Agents</a>
+                                                
+                                            
+                                        
+
+                                    
+                                
+                            
+
+                        </div>
+                    </div>
+
+                    <!-- large screen -->
+                    <div class="col-md-10 no-padding">
+                        <nav class="navbar navbar-expand-lg navbar-light no-padding float-right height100">
+                            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                                <ul class="navbar-nav mr-auto">
+                                  
+                                    <!-- <li class="nav-item">
+                                        <a class="nav-link position-relative" href="/biggest-payment-jatra/">
+                                            Jatra
+                                            <img class="position-absolute jatra-navigation-icon" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/icons/jatra-navigation-icon.svg">
+                                        </a> 
+                                    </li> -->
+
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+                                                    <a class="nav-link" href="/" >
+                                                        Home <span class="sr-only">(current)</span>
+                                                    </a>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+                                                    <a class="nav-link" href="/about/" >
+                                                        About Us <span class="sr-only">(current)</span>
+                                                    </a>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+ 
+                                                    <!-- making nav url having children clickable -->
+                                                    
+                                                        <a class="nav-link dropdown"
+                                                        data-toggle="dropdown"
+                                                        aria-haspopup="true"
+                                                        aria-expanded="false"
+                                                        href="">
+                                                            Services
+                                                            <!-- Icon for indicating dropdown -->
+                                                            
+                                                                <i class="icon-arrow-left"></i>
+                                                            
+                                                        </a>
+                                                    
+
+                                                    <!-- render children dropdown -->
+                                                    <div class="dropdown-menu" style="padding-bottom: 10px;">
+                                                        
+                                                            <a class="dropdown-item" href="/payments/dth-tv-recharge/" >DTH</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/internet-bill-payment/" >Internet</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/landline-bill-payment/" >Landline</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/mobile-topup/" >Topup</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/nepal-electricity-bill-payment/" >Electricity</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/khanepani-nepal-water-bill-payment/" >Khanepani</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/insurance-premium-payment/" >Insurance</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/movie-ticket-booking/" >Movie</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/ride-sharing/" >Ride</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/flight-ticket-booking-in-nepal/" >Flight</a>
+                                                        
+                                                            <a class="dropdown-item" href="/payments/events-tickets/" >Events</a>
+                                                        
+                                                            <a class="dropdown-item" href="/bluebook-renew/" >Bluebook</a>
+                                                        
+                                                            <a class="dropdown-item" href="/khalti-suraksha/" >Suraksha</a>
+                                                        
+                                                    </div>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+                                                    <a class="nav-link" href="/load-fund/" >
+                                                        Load Fund <span class="sr-only">(current)</span>
+                                                    </a>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+ 
+                                                    <!-- making nav url having children clickable -->
+                                                    
+                                                        <a
+                                                        class="nav-link
+                                                        dropdown"
+                                                        data-toggle="dropdown"
+                                                        aria-haspopup="true"
+                                                        aria-expanded="false">
+                                                            <a class="d-inline-block" href="/business-solutions/"  style="transform: translateY(-15px)">
+                                                                Business Solutions
+                                                            </a> <i class="icon-arrow-left" style="transform: translateY(-15px)"></i>
+                                                        </a>
+                                                    
+
+                                                    <!-- render children dropdown -->
+                                                    <div class="dropdown-menu" style="padding-bottom: 10px;">
+                                                        
+                                                            <a class="dropdown-item" href="/payment-gateway/" >Payment Gateway</a>
+                                                        
+                                                            <a class="dropdown-item" href="/pasal" >Pasal</a>
+                                                        
+                                                            <a class="dropdown-item" href="/sell-on-bazaar/" >Bazaar</a>
+                                                        
+                                                            <a class="dropdown-item" href="/school-fee-payment/" >School Fee Payment</a>
+                                                        
+                                                            <a class="dropdown-item" href="/khalti-ma-bridge-course/" >Khalti Ma Bridge Course</a>
+                                                        
+                                                            <a class="dropdown-item" href="/corporate" >Corporate</a>
+                                                        
+                                                            <a class="dropdown-item" href="/agent" >Agent</a>
+                                                        
+                                                            <a class="dropdown-item" href="/qr-merchant-payment" >QR Code</a>
+                                                        
+                                                            <a class="dropdown-item" href="/send-money-to-nepal" >International Remittance</a>
+                                                        
+                                                    </div>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+                                                    <a class="nav-link" href="https://blog.khalti.com" target="_blank">
+                                                        Blog <span class="sr-only">(current)</span>
+                                                    </a>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                        <!-- children exists by checking length -->
+                                        
+                                            <li class="nav-item">
+
+                                                <!-- different classes in case if children exists -->
+                                                
+ 
+                                                    <!-- making nav url having children clickable -->
+                                                    
+                                                        <a class="nav-link dropdown-toggle"
+                                                        data-toggle="dropdown"
+                                                        aria-haspopup="true"
+                                                        aria-expanded="false"
+                                                        href="">
+                                                            More
+                                                            <!-- Icon for indicating dropdown -->
+                                                            
+                                                                <i class="icon-more"></i>
+                                                            
+                                                        </a>
+                                                    
+
+                                                    <!-- render children dropdown -->
+                                                    <div class="dropdown-menu" style="padding-bottom: 10px;">
+                                                        
+                                                            <a class="dropdown-item" href="https://admin.khalti.com/#/join/merchant/" >Merchants Signup</a>
+                                                        
+                                                            <a class="dropdown-item" href="/smart-chhori/" >Smart Chori</a>
+                                                        
+                                                            <a class="dropdown-item" href="/kyc/" >Fill KYC</a>
+                                                        
+                                                            <a class="dropdown-item" href="/contact/" >Contact Us</a>
+                                                        
+                                                            <a class="dropdown-item" href="/info/support/" >Support (FAQ)</a>
+                                                        
+                                                            <a class="dropdown-item" href="/info/charges/" >Charges and Cashback</a>
+                                                        
+                                                            <a class="dropdown-item" href="/info/khalti-quiz/" >Khalit Quiz</a>
+                                                        
+                                                            <a class="dropdown-item" href="/bank-transfer/" >Bank Transfer</a>
+                                                        
+                                                            <a class="dropdown-item" href="/transfer-request/" >Transfer/Request</a>
+                                                        
+                                                            <a class="dropdown-item" href="/info/disputepolicy/" >Dispute Policy</a>
+                                                        
+                                                            <a class="dropdown-item" href="https://blog.khalti.com/careers/" >Careers</a>
+                                                        
+                                                            <a class="dropdown-item" href="https://blog.khalti.com/khalti-agents/" >Khalti Agents</a>
+                                                        
+                                                    </div>
+                                                
+
+                                            </li>
+                                        
+                                    
+
+                                </ul>
+                            </div>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+    
+
+</header>
+
+
+<div id="khaltiContent">
+
+
+
+<!-- Todo: render different display_style a/c to backend such as: slide, grid, stack -->
+  
+    <div style="position: relative; z-index: 3; top: 20px; background: transparent; height: 0px;">
+      <div class="container">
+        <div id="carouselExampleSlidesOnly" class="carousel slide" data-ride="carousel" data-interval="2000">
+          <div class="carousel-inner">
+
+            
+            <div class="carousel-item active">
+              <div class="row">
+                <div class="col-md-12">
+                  <a class="voice-box" href="https://khalti.com/thirdparty-apps/#/" style="background: transparent" target="_blank">
+                  <div class="alert alert-warning alert-dismissible" role="alert" style=" padding: 0px 5px 0px 0px; background: transparent; border-color: transparent;">
+                    <div class="bigger-content">
+                      <div style="display: flex; align-items: center;">
+                        <div class="test-shine" >
+                            <img src="https://cdn.nayathegana.com/media/2024/05/28/09052f6d4f394917a7f743b0d32ad10d.jpg"/>
+                          </div>
+                      
+                    </div>
+                    </div>
+                    <div class="mobile-content">
+                      <div>
+                        <div>
+                            <img src="https://cdn.nayathegana.com/media/2024/05/28/09052f6d4f394917a7f743b0d32ad10d.jpg"/>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                          <div style="padding: 10px 18px;">
+                            <div style="display: block;">
+                            </div>
+                            
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+                </div>
+              </div>
+            </div>
+            
+            <div class="carousel-item ">
+              <div class="row">
+                <div class="col-md-12">
+                  <a class="voice-box" href="https://voting.khalti.com/#/vote-event/the-voice-of-nepal-season-6" style="background: transparent" target="_blank">
+                  <div class="alert alert-warning alert-dismissible" role="alert" style=" padding: 0px 5px 0px 0px; background: transparent; border-color: transparent;">
+                    <div class="bigger-content">
+                      <div style="display: flex; align-items: center;">
+                        <div class="test-shine" >
+                            <img src="https://cdn.nayathegana.com/media/2025/03/31/3ef5a197bd18419880e100d5c69abeea.jpg"/>
+                          </div>
+                      
+                    </div>
+                    </div>
+                    <div class="mobile-content">
+                      <div>
+                        <div>
+                            <img src="https://cdn.nayathegana.com/media/2025/03/31/3ef5a197bd18419880e100d5c69abeea.jpg"/>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                          <div style="padding: 10px 18px;">
+                            <div style="display: block;">
+                            </div>
+                            
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+                </div>
+              </div>
+            </div>
+            
+
+          </div>
+        </div>
+      </div>
+    </div>
+  
+
+
+
+<section
+  class="hero-banner"
+  id="heroBanner"
+  style="background-position: top right;background: url(https://cdn.nayathegana.com/cloudfront-cdn/jamara/web19/images/hero-banner1.jpg) 0 top no-repeat; background-size: cover;" 
+>
+  <div class="container">
+    
+    <div class="row">
+      <div class="col-md-12">
+        <div class="hero-wrap">
+        	<img src="https://cdn.nayathegana.com/cloudfront-cdn/jamara/web19/images/landing_nemonics.png" style="display: none;">
+          <h1 style="text-shadow: 1px 2px 10px #000000bf;">
+            Khalti Digital Wallet and Payment Gateway
+          </h1>
+          <p>
+            Pay bills, Send money and Accept payments online instantly from
+            anywhere in Nepal using your phone.
+          </p>
+          <a
+            href="https://web.khalti.com/#/join"
+            class="button orange  button-padding d-inline-block no-border font-weight-bold btn-lg btn-outline"
+            >Sign Up</a
+          >
+          <!--<form>-->
+          <!--<div class="sign-up form-group">-->
+          <!--<input type="text" class="is-invalid" placeholder="eg. 9841123456" />-->
+          <!--<input type="button"  value="Sign Up" class="button purple" />-->
+          <!--<div class="invalid-feedback">-->
+          <!--Please enter your Phone Number-->
+          <!--</div>-->
+          <!--</div>-->
+          <!--</form>-->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<script type="text/javascript">
+  function handleServiceClick(e) {
+    // console.log("e",e.currentTarget)
+    // var service = e.currentTarget .getBoundingClientRect()
+    // console.log("top", service.top)
+    document.documentElement.scrollTop = 350;
+  }
+</script>
+
+<section class="featured-services pt-5" id="serviceContainer">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="our-services">
+          <h2 class="text-center mb-4">Khalti Services</h2>
+          <div id="alternateMoreButton" class="more">
+            <span class="mb-3 circle-gray"><i class="icon-more"></i></span
+            ><label class="more-text">More</label>
+          </div>
+          <div class="services-list">
+            <ul class="services-group">
+              
+              <li
+                class="text-center dth"
+                data-toggler="grpdth-tv-recharge"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-dth"></i></span
+                  ><label>DTH</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center internet"
+                data-toggler="grpinternet-bill-payment"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-internet"></i></span
+                  ><label>Internet</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center landline"
+                data-toggler="grplandline-bill-payment"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-landline"></i></span
+                  ><label>Landline</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center topup"
+                data-toggler="grpmobile-topup"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-topup"></i></span
+                  ><label>Topup</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center nea"
+                data-toggler="grpnepal-electricity-bill-payment"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-nea"></i></span
+                  ><label>Electricity</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center khanepani"
+                data-toggler="grpkhanepani-nepal-water-bill-payment"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-khanepani"></i></span
+                  ><label>Khanepani</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center insurance"
+                data-toggler="grpinsurance-premium-payment"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-insurance"></i></span
+                  ><label>Insurance</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center movie"
+                data-toggler="grpmovie-ticket-booking"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-movie"></i></span
+                  ><label>Movie</label>
+                </a>
+              </li>
+              
+              <li class="text-center more" id="moreButton">
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray"
+                    ><i class="icon-more"></i></span
+                  ><label class="more-text">More</label></a>
+              </li>
+               
+              <li
+                class="text-center ride"
+                data-toggler="grpride-sharing"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-ride"></i></span
+                  ><label>Ride</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center flight"
+                data-toggler="grpflight-ticket-booking-in-nepal"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-flight"></i></span
+                  ><label>Flight</label>
+                </a>
+              </li>
+               
+              <li
+                class="text-center events"
+                data-toggler="grpevents-tickets"
+              >
+                <a href="javascript:void(0)"
+                  ><span class="mb-3 circle-gray">
+                    <i class="icon-events"></i></span
+                  ><label>Events</label>
+                </a>
+              </li>
+               
+              <!-- <li class="text-center topup" data-toggler="grpTopup"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-topup"></i></span><label>Topup</label></a></li>
+                            <li class="text-center dth" data-toggler="grpDth"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-dth"></i></span><label>DTH</label></a></li>
+                            <li class="text-center internet" data-toggler="grpInternet"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-internet"></i></span><label>Internet</label></a></li>
+                            <li class="text-center landline" data-toggler="grpLandline"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-landline"></i></span><label>Landline</label></a></li>
+                            <li class="text-center nea" data-toggler="grpNea"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-nea"></i></span><label>NEA</label></a></li>
+                            <li class="text-center flight" data-toggler="grpFlight"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-flight"></i></span><label>Flight</label></a></li>
+                            <li class="text-center movie" data-toggler="grpMovie"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-movie"></i></span><label>Movie</label></a></li>
+                            <li class="text-center hotel" data-toggler="grpHotel"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-hotel"></i></span><label>Hotel</label></a></li>
+                            <li class="text-center more"  id="moreButton"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-more"></i></span><label class="more-text">More</label></a></li>
+                            <li class="text-center khanepani" data-toggler="grpKhanepani"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-khanepani"></i></span><label class="text-center">Khanepani</label></a></li>
+                            <li class="text-center insurance" data-toggler="grpInsurance"><a href="javascript:void(0)"><span class="mb-3 circle-gray"><i class="icon-insurance"></i></span><label class="text-center">Insurance</label></a></li> -->
+            </ul>
+          </div>
+           
+          <div class="services-block dth" id="grpdth-tv-recharge">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">DTH TV Recharge on the go using Khalti</h3>
+                <p class="pb-2">Recharge DTH online without physically reaching the operator with attractive cashbacks.</p>
+                <a href="/payments/dth-tv-recharge/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Recharge Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block internet" id="grpinternet-bill-payment">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Internet Bill Payment in Nepal: Pay Your WorldLink, Dishhome Fibernet, Subisu and More with Khalti</h3>
+                <p class="pb-2">Experience the convenience of online internet bill payment in Nepal with Khalti. Pay your WorldLink, Dishhome Fibernet, Vianet, Subisu, ADSL, Arrownet, Websurfer, Skycable and Broadlink bills online and stay connected with ease.</p>
+                <a href="/payments/internet-bill-payment/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Pay Bills Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2">Get upto 3% Cashback</label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block landline" id="grplandline-bill-payment">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Pay your landline phone bill through Khalti.</h3>
+                <p class="pb-2">Pay Landline bills online in Nepal easily using Khalti. Get instant cashback on every transaction.</p>
+                <a href="/payments/landline-bill-payment/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Pay Bills Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block topup" id="grpmobile-topup">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Online Recharge: Your One-Stop Solution for Online Mobile Recharge in Nepal</h3>
+                <p class="pb-2">Enjoy the convenience of online mobile recharge in Nepal with Khalti. Easily recharge your Ncell, NTC, and Smart Cell accounts online and stay connected with your loved ones.</p>
+                <a href="/payments/mobile-topup/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Topup Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block nea" id="grpnepal-electricity-bill-payment">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Nepal Electricity Bill Payment From Khalti With Ease</h3>
+                <p class="pb-2">Looking for a hassle-free way to pay your NEA bill in Nepal? Discover the convenience of online nepal electricity bill payment and easily manage your electricity bills with just a few clicks.</p>
+                <a href="/payments/nepal-electricity-bill-payment/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Pay Bills Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block khanepani" id="grpkhanepani-nepal-water-bill-payment">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Online Khanepani Bill Payment making life easier and convenient</h3>
+                <p class="pb-2">Khalti lets you quickly pay your nepal khanepani sansthan bills from the comfort of your home or office, saving you time and effort. Say hello to a simpler life and start enjoying the benefits of online Khanepani bill payment today.</p>
+                <a href="/payments/khanepani-nepal-water-bill-payment/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Pay Bills Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block insurance" id="grpinsurance-premium-payment">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Online Insurance Payment in Nepal: Pay Premiums with Khalti</h3>
+                <p class="pb-2">Simplify your insurance premium payment process. Pay your insurance premiums online and stay protected with ease.  Use coupon &quot;INSURE100&quot; to get Rs. 100 cashback on first payment.</p>
+                <a href="/payments/insurance-premium-payment/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Get Insured Today</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block movie" id="grpmovie-ticket-booking">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Online Movie Ticket Booking in Nepal</h3>
+                <p class="pb-2">Book movie tickets online in Nepal for QFX, Bigmovies, Fcube, and 30+ theaters from Khalti. Select showtime, theatre, and seat of your choice within a few clicks</p>
+                <a href="/payments/movie-ticket-booking/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Book Tickets Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block ride" id="grpride-sharing">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Ride Sharing in Nepal</h3>
+                <p class="pb-2">Khalti has partnered with ride sharing providers Tootle,Pathao,SuperApp,Ride Me and Lozoom in Nepal. Pay via Khalti and get cashback on each ride.</p>
+                <a href="/payments/ride-sharing/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Top Up Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block flight" id="grpflight-ticket-booking-in-nepal">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Online flight ticket booking in Nepal: Experience convenience and ease with Khalti.</h3>
+                <p class="pb-2">Book domestic flight tickets with Khalti.com at lowest price. Apply Promo Code: FLYWITHKHALTI and get flat Rs 250 off on first ever flight. Get online flight ticket booking for  Buddha Air, Yeti Airlines, Saurya Airlines, Shree Airlines.</p>
+                <a href="/payments/flight-ticket-booking-in-nepal/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Book Ticket Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2"></label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+          <div class="services-block events" id="grpevents-tickets">
+            <div class="services-info-block col-md-12 pl-5 pr-5">
+              <div class="col-md-8 float-left">
+                <h3 class="regular-title">Event Ticket Booking in Nepal with Khalti: Enjoy Seamless and Effortless  booking.</h3>
+                <p class="pb-2">You must be ready to attend your favorite events. Khalti offers an easy event ticket near you with just a few clicks for concerts, movies, sports events and more.</p>
+                <a href="/payments/events-tickets/" class="more-link"
+                  >Read More <i class="icon-more"></i>
+                </a>
+              </div>
+               
+              <div class="col-md-4 float-left">
+                <div class="d-block pt-3 text-center">
+                  <a
+                    href="https://web.khalti.com/"
+                    class="button orange button-padding d-inline-block no-border"
+                    style="color: white"
+                    rel="noopener noreferrer"
+                    >Book a Ticket Now</a
+                  >
+                  <br />
+                  <label class="text-center pt-2">Get upto 50% Cashback</label>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+           
+
+        
+      <div class="services-block dth" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          DTH TV Recharge on the go using Khalti 
+          </h3>
+          <p class="pb-2">
+          Recharge DTH online without physically reaching the operator with attractive cashbacks.
+          </p>
+          <a href="/payments/dth-tv-recharge/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block internet" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Internet Bill Payment in Nepal: Pay Your WorldLink, Dishhome Fibernet, Subisu and More with Khalti 
+          </h3>
+          <p class="pb-2">
+          Experience the convenience of online internet bill payment in Nepal with Khalti. Pay your WorldLink, Dishhome Fibernet, Vianet, Subisu, ADSL, Arrownet, Websurfer, Skycable and Broadlink bills online and stay connected with ease.
+          </p>
+          <a href="/payments/internet-bill-payment/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block landline" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Pay your landline phone bill through Khalti. 
+          </h3>
+          <p class="pb-2">
+          Pay Landline bills online in Nepal easily using Khalti. Get instant cashback on every transaction.
+          </p>
+          <a href="/payments/landline-bill-payment/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block topup" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Online Recharge: Your One-Stop Solution for Online Mobile Recharge in Nepal 
+          </h3>
+          <p class="pb-2">
+          Enjoy the convenience of online mobile recharge in Nepal with Khalti. Easily recharge your Ncell, NTC, and Smart Cell accounts online and stay connected with your loved ones.
+          </p>
+          <a href="/payments/mobile-topup/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block nea" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Nepal Electricity Bill Payment From Khalti With Ease 
+          </h3>
+          <p class="pb-2">
+          Looking for a hassle-free way to pay your NEA bill in Nepal? Discover the convenience of online nepal electricity bill payment and easily manage your electricity bills with just a few clicks.
+          </p>
+          <a href="/payments/nepal-electricity-bill-payment/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block khanepani" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Online Khanepani Bill Payment making life easier and convenient 
+          </h3>
+          <p class="pb-2">
+          Khalti lets you quickly pay your nepal khanepani sansthan bills from the comfort of your home or office, saving you time and effort. Say hello to a simpler life and start enjoying the benefits of online Khanepani bill payment today.
+          </p>
+          <a href="/payments/khanepani-nepal-water-bill-payment/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block insurance" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Online Insurance Payment in Nepal: Pay Premiums with Khalti 
+          </h3>
+          <p class="pb-2">
+          Simplify your insurance premium payment process. Pay your insurance premiums online and stay protected with ease.  Use coupon &quot;INSURE100&quot; to get Rs. 100 cashback on first payment.
+          </p>
+          <a href="/payments/insurance-premium-payment/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block movie" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Online Movie Ticket Booking in Nepal 
+          </h3>
+          <p class="pb-2">
+          Book movie tickets online in Nepal for QFX, Bigmovies, Fcube, and 30+ theaters from Khalti. Select showtime, theatre, and seat of your choice within a few clicks
+          </p>
+          <a href="/payments/movie-ticket-booking/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block ride" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Ride Sharing in Nepal 
+          </h3>
+          <p class="pb-2">
+          Khalti has partnered with ride sharing providers Tootle,Pathao,SuperApp,Ride Me and Lozoom in Nepal. Pay via Khalti and get cashback on each ride.
+          </p>
+          <a href="/payments/ride-sharing/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block flight" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Online flight ticket booking in Nepal: Experience convenience and ease with Khalti. 
+          </h3>
+          <p class="pb-2">
+          Book domestic flight tickets with Khalti.com at lowest price. Apply Promo Code: FLYWITHKHALTI and get flat Rs 250 off on first ever flight. Get online flight ticket booking for  Buddha Air, Yeti Airlines, Saurya Airlines, Shree Airlines.
+          </p>
+          <a href="/payments/flight-ticket-booking-in-nepal/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+        
+      <div class="services-block events" id="grpDth">
+        <div class="services-info-block col-md-12 pl-5 pr-5">
+        <div class="col-md-8 float-left">
+          <h3 class="regular-title">
+          Event Ticket Booking in Nepal with Khalti: Enjoy Seamless and Effortless  booking. 
+          </h3>
+          <p class="pb-2">
+          You must be ready to attend your favorite events. Khalti offers an easy event ticket near you with just a few clicks for concerts, movies, sports events and more.
+          </p>
+          <a href="/payments/events-tickets/" class="more-link"
+          >Read More <i class="icon-more"></i>
+          </a>
+        </div>
+        <div class="col-md-4 float-left">
+          <div class="d-block pt-3 text-center">
+          <a
+            href="https://khalti.com/#/service/"
+            class="button orange button-padding d-inline-block no-border"
+            >Pay Bills Now</a
+          >
+          <label class="text-center pt-2">Get Instant Cashback</label>
+          </div>
+        </div>
+        </div>
+      </div> 
+       
+        
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="works padding-equal">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="text-center mb-5">How Khalti Works?</h2>
+        <div class="works-group row" id="workGroup">
+          <div class="col-md-4 text-center">
+            <a href="https://web.khalti.com/#/join" class="create">
+              <div class="works-item" id="stepOne">
+                <img
+                  src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/create-account.svg"
+                  alt="create account"
+                />
+              </div>
+              <h3 class="regular-title">Create Account</h3>
+              <p>Register, get verified and login to Khalti</p>
+            </a>
+          </div>
+          <div class="col-md-4 text-center">
+            <a href="/load-fund/" class="load">
+              <div class="works-item" id="stepTwo">
+                <img
+                  src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/load-funds.svg"
+                  alt="load funds"
+                />
+              </div>
+              <h3 class="regular-title">Load Funds</h3>
+              <p>Load funds via our partner banks or offline methods</p>
+            </a>
+          </div>
+          <div class="col-md-4 text-center">
+            <a href="https://web.khalti.com/" class="pay">
+              <div class="works-item" id="stepThree">
+                <img
+                  src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/images/pay-bills.svg"
+                  alt="pay bills"
+                />
+              </div>
+              <h3 class="regular-title">Pay Bills</h3>
+              <p>You are all set to Pay, Send or Accept payments online</p>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+ 
+<section class="load-funds padding-equal" style="">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12"> 
+                
+                    <h2 class="text-center mb-2" id="video-title-id">How to load Funds?</h2>
+                    <p class="text-center mb-5" id="video-shortdesc-id" >Add funds to Khalti from our various online &amp; offline methods</p>
+                
+
+                <div class="tabs-block">
+                    <div class="tab-content">
+                         
+                        <div class="tab-pane fade show active" 
+                            id="bank-to-wallet" role="tabpanel" aria-labelledby="bank-to-wallet-tab">
+                            <div class="load-fund-media-content" onclick="handlePlayVideo(event)">
+                                <img src="https://cdn.nayathegana.com/media/2022/07/29/525970bf1d0040e0bf513f1b4af469ac.jpg" alt="Load Fund from Banks to Khalti Digital Wallet">
+                                <div class="khalti-play-btn">
+                                    <div class="pbtn"></div>
+                                </div>
+                            </div>
+                            <div class="load-fund-video" data-link=https://www.youtube.com/embed/kU92s65SUgc></div>
+                        </div>
+                         
+                        <div class="tab-pane fade " 
+                            id="counter-deposit" role="tabpanel" aria-labelledby="counter-deposit-tab">
+                            <div class="load-fund-media-content" onclick="handlePlayVideo(event)">
+                                <img src="https://cdn.nayathegana.com/media/2022/07/29/d62dfc9fa6bc417a97b0aa46fc3264d1.jpg" alt="Load Khalti Digital Wallet with cash deposit vouchers">
+                                <div class="khalti-play-btn">
+                                    <div class="pbtn"></div>
+                                </div>
+                            </div>
+                            <div class="load-fund-video" data-link=https://www.youtube.com/embed/ZvxPzgXYZug></div>
+                        </div>
+                         
+                        <div class="tab-pane fade " 
+                            id="wallet-to-wallet" role="tabpanel" aria-labelledby="wallet-to-wallet-tab">
+                            <div class="load-fund-media-content" onclick="handlePlayVideo(event)">
+                                <img src="https://cdn.nayathegana.com/media/2022/07/29/f26c3ef563dc46208ca1bcffee684c8a.jpg" alt="Send and request fund Khalti">
+                                <div class="khalti-play-btn">
+                                    <div class="pbtn"></div>
+                                </div>
+                            </div>
+                            <div class="load-fund-video" data-link=https://www.youtube.com/embed/fJHkWXTiRXs></div>
+                        </div>
+                         
+                        <div class="tab-pane fade " 
+                            id="khalti-via-card" role="tabpanel" aria-labelledby="khalti-via-card-tab">
+                            <div class="load-fund-media-content" onclick="handlePlayVideo(event)">
+                                <img src="https://cdn.nayathegana.com/media/2022/07/29/066e5ba385034a6a8c86514cdc12ffe9.jpg" alt="Load Khalti Digital Wallet using International VISA, Amex, Master &amp; SCT Cards">
+                                <div class="khalti-play-btn">
+                                    <div class="pbtn"></div>
+                                </div>
+                            </div>
+                            <div class="load-fund-video" data-link=https://www.youtube.com/embed/Fqz1JWWBIqE></div>
+                        </div>
+                         
+                        <div class="tab-pane fade " 
+                            id="connect-ips" role="tabpanel" aria-labelledby="connect-ips-tab">
+                            <div class="load-fund-media-content" onclick="handlePlayVideo(event)">
+                                <img src="https://cdn.nayathegana.com/media/2022/07/29/066e533f22f048e09fb6586faab802b2.jpg" alt="Load Khalti Digital Wallet With Connect IPS">
+                                <div class="khalti-play-btn">
+                                    <div class="pbtn"></div>
+                                </div>
+                            </div>
+                            <div class="load-fund-video" data-link=https://www.youtube.com/embed/></div>
+                        </div>
+                        
+                    </div>
+                    <nav class="khalti-load-fund-menu-container">
+                        <div class="nav nav-tabs khalti-load-fund-items" role="tablist" style="max-width: 100% !important;">
+                              
+                            <span style="display:none;" data-title="How to load Funds?" data-shortdesc="Add funds to Khalti from our various online &amp; offline methods">Bank to Wallet</span> 
+        
+                            <a class="khalti-link-menu active" 
+                                id="bank-to-wallet-tab" data-toggle="tab" href="#bank-to-wallet" data-target="#bank-to-wallet" role="tab" 
+                                aria-controls="bank-to-wallet" aria-selected="true" 
+                                onclick="myFunction(this, 'pills-bank-to-wallet-tab')">
+                                Bank to Wallet
+                            </a>
+                              
+                            <span style="display:none;" data-title="How to load Funds?" data-shortdesc="Add funds to Khalti from our various online &amp; offline methods">Counter Deposit</span> 
+        
+                            <a class="khalti-link-menu " 
+                                id="counter-deposit-tab" data-toggle="tab" href="#counter-deposit" data-target="#counter-deposit" role="tab" 
+                                aria-controls="counter-deposit" aria-selected="true" 
+                                onclick="myFunction(this, 'pills-counter-deposit-tab')">
+                                Counter Deposit
+                            </a>
+                              
+                            <span style="display:none;" data-title="How to load Funds?" data-shortdesc="Add funds to Khalti from our various online &amp; offline methods">Wallet to Wallet</span> 
+        
+                            <a class="khalti-link-menu " 
+                                id="wallet-to-wallet-tab" data-toggle="tab" href="#wallet-to-wallet" data-target="#wallet-to-wallet" role="tab" 
+                                aria-controls="wallet-to-wallet" aria-selected="true" 
+                                onclick="myFunction(this, 'pills-wallet-to-wallet-tab')">
+                                Wallet to Wallet
+                            </a>
+                              
+                            <span style="display:none;" data-title="How to load Funds?" data-shortdesc="Add funds to Khalti from our various online &amp; offline methods">Khalti Via Card</span> 
+        
+                            <a class="khalti-link-menu " 
+                                id="khalti-via-card-tab" data-toggle="tab" href="#khalti-via-card" data-target="#khalti-via-card" role="tab" 
+                                aria-controls="khalti-via-card" aria-selected="true" 
+                                onclick="myFunction(this, 'pills-khalti-via-card-tab')">
+                                Khalti Via Card
+                            </a>
+                              
+                            <span style="display:none;" data-title="How to load Funds?" data-shortdesc="Add funds to Khalti from our various online &amp; offline methods">connect-IPS</span> 
+        
+                            <a class="khalti-link-menu " 
+                                id="connect-ips-tab" data-toggle="tab" href="#connect-ips" data-target="#connect-ips" role="tab" 
+                                aria-controls="connect-ips" aria-selected="true" 
+                                onclick="myFunction(this, 'pills-connect-ips-tab')">
+                                connect-IPS
+                            </a>
+                            
+                        </div>
+                    </nav>
+                </div>
+                <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist" style="display: none;">
+                    
+                    <li class="nav-item">
+                        <a class="nav-link active" id="pills-bank-to-wallet-tab" 
+                        data-toggle="pill" href="#pills-bank-to-wallet" data-target="#pills-bank-to-wallet" role="tab" 
+                        aria-controls="pills-bank-to-wallet" aria-selected="true"></a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="pills-counter-deposit-tab" 
+                        data-toggle="pill" href="#pills-counter-deposit" data-target="#pills-counter-deposit" role="tab" 
+                        aria-controls="pills-counter-deposit" aria-selected="true"></a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="pills-wallet-to-wallet-tab" 
+                        data-toggle="pill" href="#pills-wallet-to-wallet" data-target="#pills-wallet-to-wallet" role="tab" 
+                        aria-controls="pills-wallet-to-wallet" aria-selected="true"></a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="pills-khalti-via-card-tab" 
+                        data-toggle="pill" href="#pills-khalti-via-card" data-target="#pills-khalti-via-card" role="tab" 
+                        aria-controls="pills-khalti-via-card" aria-selected="true"></a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="pills-connect-ips-tab" 
+                        data-toggle="pill" href="#pills-connect-ips" data-target="#pills-connect-ips" role="tab" 
+                        aria-controls="pills-connect-ips" aria-selected="true"></a>
+                    </li>
+                    
+                </ul>
+                <div class="tab-content text-center" style="padding-top: 20px;">
+                    <div class="content-item">
+                        <div class="tab-content" id="pills-tabContent">
+                              
+                            <div class="tab-pane fade show active" id="pills-bank-to-wallet" 
+                                role="tabpanel" aria-labelledby="pills-bank-to-wallet-tab-tab">
+
+                                
+                                    <p class="col-md-10 col-12 mx-auto">
+                                        Load funds from your bank account using eBanking or mobile banking. You can load from all our partner banks
+                                    </p>
+                                    <a href="/load-fund/" class="more-link orange-link">Learn More <i class="icon-arrow-left ml-2 align-middle margin-minus5"></i> </a>
+                                
+                            </div>
+                              
+                            <div class="tab-pane fade " id="pills-counter-deposit" 
+                                role="tabpanel" aria-labelledby="pills-counter-deposit-tab-tab">
+
+                                
+                                    <p class="col-md-10 col-12 mx-auto">
+                                        No Bank Account required. Simply load funds to Khalti using Deposit vouchers
+                                    </p>
+                                    <a href="/load-fund/" class="more-link orange-link">Learn More <i class="icon-arrow-left ml-2 align-middle margin-minus5"></i> </a>
+                                
+                            </div>
+                              
+                            <div class="tab-pane fade " id="pills-wallet-to-wallet" 
+                                role="tabpanel" aria-labelledby="pills-wallet-to-wallet-tab-tab">
+
+                                
+                                    <p class="col-md-10 col-12 mx-auto">
+                                        Khalti allows you to transfer money to your friends and family just in few clicks via Send and Request feature
+                                    </p>
+                                    <a href="/load-fund/" class="more-link orange-link">Learn More <i class="icon-arrow-left ml-2 align-middle margin-minus5"></i> </a>
+                                
+                            </div>
+                              
+                            <div class="tab-pane fade " id="pills-khalti-via-card" 
+                                role="tabpanel" aria-labelledby="pills-khalti-via-card-tab-tab">
+
+                                
+                                    <p class="col-md-10 col-12 mx-auto">
+                                        Enable your card for online payment and load using International/ VISA/ Amex/ Master/ SCT Cards
+                                    </p>
+                                    <a href="/load-fund/" class="more-link orange-link">Learn More <i class="icon-arrow-left ml-2 align-middle margin-minus5"></i> </a>
+                                
+                            </div>
+                              
+                            <div class="tab-pane fade " id="pills-connect-ips" 
+                                role="tabpanel" aria-labelledby="pills-connect-ips-tab-tab">
+
+                                
+                                    <p class="col-md-10 col-12 mx-auto">
+                                        Load fund directly through bank account by connecting your bank account to connectIPS system brought into operation by Nepal Clearing House Limited (NCHL)
+                                    </p>
+                                    <a href="/load-fund/" class="more-link orange-link">Learn More <i class="icon-arrow-left ml-2 align-middle margin-minus5"></i> </a>
+                                
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> 
+    <script type="text/javascript">
+
+        function myFunction(e, tab){   
+            if(tab) { 
+                document.getElementById(tab).click();
+            }
+			prev_dataset = e.previousElementSibling.dataset;
+			document.getElementById('video-title-id').textContent = prev_dataset.title;
+			document.getElementById('video-shortdesc-id').textContent = prev_dataset.shortdesc;
+            document.querySelectorAll('.load-fund-media-content').forEach(function(wrapper) {
+                wrapper.style.display = "block" 
+            }) 
+            document.querySelectorAll('.load-fund-video').forEach(function(wrapper) {
+                wrapper.innerHTML = ""
+                wrapper.style.display = "none"
+            })  
+        }
+
+        function handlePlayVideo(event) { 
+            var current =  event.currentTarget
+            var next = current.nextElementSibling
+            var video_link = next.dataset.link  
+
+            if(!video_link) return 
+            document.querySelectorAll('.load-fund-video').forEach(function(wrapper) {
+                wrapper.innerHTML = ""
+                wrapper.style.display = "none"
+            })
+            current.style.display = "none"
+            next.style.display = "block"
+            next.innerHTML = `
+                                <iframe width="100%" height="400px" src="${video_link}?autoplay=1"></iframe>
+                            `
+        }
+    </script> 
+</section>
+
+
+<section class="image-ad ad-01 text-center">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="text-white text-center">
+          Transactions made effortless. <br />Download app for free.
+        </h2>
+
+        <a href="https://khalti.com/android" class="playstore d-inline-block"
+          >playstore</a
+        >
+        <a href="https://khalti.com/ios" class="appstore d-inline-block"
+          >appstore</a
+        >
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stories padding-equal pt-0">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="text-center mb-5">
+          Our Mission to bring easy access to finance
+        </h2>
+        <p class="text-center">
+          We build world class digital financial products to bring easy access
+          to finance to individuals all over Nepal and drive financial
+          inclusivity and literacy by empowering a nationwide network of smart
+          agents of change.
+        </p>    
+      
+
+         
+          
+            <div class="row pt-4 stories-block">
+              <div class="col-lg-8 col-md-12">
+                <div class="stories-content-block">
+                  <h2 class="text-white">Places by Khalti</h2>
+                  <p class="text-white">
+                    Places by Khalti is a feature where users can find their favorite places and gain exclusive access to a variety of options.
+                  </p>
+                  <a
+                    href="https://blog.khalti.com/entertainment/places-by-khalti/"
+                    class="more-link orange-link"
+                    >Learn more about places by Khalti
+                    <i class="icon-arrow-left"></i></a>
+                </div>
+                <div class="image-block">
+                  <img
+                    src="https://cdn.nayathegana.com/media/2024/04/24/99e0e81e658a4c7b89801569c221bd15.png"
+                    alt="Explore Places"
+                  />
+                </div>
+              </div>
+              <div class="col-lg-4 col-md-12 even-block">
+                <div class="stories-content-block ml-3 mr-3">
+                  <h2 class="text-white">Celebrating Khalti&#x27;s 7th Anniversary</h2>
+                  <p class="text-white">
+                    Believe it or not, it’s been seven years since we embarked on this epic journey together! 🎉
+                  </p>
+                  <a
+                    href="https://blog.khalti.com/offers/khaltis-7th-anniversary-with-khalti-%e0%a4%95%e0%a5%8b-%e0%a4%b8%e0%a4%be%e0%a4%a5/"
+                    class="more-link orange-link"
+                    >Celebrate With Khalti <i class="icon-arrow-left"></i
+                  ></a>
+                </div>
+                <div class="image-block">
+                  <img
+                    src="https://cdn.nayathegana.com/media/2024/04/24/8a292f2382c64ddcb0e78acdca3aa09c.png"
+                    alt="Learn More"
+                  />
+                </div>
+              </div>
+            </div> 
+          
+        
+    
+
+         
+           
+
+            <div class="row stories-block">
+              <div class="col-lg-4 col-md-12 even-block odd-block">
+                <div class="stories-content-block ml-3 mr-3">
+                  <h2 class="text-white">Play Khalti Quiz</h2>
+                  <p class="text-white">
+                    Khalti Quiz is an interactive game, where you will be asked a number of questions and rewarded for every correct answer. Experience the new Khalti Quiz; play the game and win exciting prizes.
+                  </p>
+                  <a
+                    href="https://blog.khalti.com/offers/play-khalti-quiz/"
+                    class="more-link orange-link"
+                    >Play Khalti Quiz <i class="icon-arrow-left"></i
+                  ></a>
+                </div>
+                <div class="image-block">
+                  <img
+                    src="https://cdn.nayathegana.com/media/2024/04/24/05240fefbb2b44609470dbbfd14ae781.png"
+                    alt="Click Here"
+                  />
+                </div>
+              </div>  
+
+              <div class="col-lg-8 col-md-12">
+                <div class="stories-content-block">
+                  <h2 class="text-white">Don&#x27;t Be A Dino</h2>
+                  <p class="text-white">
+                    In the era of digital advancements, where smartphones are practically an extension of ourselves, it’s surprising that 60% of the population still relies on the traditional box office or offline methods for booking movie tickets. Are you one of them?
+                  </p>
+                  <a href="https://blog.khalti.com/home/dont-be-a-dino-bro/" class="more-link orange-link"
+                    >Shed the Dino status and Book movie tickets from Khalti <i class="icon-arrow-left"></i
+                  ></a> 
+                </div>
+                <div class="image-block">
+                  <img
+                    src="https://cdn.nayathegana.com/media/2024/04/24/4451df4afe054cddb80fbd04cc961ad7.png"
+                    alt="Click Here"
+                  />
+                </div>
+              </div> 
+            </div>
+          
+        
+       
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+
+ 
+<section class="partner-banks padding-equal" style="" >
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="text-center mb-5">Our Partner Banks</h2>
+        <div class="tabs-block">
+          <nav class="p-2">
+            <!-- <div class="nav nav-tabs" role="tablist" style="overflow-x: scroll; overflow-y: hidden; flex-wrap: nowrap; white-space: nowrap;" >  -->
+				<div class="nav nav-tabs" role="tablist">
+			  
+				<a
+					class="nav-item nav-link active"
+					id="bank-link-partner-tab"
+					data-toggle="tab"
+					href="#bank-link-partner"
+					data-target="#bank-link-partner"
+					role="tab"
+					aria-controls="bank-link-partner"
+					aria-selected="true" 
+					>Bank-link Partner</a>
+			  
+				<a
+					class="nav-item nav-link "
+					id="e-banking-partner-tab"
+					data-toggle="tab"
+					href="#e-banking-partner"
+					data-target="#e-banking-partner"
+					role="tab"
+					aria-controls="e-banking-partner"
+					aria-selected="true" 
+					>e-Banking Partner</a>
+			  
+				<a
+					class="nav-item nav-link "
+					id="mobile-banking-partner-tab"
+					data-toggle="tab"
+					href="#mobile-banking-partner"
+					data-target="#mobile-banking-partner"
+					role="tab"
+					aria-controls="mobile-banking-partner"
+					aria-selected="true" 
+					>Mobile Banking Partner</a>
+			  
+				<a
+					class="nav-item nav-link "
+					id="khalti-via-card-tab"
+					data-toggle="tab"
+					href="#khalti-via-card"
+					data-target="#khalti-via-card"
+					role="tab"
+					aria-controls="khalti-via-card"
+					aria-selected="true" 
+					>Khalti Via Card</a>
+			  
+				<a
+					class="nav-item nav-link "
+					id="connectips-tab"
+					data-toggle="tab"
+					href="#connectips"
+					data-target="#connectips"
+					role="tab"
+					aria-controls="connectips"
+					aria-selected="true" 
+					>ConnectIPS</a>
+			  
+				<a
+					class="nav-item nav-link "
+					id="counter-deposit-tab"
+					data-toggle="tab"
+					href="#counter-deposit"
+					data-target="#counter-deposit"
+					role="tab"
+					aria-controls="counter-deposit"
+					aria-selected="true" 
+					>Counter Deposit</a>
+			 
+            </div>
+          </nav>
+          <div class="tab-content pt-5" id="myTabContent"> 
+			 
+				<div
+					class="tab-pane fade show active bank-list"
+					id="bank-link-partner"
+					role="tabpanel"
+					aria-labelledby="bank-link-partner-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/702a075eb765403a8c2bee5da422d41c.jpg"
+										alt="Agricultre Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ADBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/7240874306dc4c668f1b620c997a70d2.jpg"
+										alt="Citizens Bank International Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Citizens</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3853ee7d3ae94a9b80b376c681748e62.jpg"
+										alt="Everest Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Everest</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/8aaa37dd38b9467bb6ce415566e97158.jpg"
+										alt="Global IME Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Global IME</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/8af790ea65fa48f7b85873d2d88306d7.jpg"
+										alt="ICFC"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ICFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/66e4347819104c46a1857ab8063ee07f.jpg"
+										alt="Jyoti Bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Jyoti Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/fd81274bad24416ab60ff1e9cba3ac6c.jpg"
+										alt="Kamana Sewa bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kamana</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/e2604b1ecd5c49e58e6073926b464d05.jpg"
+										alt="Machhapuchhre Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/95e7909865274745b9e0bfa1937b431e.jpg"
+										alt="Muktinath Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Muktinath</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/7eae634628c04406ad1450c9feb4a5e5.jpg"
+										alt="NIC Asia Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/e7945ca660f74364bdfc34a032ca935e.jpg"
+										alt="Nepal Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Bank</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/c10d4631730d4808b019d022314e2368.jpg"
+										alt="Prabhu Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prabhu</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/644d6917d75a4dd6b51754fdb452bb19.jpg"
+										alt="Prime Commercial Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prime</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3cceb7591a874c2cbcfaca49c1dca981.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/5e6354d484094fa0bd6e0917cda9c1e8.jpg"
+										alt="Shine Resunga Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shine Resunga</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/5e08a34f6752414e9d720c23f793ac3d.jpg"
+										alt="Siddhartha Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Siddhartha</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/21e6d2da08834b81a7bc55fdd5acae78.jpg"
+										alt="Nepal Finance Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/01/16/6bee661dba354947868da54265bc5045.png"
+										alt="Link Nepal Investment Bank Limited(NIBL) with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/8c06612879b64ad78422bf5c708cd87f.jpg"
+										alt="Link Rastra Banijya Bank(RBB) with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> RBB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/539b89bbe91e40f09297f64ce9d67ade.png"
+										alt="Link Best Finance Company(BFC) with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> BFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/fc7aa7d21dba44c19444715e8302f957.png"
+										alt="Link Central Finance Limited with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Central Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/1faf86e4b05a4c6d87aefda1f53c19a0.png"
+										alt="Link Manjushree Finance Limited with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Manjushree Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/f5f4637e27994321bdeb7a4078172a94.png"
+										alt="Link Multipurpose Finance Limited with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Multipurpose Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/f2db0e97e9f94a7eacfb5ab7af151804.jfif"
+										alt="Link Sindhu Bikas Bank with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Sindhu Bikas</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/20/d6abae2e1d074f3ebd5cd99fa208f4be.png"
+										alt="Click here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nabil</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/25/a71cc83594c74cf6850fef008de0aafa.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/20/4de1af5c245d45a8a62a89cf3f854e06.png"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Mahalaxmi</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/20/9c7983456fbf4c6db06bdb42f90c4d62.jpg"
+										alt="Click here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Goodwill</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2024/01/16/25641c2c3c1248448937458e67d871ec.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Laxmi Sunrise</label>
+							</li>
+						 
+					</ul>
+				</div>
+			 
+				<div
+					class="tab-pane fade  bank-list"
+					id="e-banking-partner"
+					role="tabpanel"
+					aria-labelledby="e-banking-partner-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/df11a177897a46108e9d687384d98268.jpg"
+										alt="Global IME Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Global IME</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/5a88e48e57904cd48c91b825dc16f379.jpg"
+										alt="NIC Asia"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/df67c34996e041abaef068042b808285.jpg"
+										alt="Kumari Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kumari</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/bb58358ec84b41019c86797633f2489b.jpg"
+										alt="Rastriya Banijya Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> RBB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/be0e0100c2d842aa953363c1f8e52308.jpg"
+										alt="Citizens Bank International Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Citizens</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/917b772456e24cd68aa7cf9cc945c188.jpg"
+										alt="Machhapuchhre Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/2faa472f3204441d91b78d2aa5b4934d.jpg"
+										alt="Kamana Sewa bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kamana</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/619588594f97459494a88b044e0f0dbf.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/bf224463dd3e41e29458320b82abf068.jpg"
+										alt="Muktinath Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Muktinath</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/678fa669466c45949a5b14ac812af4be.jpg"
+										alt="Agricultre Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ADBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/d11572422c634252914ac7f3407a7c48.jpg"
+										alt="Prabhu Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prabhu</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/6cb10c95509f46bdaf68213f6fe2dc10.png"
+										alt="Link Nepal SBI Bank with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal SBI</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2024/06/05/32aa2ca2eeac4a91b0515496722a904e.jpg"
+										alt="Nepal Investment Mega Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2024/06/05/8500b6060e3e4561888fa66697fe4b73.png"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Pokhara Finance</label>
+							</li>
+						 
+					</ul>
+				</div>
+			 
+				<div
+					class="tab-pane fade  bank-list"
+					id="mobile-banking-partner"
+					role="tabpanel"
+					aria-labelledby="mobile-banking-partner-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/261c9ae5d1354d74be1497a481a64040.jpg"
+										alt="Shine Resunga Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shine Resunga</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/a747485f927846f7955ba9bbd5c2f326.jpg"
+										alt="Jyoti Bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Jyoti Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/4625396a37e54e4a8deb6b6d479ee057.jpg"
+										alt="Nabil Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nabil</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/210cdc8581944417ab76b9064f60a0e3.jpg"
+										alt="Nepal Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Bank</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/5cfbca7bd16d4e4cb5d8485c838a935e.jpg"
+										alt="Prime Commercial Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prime</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3f02b880be134fe78660071fb568fc48.jpg"
+										alt="Siddhartha Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Siddhartha</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3173f22b839046fe8a2500474fe7d7c6.jpg"
+										alt="NIC Asia Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/01/16/296eff73065f4ca78c836eefcf9cab67.png"
+										alt="Nepal Investment Mega Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/872f2e717d4b47af93ef388467ff19db.jpg"
+										alt="Rastriya Banijya Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> RBB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3570fb1f49a44d4f88791387ea8eab99.jpg"
+										alt="Agricultre Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ADBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/7a1998fde56d495c8ed5e3da56f92aaa.jpg"
+										alt="Everest Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Everest</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/a446a4adff7e463b98811b1506765095.jpg"
+										alt="Prabhu Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prabhu</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/f9575f9b81d841aa997f41214de574b2.jpg"
+										alt="Global IME Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Global IME</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/baa34b4d35074a7599990d7fbce43de1.jpg"
+										alt="Citizens Bank International Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Citizens</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3361c20c960147d9ac341df5e4ca1881.jpg"
+										alt="NMB Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/88d270ccc9db41c48f32ea383a996e60.jpg"
+										alt="Machhapuchhre Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/704e6a7cabdc472cb63ff0ad957dc630.jpg"
+										alt="Kamana sewa bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kamana</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/1c3e5d6fb3014e2d82cfb990512c7067.jpg"
+										alt="ICFC"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ICFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/44380d6f6b3842bba34f9d88e2f26a87.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/62412768d5d24f328d29748220026d5a.jpg"
+										alt="Muktinath Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Muktinath</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/40eb3e1674b148d89b4bf96ddc8fa49b.png"
+										alt="Link Best Finance Company Ltd with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Best Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/920aa60bef3c46fca93b47a085d5e434.png"
+										alt="Link Manjushree Finance Limited with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Manjushree Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/1aa30b33382140b2b0d3320dfd27bbbc.png"
+										alt="Link Nepal Finance Limited with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/11/04/59d7a03f784c4b7e8559c0677747a930.jfif"
+										alt="Link Sindhu Bikash Bank  with Khalti"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Sindhu Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/19/58dbe8dca700432d9e638ce6cf47f801.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Central Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/19/af0ae19ccafe4342a46b0c3e3629d3ca.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MultiPurpose Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/06/19/843a7862f2f94bf4a98e100bdb1ed253.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Goodwill Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2024/01/16/705259a6b2c2464791b0d91319d79b57.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Laxmi Sunrise</label>
+							</li>
+						 
+					</ul>
+				</div>
+			 
+				<div
+					class="tab-pane fade  bank-list"
+					id="khalti-via-card"
+					role="tabpanel"
+					aria-labelledby="khalti-via-card-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3d46834d20dd43c686b823e0ed3fd538.jpg"
+										alt="Mahalaxmi Bikash Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Mahalaxmi Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/dca75ca14771439b8a3733a223ac17d7.jpg"
+										alt="NIC Asia"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/6608d0db38544b2ebc57b934d341ba23.jpg"
+										alt="Nabil Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nabil</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/01/16/19132331f6ef46eaa5d70798f24d641d.png"
+										alt="Nepal Investment Mega Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/be05799ea2334266898a9e682421cfc7.jpg"
+										alt="Nepal Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Bank</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/de85020bfc704e31bb1abae31ad2c8a9.jpg"
+										alt="Rastriya Banijya Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> RBB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/84671dee60ec4a7286cdb8f6868fbf11.jpg"
+										alt="Agricultre Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ADBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/e9e5195b7ade49f49e39e66fae80f752.png"
+										alt="Nepal SBI"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal SBI</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/bdee78375b3148f88bba66c52d492e3f.jpg"
+										alt="Everest Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Everest</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/04b76cda6dee4d36a08b079376eb51a5.jpg"
+										alt="Prabhu Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prabhu</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/4ce435aeff63402eb275d2dbaea43138.jpg"
+										alt="Global IME Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Global IME</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/fdab18a275ab4793a84868c757e07f8d.jpg"
+										alt="Citizens Bank International Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Citizens</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/6aa66fc7f2f2499e8fe7567c612bd10a.jpg"
+										alt="Prime Commercial Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prime</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/3b67cbd0a4e34ec59ec29b6c0401a153.jpg"
+										alt="NMB Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/b8f1541cd0134fb382b1f038ee1d803d.jpg"
+										alt="Siddhartha Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Siddhartha</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/26743fc27011482a94356da7e46ae6d3.jpg"
+										alt="Machhapuchhre Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/8a52d427c6d74acf849596258bf5345d.jpg"
+										alt="Civil Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Civil</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/c17dd890a88d41af9a222d545f89cdcb.jpg"
+										alt="Sanima Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Sanima</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/0087e638d2404e7f8e9ea3da978c5280.jpg"
+										alt="Shine Resunga Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shine Resunga</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/b7d5d9567b034427920a50a226a45007.jpg"
+										alt="Lumbini Bikash Bank limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Lumbini Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/66d1188c8e0543ab883222729adee6a8.jpg"
+										alt="Kamana Sewa bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kamana</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/676bb70de7714b82a3839045e9bd6c9a.jpg"
+										alt="ICFC"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ICFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/00da0f064a2e43e588513538e695f77a.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/cea48907528042b39b5adecec8c6fa5e.jpg"
+										alt="Muktinath Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Muktinath</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/c1af1befd30b4f808e52c983fed0fabe.jpg"
+										alt="Jyoti Bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Jyoti Bikash</label>
+							</li>
+						 
+					</ul>
+				</div>
+			 
+				<div
+					class="tab-pane fade  bank-list"
+					id="connectips"
+					role="tabpanel"
+					aria-labelledby="connectips-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/5255169c29a542d284cab143a8e86fa1.jpg"
+										alt="NIC Asia"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/a3c151abfe11446ca8ec9e323b738915.jpg"
+										alt="Agricultre Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ADBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/cf5455e0ddd54381894b4faec169ead7.jpg"
+										alt="Citizens Bank International Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Citizens</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/607a22cf7dbe4926bfef4feb67433751.jpg"
+										alt="Everest Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Everest</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/9a5a99df91144cfca66c20acb32accaa.jpg"
+										alt="Global IME Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Global IME</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/1fff350098c542abb84b2591d38d2015.jpg"
+										alt="Himalayan Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Himalayan</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/f46eeeb05b2348879a347f65a0e63ff4.jpg"
+										alt="Kumari Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kumari</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/9621c1c097e249f39c940153efcc7539.jpg"
+										alt="Machhapuchhre Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> MBL</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/1b3a8b0dd31c4b529d2521f4ef1789c7.jpg"
+										alt="Nabil Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nabil</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/526df21777914affa79f22cd915be8c3.jpg"
+										alt="Nepal Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Bank</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/01/16/0540d06393c941e19c664c9ed090ccb0.png"
+										alt="Nepal Investment Mega Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/6f0711b49e9843d5b406903a4cc7fa54.jpg"
+										alt="NMB Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/e0c2f5545d9e442eb2bb8e4a0422f15b.jpg"
+										alt="Prabhu Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prabhu</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/071ceac2590f4ec6a4ad566ce643973e.jpg"
+										alt="Prime Commercial Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Prime</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/71a9725bdffd4d6cb59fa70182d39b52.jpg"
+										alt="Sanima Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Sanima</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/72329085ff034ef2a1af8001006532a7.jpg"
+										alt="Siddhartha Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Siddhartha</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/9dd9605c18e349d1b89c23bf6f248348.jpg"
+										alt="Rastriya Banijya Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> RBB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/9406c942b5c74b919da5d159420edfcc.png"
+										alt="Nepal SBI"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal SBI</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/0e74d9960e9342399580c1d5a67d53d1.jpg"
+										alt="Standard Chartered Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Standard Chartered</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/f5e1c87cfec64716ab61bbdba43c54e4.jpg"
+										alt="Muktinath Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Muktinath</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/53bd0ed624764f4293afad02241e4e50.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/954f9b7347784f148f00f46484cd5c2a.jpg"
+										alt="Kamana Sewa bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Kamana</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/2ed13d03cdee4225bb84e9d8b705a770.jpg"
+										alt="Shine Resunga Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shine Resunga</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/1f60b487e9834816bbf790b19e0a315a.jpg"
+										alt="Jyoti Bikash bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Jyoti Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/9e74a3b1991246abbb25d1dcce495b3b.jpg"
+										alt="Excel Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Excel</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/217091cbe7c049ea996636340e0b67ce.jpg"
+										alt="Garima Bikash Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Garima Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/4af1c2cec92449d0b597563378402ba4.jpg"
+										alt="Mahalaxmi Bikash Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Mahalaxmi Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/e2e6205596ca4d54a0c40a350ecd400e.jpg"
+										alt="Lumbini Bikash Bank limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Lumbini Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/a7af51fffb304279839688bd2fadd8f7.jpg"
+										alt="Green Development Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Green</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/471d6d21104045fcb5ccd9e6582b27d9.jpg"
+										alt="Miteri Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Miteri</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/550fa940ef8a45fcbd4be77c4d29e669.jpg"
+										alt="Saptakoshi Development Bank Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Saptakoshi</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/8613f3d63ebc452ea585e1778faaf16c.jpg"
+										alt="Nepal Finance Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Nepal Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/290b3cd85d514d0cb5a021f532184fb3.jpg"
+										alt="ICFC"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ICFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/30a6e0cee54040c396004ea35b9fedb6.jpg"
+										alt="Gurkhas Finance Limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Gurkhas Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/cfb0631fbc7b456a88de4baded1875dd.jpg"
+										alt="Progressive Finance"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Progressive Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/4b390fd20af14e378021a8a7d8fefcc7.jpg"
+										alt="United Finance"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> United Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/02/c958180eeb844934acbe93a978defa41.jpg"
+										alt="Reliance Finance"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Reliance Finance</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="https://khalti.com/" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2024/06/05/648cd1a6a0b34755947622cce1fd7b67.jpg"
+										alt="Click Here"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Laxmi Sunrise</label>
+							</li>
+						 
+					</ul>
+				</div>
+			 
+				<div
+					class="tab-pane fade  bank-list"
+					id="counter-deposit"
+					role="tabpanel"
+					aria-labelledby="counter-deposit-tab"
+					>
+					<ul class="flex-start-center">
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2023/01/16/c7b81187102e4b9c8bb8f2a27a009827.png"
+										alt="Nepal Investment Mega Bank"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIMB</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/fcdc9de29e2c464daa8695a790721850.jpg"
+										alt="NIC Asia"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> NIC Asia</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/65db06bc855c45db9c7276f1054577a1.jpg"
+										alt="Lumbini Bikash Bank limited"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Lumbini Bikash</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/ebdfbce0fdfb4c1e9473200bfb5ff173.jpg"
+										alt="ICFC"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> ICFC</label>
+							</li>
+						
+							<li class="bank-item text-center">
+								<a href="http://khalti.com" target="_blank" rel="noopener noreferrer">
+									<img
+										src="https://cdn.nayathegana.com/media/2022/08/01/2c9e68d4f4854293bf09617bb99dd269.jpg"
+										alt="Shangrila Development Bank Ltd"
+									/> 
+								</a>
+							<label class="pt-2 d-block"> Shangrila</label>
+							</li>
+						 
+					</ul>
+				</div>
+			
+            
+          </div>
+        </div>
+        <div class="clearfix"></div>
+      </div>
+    </div>
+  </div>
+
+<script type="text/javascript"> 
+	function activeFunc(e){
+		e.classList.add('active');
+	}
+
+</script>
+
+</section>
+
+
+<section class="khalti-pasal padding-equal">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-md-12 m-auto">
+        <div class="row">
+          <div class="col-md-6 pasal-num">
+            <h2 style="margin-bottom: 20px;">95,000+</h2>
+            <h3 class="text-white">
+              <strong>Khalti Pasals</strong> <br />across Nepal
+            </h3>
+          </div>
+          <div class="col-md-6 pasal-info">
+            <h2 class="text-white">Khalti Pasal</h2>
+            <p class="text-white">
+              Sell our services through your retails shops by becoming a Khalti
+              Agent today!
+            </p>
+            <a
+              href="/pasal/"
+              class="button orange button-padding d-inline-block no-border mt-3"
+              >Learn more</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pasal-map"></div>
+  </div>
+</section>
+
+
+
+<section class="khalti-accepted padding-equal">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="text-center mb-5">We are accepted at</h2>
+
+                <div class="merchants-block text-center">
+                    <ul>
+                        
+                        <li>
+                            <a href="" target="__blank" rel="noopener noreferrer"><img src="https://cdn.nayathegana.com/media/2024/04/22/84faba20ded74dafa9194f9e53dddf32.png" alt="Wifi Nepal" /></a></li>
+                        </a>
+                        
+                        <li>
+                            <a href="" target="__blank" rel="noopener noreferrer"><img src="https://cdn.nayathegana.com/media/2024/04/22/debbdb96e06841d18da8af95208ed9aa.png" alt="Bishwojyoti Cineplex" /></a></li>
+                        </a>
+                        
+                        <li>
+                            <a href="" target="__blank" rel="noopener noreferrer"><img src="https://cdn.nayathegana.com/media/2022/07/29/f53c2e4481474dc8adb05098c223f529.png" alt="Kitab Yatra" /></a></li>
+                        </a>
+                        
+                        <li>
+                            <a href="" target="__blank" rel="noopener noreferrer"><img src="https://cdn.nayathegana.com/media/2022/07/29/10e593a62471491293698310c89e93b5.png" alt="Sagarmatha" /></a></li>
+                        </a>
+                        
+                        <li>
+                            <a href="" target="__blank" rel="noopener noreferrer"><img src="https://cdn.nayathegana.com/media/2022/07/29/8c3e3ec4ae3240908e64f0ce81fb94d4.png" alt="Kaspersky" /></a></li>
+                        </a>
+                        
+                    </ul>
+                </div>
+                <div class="text-center pt-2">
+                    <a href="/merchant/" class="more-link orange-link">View All <i class="icon-plus ml-2 align-middle margin-minus5"></i> </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section> 
+
+
+
+
+<div class="modal fade" id="myModal" role="dialog">
+<div class="modal-dialog">
+   <!--  <div class="modal-content" id="login-component">
+        <form method="POST" action="/api/v2/auth/device-login/" name='login-form' class="form" id='login-form'>
+            <div class="modal-header">
+                <h5 class="modal-title">Login</h5> 
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="font-size: 35px;">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group row">
+                    <label class="col-md-12 col-form-label">Identity</label>
+                    <div class="col-sm-12">
+                    <input type="text" class="form-control" name="id" id="khaltiId" placeholder="Mobile Number or Email" required autofocus style="font-size:0.9em; height: 35px;" oninput="handleIdInput()">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-12 col-form-label">Password</label>
+                    <div class="col-sm-12">
+                    <input type="password" class="form-control" id="khaltiPassword" name="password" placeholder="Your Khalti account password" required style="font-size:0.9em; height: 35px;" oninput="handlePwdInput()">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-12">
+                    <input type="checkbox" onclick="pwdToggler()"> Show Password 
+                </div>
+                <div class="col-md-12">
+                    <div class="alert alert-danger" style="display: none; margin-top: 10px" id="loginError">
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <button type="submit" class="btn btn-primary btn-block purple" style="margin-top: 10px" id="khaltiSubmitBtn">
+                        <span class="spinner-border spinner-border-md" style="display: none;" id="submitBtnLoader"></span> Login
+                    </button>
+                </div>
+                <div class="col-md-12 text-center" style="margin-top: 10px">
+                    <a href="/recover/">Forgot password ?</a>
+                </div>
+                <div class="col-md-12 text-center" style="margin-top: 10px">
+                    <a href="/join/">Don't have an account? <strong>Join Now!</strong></a>
+                </div>
+            </div>
+        </form>
+    </div>
+    -->
+</div>
+</div>
+
+
+
+
+    
+<footer>
+    <div class="container footer-container">
+        <div class="row px-5">
+            <div class="col-12 col-md-9">
+                <div class="row text-white">
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Company</p>
+                        <a href="/about/" class="d-block">Our story</a>
+                        <a href="/contact/" class="d-block">Contact Us</a>
+                        <a href="/info/support/" class="d-block">Help and support</a>
+                        <a href="https://blog.khalti.com/careers/" class="d-block">Opportunities</a>
+                        <a href="/procurement/" class="d-block">Procurement</a>
+                    </div>
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Code of conduct</p>
+                        <a href="/info/privacy-policy/" class="d-block">Privacy Policy</a>
+                        <a href="/info/disputepolicy/" class="d-block">Dispute Policy</a>
+                        <a href="/info/terms/" class="d-block">Terms and Condition</a>
+                        <a href="/info/inactive-and-dormant-wallet-treatment-policy/" class="d-block">Inactive/Dormant Account Policy</a>
+                        <a href="/info/flight-fare-rules-and-regulations/" class="d-block">Flight Fare Rules and Regulations</a>
+                        <!-- <a href="/procurement/" class="d-block">Khalti Procurement</a> -->
+                    </div>
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Khalti Support</p>
+                        <p class="text-white" style="margin-bottom: 0px; font-weight: bold;">Chat support</p>
+                        <a href="whatsapp://send?phone=9779801165561" class="d-block">Whatsapp: +977 9801165561</a>
+                        <a href="viber://pa?chatURI=khalti" class="d-block">Viber: +977 9801165561</a>
+                        <a href="mailto:support@khalti.com" class="d-block">Email: support@khalti.com</a>
+                        <p class="text-white" style="margin: 7px 0px 0px 0px; font-weight: bold; line-height: 1.6;">Call
+                            support: (6am-12am)</p>
+                        <a href="tel:1810-21-02102" class="d-block">Toll Free: 1810-21-02102 (Ncell)</a>
+                        <a href="tel:1660-01-5-8888" class="d-block">Toll Free: 1660-01-5-8888 (NTC)</a>
+                        <a href="tel:01-5970017" class="d-block">Landline: 01-5970017</a>
+                    </div>
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Developer</p>
+                        <a href="https://docs.khalti.com/" class="d-block">Payment Gateway API Docs</a>
+                        <a href="https://github.com/khalti" class="d-block">Open Source</a>
+                        <a href="https://docs.google.com/document/d/1D5p8GujMTPAN4VFMCff6UK-Vsjb2x0SR1e9zWoacJIA/" class="d-block">Billing Services API Docs</a>
+                        <a href="https://campaigns.khalti.com/brandbook/" class="d-block">Brand Guidelines</a>
+                    </div>
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Charges and limits</p>
+                        <a href="/info/charges/" class="d-block">Khalti Service charge</a>
+                        <a href="/info/transaction-limits/" class="d-block">Transaction Limit</a>
+                    </div>
+                    <div class="col-6 col-lg-4 mt-4">
+                        <p class="text-uppercase text-white font-weight-bold footer-heads">Khalti Pasal Support</p>
+                        <a href="viber://chat?number=9778080808080" class="d-block">Viber(Chat only): +977 8080808080</a>
+                        <a href="mailto:pasalsupport@khalti.com" class="d-block">Email: pasalsupport@khalti.com</a>
+                        <a href="tel:01-5970017" class="d-block">Call: 01-5970017</a>
+                        <a href="https://khalti.com/pasal/" class="d-block">Khalti Pasal registration</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-3 mt-5 mt-md-0">
+                <div class="row">
+                    <div class="col-6 col-md-12 mt-4 pb-0">
+                        <div id="grievance-info">
+                            <p class="text-uppercase text-white font-weight-bold footer-heads">Grievance Officer</p>
+                            <p class="text-white" style="margin-bottom: auto;">Name: Anish Mattel</p>
+                            <a href="tel:9801856415" class="d-block">Call: +977 9801856415</a>
+                            <a href="mailto:support@khalti.com" class="d-block">Email: support@khalti.com</a>
+                            <a href="https://gunaso.nrb.org.np/" style="margin: 5px 0px 0px 0px; font-weight: 600;" class="d-block" target="_blank">NRB Grievance Portal</a>
+                        </div>
+
+                        <div class="my-4" id="footer-login">
+                            <h4 class="text-uppercase text-white">join khalti</h4>
+                            <div class="">
+                                <a href="https://web.khalti.com/"
+                                    class="bp-service-cta khalti-color-light" style="padding: 0.75rem 1.5rem;">Login/Register</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-12">
+                        <div class="my-4">
+                            <img class="d-block" style="filter: brightness(0) invert(1); width: 120px;" src=https://cdn.nayathegana.com/cloudfront-cdn/jamara/web19/images/khalti-logo.svg>
+                            <img class="d-block d-md-none mt-4" style="width: 120px;" src=https://cdn.nayathegana.com/cloudfront-cdn/jamara/web19/images/footer/ISOcertifiedLogo-270x70.svg>
+                        </div>
+
+                        <div class="social">
+                            <h4 class="text-white">Connect with us</h4>
+                            <ul>
+                                <li>
+                                    <a href="https://www.facebook.com/khalti.official" target="_blank"><i
+                                            class="fa fa-facebook-square" aria-hidden="true"></i></a>
+                                </li>
+                                <li>
+                                    <a href="https://www.instagram.com/khaltiofficial/" target="_blank"><i
+                                            class="fa fa-instagram" aria-hidden="true"></i></a>
+                                </li>
+                                <li>
+                                    <a href="https://www.linkedin.com/company/khalti-digital-wallet/" target="_blank"><i
+                                            class="fa fa-linkedin-square" aria-hidden="true"><span
+                                                class="path1"></span><span class="path2"></span><span
+                                                class="path3"></span><span class="path4"></span></i></a>
+                                </li>
+                                <li>
+                                    <a href="https://twitter.com/khaltiofficial?lang=en" target="_blank"><i
+                                            class="fa fa-twitter-square" aria-hidden="true"><span class="path1"><span
+                                                    class="path2"></span></span></i></a>
+                                </li>
+                                <li>
+                                    <a href="https://www.youtube.com/channel/UCrXM4HqK9th3E2a04Z9Lh-Q" target="_blank">
+                                        <i class="fa fa-youtube-square" aria-hidden="true"><span class="path1"><span
+                                                    class="path2"><span class="path3"><span class="path4"><span
+                                                                class="path5"></span></span></span></span></span></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="http://m.me/khalti.official" target="_blank" class="messenger"><i
+                                            class="icon-messenger"><span class="path1"></span><span
+                                                class="path2"></span></i></a>
+                                </li>
+                            </ul>
+                        </div>
+                        <img class="d-none d-md-block" style="margin-top: 7px; width: 60%; height: auto;" src=https://cdn.nayathegana.com/cloudfront-cdn/jamara/web19/images/footer/ISOcertifiedLogo-270x70.svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="col-12" style="margin-top: 20px">
+            <div class="info text-center">
+                <p class="text-white">© 2025 Khalti Private Limited. All Rights Reserved. <b>ISO 27001: 2013
+                    Certified Company</b>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<div id="scrollTop"><a href="#top"><i class="icon-go-up  align-middle"></i></a></div>
+</div>
+
+</body>
+
+
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/tether.min.js"></script>
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/bootstrap.min.js"></script>
+<!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/ie10-viewport-bug-workaround.js"></script>
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/jquery-1.7.1.min.js"></script>
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/slick.min.js"></script>
+<script type="text/javascript" src="https://khalti-static.s3.ap-south-1.amazonaws.com/cloudfront-cdn/jamara/web19/js/main.js"></script>
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-R9SS1M1KM4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-R9SS1M1KM4');
+</script>
+<script>
+
+   $(document).ready(function() {
+       $('#login-form').submit(function(e) { // catch the form's submit event
+            e.preventDefault()
+            if(!isLoginValid()) return validateLogin()
+            var btn = document.getElementById('khaltiSubmitBtn')
+            var loader = document.getElementById('submitBtnLoader')
+            btn.classList.add('disabled')
+            loader.style.display = "inline-table"
+			console.log($(this).serialize())
+           $.ajax({ 
+               data: $(this).serialize(), 
+               type: $(this).attr('method'),
+               url: $(this).attr('action'),
+               success: function(response) {
+                    btn.classList.remove('disabled')
+                    loader.style.display = "none"
+                    // $('#myModal').modal('hide');
+                    // window.location.href = "/#/";
+                    window.location.reload();
+               },
+               error: function(response) {
+                    btn.classList.remove('disabled')
+                    loader.style.display = "none"
+                    var element = document.getElementById('loginError')
+                    element.style.display = "block"
+                    var err = JSON.parse(response.responseText)
+                    var detail = err.detail
+                    var tries = err.tries_remaining ? (` You have ${err.tries_remaining} remaining tries`) : ""
+                    var msg = (detail + tries) || "Something went wrong"
+                    element.innerHTML = msg
+               }
+           });
+           return false;
+       });
+       
+       $('#offer-slider').slick({
+            dots: true,
+            infinite: true,
+            autoplay: true,
+            autoplaySpeed: 3000,
+       });
+
+   });
+
+   function isLoginValid() {
+        var id = document.getElementById('khaltiId').value
+        var password = document.getElementById('khaltiPassword').value
+        if(id && password) return true
+        return false
+    }
+
+    function validateLogin() {
+        var id_dom = document.getElementById('khaltiId')
+        var id = id_dom.value
+        var password_dom = document.getElementById('khaltiPassword')
+        var password = password_dom.value
+        if(!id) {
+            id_dom.classList.add("is-invalid")
+        }
+        if(!password) {
+            password_dom.classList.add("is-invalid")
+        }
+        return true
+    }
+
+    function handleIdInput() {
+        var dom = document.getElementById('khaltiId')
+        var id = dom.value
+        if(id) {
+            dom.classList.remove("is-invalid")
+        }
+    }
+
+    function handlePwdInput() {
+        var dom = document.getElementById('khaltiPassword')
+        var pwd = dom.value
+        if(pwd) {
+            dom.classList.remove("is-invalid")
+        }
+    }
+
+    function pwdToggler() {
+      var x = document.getElementById("khaltiPassword");
+      if (x.type === "password") {
+        x.type = "text";
+      } else {
+        x.type = "password";
+      }
+    }
+</script>
+
+
+<script type="text/javascript">
+    
+</script>
+    
+
+</html>

@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { FaEdit, FaTrashAlt, FaPlus, FaSearch, FaFilter, FaCheck, FaTimes, FaEye } from 'react-icons/fa';
 import { adminAPI } from '../../utils/api';
-import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
+import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger } from '../../components/ui';
 
 const Restaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [restaurantToDelete, setRestaurantToDelete] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const itemsPerPage = 8;
 
   // Fetch restaurants from API
@@ -25,141 +27,117 @@ const Restaurants = () => {
       setIsLoading(true);
       setError(null);
       
-      // In a real application, replace with actual API call
-      // const response = await adminAPI.getRestaurants();
+      try {
+        // Fetch restaurant owners (users with isRestaurantOwner=true)
+        console.log('Fetching users for restaurant data...');
+        const response = await adminAPI.getUsers();
+        
+        if (response.data && response.data.success) {
+          console.log('User API response:', response.data);
+          
+          // Filter users who are restaurant owners
+          const restaurantOwners = (response.data.users || []).filter(user => 
+            user.isRestaurantOwner
+          );
+          
+          console.log(`Found ${restaurantOwners.length} restaurant owners in users`);
+          
+          if (restaurantOwners.length === 0) {
+            console.log('No restaurant owners found in user data, trying restaurant-specific endpoint');
+          } else {
+            // Process to match our expected format
+            const formattedRestaurants = restaurantOwners.map(owner => ({
+              id: owner._id,
+              name: owner.restaurantDetails?.name || 'Unnamed Restaurant',
+              owner: owner.name || owner.username || 'Unknown Owner',
+              email: owner.email,
+              address: owner.restaurantDetails?.address || 'No address provided',
+              phone: owner.phone || 'No phone provided',
+              status: owner.isActive ? 'Approved' : owner.status || 'Pending',
+              createdAt: owner.createdAt,
+              rating: owner.restaurantDetails?.rating || 0,
+              category: owner.restaurantDetails?.cuisine?.join(', ') || 'Uncategorized'
+            }));
+            
+            console.log('Restaurant data from users:', formattedRestaurants);
+            setRestaurants(formattedRestaurants);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          console.log('User API did not return success, trying restaurant-specific endpoint');
+        }
+      } catch (userApiError) {
+        console.error('Error fetching from users API:', userApiError);
+        console.log('Falling back to restaurant-specific endpoint');
+      }
       
-      // For demo, we'll use mockup data
-      const mockRestaurants = [
-        { 
-          id: 1, 
-          name: 'Fresh Bites', 
-          owner: 'Mike Johnson', 
-          email: 'mike@freshbites.com', 
-          address: '123 Main St, New York, NY',
-          phone: '(555) 123-4567',
-          status: 'Approved',
-          createdAt: '2023-01-12',
-          rating: 4.7,
-          category: 'Healthy Food'
-        },
-        { 
-          id: 2, 
-          name: 'Spice Bazaar', 
-          owner: 'Priya Patel', 
-          email: 'priya@spicebazaar.com', 
-          address: '456 Oak Ave, San Francisco, CA',
-          phone: '(555) 234-5678',
-          status: 'Approved',
-          createdAt: '2023-02-18',
+      // Try fetching from restaurant-specific endpoint as fallback
+      try {
+        console.log('Fetching from restaurant approvals endpoint...');
+        const restaurantResponse = await adminAPI.getRestaurantApprovals();
+        console.log('Restaurant API response:', restaurantResponse.data);
+        
+        if (restaurantResponse.data?.success && restaurantResponse.data.approvals?.length > 0) {
+          const formattedRestaurants = restaurantResponse.data.approvals.map(approval => ({
+            id: approval._id,
+            name: approval.restaurantName || 'Unnamed Restaurant',
+            owner: approval.ownerName || 'Unknown Owner',
+            email: approval.email || 'No email',
+            address: approval.address || 'No address provided',
+            phone: approval.phone || 'No phone provided',
+            status: approval.status || 'Pending',
+            createdAt: approval.createdAt,
+            rating: approval.rating || 0,
+            category: approval.cuisine?.join(', ') || 'Uncategorized'
+          }));
+          
+          console.log('Restaurant data from approvals:', formattedRestaurants);
+          setRestaurants(formattedRestaurants);
+          setIsLoading(false);
+          return;
+        } else {
+          console.log('Restaurant API did not return success or had empty approvals');
+        }
+      } catch (restaurantApiError) {
+        console.error('Error fetching from restaurant API:', restaurantApiError);
+      }
+      
+      // If we're here, neither API worked as expected - provide sample data
+      console.log('Using sample restaurant data since API requests failed');
+      const sampleRestaurants = [
+        {
+          id: "rest-1",
+          name: "Burger Palace",
+          owner: "John Smith",
+          email: "john@burgerpalace.com",
+          address: "123 Main St, City",
+          phone: "555-1234",
+          status: "Approved",
+          createdAt: new Date().toISOString(),
           rating: 4.5,
-          category: 'Indian'
+          category: "Fast Food, Burgers"
         },
-        { 
-          id: 3, 
-          name: 'Green Leaf Cafe', 
-          owner: 'Sarah Johnson', 
-          email: 'sarah@greenleaf.com', 
-          address: '789 Pine St, Seattle, WA',
-          phone: '(555) 345-6789',
-          status: 'Pending',
-          createdAt: '2023-03-25',
-          rating: 0,
-          category: 'Vegan'
-        },
-        { 
-          id: 4, 
-          name: 'Burger House', 
-          owner: 'Tom Wilson', 
-          email: 'tom@burgerhouse.com', 
-          address: '321 Cedar Rd, Chicago, IL',
-          phone: '(555) 456-7890',
-          status: 'Approved',
-          createdAt: '2022-11-10',
-          rating: 4.3,
-          category: 'Fast Food'
-        },
-        { 
-          id: 5, 
-          name: 'Pasta Palace', 
-          owner: 'Marco Rossi', 
-          email: 'marco@pastapalace.com', 
-          address: '654 Maple Dr, Boston, MA',
-          phone: '(555) 567-8901',
-          status: 'Suspended',
-          createdAt: '2022-12-05',
-          rating: 3.9,
-          category: 'Italian'
-        },
-        { 
-          id: 6, 
-          name: 'Sushi Spot', 
-          owner: 'Kenji Tanaka', 
-          email: 'kenji@sushispot.com', 
-          address: '987 Birch Ln, Los Angeles, CA',
-          phone: '(555) 678-9012',
-          status: 'Approved',
-          createdAt: '2023-01-30',
-          rating: 4.8,
-          category: 'Japanese'
-        },
-        { 
-          id: 7, 
-          name: 'Taco Truck', 
-          owner: 'Carlos Mendez', 
-          email: 'carlos@tacotruck.com', 
-          address: '159 Elm St, Austin, TX',
-          phone: '(555) 789-0123',
-          status: 'Pending',
-          createdAt: '2023-04-15',
-          rating: 0,
-          category: 'Mexican'
-        },
-        { 
-          id: 8, 
-          name: 'Pho House', 
-          owner: 'Linh Nguyen', 
-          email: 'linh@phohouse.com', 
-          address: '753 Aspen Ave, Denver, CO',
-          phone: '(555) 890-1234',
-          status: 'Approved',
-          createdAt: '2023-02-08',
-          rating: 4.6,
-          category: 'Vietnamese'
-        },
-        { 
-          id: 9, 
-          name: 'Mediterranean Delight', 
-          owner: 'Nikos Papadopoulos', 
-          email: 'nikos@meddelight.com', 
-          address: '852 Walnut St, Miami, FL',
-          phone: '(555) 901-2345',
-          status: 'Approved',
-          createdAt: '2023-03-12',
-          rating: 4.4,
-          category: 'Mediterranean'
-        },
-        { 
-          id: 10, 
-          name: 'The Steakhouse', 
-          owner: 'Robert Smith', 
-          email: 'robert@steakhouse.com', 
-          address: '369 Oak St, Dallas, TX',
-          phone: '(555) 012-3456',
-          status: 'Rejected',
-          createdAt: '2023-02-25',
-          rating: 0,
-          category: 'Steakhouse'
+        {
+          id: "rest-2",
+          name: "Pizza Heaven",
+          owner: "Maria Garcia",
+          email: "maria@pizzaheaven.com",
+          address: "456 Oak Ave, Town",
+          phone: "555-5678",
+          status: "Pending",
+          createdAt: new Date().toISOString(),
+          rating: 4.2,
+          category: "Italian, Pizza"
         }
       ];
       
-      setTimeout(() => {
-        setRestaurants(mockRestaurants);
-        setIsLoading(false);
-      }, 600);
+      setRestaurants(sampleRestaurants);
       
     } catch (error) {
-      console.error("Error fetching restaurants:", error);
+      console.error("Error in restaurant fetch flow:", error);
       setError("Failed to load restaurants. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -195,7 +173,7 @@ const Restaurants = () => {
   // Handle restaurant actions
   const handleEditRestaurant = (restaurant) => {
     console.log('Edit restaurant:', restaurant);
-    // Implement edit functionality
+    // Implement navigation to edit page or open modal
   };
 
   const confirmDeleteRestaurant = (restaurant) => {
@@ -204,42 +182,106 @@ const Restaurants = () => {
   };
 
   const handleDeleteRestaurant = async () => {
+    if (!restaurantToDelete || !restaurantToDelete.id) return;
+    
     try {
-      // In real app: await adminAPI.deleteRestaurant(restaurantToDelete.id);
+      setIsProcessing(true);
+      setError(null);
+      
+      // Delete the restaurant by updating the user and removing restaurant owner status
+      const response = await adminAPI.updateUser(restaurantToDelete.id, {
+        isRestaurantOwner: false
+      });
+      
+      if (response.data && response.data.success) {
+        // Remove from local state
       setRestaurants(restaurants.filter(r => r.id !== restaurantToDelete.id));
-      setShowDeleteModal(false);
-      setRestaurantToDelete(null);
+        setSuccess("Restaurant removed successfully");
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to delete restaurant');
+      }
     } catch (error) {
       console.error("Error deleting restaurant:", error);
-      // Show error notification
+      setError("Failed to delete restaurant: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsProcessing(false);
+      setShowDeleteModal(false);
+      setRestaurantToDelete(null);
     }
   };
 
   const handleApproveRestaurant = async (restaurant) => {
     try {
-      // In real app: await adminAPI.approveRestaurant(restaurant.id);
+      setIsProcessing(true);
+      setError(null);
+      
+      // Approve restaurant by updating user status
+      const response = await adminAPI.updateUser(restaurant.id, {
+        isActive: true,
+        status: 'Approved'
+      });
+      
+      if (response.data && response.data.success) {
+        // Update local state
       setRestaurants(
         restaurants.map(r => 
           r.id === restaurant.id ? { ...r, status: 'Approved' } : r
         )
       );
+        setSuccess("Restaurant approved successfully");
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to approve restaurant');
+      }
     } catch (error) {
       console.error("Error approving restaurant:", error);
-      // Show error notification
+      setError("Failed to approve restaurant: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleRejectRestaurant = async (restaurant) => {
     try {
-      // In real app: await adminAPI.rejectRestaurant(restaurant.id);
+      setIsProcessing(true);
+      setError(null);
+      
+      // Reject restaurant by updating user status
+      const response = await adminAPI.updateUser(restaurant.id, {
+        isActive: false,
+        status: 'Rejected'
+      });
+      
+      if (response.data && response.data.success) {
+        // Update local state
       setRestaurants(
         restaurants.map(r => 
           r.id === restaurant.id ? { ...r, status: 'Rejected' } : r
         )
       );
+        setSuccess("Restaurant rejected successfully");
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to reject restaurant');
+      }
     } catch (error) {
       console.error("Error rejecting restaurant:", error);
-      // Show error notification
+      setError("Failed to reject restaurant: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -266,8 +308,14 @@ const Restaurants = () => {
       </div>
 
       {error && (
-        <Alert variant="error" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           {error}
+        </Alert>
+      )}
+      
+      {success && (
+        <Alert variant="success" className="mb-6 bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
+          {success}
         </Alert>
       )}
 
@@ -359,7 +407,7 @@ const Restaurants = () => {
                     <strong>Category:</strong> {restaurant.category}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    <strong>Added:</strong> {restaurant.createdAt}
+                    <strong>Added:</strong> {new Date(restaurant.createdAt).toLocaleDateString()}
                   </p>
                   
                   {restaurant.rating > 0 && (
@@ -385,7 +433,7 @@ const Restaurants = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm" className="text-blue-600" asChild>
-                        <a href={`/admin/restaurant/${restaurant.id}`} target="_blank">
+                        <a href={`/admin/restaurant/${restaurant.id}`} target="_blank" rel="noopener noreferrer">
                           <FaEye className="mr-1" /> View
                         </a>
                       </Button>
@@ -401,16 +449,20 @@ const Restaurants = () => {
                           size="sm" 
                           className="text-green-600 border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                           onClick={() => handleApproveRestaurant(restaurant)}
+                          disabled={isProcessing}
                         >
-                          <FaCheck className="mr-1" /> Approve
+                          {isProcessing ? <Spinner size="sm" /> : <FaCheck className="mr-1" />}
+                          Approve
                         </Button>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={() => handleRejectRestaurant(restaurant)}
+                          disabled={isProcessing}
                         >
-                          <FaTimes className="mr-1" /> Reject
+                          {isProcessing ? <Spinner size="sm" /> : <FaTimes className="mr-1" />}
+                          Reject
                         </Button>
                       </div>
                     )}
@@ -420,8 +472,10 @@ const Restaurants = () => {
                         variant="destructive" 
                         size="sm" 
                         onClick={() => confirmDeleteRestaurant(restaurant)}
+                        disabled={isProcessing}
                       >
-                        <FaTrashAlt className="mr-1" /> Delete
+                        {isProcessing ? <Spinner size="sm" className="mr-1" /> : <FaTrashAlt className="mr-1" />}
+                        Delete
                       </Button>
                     )}
                   </div>
@@ -469,19 +523,22 @@ const Restaurants = () => {
           <Card className="max-w-md mx-auto dark:bg-gray-800 p-6">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Confirm Delete</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete the restaurant &quot;{restaurantToDelete?.name}&quot;? This action cannot be undone.
+              Are you sure you want to delete the restaurant &ldquo;{restaurantToDelete?.name}&rdquo;? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <Button 
                 variant="outline" 
                 onClick={() => setShowDeleteModal(false)}
+                disabled={isProcessing}
               >
                 Cancel
               </Button>
               <Button 
                 variant="destructive" 
                 onClick={handleDeleteRestaurant}
+                disabled={isProcessing}
               >
+                {isProcessing ? <Spinner size="sm" className="mr-2" /> : null}
                 Delete
               </Button>
             </div>

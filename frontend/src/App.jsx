@@ -9,6 +9,7 @@ import ProductModel from "./components/ProductModel";
 import Cart from "./Pages/Cart";
 import Checkout from "./Pages/Checkout";
 import OrderConfirmation from "./Pages/OrderConfirmation";
+import PaymentVerify from "./Pages/PaymentVerify";
 import SearchResults from "./Pages/Search";
 import SignIn from "./Pages/SignIn";
 import SignUp from "./Pages/SignUp";
@@ -388,6 +389,19 @@ function App() {
                     <Route path="rewards" element={<UserRewards />} />
                     <Route path="notifications" element={<UserNotifications />} />
                   </Route>
+
+                  {/* Payment Verify Route */}
+                  <Route path="/payment-verify" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <PaymentVerify />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
+                      <BackToTop />
+                    </>
+                  } />
                 </Routes>
               </MyContext.Provider>
             </NotificationProvider>

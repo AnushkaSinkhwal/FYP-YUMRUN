@@ -1,36 +1,36 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, Button, Spinner, Tabs, TabsList, TabsTrigger, TabsContent } from "../ui";
+import { Card, Badge, Button, Spinner, Tabs, TabsList, TabsTrigger, TabsContent, Alert } from "../ui";
 import PropTypes from 'prop-types';
+import { FaSync } from 'react-icons/fa';
 
-const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
-  const [isLoading, setIsLoading] = useState(true);
+const Dashboard = ({ 
+  stats = [], 
+  quickActions = [], 
+  recentActivity = [],
+  isLoading = false,
+  error = null,
+  onRefresh = null 
+}) => {
   const [notifications, setNotifications] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchDashboardData();
     fetchNotifications();
     
-    // Refresh data every 60 seconds
+    // Refresh notifications every 60 seconds
     const interval = setInterval(() => {
-      fetchDashboardData();
       fetchNotifications();
     }, 60000);
     
     return () => clearInterval(interval);
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      setIsLoading(true);
-      // TODO: Replace with actual API call based on role
-      // const response = await api.getDashboard(role);
-      
-      // Simulated data
-      setIsLoading(false);
-    } catch (err) {
-      console.error('Dashboard error:', err);
-      setIsLoading(false);
+  const handleRefresh = async () => {
+    if (onRefresh && typeof onRefresh === 'function') {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
     }
   };
 
@@ -61,6 +61,30 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
 
   return (
     <div className="p-6">
+      {/* Header with refresh button */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
+        {onRefresh && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={isLoading || isRefreshing}
+            className="flex items-center gap-2"
+          >
+            <FaSync className={isRefreshing ? "animate-spin" : ""} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          {error}
+        </Alert>
+      )}
+      
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
@@ -147,24 +171,41 @@ const Dashboard = ({ stats = [], quickActions = [], recentActivity = [] }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {recentActivity.map((activity) => (
-                        <tr key={activity.id} className="border-b dark:border-gray-700">
-                          <td className="px-4 py-3">#{activity.id}</td>
-                          <td className="px-4 py-3">{activity.type}</td>
-                          <td className="px-4 py-3">{activity.details}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={activity.status === "completed" ? "success" : "warning"}>
-                              {activity.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3">{activity.date}</td>
-                          <td className="px-4 py-3">
-                            <Button variant="outline" size="sm" asChild>
-                              <Link to={activity.link}>View</Link>
-                            </Button>
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan="6" className="px-4 py-8 text-center">
+                            <Spinner className="mx-auto" />
+                            <p className="mt-2">Loading activity data...</p>
                           </td>
                         </tr>
-                      ))}
+                      ) : recentActivity.length > 0 ? (
+                        recentActivity.map((activity) => (
+                          <tr key={activity.id} className="border-b dark:border-gray-700">
+                            <td className="px-4 py-3">#{typeof activity.id === 'string' ? activity.id.substring(0, 6) : activity.id}</td>
+                            <td className="px-4 py-3">{activity.type}</td>
+                            <td className="px-4 py-3">{activity.details}</td>
+                            <td className="px-4 py-3">
+                              <Badge variant={activity.status === "completed" ? "success" : "warning"}>
+                                {activity.status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              {typeof activity.date === 'string' ? activity.date : new Date(activity.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Button variant="outline" size="sm" asChild>
+                                <Link to={activity.link}>View</Link>
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                            No recent activity to display
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -218,15 +259,21 @@ Dashboard.propTypes = {
     type: PropTypes.string.isRequired,
     details: PropTypes.string.isRequired,
     status: PropTypes.string.isRequired,
-    date: PropTypes.string.isRequired,
+    date: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
     link: PropTypes.string.isRequired
-  }))
+  })),
+  isLoading: PropTypes.bool,
+  error: PropTypes.string,
+  onRefresh: PropTypes.func
 };
 
 Dashboard.defaultProps = {
   stats: [],
   quickActions: [],
-  recentActivity: []
+  recentActivity: [],
+  isLoading: false,
+  error: null,
+  onRefresh: null
 };
 
 export default Dashboard; 

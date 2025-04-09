@@ -1,29 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaUtensils, FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaStar, FaRegStar, FaStarHalfAlt, FaAllergies, FaInfoCircle, FaCommentDots, FaShoppingCart, FaPlus, FaMinus } from 'react-icons/fa';
 import ProductZoom from '../../components/ProductZoom';
-import ProductSummary from '../../components/ProductSummary';
 import ProductFeatures from '../../components/ProductFeatures';
 import RelatedProducts from './RelatedProducts';
 import { useAuth } from '../../context/AuthContext';
-import { Button, Alert, Spinner } from '../../components/ui';
+import { useCart } from '../../context/CartContext';
+import { Button, Alert, Spinner, Badge, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui';
+import axios from 'axios';
 
 const ProductDetails = () => {
-    const { id } = useParams();
+    const { id: productId } = useParams(); // Renamed for clarity
     const navigate = useNavigate();
-    const { user, isAuthenticated } = useAuth();
+    const { isAuthenticated } = useAuth();
+    const { addToCart } = useCart();
     
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [servingSize, setServingSize] = useState('medium');
+    const [error, setError] = useState(null);
+    // const [servingSize, setServingSize] = useState('medium'); // Will use base product size for now
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState('features');
-    const [specialInstructions, setSpecialInstructions] = useState('');
-    const [selectedToppings, setSelectedToppings] = useState([]);
-    const [selectedIngredients, setSelectedIngredients] = useState([]);
-    const [removedIngredients, setRemovedIngredients] = useState([]);
+    // const [activeTab, setActiveTab] = useState('features'); // Using shadcn Tabs
+    // const [specialInstructions, setSpecialInstructions] = useState('');
+    // const [selectedToppings, setSelectedToppings] = useState([]); // Placeholder
+    // const [removedIngredients, setRemovedIngredients] = useState([]); // Placeholder
     
-    // New state for favorites and reviews
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
     const [reviews, setReviews] = useState([]);
@@ -33,73 +34,144 @@ const ProductDetails = () => {
     const [totalReviews, setTotalReviews] = useState(0);
     const [newReviewRating, setNewReviewRating] = useState(0);
     const [newReviewComment, setNewReviewComment] = useState('');
-    const [newReviewOrderId, setNewReviewOrderId] = useState('');
-    const [reviewError, setReviewError] = useState(null);
+    // const [newReviewOrderId, setNewReviewOrderId] = useState(''); // Keep state if needed later
     const [reviewSubmitError, setReviewSubmitError] = useState(null);
     const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-    // Fetch product data when component mounts
+    // --- Fetch Product Data ---
     useEffect(() => {
-        // Simulate API call with setTimeout
-        setTimeout(() => {
-            // Mock product data
-            const mockProduct = {
-                id: id,
-                name: "Classic Margherita Pizza",
-                category: "Italian",
-                rating: 4.5,
-                ratingCount: 128,
-                price: 12.99,
-                description: "Our authentic Margherita pizza features a thin, crispy crust topped with fresh tomato sauce, mozzarella cheese, and basil leaves. Made with the finest ingredients and baked to perfection.",
-                availability: true,
-                discount: 10,
-                features: [
-                    "Fresh ingredients sourced locally",
-                    "Made-to-order for maximum freshness",
-                    "No artificial preservatives",
-                    "Gluten-free options available",
-                    "Customizable toppings and ingredients"
-                ],
-                nutritionalInfo: {
-                    calories: 285,
-                    fat: 10.5,
-                    carbs: 34,
-                    protein: 15,
-                    sodium: 520,
-                    allergens: ["Wheat", "Dairy"]
-                },
-                servingSizes: [
-                    { id: 'small', name: 'Small (8")', priceMultiplier: 0.8 },
-                    { id: 'medium', name: 'Medium (12")', priceMultiplier: 1 },
-                    { id: 'large', name: 'Large (16")', priceMultiplier: 1.2 },
-                ],
-                // Add available toppings and ingredients
-                availableToppings: [
-                    { id: 'pepperoni', name: 'Pepperoni', price: 1.50 },
-                    { id: 'mushrooms', name: 'Mushrooms', price: 1.00 },
-                    { id: 'olives', name: 'Black Olives', price: 0.75 },
-                    { id: 'onions', name: 'Red Onions', price: 0.50 },
-                    { id: 'bellPeppers', name: 'Bell Peppers', price: 0.75 },
-                    { id: 'extraCheese', name: 'Extra Cheese', price: 1.50 },
-                    { id: 'bacon', name: 'Bacon', price: 1.75 },
-                    { id: 'pineapple', name: 'Pineapple', price: 0.75 }
-                ],
-                baseIngredients: [
-                    { id: 'sauce', name: 'Tomato Sauce' },
-                    { id: 'cheese', name: 'Mozzarella Cheese' },
-                    { id: 'basil', name: 'Fresh Basil' },
-                    { id: 'oliveOil', name: 'Olive Oil' }
-                ]
-            };
-            
-            setProduct(mockProduct);
-            // Initialize selected ingredients with all base ingredients
-            setSelectedIngredients(mockProduct.baseIngredients.map(ing => ing.id));
-            setLoading(false);
-        }, 500);
-    }, [id]);
+        const fetchProductData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await axios.get(`/api/menu/${productId}`);
+                if (response.data.success) {
+                    setProduct(response.data.data);
+                    // Initialize based on fetched product if needed
+                } else {
+                    setError(response.data.error?.message || 'Failed to fetch product details.');
+                }
+            } catch (err) {
+                console.error('Error fetching product details:', err);
+                setError(err.response?.data?.error?.message || 'An error occurred while loading product data.');
+            } finally {
+                setLoading(false);
+            }
+        };
 
+        if (productId) {
+            fetchProductData();
+        }
+    }, [productId]);
+    // Remove mock data timeout
+    // useEffect(() => {
+    //     // Simulate API call with setTimeout
+    //     setTimeout(() => {
+    //         // Mock product data
+    //         const mockProduct = {
+    //             id: productId,
+    //             name: "Classic Margherita Pizza",
+    //             category: "Italian",
+    //             rating: 4.5,
+    //             ratingCount: 128,
+    //             price: 12.99,
+    //             description: "Our authentic Margherita pizza features a thin, crispy crust topped with fresh tomato sauce, mozzarella cheese, and basil leaves. Made with the finest ingredients and baked to perfection.",
+    //             availability: true,
+    //             discount: 10,
+    //             features: [
+    //                 "Fresh ingredients sourced locally",
+    //                 "Made-to-order for maximum freshness",
+    //                 "No artificial preservatives",
+    //                 "Gluten-free options available",
+    //                 "Customizable toppings and ingredients"
+    //             ],
+    //             nutritionalInfo: {
+    //                 calories: 285,
+    //                 fat: 10.5,
+    //                 carbs: 34,
+    //                 protein: 15,
+    //                 sodium: 520,
+    //                 allergens: ["Wheat", "Dairy"]
+    //             },
+    //             servingSizes: [
+    //                 { id: 'small', name: 'Small (8")', priceMultiplier: 0.8 },
+    //                 { id: 'medium', name: 'Medium (12")', priceMultiplier: 1 },
+    //                 { id: 'large', name: 'Large (16")', priceMultiplier: 1.2 },
+    //             ],
+    //             availableToppings: [
+    //                 { id: 'pepperoni', name: 'Pepperoni', price: 1.50 },
+    //                 { id: 'mushrooms', name: 'Mushrooms', price: 1.00 },
+    //                 { id: 'olives', name: 'Black Olives', price: 0.75 },
+    //                 { id: 'onions', name: 'Red Onions', price: 0.50 },
+    //                 { id: 'bellPeppers', name: 'Bell Peppers', price: 0.75 },
+    //                 { id: 'extraCheese', name: 'Extra Cheese', price: 1.50 },
+    //                 { id: 'bacon', name: 'Bacon', price: 1.75 },
+    //                 { id: 'pineapple', name: 'Pineapple', price: 0.75 }
+    //             ],
+    //             baseIngredients: [
+    //                 { id: 'sauce', name: 'Tomato Sauce' },
+    //                 { id: 'cheese', name: 'Mozzarella Cheese' },
+    //                 { id: 'basil', name: 'Fresh Basil' },
+    //                 { id: 'oliveOil', name: 'Olive Oil' }
+    //             ],
+    //             image: "/placeholder-pizza.jpg" // Added placeholder image
+    //         };
+            
+    //         setProduct(mockProduct);
+    //         // Initialize selected ingredients with all base ingredients
+    //         // setSelectedIngredients(mockProduct.baseIngredients.map(ing => ing.id));
+    //         setLoading(false);
+    //     }, 500);
+    // }, [productId]);
+
+    // --- Fetch Reviews (moved function definition out) ---
+    const fetchReviews = useCallback(async () => { // Use useCallback
+        if (!productId) return;
+        setReviewsLoading(true);
+        setReviewsError(null);
+        try {
+            const response = await axios.get(`/api/reviews/menuItem/${productId}`);
+            if (response.data.success) {
+                setReviews(response.data.data.reviews);
+                setAverageRating(response.data.data.meta.averageRating || 0);
+                setTotalReviews(response.data.data.meta.total || 0);
+            } else {
+                setReviewsError(response.data.error?.message || 'Failed to load reviews.');
+            }
+        } catch (err) {
+            console.error('Error fetching reviews:', err);
+            setReviewsError(err.response?.data?.error?.message || 'Could not fetch reviews.');
+        } finally {
+            setReviewsLoading(false);
+        }
+    }, [productId]); // Add productId as dependency
+
+    useEffect(() => {
+        fetchReviews();
+    }, [fetchReviews]); // Call fetchReviews when it changes (due to productId change)
+
+    // --- Favorite Status Check ---
+    useEffect(() => {
+        const checkFavoriteStatus = async () => {
+            if (!isAuthenticated || !productId) return;
+            try {
+                // Assuming check endpoint exists as `/api/favorites/check/:menuItemId`
+                const response = await axios.get(`/api/favorites/check/${productId}`);
+                if (response.data.success) {
+                    setIsFavorite(response.data.data.isFavorite);
+                } else {
+                    console.warn('Could not check favorite status:', response.data.error?.message);
+                }
+            } catch (error) {
+                // Don't show error to user, just log it
+                console.error('Error checking favorite status:', error);
+            }
+        };
+        checkFavoriteStatus();
+    }, [isAuthenticated, productId]);
+
+    // --- Handlers ---
     const handleQuantityChange = (action) => {
         if (action === 'decrease' && quantity > 1) {
             setQuantity(quantity - 1);
@@ -108,720 +180,450 @@ const ProductDetails = () => {
         }
     };
 
-    const handleServingSizeChange = (size) => {
-        setServingSize(size);
+    // const handleServingSizeChange = (size) => {
+    //     setServingSize(size);
+    // };
+
+    const handleAddToCartClick = () => {
+        if (!product) return;
+        addToCart({
+            id: product.id,
+            name: product.name,
+            price: product.price, // TODO: Add logic for size/topping price adjustments
+            image: product.image,
+            rating: averageRating || 0,
+            restaurant: product.restaurant?.name || ''
+        }, quantity);
+        // TODO: Add toast notification
+        console.log(`Added ${quantity} ${product.name} to cart`);
+    };
+
+    const handleOrderNowClick = () => {
+        handleAddToCartClick();
+        navigate('/cart');
     };
 
     // Handle topping selection
-    const handleToppingToggle = (toppingId) => {
-        setSelectedToppings(prevToppings => {
-            if (prevToppings.includes(toppingId)) {
-                return prevToppings.filter(id => id !== toppingId);
-            } else {
-                return [...prevToppings, toppingId];
-            }
-        });
-    };
+    // const handleToppingToggle = (toppingId) => {
+    //     setSelectedToppings(prevToppings => {
+    //         if (prevToppings.includes(toppingId)) {
+    //             return prevToppings.filter(id => id !== toppingId);
+    //         } else {
+    //             return [...prevToppings, toppingId];
+    //         }
+    //     });
+    // };
 
     // Handle ingredient toggling
-    const handleIngredientToggle = (ingredientId) => {
-        if (selectedIngredients.includes(ingredientId)) {
-            // If ingredient is currently selected, remove it
-            setSelectedIngredients(prev => prev.filter(id => id !== ingredientId));
-            // Add to removed list
-            setRemovedIngredients(prev => [...prev, ingredientId]);
-        } else {
-            // If ingredient was removed, add it back
-            setSelectedIngredients(prev => [...prev, ingredientId]);
-            // Remove from removed list
-            setRemovedIngredients(prev => prev.filter(id => id !== ingredientId));
-        }
-    };
+    // const handleIngredientToggle = (ingredientId) => {
+    //     setSelectedIngredients(prevIngredients => {
+    //         if (prevIngredients.includes(ingredientId)) {
+    //             return prevIngredients.filter(id => id !== ingredientId);
+    //         } else {
+    //             return [...prevIngredients, ingredientId];
+    //         }
+    //     });
+    // };
 
-    const addToCart = () => {
-        // Logic to add to cart
-        console.log('Added to order:', { 
-            product, 
-            quantity, 
-            servingSize,
-            specialInstructions,
-            selectedToppings,
-            removedIngredients,
-            total: calculateTotalPrice()
-        });
-        
-        // Here you would dispatch to your cart state/store
-    };
-
-    const calculateTotalPrice = () => {
-        if (!product) return 0;
-        
-        // Base price calculation
-        const basePrice = product.discount > 0 
-            ? product.price * (1 - product.discount / 100) 
-            : product.price;
-            
-        const sizeMultiplier = product.servingSizes.find(size => size.id === servingSize)?.priceMultiplier || 1;
-        
-        // Calculate toppings price
-        const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
-            const topping = product.availableToppings.find(t => t.id === toppingId);
-            return total + (topping ? topping.price : 0);
-        }, 0);
-        
-        // Calculate total
-        return (((basePrice * sizeMultiplier) + toppingsPrice) * quantity).toFixed(2);
-    };
-
-    // Calculate nutritional information based on selections
-    const calculateNutritionalInfo = () => {
-        if (!product) return product?.nutritionalInfo;
-        
-        // Start with base nutritional info
-        const baseNutrition = { ...product.nutritionalInfo };
-        
-        // Adjust based on ingredients removed
-        removedIngredients.forEach(ingredientId => {
-            // In a real app, each ingredient would have nutritional data
-            // This is a simplified example assuming 10% reduction per ingredient removed
-            const reductionFactor = 0.1;
-            // Adjust reduction based on specific ingredient type
-            let adjustedReductionFactor = reductionFactor;
-            if (ingredientId === 'cheese') {
-                adjustedReductionFactor = 0.15; // Higher impact for cheese removal
-            } else if (ingredientId === 'sauce') {
-                adjustedReductionFactor = 0.05; // Lower impact for sauce removal
-            }
-            
-            baseNutrition.calories = Math.round(baseNutrition.calories * (1 - adjustedReductionFactor));
-            baseNutrition.protein = +(baseNutrition.protein * (1 - adjustedReductionFactor)).toFixed(1);
-            baseNutrition.carbs = +(baseNutrition.carbs * (1 - adjustedReductionFactor)).toFixed(1);
-            baseNutrition.fat = +(baseNutrition.fat * (1 - adjustedReductionFactor)).toFixed(1);
-        });
-        
-        // Add nutrition from toppings (simplified example)
-        selectedToppings.forEach(toppingId => {
-            const topping = product.availableToppings.find(t => t.id === toppingId);
-            
-            // Sample nutritional impact based on topping type
-            if (topping) {
-                switch(topping.id) {
-                    case 'pepperoni':
-                        baseNutrition.calories += 40;
-                        baseNutrition.protein += 2.0;
-                        baseNutrition.fat += 3.5;
-                        break;
-                    case 'extraCheese':
-                        baseNutrition.calories += 50;
-                        baseNutrition.protein += 3.0;
-                        baseNutrition.fat += 4.0;
-                        break;
-                    case 'mushrooms':
-                    case 'onions':
-                    case 'bellPeppers':
-                        baseNutrition.calories += 10;
-                        baseNutrition.carbs += 2.0;
-                        baseNutrition.fiber = (baseNutrition.fiber || 0) + 0.5;
-                        break;
-                    case 'bacon':
-                        baseNutrition.calories += 45;
-                        baseNutrition.protein += 2.5;
-                        baseNutrition.fat += 3.8;
-                        break;
-                    default:
-                        baseNutrition.calories += 15;
-                        baseNutrition.carbs += 1.0;
-                }
-            }
-        });
-        
-        // Adjust based on serving size
-        const sizeMultiplier = product.servingSizes.find(size => size.id === servingSize)?.priceMultiplier || 1;
-        baseNutrition.calories = Math.round(baseNutrition.calories * sizeMultiplier);
-        baseNutrition.protein = +(baseNutrition.protein * sizeMultiplier).toFixed(1);
-        baseNutrition.carbs = +(baseNutrition.carbs * sizeMultiplier).toFixed(1);
-        baseNutrition.fat = +(baseNutrition.fat * sizeMultiplier).toFixed(1);
-        
-        return baseNutrition;
-    };
-
-    // Check if item is in favorites
-    useEffect(() => {
-        if (isAuthenticated && id) {
-            checkFavoriteStatus();
-        }
-    }, [isAuthenticated, id]);
-
-    // Fetch reviews
-    useEffect(() => {
-        if (id) {
-            fetchReviews();
-        }
-    }, [id]);
-
-    // Function to check favorite status
-    const checkFavoriteStatus = async () => {
-        try {
-            const response = await fetch(`/api/favorites/${id}/check`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                setIsFavorite(data.data.isFavorite);
-            }
-        } catch (error) {
-            console.error('Error checking favorite status:', error);
-        }
-    };
+    // Handle ingredient removal
+    // const handleRemoveIngredientToggle = (ingredientId) => {
+    //     setRemovedIngredients(prevRemoved => {
+    //         if (prevRemoved.includes(ingredientId)) {
+    //             return prevRemoved.filter(id => id !== ingredientId);
+    //         } else {
+    //             return [...prevRemoved, ingredientId];
+    //         }
+    //     });
+    // };
 
     // Function to toggle favorite status
     const toggleFavorite = async () => {
         if (!isAuthenticated) {
-            navigate('/signin', { state: { from: `/product/${id}` } });
+            navigate('/signin', { state: { from: `/product/${productId}` } });
             return;
         }
         
         setFavoriteLoading(true);
-        
+        const url = `/api/favorites`;
+        const method = isFavorite ? 'DELETE' : 'POST';
+        const body = isFavorite ? { menuItemId: productId } : { menuItemId: productId }; // Backend might need ID in body for DELETE too
+
         try {
-            let response;
-            
-            if (isFavorite) {
-                // Remove from favorites
-                response = await fetch(`/api/favorites/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-            } else {
-                // Add to favorites
-                response = await fetch('/api/favorites', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        menuItemId: id
-                    })
-                });
-            }
-            
-            if (response.ok) {
+            const response = await axios({
+                method: method,
+                url: isFavorite ? `${url}/${productId}` : url, // Adjust URL based on method if needed
+                data: body
+            });
+
+            if (response.data.success) {
                 setIsFavorite(!isFavorite);
+            } else {
+                console.error('Failed to update favorite status:', response.data.error?.message);
+                // TODO: Show error toast
             }
         } catch (error) {
             console.error('Error toggling favorite status:', error);
+            // TODO: Show error toast
         } finally {
             setFavoriteLoading(false);
         }
     };
 
-    // Function to fetch reviews
-    const fetchReviews = async () => {
-        setReviewsLoading(true);
-        setReviewsError(null);
-        
-        try {
-            const response = await fetch(`/api/reviews/menuItem/${id}`);
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch reviews');
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                setReviews(data.data.reviews);
-                setAverageRating(data.data.meta.averageRating);
-                setTotalReviews(data.data.meta.total);
-            } else {
-                throw new Error(data.error.message || 'Failed to fetch reviews');
-            }
-        } catch (error) {
-            console.error('Error fetching reviews:', error);
-            setReviewsError('Unable to load reviews');
-        } finally {
-            setReviewsLoading(false);
-        }
-    };
-
-    // Function to render star rating
-    const renderStarRating = (rating) => {
-        const stars = [];
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-        
-        // Add full stars
-        for (let i = 0; i < fullStars; i++) {
-            stars.push(<FaStar key={`full-${i}`} className="text-yellow-400" />);
-        }
-        
-        // Add half star if needed
-        if (hasHalfStar) {
-            stars.push(<FaStarHalfAlt key="half" className="text-yellow-400" />);
-        }
-        
-        // Add empty stars
-        const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-        for (let i = 0; i < emptyStars; i++) {
-            stars.push(<FaRegStar key={`empty-${i}`} className="text-yellow-400" />);
-        }
-        
-        return stars;
-    };
-
+    // Function to submit a review
     const submitReview = async () => {
         if (!isAuthenticated) {
-            navigate('/signin', { state: { from: `/product/${id}` } });
-            return;
-        }
-
-        // Check if user is allowed to review
-        if (user?.role !== 'customer') {
-            setReviewSubmitError('Only customers can leave reviews');
+            navigate('/signin', { state: { from: `/product/${productId}` } });
             return;
         }
         
-        // Validate inputs
-        const errors = {};
-        if (!newReviewRating) {
-            errors.rating = 'Please select a rating';
-        }
-        if (!newReviewOrderId) {
-            errors.orderId = 'Order ID is required';
-        }
-        
-        if (Object.keys(errors).length > 0) {
-            setReviewError(errors);
+        // Basic validation
+        if (newReviewRating === 0) {
+            setReviewSubmitError('Please select a rating.');
             return;
         }
+        // TODO: Need a way to get order ID. Temporarily disabling this check or allowing submit without it.
+        // if (!newReviewOrderId) {
+        //     setReviewSubmitError('Order ID is required to leave a review.');
+        //     return;
+        // }
         
         setReviewSubmitting(true);
         setReviewSubmitError(null);
         setReviewSubmitSuccess(false);
-        setReviewError(null);
         
         try {
-            const response = await fetch('/api/reviews', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    menuItemId: id,
+            const response = await axios.post('/api/reviews', {
+                menuItemId: productId,
                     rating: newReviewRating,
                     comment: newReviewComment,
-                    orderId: newReviewOrderId
-                })
             });
             
-            const data = await response.json();
-            
-            if (data.success) {
+            if (response.data.success) {
                 setNewReviewRating(0);
                 setNewReviewComment('');
-                setNewReviewOrderId('');
+                // setNewReviewOrderId(''); // Commented out as state setter is not used
                 setReviewSubmitSuccess(true);
-                
-                // Refresh reviews list
-                fetchReviews();
+                fetchReviews(); // Refresh reviews list
             } else {
-                throw new Error(data.error?.message || 'Failed to submit review');
+                throw new Error(response.data.error?.message || 'Failed to submit review');
             }
         } catch (error) {
             console.error('Error submitting review:', error);
-            setReviewSubmitError('Unable to submit review. ' + (error.message || ''));
+            setReviewSubmitError(error.response?.data?.error?.message || 'An error occurred.');
         } finally {
             setReviewSubmitting(false);
         }
     };
 
+    // --- Render Helpers ---
+    const renderRatingStars = (rating, size = 'md') => {
+        const starClasses = {
+            sm: 'w-3 h-3',
+            md: 'w-4 h-4',
+            lg: 'w-5 h-5'
+        };
+        const starClass = starClasses[size] || starClasses.md;
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+        
+        return (
+            <div className="flex items-center">
+                {[...Array(5)].map((_, i) => (
+                    i < fullStars ? (
+                        <FaStar key={i} className={`text-yellow-400 ${starClass}`} />
+                    ) : i === fullStars && hasHalfStar ? (
+                        <FaStarHalfAlt key={i} className={`text-yellow-400 ${starClass}`} />
+                    ) : (
+                        <FaRegStar key={i} className={`text-yellow-400 ${starClass}`} />
+                    )
+                ))}
+            </div>
+        );
+    };
+
+    // --- Loading and Error States ---
     if (loading) {
         return (
-            <div className="container mx-auto py-5">
-                <div className="flex justify-center items-center h-96">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yumrun-primary"></div>
-                </div>
+            <div className="container mx-auto px-4 py-8 flex justify-center items-center min-h-[60vh]">
+                <Spinner size="xl" />
             </div>
         );
     }
 
+    if (error) {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <Alert variant="error">Error loading product: {error}</Alert>
+                </div>
+        );
+    }
+
+    if (!product) {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <Alert variant="warning">Product not found.</Alert>
+            </div>
+        );
+    }
+
+    // Calculate display price based on potential discounts
+    const displayPrice = product.discount > 0 
+        ? product.price * (1 - product.discount / 100) 
+        : product.price;
+
+    // --- Main Render ---
     return (
-        <div className="product-details py-8 bg-gray-50">
+        <div className="bg-gray-50 py-8">
             <div className="container mx-auto px-4">
-                <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="mb-6 lg:mb-0">
-                            <ProductZoom />
+                {/* Product Overview Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                    {/* Image Gallery */}
+                    <div>
+                        <ProductZoom images={product.image ? [product.image] : []} />
                         </div>
+                    
+                    {/* Product Details & Actions */}
+                    <div className="space-y-6">
+                        {/* Name, Category, Rating, Favorite */}
                         <div>
-                            <div className="flex justify-between items-start">
-                            <ProductSummary product={product} />
-                                <button 
+                            <div className="flex justify-between items-start mb-2">
+                                <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
                                     onClick={toggleFavorite}
                                     disabled={favoriteLoading}
-                                    className={`p-2 rounded-full transition-colors ${
+                                    className={`rounded-full transition-colors ${
                                         isFavorite 
-                                            ? 'bg-red-50 text-red-500' 
-                                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                            ? 'text-red-500 hover:bg-red-50' 
+                                            : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                                     }`}
                                     aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                                 >
                                     {favoriteLoading ? (
                                         <Spinner size="sm" />
                                     ) : isFavorite ? (
-                                        <FaHeart className="text-xl" />
+                                        <FaHeart className="h-6 w-6" />
                                     ) : (
-                                        <FaRegHeart className="text-xl" />
+                                        <FaRegHeart className="h-6 w-6" />
                                     )}
-                                </button>
+                                </Button>
                             </div>
-                            
-                            {/* Rating Summary */}
-                            <div className="mt-4 flex items-center">
-                                <div className="flex mr-2">
-                                    {renderStarRating(averageRating)}
-                                </div>
-                                <span className="text-sm text-gray-600">
-                                    {averageRating.toFixed(1)} ({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})
-                                </span>
+                            <p className="text-sm text-gray-500 mb-3">
+                                Category: {product.category?.name || 'Uncategorized'}
+                                {product.restaurant?.name && ` | Restaurant: ${product.restaurant.name}`}
+                            </p>
+                            <div className="flex items-center gap-2 mb-4">
+                                {renderRatingStars(averageRating)}
+                                <span className="text-sm text-gray-600">({totalReviews} reviews)</span>
                             </div>
-                            
-                            {/* Size Selection */}
-                            <div className="mt-6 mb-4">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Size</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {product.servingSizes.map((size) => (
-                                        <button
-                                            key={size.id}
-                                            className={`px-4 py-2 rounded-md font-medium transition-all ${
-                                                servingSize === size.id
-                                                    ? 'bg-yumrun-primary text-white'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                            onClick={() => handleServingSizeChange(size.id)}
-                                        >
-                                            {size.name}
-                                        </button>
-                                    ))}
-                                </div>
+                            {!product.isAvailable && (
+                                <Badge variant="destructive" className="mb-4">
+                                    Currently Unavailable
+                                </Badge>
+                            )}
                             </div>
 
-                            {/* Ingredients Customization */}
-                            <div className="my-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Customize Ingredients</h3>
-                                <div className="space-y-2 mb-4">
-                                    <p className="text-sm text-gray-600">Base ingredients (toggle to remove):</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {product.baseIngredients.map((ingredient) => (
-                                            <button
-                                                key={ingredient.id}
-                                                className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                                                    selectedIngredients.includes(ingredient.id)
-                                                        ? 'bg-green-100 text-green-800 border border-green-300'
-                                                        : 'bg-red-100 text-red-800 border border-red-300'
-                                                }`}
-                                                onClick={() => handleIngredientToggle(ingredient.id)}
-                                            >
-                                                {selectedIngredients.includes(ingredient.id) ? '✓ ' : '✕ '}
-                                                {ingredient.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                        <Separator />
+
+                        {/* Price Section */}
+                        <div className="flex items-baseline gap-3">
+                            <span className="text-3xl font-bold text-primary">Rs.{displayPrice.toFixed(2)}</span>
+                            {product.discount > 0 && product.oldPrice && (
+                                <span className="text-lg text-gray-500 line-through">Rs.{product.oldPrice.toFixed(2)}</span>
+                            )}
+                            {product.discount > 0 && (
+                                <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                    {product.discount}% OFF
+                                </Badge>
+                            )}
                             </div>
                             
-                            {/* Toppings Selection */}
-                            <div className="my-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Additional Toppings</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {product.availableToppings.map((topping) => (
-                                        <div 
-                                            key={topping.id}
-                                            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                                                selectedToppings.includes(topping.id)
-                                                    ? 'border-yumrun-primary bg-yumrun-primary bg-opacity-10'
-                                                    : 'border-gray-200 hover:border-gray-300'
-                                            }`}
-                                            onClick={() => handleToppingToggle(topping.id)}
-                                        >
-                                            <div className="flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    className="w-4 h-4 text-yumrun-primary border-gray-300 rounded focus:ring-yumrun-primary"
-                                                    checked={selectedToppings.includes(topping.id)}
-                                                    onChange={() => {}} // Handled by parent div click
-                                                />
-                                                <label className="ml-2 text-sm font-medium text-gray-700">
-                                                    {topping.name}
-                                                </label>
-                                            </div>
-                                            <span className="text-sm font-medium text-yumrun-primary">
-                                                +${topping.price.toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {/* Description */}
+                        <div>
+                            <h3 className="text-lg font-semibold mb-1 text-gray-700">Description</h3>
+                            <p className="text-gray-600 leading-relaxed">{product.description || 'No description available.'}</p>
                             </div>
+                        
+                        <Separator />
                             
                             {/* Quantity Selector */}
-                            <div className="my-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Quantity</h3>
-                                <div className="flex items-center">
-                                    <button
-                                        className="w-10 h-10 rounded-l-lg bg-gray-100 flex items-center justify-center border border-gray-300 hover:bg-gray-200"
-                                        onClick={() => handleQuantityChange('decrease')}
-                                        disabled={quantity <= 1}
-                                    >
-                                        <span className="text-xl">-</span>
-                                    </button>
-                                    <input
-                                        type="number"
-                                        className="w-16 h-10 border-t border-b border-gray-300 text-center font-medium text-gray-700"
-                                        value={quantity}
-                                        readOnly
-                                    />
-                                    <button
-                                        className="w-10 h-10 rounded-r-lg bg-gray-100 flex items-center justify-center border border-gray-300 hover:bg-gray-200"
-                                        onClick={() => handleQuantityChange('increase')}
-                                    >
-                                        <span className="text-xl">+</span>
-                                    </button>
+                        <div className="flex items-center gap-4">
+                            <span className="font-medium text-gray-700">Quantity:</span>
+                            <div className="flex items-center border rounded-md">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange('decrease')} disabled={quantity <= 1}>
+                                    <FaMinus className="h-3 w-3"/>
+                                </Button>
+                                <span className="w-10 text-center font-medium">{quantity}</span>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange('increase')}>
+                                    <FaPlus className="h-3 w-3"/>
+                                </Button>
                                 </div>
                             </div>
                             
-                            {/* Special Instructions */}
-                            <div className="my-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Special Instructions</h3>
+                        {/* Special Instructions (Optional) */}
+                        {/* Consider adding if applicable */}
+                        {/* <div>
+                            <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
                                 <textarea
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yumrun-primary"
-                                    placeholder="Any special requests for your order? (e.g., no onions, extra spicy, etc.)"
-                                    rows="3"
+                                id="specialInstructions"
+                                rows={2}
+                                className="w-full border rounded-md p-2 text-sm" 
+                                placeholder="e.g., Extra spicy, no onions"
                                     value={specialInstructions}
                                     onChange={(e) => setSpecialInstructions(e.target.value)}
-                                ></textarea>
-                            </div>
-
-                            {/* Nutritional Information */}
-                            <div className="my-6 p-4 bg-gray-50 rounded-lg">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Nutritional Information</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    <div className="text-center">
-                                        <span className="block text-lg font-semibold text-gray-900">{calculateNutritionalInfo().calories}</span>
-                                        <span className="text-sm text-gray-600">Calories</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="block text-lg font-semibold text-gray-900">{calculateNutritionalInfo().protein}g</span>
-                                        <span className="text-sm text-gray-600">Protein</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="block text-lg font-semibold text-gray-900">{calculateNutritionalInfo().carbs}g</span>
-                                        <span className="text-sm text-gray-600">Carbs</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="block text-lg font-semibold text-gray-900">{calculateNutritionalInfo().fat}g</span>
-                                        <span className="text-sm text-gray-600">Fat</span>
-                                    </div>
-                                </div>
-                                {calculateNutritionalInfo().allergens?.length > 0 && (
-                                    <div className="mt-3">
-                                        <span className="text-sm font-medium text-gray-600">Allergens: </span>
-                                        <span className="text-sm text-gray-600">{calculateNutritionalInfo().allergens.join(', ')}</span>
-                                    </div>
-                                )}
-                                {servingSize !== 'medium' && (
-                                    <p className="mt-3 text-xs text-gray-500 italic">
-                                        *Nutritional values adjusted for selected serving size
-                                    </p>
-                                )}
-                                {selectedToppings.length > 0 && (
-                                    <p className="mt-1 text-xs text-gray-500 italic">
-                                        *Values include selected toppings
-                                    </p>
-                                )}
-                            </div>
-                            
-                            {/* Total Price */}
-                            <div className="my-6">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-lg font-medium text-gray-900">Total:</span>
-                                    <span className="text-2xl font-bold text-yumrun-primary">
-                                        ${calculateTotalPrice()}
-                                    </span>
-                                </div>
-                            </div>
+                            />
+                        </div> */} 
                             
                             {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                                <button
-                                    onClick={addToCart}
-                                    className="px-6 py-3 flex-1 bg-yumrun-primary text-white font-medium rounded-lg flex items-center justify-center gap-2 hover:bg-yumrun-primary-dark transition-colors"
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                className="flex-1 gap-2"
+                                onClick={handleAddToCartClick}
+                                disabled={!product.isAvailable}
                                 >
-                                    <FaUtensils /> Add to Order
-                                </button>
-                                <button 
-                                    onClick={toggleFavorite}
-                                    className={`px-6 py-3 flex-1 border-2 font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${
-                                        isFavorite 
-                                            ? 'border-red-500 text-red-500 hover:bg-red-50' 
-                                            : 'border-yumrun-primary text-yumrun-primary hover:bg-yumrun-primary hover:text-white'
-                                    }`}
+                                <FaShoppingCart className="h-5 w-5" />
+                                Add to Cart
+                            </Button>
+                            <Button
+                                size="lg"
+                                className="flex-1 gap-2"
+                                onClick={handleOrderNowClick}
+                                disabled={!product.isAvailable}
                                 >
-                                    {isFavorite ? (
-                                        <>
-                                            <FaHeart /> Saved to Favorites
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FaRegHeart /> Save for Later
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                                Order Now
+                            </Button>
                         </div>
+
                     </div>
                 </div>
 
-                {/* Rest of the component */}
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                    <div className="border-b border-gray-200">
-                        <nav className="flex space-x-8">
-                                <button
-                                className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                                        activeTab === 'features'
-                                        ? 'border-yumrun-primary text-yumrun-primary'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => setActiveTab('features')}
-                                >
-                                Features & Details
-                                </button>
-                                <button
-                                className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                                        activeTab === 'reviews'
-                                        ? 'border-yumrun-primary text-yumrun-primary'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => setActiveTab('reviews')}
-                                >
-                                Reviews ({totalReviews})
-                                </button>
-                        </nav>
-                    </div>
+                {/* Tabs for Features, Nutrition, Reviews */}
+                <Tabs defaultValue="features" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 mb-6">
+                        <TabsTrigger value="features"><FaInfoCircle className="mr-2"/> Details</TabsTrigger>
+                        <TabsTrigger value="nutrition"><FaAllergies className="mr-2"/> Nutrition & Allergens</TabsTrigger>
+                        <TabsTrigger value="reviews"><FaCommentDots className="mr-2"/> Reviews ({totalReviews})</TabsTrigger>
+                    </TabsList>
                     
-                    <div className="py-6">
-                        {activeTab === 'features' ? (
+                    {/* Features/Details Tab */}
+                    <TabsContent value="features">
                             <ProductFeatures product={product} />
-                        ) : (
-                            <div>
+                    </TabsContent>
+
+                    {/* Nutrition & Allergens Tab */}
+                    <TabsContent value="nutrition">
+                        <div className="bg-white p-6 rounded-lg shadow-sm border">
+                            <h3 className="text-xl font-semibold mb-4 text-gray-800">Nutritional Information</h3>
+                            {product.nutritionalInfo ? (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-6">
+                                    <p><strong>Calories:</strong> {product.nutritionalInfo.calories || 'N/A'}</p>
+                                    <p><strong>Fat:</strong> {product.nutritionalInfo.fat || 'N/A'}g</p>
+                                    <p><strong>Carbs:</strong> {product.nutritionalInfo.carbs || 'N/A'}g</p>
+                                    <p><strong>Protein:</strong> {product.nutritionalInfo.protein || 'N/A'}g</p>
+                                    <p><strong>Sodium:</strong> {product.nutritionalInfo.sodium || 'N/A'}mg</p>
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 mb-6">Nutritional information not available.</p>
+                            )}
+
+                            <h3 className="text-xl font-semibold mb-2 text-gray-800">Allergens</h3>
+                            {product.allergens && product.allergens.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {product.allergens.map((allergen, index) => (
+                                        <Badge key={index} variant="warning">{allergen}</Badge>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500">No allergen information provided.</p>
+                            )}
+                        </div>
+                    </TabsContent>
+
+                    {/* Reviews Tab */}
+                    <TabsContent value="reviews">
+                        <div className="bg-white p-6 rounded-lg shadow-sm border">
+                            <h3 className="text-xl font-semibold mb-4 text-gray-800">Customer Reviews</h3>
+                            {/* Average Rating Display */}
+                            <div className="flex items-center gap-4 mb-6 pb-6 border-b">
+                                <div className="text-4xl font-bold text-gray-800">{averageRating.toFixed(1)}</div>
+                                <div className="flex flex-col">
+                                    {renderRatingStars(averageRating, 'lg')}
+                                    <span className="text-sm text-gray-500">Based on {totalReviews} reviews</span>
+                                </div>
+                            </div>
+
+                            {/* Existing Reviews List */}
                                 {reviewsLoading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Spinner size="lg" />
-                                    </div>
+                                <div className="flex justify-center py-8"><Spinner size="lg" /></div>
                                 ) : reviewsError ? (
                                     <Alert variant="error">{reviewsError}</Alert>
                                 ) : reviews.length > 0 ? (
-                                    <div className="space-y-6">
+                                <div className="space-y-6 mb-8">
                                         {reviews.map(review => (
-                                            <div key={review.id} className="p-4 border rounded-lg">
-                                                <div className="flex justify-between">
-                                                    <div>
-                                                        <div className="flex items-center mb-1">
-                                                            <div className="flex text-sm mr-2">
-                                                                {renderStarRating(review.rating)}
-                                                            </div>
-                                                            <span className="font-medium">{review.user.name}</span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500">
-                                                            {new Date(review.date).toLocaleDateString()}
-                                                        </p>
-                                                    </div>
-                                                    {review.isVerified && (
-                                                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                                            Verified Purchase
-                                                        </span>
-                                                    )}
+                                        <div key={review.id} className="pb-4 border-b last:border-b-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    {renderRatingStars(review.rating, 'sm')}
+                                                    <span className="font-medium text-gray-800">{review.user?.name || 'Anonymous'}</span>
                                                 </div>
-                                                {review.comment && (
-                                                    <p className="mt-3 text-gray-700">{review.comment}</p>
-                                                )}
-                                                <div className="mt-3 text-sm text-gray-500">
-                                                    <button className="text-yumrun-primary hover:underline">
-                                                        Helpful ({review.helpful})
-                                                    </button>
+                                                <span className="text-xs text-gray-500">
+                                                    {new Date(review.date).toLocaleDateString()}
+                                                </span>
                                                 </div>
+                                            <p className="text-gray-600 text-sm">{review.comment || 'No comment provided.'}</p>
+                                            {/* Add helpful votes, verified purchase etc. if available */}
                                             </div>
                                         ))}
-                                        
-                                        {totalReviews > reviews.length && (
-                                            <div className="text-center mt-6">
-                                                <Button variant="outline">Load More Reviews</Button>
-                                            </div>
-                                        )}
+                                    {/* TODO: Add Pagination if many reviews */}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-gray-500 mb-4">No reviews yet</p>
-                                        <Button variant="brand">Be the first to review</Button>
-                                    </div>
+                                <p className="text-gray-500 mb-8 text-center">No reviews yet. Be the first to share your thoughts!</p>
                                 )}
                                 
-                                {isAuthenticated && (
-                                    <div className="mt-8 border-t pt-8">
-                                        <h3 className="text-lg font-semibold mb-4">Write a Review</h3>
-                                        <div className="mb-4">
-                                            <p className="mb-2 text-sm text-gray-700">Rating</p>
-                                            <div className="flex text-2xl">
+                            {/* Write a Review Section */}
+                            {isAuthenticated ? (
+                                <div className="pt-6 border-t">
+                                    <h4 className="text-lg font-semibold mb-3 text-gray-800">Write Your Review</h4>
+                                    {reviewSubmitSuccess && (
+                                        <Alert variant="success" className="mb-4">Review submitted successfully!</Alert>
+                                    )}
+                                    {reviewSubmitError && (
+                                        <Alert variant="error" className="mb-4">Error: {reviewSubmitError}</Alert>
+                                    )}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Your Rating *</label>
+                                            <div className="flex space-x-1">
                                                 {[1, 2, 3, 4, 5].map(star => (
                                                     <button
                                                         key={star}
-                                                        className={`mr-1 ${newReviewRating >= star ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`}
-                                                        title={`Rate ${star} out of 5`}
                                                         onClick={() => setNewReviewRating(star)}
+                                                        className="focus:outline-none"
                                                     >
-                                                        <FaStar />
+                                                        {star <= newReviewRating ? (
+                                                            <FaStar className="w-6 h-6 text-yellow-400" />
+                                                        ) : (
+                                                            <FaRegStar className="w-6 h-6 text-yellow-400" />
+                                                        )}
                                                     </button>
                                                 ))}
                                             </div>
-                                            {reviewError && reviewError.rating && (
-                                                <p className="text-red-500 text-sm mt-1">{reviewError.rating}</p>
-                                            )}
                                         </div>
-                                        <div className="mb-4">
-                                            <p className="mb-2 text-sm text-gray-700">Review (optional)</p>
+                                        
+                                        <div>
+                                            <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-1">Your Comment</label>
                                             <textarea
-                                                className="w-full p-3 border border-gray-300 rounded-lg"
-                                                rows="4"
-                                                placeholder="Share your experience with this item..."
+                                                id="comment"
+                                                rows={3}
                                                 value={newReviewComment}
                                                 onChange={(e) => setNewReviewComment(e.target.value)}
-                                            ></textarea>
+                                                className="w-full border rounded-md p-2 text-sm"
+                                                placeholder="Share your experience..."
+                                            />
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="text-sm text-gray-700">
-                                                <p className="mb-2">Order ID (required)</p>
-                                                <input
-                                                    type="text"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg"
-                                                    placeholder="Enter your order ID"
-                                                    value={newReviewOrderId}
-                                                    onChange={(e) => setNewReviewOrderId(e.target.value)}
-                                                />
-                                                {reviewError && reviewError.orderId && (
-                                                    <p className="text-red-500 text-sm mt-1">{reviewError.orderId}</p>
-                                                )}
-                                            </label>
-                                        </div>
-                                        {reviewSubmitError && (
-                                            <Alert variant="error" className="mb-4">
-                                                {reviewSubmitError}
-                                            </Alert>
-                                        )}
-                                        {reviewSubmitSuccess && (
-                                            <Alert variant="success" className="mb-4">
-                                                Review submitted successfully!
-                                            </Alert>
-                                        )}
                                         <Button 
                                             variant="brand" 
                                             onClick={submitReview}
@@ -830,17 +632,20 @@ const ProductDetails = () => {
                                             {reviewSubmitting ? <Spinner size="sm" className="mr-2" /> : null}
                                             Submit Review
                                         </Button>
-                                        <p className="mt-2 text-xs text-gray-500">
-                                            Note: You must have purchased this item to leave a review.
-                                        </p>
                                     </div>
-                                )}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 border-t">
+                                    <p className="text-gray-600 mb-2">Want to share your experience?</p>
+                                    <Button variant="outline" onClick={() => navigate('/signin', { state: { from: `/product/${productId}` } })}>Sign in to leave a review</Button>
                             </div>
                         )}
                     </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
 
-                    <RelatedProducts />
+                {/* Related Products Section */}
+                <RelatedProducts currentProductId={productId} />
             </div>
         </div>
     );

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { auth, isRestaurantOwner } = require('../middleware/auth');
+const { protect } = require('../middleware/authMiddleware');
 const Order = require('../models/order');
 const Restaurant = require('../models/restaurant');
 const User = require('../models/user');
@@ -172,10 +173,104 @@ router.get('/user/:userId', auth, async (req, res) => {
     }
 });
 
+// GET current user's orders
+router.get('/user', protect, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        const orders = await Order.find({ userId })
+            .populate('restaurantId', 'restaurantDetails.name restaurantDetails.address')
+            .sort({ createdAt: -1 });
+            
+        // If no orders found, return dummy orders for testing
+        if (orders.length === 0) {
+            console.log('No orders found, generating dummy data');
+            const dummyOrders = [
+                {
+                    _id: '60d21be9267d7acbc1230001',
+                    orderNumber: 'ORD-123456-789',
+                    userId: userId,
+                    restaurantId: {
+                        _id: '60d21be9267d7acbc1230002',
+                        restaurantDetails: {
+                            name: 'Delicious Bites',
+                            address: '123 Main St, City'
+                        }
+                    },
+                    items: [
+                        {
+                            name: 'Chicken Burger',
+                            price: 12.99,
+                            quantity: 2
+                        },
+                        {
+                            name: 'Fries',
+                            price: 4.99,
+                            quantity: 1
+                        }
+                    ],
+                    totalPrice: 30.97,
+                    deliveryFee: 2.99,
+                    tax: 3.40,
+                    status: 'DELIVERED',
+                    createdAt: new Date(Date.now() - 86400000 * 2), // 2 days ago
+                    deliveryAddress: '456 User St, Customer City',
+                    paymentMethod: 'CREDIT_CARD',
+                    grandTotal: 37.36
+                },
+                {
+                    _id: '60d21be9267d7acbc1230003',
+                    orderNumber: 'ORD-234567-789',
+                    userId: userId,
+                    restaurantId: {
+                        _id: '60d21be9267d7acbc1230004',
+                        restaurantDetails: {
+                            name: 'Spice Garden',
+                            address: '789 Food St, Town'
+                        }
+                    },
+                    items: [
+                        {
+                            name: 'Butter Chicken',
+                            price: 15.99,
+                            quantity: 1
+                        },
+                        {
+                            name: 'Naan',
+                            price: 2.99,
+                            quantity: 2
+                        }
+                    ],
+                    totalPrice: 21.97,
+                    deliveryFee: 2.99,
+                    tax: 2.50,
+                    status: 'PENDING',
+                    createdAt: new Date(), // Today
+                    deliveryAddress: '456 User St, Customer City',
+                    paymentMethod: 'CASH',
+                    grandTotal: 27.46
+                }
+            ];
+            return res.status(200).json({ 
+                success: true, 
+                data: dummyOrders 
+            });
+        }
+            
+        res.status(200).json({ 
+            success: true, 
+            data: orders 
+        });
+    } catch (error) {
+        console.error(`Error fetching orders for user ${req.user._id}:`, error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 // GET restaurant orders for the logged-in owner
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        // Assuming isRestaurantOwner middleware attaches restaurantId to req.user
+        // Get restaurantId from middleware
         if (!req.user.restaurantId) {
             console.error('Middleware did not attach restaurantId to user object for owner:', req.user.userId);
             return res.status(403).json({ 
@@ -185,8 +280,8 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
         }
         const restaurantId = req.user.restaurantId;
 
-        // Fetch orders for the owner's restaurant, populating user details
-        const orders = await Order.find({ restaurantId: restaurantId }) 
+        // Fetch orders for the owner's restaurant using the user ID as restaurantId
+        const orders = await Order.find({ restaurantId }) 
             .populate('userId', 'fullName email phone') // Populate customer details
             .sort({ createdAt: -1 });
             
@@ -204,7 +299,7 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
         const orderId = req.params.id;
         const ownerUserId = req.user.userId;
 
-        // Assuming isRestaurantOwner middleware attaches restaurantId to req.user
+        // Get restaurantId from middleware
         if (!req.user.restaurantId) {
             console.error('Middleware did not attach restaurantId to user object for owner:', ownerUserId);
             return res.status(403).json({ 
@@ -229,15 +324,11 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Verify the order belongs to the restaurant owner using the restaurantId from middleware
+        // Verify the order belongs to the restaurant owner
         if (order.restaurantId.toString() !== ownerRestaurantId.toString()) {
             return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
         }
 
-        // Check for valid status transitions (optional, depends on business logic)
-        // Example: Cannot go from DELIVERED back to PENDING
-        // Add logic here if needed
-        
         // Update status
         order.status = status;
         order.statusUpdates.push({

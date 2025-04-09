@@ -8,65 +8,70 @@ const User = require('../models/user');
 exports.protect = async (req, res, next) => {
   let token;
 
-  // Check for token in Authorization header
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
+  // 1. Try finding token in Authorization header
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Add user to request object (without password)
-      req.user = await User.findById(decoded.id).select('-password');
-
-      next();
+        token = req.headers.authorization.split(' ')[1];
     } catch (error) {
-      console.error('Auth middleware error:', error);
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: 'Not authorized, token failed',
-          code: 'AUTH_ERROR'
-        }
-      });
+        console.error('Error splitting Bearer token:', error);
+        // Let it proceed to check cookies or fail if no token found
     }
   }
 
-  // Check for token in cookies as fallback
+  // 2. If no header token, try finding token in cookies
   if (!token && req.cookies && req.cookies.authToken) {
-    try {
-      token = req.cookies.authToken;
-      
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // Add user to request object (without password)
-      req.user = await User.findById(decoded.id).select('-password');
-      
-      next();
-    } catch (error) {
-      console.error('Auth middleware cookie error:', error);
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: 'Not authorized, token failed',
-          code: 'AUTH_ERROR'
-        }
-      });
-    }
+    token = req.cookies.authToken;
   }
 
+  // 3. If no token was found in either location
   if (!token) {
+    console.log('[Auth Middleware] No token found in header or cookies.');
     return res.status(401).json({
       success: false,
       error: {
-        message: 'Not authorized, no token',
+        message: 'Not authorized, no token provided',
         code: 'AUTH_ERROR'
       }
+    });
+  }
+
+  // 4. Verify the found token
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Fetch user based on userId in token payload
+    req.user = await User.findById(decoded.id || decoded.userId).select('-password');
+
+    // Check if user exists
+    if (!req.user) {
+      console.log(`[Auth Middleware] User not found for token userId: ${decoded.id || decoded.userId}`);
+      return res.status(401).json({
+         success: false,
+         error: { message: 'User associated with this token no longer exists.', code: 'AUTH_ERROR' }
+      });
+    }
+
+    // Success: Attach user to request and proceed
+    console.log(`[Auth Middleware] User ${req.user._id} authenticated via token.`);
+    next();
+
+  } catch (error) {
+    // Handle token verification errors (expired, invalid signature etc.)
+    console.error('[Auth Middleware] Token verification failed:', error.name, error.message);
+    
+    let errorMessage = 'Not authorized, token failed';
+    let statusCode = 401;
+    
+    if (error.name === 'TokenExpiredError') {
+        errorMessage = 'Token expired, please log in again.';
+    } else if (error.name === 'JsonWebTokenError') {
+        errorMessage = 'Invalid token signature.';
+    } 
+    // Add other specific JWT error checks if needed
+    
+    return res.status(statusCode).json({
+      success: false,
+      error: { message: errorMessage, code: 'AUTH_ERROR' }
     });
   }
 };

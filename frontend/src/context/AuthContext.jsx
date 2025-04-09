@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../utils/api';
+import api, { authAPI } from '../utils/api';
 import PropTypes from 'prop-types';
 
 // Create the auth context
@@ -55,20 +55,24 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Check for stored auth token and user data
+  // Check for stored auth token and user data on initial load
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('userData');
     
     if (token && userData) {
       try {
+        // Set default header for Axios instance
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
         const parsedUserData = JSON.parse(userData);
-        // Normalize user data to ensure role property
         setCurrentUser(normalizeUserData(parsedUserData));
       } catch (error) {
-        console.error('Error parsing stored user data:', error);
+        console.error('Error processing stored auth data:', error);
+        // Clear storage and Axios header on error
         localStorage.removeItem('authToken');
         localStorage.removeItem('userData');
+        delete api.defaults.headers.common['Authorization'];
       }
     }
     
@@ -79,13 +83,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     setIsLoading(true);
     setError(null);
+    // Clear previous auth header before attempting login
+    delete api.defaults.headers.common['Authorization'];
     
     try {
       const response = await authAPI.login(credentials);
       
       // Check if response is from the error handler or actual API
       if (response.success === false) {
-        // This is already an error response from our error handler
         setError(response.error || 'Login failed');
         setIsLoading(false);
         return response;
@@ -94,13 +99,14 @@ export const AuthProvider = ({ children }) => {
       // This is a successful API response
       if (response.data && response.data.success) {
         const { token, user, dashboardPath } = response.data;
-        
-        // Normalize user data to ensure role property
         const normalizedUser = normalizeUserData(user);
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
         localStorage.setItem('userData', JSON.stringify(normalizedUser));
+        
+        // Set default header for subsequent requests
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         // Update state
         setCurrentUser(normalizedUser);
@@ -109,28 +115,20 @@ export const AuthProvider = ({ children }) => {
         return { 
           success: true, 
           user: normalizedUser,
-          // Use the server-provided dashboard path or calculate it
           dashboardPath: dashboardPath || getDashboardPath(normalizedUser.role)
         };
       } else {
-        // Unexpected response format
-        const errorMessage = 'Login failed: Invalid response format';
+        const errorMessage = response.data?.message || 'Login failed: Invalid response format';
         setError(errorMessage);
         setIsLoading(false);
-        return { 
-          success: false, 
-          error: errorMessage 
-        };
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Login failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
-      return { 
-        success: false, 
-        error: errorMessage 
-      };
+      return { success: false, error: errorMessage };
     }
   };
   
@@ -144,63 +142,45 @@ export const AuthProvider = ({ children }) => {
       
       // Check if the response indicates an error
       if (!response.data.success) {
-        setError(response.data.message || 'Registration failed');
+        setError(response.data.error?.message || 'Registration failed');
         setIsLoading(false);
-        return { success: false, error: response.data.message || 'Registration failed' };
+        return { success: false, error: response.data.error?.message || 'Registration failed' };
       }
       
-      if (response.data.success) {
-        const { user } = response.data;
-        // Original response provides token but we're not using it since we're not auto-logging in
-        // const { token, user } = response.data;
+      // Successful registration, data should be in response.data.data
+      if (response.data.success && response.data.data) {
+        const { user /*, token */ } = response.data.data; // Assuming data is nested under 'data'
         
         // Normalize user data to ensure role property
         const normalizedUser = normalizeUserData(user);
         
-        // For auto-login after registration, uncomment these:
-        // Save to localStorage
-        // localStorage.setItem('authToken', token);
-        // localStorage.setItem('userData', JSON.stringify(normalizedUser));
-        // Update state
-        // setCurrentUser(normalizedUser);
+        // Not auto-logging in after registration
         
         setIsLoading(false);
         
         return { 
           success: true, 
           user: normalizedUser,
-          dashboardPath: getDashboardPath(normalizedUser.role)
+          // We don't necessarily need dashboard path here if not auto-logging in
+          // dashboardPath: getDashboardPath(normalizedUser.role)
         };
       } else {
-        setError(response.data.message || 'Registration failed');
+        // Handle unexpected success response format
+        const errMsg = response.data.error?.message || 'Registration failed: Unexpected response format';
+        setError(errMsg);
         setIsLoading(false);
-        return { success: false, error: response.data.message || 'Registration failed' };
+        return { success: false, error: errMsg };
       }
     } catch (error) {
       console.error('Registration error:', error);
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      // Handle specific API error responses
-      if (error.response) {
-        if (error.response.data && error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else if (error.response.status === 409) {
-          errorMessage = 'User with this email already exists.';
-        } else if (error.response.status === 400) {
-          errorMessage = 'Invalid registration data. Please check your information.';
-        }
-      } else if (error.request) {
-        // The request was made but no response was received
-        errorMessage = 'No response from server. Please check your internet connection.';
-      }
-      
+      const errorMessage = error.response?.data?.error?.message || 'Registration failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };
     }
   };
   
-  // Update profile
+  // Update user profile
   const updateProfile = async (profileData) => {
     setIsLoading(true);
     setError(null);
@@ -208,10 +188,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.updateProfile(profileData);
       
-      if (response.data.success) {
-        const { user } = response.data;
-        
-        // Normalize user data to ensure role property
+      // Check for nested data structure
+      const responseData = response.data.data || response.data;
+      
+      if (responseData.success) {
+        const { user } = responseData;
         const normalizedUser = normalizeUserData(user);
         
         // Update stored user data
@@ -223,13 +204,14 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: normalizedUser };
       } else {
-        setError(response.data.message || 'Profile update failed');
+        const errMsg = responseData.error?.message || 'Profile update failed';
+        setError(errMsg);
         setIsLoading(false);
-        return { success: false, error: response.data.message || 'Profile update failed' };
+        return { success: false, error: errMsg };
       }
     } catch (error) {
       console.error('Profile update error:', error);
-      const errorMessage = error.response?.data?.message || 'Profile update failed. Please try again.';
+      const errorMessage = error.response?.data?.error?.message || 'Profile update failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
       return { success: false, error: errorMessage };
@@ -240,6 +222,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
+    // Remove default header from Axios instance
+    delete api.defaults.headers.common['Authorization'];
     setCurrentUser(null);
   };
   
@@ -248,7 +232,7 @@ export const AuthProvider = ({ children }) => {
     (!currentUser?.role && !currentUser?.isAdmin && !currentUser?.isRestaurantOwner && !currentUser?.isDeliveryRider);
     
   const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner' || 
-    currentUser?.isRestaurantOwner === true;
+    currentUser?.isRestaurantOwner === true || currentUser?.role === 'restaurant'; // Added 'restaurant'
     
   const isDeliveryRider = () => currentUser?.role === 'deliveryRider' || 
     currentUser?.isDeliveryRider === true || 
@@ -260,16 +244,17 @@ export const AuthProvider = ({ children }) => {
   // Context value
   const value = {
     currentUser,
+    isAuthenticated: !!currentUser,
     isLoading,
     error,
-    register,
     login,
+    register,
     logout,
     updateProfile,
     isCustomer,
+    isAdmin,
     isRestaurantOwner,
-    isDeliveryRider,
-    isAdmin
+    isDeliveryRider
   };
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

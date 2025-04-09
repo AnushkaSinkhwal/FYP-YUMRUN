@@ -1,40 +1,89 @@
+import { useState, useEffect } from 'react';
 import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
+import { restaurantAPI } from '../../utils/api';
 
 const RestaurantDashboard = () => {
+  const [dashboardData, setDashboardData] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    menuItems: 0,
+    activeOffers: 0,
+    totalRevenue: 0,
+    recentActivity: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await restaurantAPI.getDashboard();
+      
+      if (response && response.data && response.data.success) {
+        const data = response.data.data || {};
+        console.log('Successfully fetched restaurant dashboard data:', data);
+        
+        setDashboardData({
+          totalOrders: data.totalOrders || 0,
+          pendingOrders: data.pendingOrders || 0,
+          menuItems: data.menuItems || 0,
+          activeOffers: data.activeOffers || 0,
+          totalRevenue: data.totalRevenue || 0,
+          recentActivity: data.recentActivity || []
+        });
+      } else {
+        const errorMessage = response?.data?.message || 'Failed to fetch dashboard data';
+        console.error('Error fetching dashboard data:', errorMessage);
+        setError(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant dashboard data:', error);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Restaurant-specific stats
   const stats = [
     {
       title: "Total Orders",
-      count: 150,
+      count: dashboardData.totalOrders,
       icon: <FaShoppingCart size={24} />,
       color: "bg-blue-100 text-blue-700 dark:bg-blue-800/30 dark:text-blue-300",
       link: "/restaurant/orders",
     },
     {
       title: "Pending Orders",
-      count: 5,
+      count: dashboardData.pendingOrders,
       icon: <FaShoppingCart size={24} />,
       color: "bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300",
       link: "/restaurant/orders?status=pending",
     },
     {
       title: "Menu Items",
-      count: 42,
+      count: dashboardData.menuItems,
       icon: <FaUtensils size={24} />,
       color: "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300",
       link: "/restaurant/menu",
     },
     {
       title: "Active Offers",
-      count: 3,
+      count: dashboardData.activeOffers,
       icon: <FaGift size={24} />,
       color: "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300",
       link: "/restaurant/offers",
     },
     {
       title: "Total Revenue",
-      count: "$25,000",
+      count: `$${dashboardData.totalRevenue.toLocaleString()}`,
       icon: <FaChartLine size={24} />,
       color: "bg-purple-100 text-purple-700 dark:bg-purple-800/30 dark:text-purple-300",
       link: "/restaurant/analytics",
@@ -77,40 +126,15 @@ const RestaurantDashboard = () => {
     }
   ];
 
-  // Restaurant-specific recent activity
-  const recentActivity = [
-    {
-      id: 1,
-      type: "Order",
-      details: "New order #123 received",
-      status: "pending",
-      date: new Date().toLocaleDateString(),
-      link: "/restaurant/orders/123"
-    },
-    {
-      id: 2,
-      type: "Menu Update",
-      details: "Added new item 'Veggie Bowl'",
-      status: "completed",
-      date: new Date().toLocaleDateString(),
-      link: "/restaurant/menu"
-    },
-    {
-      id: 3,
-      type: "Profile Update",
-      details: "Contact information updated",
-      status: "pending",
-      date: new Date().toLocaleDateString(),
-      link: "/restaurant/profile"
-    }
-  ];
-
   return (
     <Dashboard
       role="restaurantOwner"
       stats={stats}
       quickActions={quickActions}
-      recentActivity={recentActivity}
+      recentActivity={dashboardData.recentActivity}
+      isLoading={isLoading}
+      error={error}
+      onRefresh={fetchDashboardData}
     />
   );
 };

@@ -7,6 +7,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const Notification = require('../models/notification');
+const mongoose = require('mongoose');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -604,6 +605,232 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         return res.status(500).json({ 
             success: false, 
             message: 'Server error. Please try again: ' + error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/dashboard
+ * @desc    Get restaurant dashboard data
+ * @access  Private/RestaurantOwner
+ */
+router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        
+        // Import models correctly
+        const Order = require('../models/order');
+        const { MenuItem } = require('../models/menuItem');
+        const Offer = require('../models/offer');
+        
+        // Fetch counts and aggregated data
+        const [totalOrders, pendingOrders, menuItems, activeOffers, revenueData] = await Promise.all([
+            Order.countDocuments({ restaurantId }),
+            Order.countDocuments({ restaurantId, status: 'PENDING' }),
+            MenuItem.countDocuments({ restaurant: restaurantId }),
+            Offer.countDocuments({ restaurantId, isActive: true }),
+            Order.aggregate([
+                { $match: { restaurantId: restaurantId.toString() } },
+                { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+            ])
+        ]);
+        
+        // Get recent activity (latest orders and menu updates)
+        const recentOrders = await Order.find({ restaurantId })
+            .sort({ createdAt: -1 })
+            .limit(3);
+            
+        const recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId })
+            .sort({ updatedAt: -1 })
+            .limit(2);
+            
+        // Format recent activity
+        const recentActivity = [
+            ...recentOrders.map(order => ({
+                id: order._id,
+                type: "Order",
+                details: `New order #${order.orderNumber || order._id.toString().substring(0, 6)} received`,
+                status: order.status.toLowerCase(),
+                date: order.createdAt,
+                link: `/restaurant/orders/${order._id}`
+            })),
+            ...recentMenuUpdates.map(item => ({
+                id: item._id,
+                type: "Menu Update",
+                details: `${item.updatedAt > item.createdAt ? 'Updated' : 'Added new'} item '${item.item_name}'`,
+                status: "completed",
+                date: item.updatedAt || item.createdAt,
+                link: "/restaurant/menu"
+            }))
+        ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+        
+        // Calculate total revenue
+        const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+        
+        return res.status(200).json({
+            success: true,
+            data: {
+                totalOrders,
+                pendingOrders,
+                menuItems,
+                activeOffers,
+                totalRevenue,
+                recentActivity
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching restaurant dashboard data:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching dashboard data'
+        });
+    }
+});
+
+/**
+ * @route   POST /api/restaurant/test-order
+ * @desc    Create a test order for the restaurant (temporary, for development)
+ * @access  Private/RestaurantOwner
+ */
+router.post('/test-order', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        const Order = require('../models/order');
+        
+        // Generate a unique order number
+        const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        
+        // Create a sample order
+        const testOrder = new Order({
+            orderNumber,
+            userId: restaurantId, // Using restaurant owner as customer for simplicity
+            restaurantId: restaurantId,
+            items: [
+                {
+                    productId: new mongoose.Types.ObjectId(), // Generate a random ID
+                    name: "Test Food Item",
+                    price: 15.99,
+                    quantity: 2,
+                    options: [
+                        { name: "Size", value: "Large", price: 2.00 }
+                    ]
+                }
+            ],
+            totalPrice: 33.98, // 15.99 * 2 + 2.00
+            deliveryFee: 3.99,
+            tax: 3.80,
+            tip: 5.00,
+            grandTotal: 46.77, // Total + fee + tax + tip
+            status: 'PENDING',
+            paymentMethod: 'CREDIT_CARD',
+            paymentStatus: 'PAID',
+            deliveryAddress: {
+                street: "123 Test Street",
+                city: "Test City",
+                state: "TS",
+                zipCode: "12345",
+                country: "Test Country"
+            },
+            specialInstructions: "This is a test order for development",
+            statusUpdates: [
+                {
+                    status: 'PENDING',
+                    timestamp: new Date(),
+                    updatedBy: restaurantId
+                }
+            ]
+        });
+        
+        await testOrder.save();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Test order created successfully',
+            data: testOrder
+        });
+    } catch (error) {
+        console.error('Error creating test order:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error creating test order'
+        });
+    }
+});
+
+/**
+ * @route   POST /api/restaurant/test-menu-item
+ * @desc    Create a test menu item for the restaurant (temporary, for development)
+ * @access  Private/RestaurantOwner
+ */
+router.post('/test-menu-item', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        const { MenuItem } = require('../models/menuItem');
+        
+        // Create a sample menu item
+        const testMenuItem = new MenuItem({
+            item_name: "Test Food Item " + Math.floor(Math.random() * 100),
+            item_price: 15.99,
+            description: "This is a test menu item created for development",
+            restaurant: restaurantId,
+            category: 'Main Course',
+            isVegetarian: false,
+            isVegan: false,
+            isGlutenFree: false,
+            isAvailable: true
+        });
+        
+        await testMenuItem.save();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Test menu item created successfully',
+            data: testMenuItem
+        });
+    } catch (error) {
+        console.error('Error creating test menu item:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error creating test menu item'
+        });
+    }
+});
+
+/**
+ * @route   POST /api/restaurant/test-offer
+ * @desc    Create a test offer for the restaurant (temporary, for development)
+ * @access  Private/RestaurantOwner
+ */
+router.post('/test-offer', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        const { Offer } = require('../models/offer');
+        
+        // Create a sample offer
+        const testOffer = new Offer({
+            title: "Test Offer " + Math.floor(Math.random() * 100),
+            description: "This is a test offer created for development",
+            offerType: 'Discount',
+            discountPercentage: 20,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+            isActive: true,
+            appliesTo: 'All Menu',
+            restaurant: restaurantId
+        });
+        
+        await testOffer.save();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Test offer created successfully',
+            data: testOffer
+        });
+    } catch (error) {
+        console.error('Error creating test offer:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error creating test offer'
         });
     }
 });

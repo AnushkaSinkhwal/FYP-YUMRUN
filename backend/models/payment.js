@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+console.log('Payment model loaded');
 
 const paymentSchema = new mongoose.Schema({
     userId: {
@@ -7,8 +8,7 @@ const paymentSchema = new mongoose.Schema({
         required: true
     },
     orderId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order',
+        type: String,
         required: true,
         index: true
     },
