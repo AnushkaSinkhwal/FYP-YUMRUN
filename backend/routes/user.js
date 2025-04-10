@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const { protect } = require('../middleware/authMiddleware');
 const Notification = require('../models/notification');
 const RestaurantApproval = require('../models/restaurantApproval');
+const { auth } = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 // Sign Up Route
 router.post(
@@ -921,6 +923,85 @@ router.get('/dashboard', protect, async (req, res) => {
       message: 'Error fetching dashboard data'
     });
   }
+});
+
+// Update user health profile
+router.put('/health-profile', auth, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { healthProfile } = req.body;
+
+        if (!healthProfile) {
+            return res.status(400).json({
+                success: false,
+                message: 'Health profile data is required'
+            });
+        }
+
+        // Find user by ID
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Validate macro targets sum to 100%
+        if (healthProfile.macroTargets) {
+            const { protein, carbs, fat } = healthProfile.macroTargets;
+            const total = (protein || 0) + (carbs || 0) + (fat || 0);
+            if (total !== 100) {
+                console.log(`Macro targets (${protein}% protein, ${carbs}% carbs, ${fat}% fat) do not add up to 100%. Saving anyway.`);
+                // We'll still save, but log the inconsistency
+            }
+        }
+
+        // Update health profile
+        user.healthProfile = healthProfile;
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Health profile updated successfully',
+            healthProfile: user.healthProfile
+        });
+    } catch (error) {
+        console.error('Error updating health profile:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while updating health profile',
+            error: error.message
+        });
+    }
+});
+
+// Get loyalty points for current user
+router.get('/loyalty', auth, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            loyaltyPoints: user.loyaltyPoints || 0
+        });
+    } catch (error) {
+        console.error('Error fetching loyalty points:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while fetching loyalty points',
+            error: error.message
+        });
+    }
 });
 
 module.exports = router;

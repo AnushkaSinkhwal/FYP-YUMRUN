@@ -13,8 +13,10 @@ import ProductItem from "../../components/ProductItem";
 import HomeCat from "../../components/HomeCat";
 import { IoIosMail } from "react-icons/io";
 import { useEffect, useState, useRef } from 'react';
-import { Container, Button, Alert, Spinner } from '../../components/ui';
+import { Container, Button, Alert, Spinner, Card } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 
 const Home = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -26,14 +28,19 @@ const Home = () => {
     const [newProducts, setNewProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
     const [productsError, setProductsError] = useState(null);
+    const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
+    const [loadingRestaurants, setLoadingRestaurants] = useState(true);
+    const [restaurantsError, setRestaurantsError] = useState(null);
     
     const { user } = useAuth();
+    const navigate = useNavigate();
     
     const bestSellersRef = useRef(null);
     const newProductsRef = useRef(null);
     const healthRecsRef = useRef(null);
     const bannersRef = useRef(null);
     const newsletterRef = useRef(null);
+    const featuredRestaurantsRef = useRef(null);
 
     // Handle window resize for responsive design
     useEffect(() => {
@@ -269,36 +276,214 @@ const Home = () => {
                 setLoadingProducts(true);
                 setProductsError(null);
                 
-                const response = await fetch('/api/menu');
+                // Sample menu items to use as fallback
+                const sampleMenuItems = [
+                    {
+                        id: 'item1',
+                        name: 'Classic Margherita Pizza',
+                        price: 495,
+                        rating: 4.7,
+                        restaurant: { name: 'Pizza Palace' },
+                        image: 'https://source.unsplash.com/random/300x200/?pizza',
+                        discount: '15'
+                    },
+                    {
+                        id: 'item2',
+                        name: 'Chicken Momo',
+                        price: 280,
+                        rating: 4.5,
+                        restaurant: { name: 'Momo House' },
+                        image: 'https://source.unsplash.com/random/300x200/?dumplings',
+                        discount: '10'
+                    },
+                    {
+                        id: 'item3',
+                        name: 'Vegetable Biryani',
+                        price: 350,
+                        rating: 4.3,
+                        restaurant: { name: 'Spice Route' },
+                        image: 'https://source.unsplash.com/random/300x200/?biryani',
+                        discount: '0'
+                    },
+                    {
+                        id: 'item4',
+                        name: 'Chicken Burger',
+                        price: 320,
+                        rating: 4.2,
+                        restaurant: { name: 'Burger House' },
+                        image: 'https://source.unsplash.com/random/300x200/?burger',
+                        discount: '20'
+                    },
+                    {
+                        id: 'item5',
+                        name: 'Grilled Fish',
+                        price: 550,
+                        rating: 4.6,
+                        restaurant: { name: 'Seafood Central' },
+                        image: 'https://source.unsplash.com/random/300x200/?fish',
+                        discount: '5'
+                    },
+                    {
+                        id: 'item6',
+                        name: 'Chocolate Cake',
+                        price: 210,
+                        rating: 4.8,
+                        restaurant: { name: 'Sweet Delights' },
+                        image: 'https://source.unsplash.com/random/300x200/?cake',
+                        discount: '0'
+                    }
+                ];
                 
-                if (!response.ok) {
+                try {
+                    const response = await fetch('/api/menu');
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            // Process the menu items
+                            const allItems = data.data || [];
+                            
+                            // Process each item to ensure discount and price data is correctly formatted
+                            const processedItems = allItems.map(item => {
+                                // Skip items without essential data
+                                if (!item || !item.name || !item.price) return null;
+                                
+                                return {
+                                    ...item,
+                                    // Ensure image has a fallback
+                                    image: item.image || `https://source.unsplash.com/random/300x200/?food,${encodeURIComponent(item.name)}`,
+                                    // Only include oldPrice if there's a valid discount
+                                    oldPrice: item.discount && parseFloat(item.discount) > 0 
+                                        ? item.price 
+                                        : null,
+                                    // If there's a discount, calculate the new price
+                                    price: item.discount && parseFloat(item.discount) > 0 
+                                        ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
+                                        : item.price
+                                };
+                            }).filter(item => item !== null); // Remove null items
+                            
+                            if (processedItems.length > 0) {
+                                // For featured products (random selection of 5 items)
+                                const shuffled = [...processedItems].sort(() => 0.5 - Math.random());
+                                setFeaturedProducts(shuffled.slice(0, 5));
+                                
+                                // For new products (most recent 4 items by date)
+                                const sortedByDate = [...processedItems].sort((a, b) => 
+                                    new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                                );
+                                setNewProducts(sortedByDate.slice(0, 4));
+                                setLoadingProducts(false);
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // If we get here, either the API failed or returned invalid data
                     throw new Error('Failed to fetch menu items');
-                }
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Process the menu items
-                    const allItems = data.data || [];
+                } catch (error) {
+                    console.error('Error fetching menu items:', error);
+                    // Don't set error message in state if we're going to use fallback data
+                    // setProductsError('Failed to load restaurant menu items');
                     
-                    // For featured products (random selection of 5 items)
-                    const shuffled = [...allItems].sort(() => 0.5 - Math.random());
+                    // Use fallback data instead
+                    console.log('Using sample menu items as fallback');
+                    const processedSamples = sampleMenuItems.map(item => ({
+                        ...item,
+                        oldPrice: item.discount && parseFloat(item.discount) > 0 
+                            ? item.price 
+                            : null,
+                        price: item.discount && parseFloat(item.discount) > 0 
+                            ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
+                            : item.price
+                    }));
+                    
+                    const shuffled = [...processedSamples].sort(() => 0.5 - Math.random());
                     setFeaturedProducts(shuffled.slice(0, 5));
-                    
-                    // For new products (most recent 4 items or another random selection)
-                    setNewProducts(shuffled.slice(5, 9));
-                } else {
-                    throw new Error(data.message || 'Failed to fetch menu items');
+                    setNewProducts(shuffled.slice(0, 4));
                 }
-            } catch (error) {
-                console.error('Error fetching menu items:', error);
-                setProductsError('Failed to load restaurant menu items');
             } finally {
                 setLoadingProducts(false);
             }
         };
         
         fetchMenuItems();
+    }, []);
+
+    // Fetch featured restaurants
+    useEffect(() => {
+        const fetchRestaurants = async () => {
+            try {
+                setLoadingRestaurants(true);
+                setRestaurantsError(null);
+                
+                // Sample restaurants data to use as fallback
+                const sampleRestaurants = [
+                    {
+                        id: 'rest1',
+                        name: 'The Green Garden',
+                        rating: 4.8,
+                        cuisine: ['Vegetarian', 'Healthy', 'Organic'],
+                        address: '123 Green St, Kathmandu',
+                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,vegetarian'
+                    },
+                    {
+                        id: 'rest2',
+                        name: 'Spice House',
+                        rating: 4.5,
+                        cuisine: ['Indian', 'Spicy', 'Curry'],
+                        address: '456 Spice Ave, Kathmandu',
+                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,indian'
+                    },
+                    {
+                        id: 'rest3',
+                        name: 'Burger Palace',
+                        rating: 4.2,
+                        cuisine: ['Fast Food', 'Burgers', 'American'],
+                        address: '789 Fast Blvd, Kathmandu',
+                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,burger'
+                    },
+                    {
+                        id: 'rest4',
+                        name: 'Sushi Express',
+                        rating: 4.7,
+                        cuisine: ['Japanese', 'Sushi', 'Asian'],
+                        address: '101 Ocean Dr, Kathmandu',
+                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,sushi'
+                    }
+                ];
+                
+                try {
+                    const response = await fetch('/api/restaurants/featured');
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+                            setFeaturedRestaurants(data.data);
+                            setLoadingRestaurants(false);
+                            return;
+                        }
+                    }
+                    
+                    // If we get here, either the response wasn't OK or the data was invalid
+                    throw new Error('Failed to fetch restaurants');
+                } catch (error) {
+                    console.error('Error fetching restaurants:', error);
+                    // Don't set error message in state if we're going to use fallback data
+                    // setRestaurantsError('Failed to load featured restaurants');
+                    
+                    // Use fallback data instead
+                    console.log('Using sample restaurant data as fallback');
+                    setFeaturedRestaurants(sampleRestaurants);
+                }
+            } finally {
+                setLoadingRestaurants(false);
+            }
+        };
+        
+        fetchRestaurants();
     }, []);
 
     // Determine number of slides based on screen width
@@ -395,6 +580,9 @@ const Home = () => {
                                                         src={item.image}
                                                         alt={item.name}
                                                         className="absolute top-0 left-0 object-cover w-full h-full"
+                                                        onError={(e) => {
+                                                            e.target.src = `https://source.unsplash.com/random/300x200/?healthy,${encodeURIComponent(item.name)}`;
+                                                        }}
                                                     />
                                                     <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                                                         {item.healthTag}
@@ -484,8 +672,8 @@ const Home = () => {
                             <div ref={bestSellersRef}>
                                 <div className="flex flex-wrap items-center justify-between mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">FEATURED RESTAURANTS</h2>
-                                        <p className="text-gray-500">Best selling restaurants in your area</p>
+                                        <h2 className="text-2xl font-bold text-gray-900">FEATURED MENU ITEMS</h2>
+                                        <p className="text-gray-500">Best selling dishes in your area</p>
                                     </div>
 
                                     <Button 
@@ -528,13 +716,14 @@ const Home = () => {
                                                         oldPrice={product.oldPrice?.toString() || ''}
                                                         newPrice={product.price.toString()}
                                                         imgSrc={product.image}
+                                                        discount={product.discount?.toString() || ''}
                                                     />
                                                 </SwiperSlide>
                                             ))}
                                         </Swiper>
                                     ) : (
                                         <div className="text-center py-8">
-                                            <p className="text-gray-500">No featured restaurants available</p>
+                                            <p className="text-gray-500">No featured dishes available</p>
                                         </div>
                                     )}
                                 </div>
@@ -576,15 +765,95 @@ const Home = () => {
                                                     oldPrice={product.oldPrice?.toString() || ''}
                                                     newPrice={product.price.toString()}
                                                     imgSrc={product.image}
+                                                    discount={product.discount?.toString() || ''}
                                                 />
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8">
-                                        <p className="text-gray-500">No new products available</p>
+                                        <p className="text-gray-500">No new dishes available</p>
                                     </div>
                                 )}
+                            </div>
+                            
+                            {/* Featured Restaurants Section */}
+                            <div ref={featuredRestaurantsRef}>
+                                <div className="flex flex-wrap items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900">FEATURED RESTAURANTS</h2>
+                                        <p className="text-gray-500">Top-rated restaurants in your area</p>
+                                    </div>
+
+                                    <Button 
+                                        variant="outline" 
+                                        className="flex items-center gap-2 mt-2 sm:mt-0"
+                                        onClick={() => navigate('/restaurants')}
+                                    >
+                                        View All <FaLongArrowAltRight />
+                                    </Button>
+                                </div>
+
+                                <div className="mb-12">
+                                    {loadingRestaurants ? (
+                                        <div className="flex justify-center py-12">
+                                            <Spinner size="lg" />
+                                        </div>
+                                    ) : restaurantsError ? (
+                                        <Alert variant="error" className="mb-4">
+                                            {restaurantsError}
+                                        </Alert>
+                                    ) : featuredRestaurants.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                            {featuredRestaurants.map((restaurant) => (
+                                                <Card key={restaurant.id} className="overflow-hidden transition-shadow hover:shadow-md">
+                                                    <div className="relative h-40 bg-gray-200">
+                                                        <img 
+                                                            src={restaurant.coverImage || `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`} 
+                                                            alt={restaurant.name}
+                                                            className="object-cover w-full h-full"
+                                                            onError={(e) => {
+                                                                e.target.src = `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`;
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="p-4">
+                                                        <h3 className="text-lg font-semibold">{restaurant.name}</h3>
+                                                        <div className="flex items-center mt-1 text-sm text-gray-500">
+                                                            {restaurant.rating > 0 && (
+                                                                <div className="flex items-center mr-3">
+                                                                    <FaStar className="mr-1 text-yellow-400" />
+                                                                    <span>{restaurant.rating.toFixed(1)}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex flex-wrap gap-1 my-1">
+                                                                {Array.isArray(restaurant.cuisine) && restaurant.cuisine.slice(0, 3).map((type, index) => (
+                                                                    <span key={index} className="px-2 py-0.5 bg-gray-100 text-xs rounded-full">
+                                                                        {type}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                                                            <FaMapMarkerAlt className="text-gray-400" />
+                                                            <span className="truncate">{restaurant.address}</span>
+                                                        </div>
+                                                        <Button 
+                                                            className="w-full mt-4"
+                                                            onClick={() => navigate(`/restaurant/${restaurant.id}`)}
+                                                        >
+                                                            View Menu
+                                                        </Button>
+                                                    </div>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-500">No featured restaurants available</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

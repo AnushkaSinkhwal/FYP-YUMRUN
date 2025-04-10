@@ -69,6 +69,12 @@ const ProductItem = ({
         setImgLoaded(true);
     };
 
+    const handleImageError = (e) => {
+        // Use a placeholder image on error
+        e.target.src = 'https://source.unsplash.com/random/300x200/?food';
+        setImgLoaded(true);
+    };
+
     // Function to render the star rating
     const renderRating = (value) => {
         const fullStars = Math.floor(value);
@@ -118,7 +124,7 @@ const ProductItem = ({
                 <div className="relative pt-[75%] bg-gray-100">
                     {!imgLoaded && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                            <div className="animate-pulse w-12 h-12 rounded-full bg-gray-200"></div>
+                            <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
                         </div>
                     )}
                     <Link to={`/product/${id}`} aria-label={`View ${name} details`}>
@@ -131,31 +137,32 @@ const ProductItem = ({
                             alt={name}
                             loading="lazy"
                             onLoad={handleImageLoad}
+                            onError={handleImageError}
                         />
                     </Link>
                     
-                    {discount && (
+                    {discount && parseFloat(discount) > 0 && (
                         <Badge className="absolute top-2 left-2 bg-yumrun-accent" variant="secondary">
                             {discount}% OFF
                         </Badge>
                     )}
                     
                     {/* Quick actions overlay */}
-                    <div className="absolute right-2 top-2 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+                    <div className="absolute flex flex-col gap-2 transition-all duration-300 translate-x-12 opacity-0 right-2 top-2 group-hover:translate-x-0 group-hover:opacity-100">
                         <Button
                             size="icon"
                             variant="secondary"
-                            className="h-8 w-8 rounded-full bg-white hover:bg-gray-100 shadow-sm"
+                            className="w-8 h-8 bg-white rounded-full shadow-sm hover:bg-gray-100"
                             onClick={viewProductDetails}
                             aria-label="Quick view"
                         >
-                            <BsArrowsFullscreen className="h-4 w-4" />
+                            <BsArrowsFullscreen className="w-4 h-4" />
                         </Button>
                         
                         <Button
                             size="icon"
                             variant="secondary"
-                            className="h-8 w-8 rounded-full bg-white hover:bg-gray-100 shadow-sm"
+                            className="w-8 h-8 bg-white rounded-full shadow-sm hover:bg-gray-100"
                             onClick={toggleFavorite}
                             aria-label={favoriteActive ? "Remove from wishlist" : "Add to wishlist"}
                         >
@@ -174,18 +181,18 @@ const ProductItem = ({
                             onClick={handleAddToCart}
                             aria-label="Add to cart"
                         >
-                            <FiShoppingCart className="h-4 w-4" />
+                            <FiShoppingCart className="w-4 h-4" />
                         </Button>
                     </div>
                 </div>
                 
                 <CardContent className="p-4">
-                    <Link to={`/product/${id}`} className="block hover:text-yumrun-primary transition-colors">
+                    <Link to={`/product/${id}`} className="block transition-colors hover:text-yumrun-primary">
                         <h3 className="text-lg font-medium line-clamp-1">{name}</h3>
                         
                         {location && (
-                            <div className="flex items-center mt-1 text-gray-500 text-sm">
-                                <FaMapMarkerAlt className="mr-1 text-yumrun-secondary h-3 w-3" />
+                            <div className="flex items-center mt-1 text-sm text-gray-500">
+                                <FaMapMarkerAlt className="w-3 h-3 mr-1 text-yumrun-secondary" />
                                 <span>{location}</span>
                             </div>
                         )}
@@ -197,17 +204,19 @@ const ProductItem = ({
                     
                     <div className="flex items-center justify-between mt-3">
                         <div className="price-container">
-                            <span className="text-sm text-gray-500 line-through mr-2">Rs.{oldPrice}</span>
-                            <span className="text-yumrun-accent font-medium">Rs.{newPrice}</span>
+                            {oldPrice && parseFloat(oldPrice) > parseFloat(newPrice) ? (
+                                <span className="mr-2 text-sm text-gray-500 line-through">Rs.{oldPrice}</span>
+                            ) : null}
+                            <span className="font-medium text-yumrun-accent">Rs.{newPrice}</span>
                         </div>
                         
                         <Button 
                             size="sm" 
                             variant="outline"
-                            className="hidden md:flex items-center gap-1"
+                            className="items-center hidden gap-1 md:flex"
                             onClick={handleAddToCart}
                         >
-                            <FiShoppingCart className="h-4 w-4" />
+                            <FiShoppingCart className="w-4 h-4" />
                             <span>Add</span>
                         </Button>
                     </div>

@@ -16,6 +16,20 @@ const loyaltyPointsSchema = mongoose.Schema({
         ref: 'User',
         required: true,
     },
+    orderId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order',
+        default: null
+    },
+    type: {
+        type: String,
+        enum: ['earned', 'redeemed', 'expired', 'adjusted'],
+        default: 'earned'
+    },
+    description: {
+        type: String,
+        default: ''
+    },
     date: {
         type: Date,
         default: Date.now,
@@ -29,6 +43,10 @@ loyaltyPointsSchema.virtual('id').get(function () {
 loyaltyPointsSchema.set('toJSON', {
     virtuals: true,
 });
+
+// Create index for faster querying
+loyaltyPointsSchema.index({ user: 1 });
+loyaltyPointsSchema.index({ date: -1 });
 
 exports.LoyaltyPoints = mongoose.model('LoyaltyPoints', loyaltyPointsSchema);
 exports.loyaltyPointsSchema = loyaltyPointsSchema; 

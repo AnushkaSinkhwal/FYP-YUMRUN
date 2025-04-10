@@ -1,29 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const { auth } = require('../middleware/auth');
+const loyaltyController = require('../controllers/loyaltyController');
 
 // GET user loyalty points
-router.get('/user/:userId', (req, res) => {
-    res.status(200).json({ message: `Loyalty points for user ID: ${req.params.userId}` });
-});
+router.get('/user/:userId', auth, loyaltyController.getUserPoints);
 
 // POST add loyalty points
-router.post('/add', (req, res) => {
-    res.status(200).json({ message: 'Add loyalty points endpoint' });
-});
+router.post('/add', auth, loyaltyController.addPoints);
 
 // POST redeem loyalty points
-router.post('/redeem', (req, res) => {
-    res.status(200).json({ message: 'Redeem loyalty points endpoint' });
-});
+router.post('/redeem', auth, loyaltyController.redeemPoints);
 
 // GET loyalty history for user
-router.get('/history/:userId', (req, res) => {
-    res.status(200).json({ message: `Loyalty points history for user ID: ${req.params.userId}` });
-});
+router.get('/history/:userId', auth, loyaltyController.getPointsHistory);
 
 // GET available rewards
-router.get('/rewards', (req, res) => {
-    res.status(200).json({ message: 'Available loyalty rewards' });
-});
+router.get('/rewards', loyaltyController.getAvailableRewards);
 
 module.exports = router; 

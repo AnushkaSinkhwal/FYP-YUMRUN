@@ -99,6 +99,52 @@ const deliveryRiderDetailsSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+// Health and dietary preferences schema
+const healthProfileSchema = new mongoose.Schema({
+    dietaryPreferences: {
+        type: [String],
+        enum: ['Vegetarian', 'Vegan', 'Pescatarian', 'Keto', 'Paleo', 'Low Carb', 'Low Fat', 'Gluten Free', 'Dairy Free', 'None'],
+        default: ['None']
+    },
+    healthConditions: {
+        type: [String],
+        enum: ['None', 'Diabetes', 'Heart Disease', 'Hypertension', 'High Cholesterol', 'Obesity', 'Other'],
+        default: ['None']
+    },
+    allergies: {
+        type: [String],
+        default: []
+    },
+    weightManagementGoal: {
+        type: String,
+        enum: ['Maintain', 'Lose', 'Gain', 'None'],
+        default: 'None'
+    },
+    fitnessLevel: {
+        type: String,
+        enum: ['Sedentary', 'Light Activity', 'Moderate Activity', 'Very Active', 'Extra Active', 'None'],
+        default: 'None'
+    },
+    dailyCalorieGoal: {
+        type: Number,
+        default: 2000
+    },
+    macroTargets: {
+        protein: {
+            type: Number, // percentage
+            default: 25
+        },
+        carbs: {
+            type: Number, // percentage
+            default: 50
+        },
+        fat: {
+            type: Number, // percentage
+            default: 25
+        }
+    }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
     fullName: {
         type: String,
@@ -145,6 +191,10 @@ const userSchema = new mongoose.Schema({
         enum: ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'],
         default: 'Healthy'
     },
+    healthProfile: {
+        type: healthProfileSchema,
+        default: () => ({})
+    },
     favorites: {
         type: [{
             type: mongoose.Schema.Types.ObjectId,
@@ -171,6 +221,14 @@ const userSchema = new mongoose.Schema({
             }
         }
     },
+    loyaltyPoints: {
+        type: Number,
+        default: 0
+    },
+    orderHistory: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order'
+    }],
     restaurantDetails: {
         type: restaurantDetailsSchema,
         required: function() {

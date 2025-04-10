@@ -41,6 +41,9 @@ const recommendationsRoutes = require('./routes/recommendations');
 const reviewsRoutes = require('./routes/reviews');
 const favoritesRoutes = require('./routes/favorites');
 const paymentRoutes = require('./routes/payment');
+const nutritionRoutes = require('./routes/nutrition');
+const loyaltyRoutes = require('./routes/loyalty');
+const searchRoutes = require('./routes/search');
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -59,6 +62,9 @@ app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/nutrition', nutritionRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/search', searchRoutes);
 
 // API Status Route
 app.get('/api/status', (req, res) => {

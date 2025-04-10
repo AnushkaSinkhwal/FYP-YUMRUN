@@ -342,13 +342,13 @@ export const userAPI = {
   },
   
   // Get user profile
-  getUserProfile: async () => {
+  getProfile: async () => {
     return api.get('/user/profile');
   },
   
   // Update user profile
-  updateProfile: async (userData) => {
-    return api.put('/user/profile', userData);
+  updateProfile: async (profileData) => {
+    return api.put('/user/profile', profileData);
   },
   
   // Update user settings
@@ -394,6 +394,66 @@ export const userAPI = {
   // Delete notification
   deleteNotification: async (notificationId) => {
     return api.delete(`/user/notifications/${notificationId}`);
+  },
+  
+  // Update health profile
+  updateHealthProfile: async (healthProfileData) => {
+    return api.put('/user/health-profile', { healthProfile: healthProfileData });
+  },
+  
+  // Get user's loyalty points
+  getLoyaltyPoints: async () => {
+    return api.get('/loyalty/user/me');
+  },
+  
+  // Get user's loyalty points history
+  getLoyaltyHistory: async () => {
+    return api.get('/loyalty/history/me');
+  },
+  
+  // Redeem loyalty points
+  redeemLoyaltyPoints: async (points, orderId) => {
+    return api.post('/loyalty/redeem', { points, orderId });
+  },
+  
+  // Get personalized recommendations
+  getPersonalizedRecommendations: async () => {
+    return api.get('/search/personalized');
+  },
+  
+  // Get a user's saved addresses
+  getAddresses: async () => {
+    return api.get('/user/addresses');
+  },
+  
+  // Add a new address
+  addAddress: async (addressData) => {
+    return api.post('/user/addresses', addressData);
+  },
+  
+  // Update an existing address
+  updateAddress: async (addressId, addressData) => {
+    return api.put(`/user/addresses/${addressId}`, addressData);
+  },
+  
+  // Delete an address
+  deleteAddress: async (addressId) => {
+    return api.delete(`/user/addresses/${addressId}`);
+  },
+  
+  // Get user's favorite items
+  getFavorites: async () => {
+    return api.get('/favorites');
+  },
+  
+  // Add item to favorites
+  addFavorite: async (itemId) => {
+    return api.post('/favorites/add', { itemId });
+  },
+  
+  // Remove item from favorites
+  removeFavorite: async (itemId) => {
+    return api.delete(`/favorites/${itemId}`);
   }
 };
 

@@ -4,8 +4,9 @@ import { userAPI } from '../../utils/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './styles.css';
 import { FaSignOutAlt } from 'react-icons/fa';
-import { Card, Button, Input, Select, Alert, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
+import { Card, Button, Input, Select, Alert } from '../../components/ui';
 import PendingChanges from '../../components/Profile/PendingChanges';
+import HealthProfile from '../../components/Profile/HealthProfile';
 
 const Profile = () => {
   const { currentUser, logout, isAdmin, isRestaurantOwner, isDeliveryStaff } = useAuth();
@@ -33,7 +34,7 @@ const Profile = () => {
     const queryParams = new URLSearchParams(location.search);
     const tabParam = queryParams.get('tab');
     
-    if (tabParam && ['profile', 'security', 'account'].includes(tabParam)) {
+    if (tabParam && ['profile', 'security', 'account', 'health'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -165,6 +166,16 @@ const Profile = () => {
                 >
                   Profile Settings
                 </a>
+                {/* Only show Health Profile tab for customers */}
+                {!isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
+                  <a 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setActiveTab('health'); }}
+                    className={`block px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 ${activeTab === 'health' ? 'bg-gray-100 dark:bg-gray-800 font-medium' : ''}`}
+                  >
+                    Health Profile
+                  </a>
+                )}
                 <a 
                   href="#" 
                   onClick={(e) => { e.preventDefault(); setActiveTab('security'); }}
@@ -200,237 +211,264 @@ const Profile = () => {
             <PendingChanges />
           )}
           
-          {success && (
-            <Alert variant="success" className="mb-6">
-              {success}
-            </Alert>
-          )}
-          
-          {error && (
-            <Alert variant="error" className="mb-6">
-              {error}
-            </Alert>
-          )}
-          
-          <Card>
-            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <TabsList className="grid grid-cols-3 gap-4">
-                  <TabsTrigger value="profile">Profile</TabsTrigger>
-                  <TabsTrigger value="security">Security</TabsTrigger>
-                  <TabsTrigger value="account">Account</TabsTrigger>
-                </TabsList>
-              </div>
+          {/* Profile Settings */}
+          {activeTab === 'profile' && (
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Profile Settings</h2>
               
-              <TabsContent value="profile" className="p-6">
-                <form onSubmit={handleSubmit}>
-                  <div className="space-y-4">
+              {success && (
+                <Alert variant="success" className="mb-4">
+                  {success}
+                </Alert>
+              )}
+              
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  {error}
+                </Alert>
+              )}
+              
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Full Name</label>
+                    <Input 
+                      name="name" 
+                      value={profileData.name} 
+                      onChange={handleInputChange} 
+                      required 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email Address</label>
+                    <Input 
+                      type="email" 
+                      name="email" 
+                      value={profileData.email} 
+                      onChange={handleInputChange} 
+                      required 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Phone Number</label>
+                    <Input 
+                      name="phone" 
+                      value={profileData.phone} 
+                      onChange={handleInputChange} 
+                      required 
+                    />
+                  </div>
+                  
+                  {/* Show health condition dropdown only for regular users */}
+                  {!isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium mb-1">
-                        Full Name
-                      </label>
-                      <Input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={profileData.name}
+                      <label className="block text-sm font-medium mb-2">Health Condition</label>
+                      <Select 
+                        name="healthCondition" 
+                        value={profileData.healthCondition} 
                         onChange={handleInputChange}
-                        required
-                      />
+                      >
+                        <option value="Healthy">Healthy</option>
+                        <option value="Diabetes">Diabetes</option>
+                        <option value="Heart Condition">Heart Condition</option>
+                        <option value="Hypertension">Hypertension</option>
+                        <option value="Other">Other</option>
+                      </Select>
+                      <p className="text-sm text-gray-500 mt-1">
+                        For more detailed health preferences, visit the "Health Profile" tab.
+                      </p>
                     </div>
-                    
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium mb-1">
-                        Email Address
-                      </label>
-                      <Input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={profileData.email}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium mb-1">
-                        Phone Number
-                      </label>
-                      <Input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={profileData.phone}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    
-                    {/* Restaurant owner specific fields */}
-                    {isRestaurantOwner() && (
-                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-6">
-                        <h4 className="text-lg font-semibold mb-4">Restaurant Details</h4>
+                  )}
+                  
+                  {/* Restaurant owner specific fields */}
+                  {isRestaurantOwner() && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <h3 className="text-xl font-semibold mb-4">Restaurant Details</h3>
                         
                         <div className="space-y-4">
                           <div>
-                            <label htmlFor="restaurant.name" className="block text-sm font-medium mb-1">
-                              Restaurant Name
-                            </label>
-                            <Input
-                              type="text"
-                              id="restaurant.name"
-                              name="restaurant.name"
-                              value={profileData.restaurantDetails.name}
-                              onChange={handleInputChange}
-                              required
+                            <label className="block text-sm font-medium mb-2">Restaurant Name</label>
+                            <Input 
+                              name="restaurant.name" 
+                              value={profileData.restaurantDetails.name} 
+                              onChange={handleInputChange} 
                             />
                           </div>
                           
                           <div>
-                            <label htmlFor="restaurant.address" className="block text-sm font-medium mb-1">
-                              Restaurant Address
-                            </label>
-                            <Input
-                              type="text"
-                              id="restaurant.address"
-                              name="restaurant.address"
-                              value={profileData.restaurantDetails.address}
-                              onChange={handleInputChange}
-                              required
+                            <label className="block text-sm font-medium mb-2">Restaurant Address</label>
+                            <Input 
+                              name="restaurant.address" 
+                              value={profileData.restaurantDetails.address} 
+                              onChange={handleInputChange} 
                             />
                           </div>
                           
                           <div>
-                            <label htmlFor="restaurant.cuisineType" className="block text-sm font-medium mb-1">
-                              Cuisine Type
-                            </label>
-                            <Input
-                              type="text"
-                              id="restaurant.cuisineType"
-                              name="restaurant.cuisineType"
-                              value={profileData.restaurantDetails.cuisineType}
+                            <label className="block text-sm font-medium mb-2">Description</label>
+                            <textarea 
+                              name="restaurant.description" 
+                              value={profileData.restaurantDetails.description} 
                               onChange={handleInputChange}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="restaurant.description" className="block text-sm font-medium mb-1">
-                              Description
-                            </label>
-                            <textarea
-                              id="restaurant.description"
-                              name="restaurant.description"
-                              value={profileData.restaurantDetails.description}
-                              onChange={handleInputChange}
-                              className="w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-yumrun-orange focus:ring focus:ring-orange-200 focus:ring-opacity-50 dark:border-gray-700 dark:bg-gray-800"
+                              className="w-full rounded-md border border-gray-300 p-2"
                               rows="3"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Cuisine Type</label>
+                            <Input 
+                              name="restaurant.cuisineType" 
+                              value={profileData.restaurantDetails.cuisineType} 
+                              onChange={handleInputChange} 
+                              placeholder="e.g., Italian, Chinese, Indian" 
                             />
                           </div>
                         </div>
                       </div>
-                    )}
-                    
-                    {/* Regular user specific fields */}
-                    {!isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
-                      <div>
-                        <label htmlFor="healthCondition" className="block text-sm font-medium mb-1">
-                          Health Condition
-                        </label>
-                        <Select
-                          id="healthCondition"
-                          name="healthCondition"
-                          value={profileData.healthCondition}
-                          onChange={handleInputChange}
-                        >
-                          <option value="Healthy">Healthy</option>
-                          <option value="Diabetes">Diabetes</option>
-                          <option value="Heart Condition">Heart Condition</option>
-                          <option value="Hypertension">Hypertension</option>
-                          <option value="Other">Other</option>
-                        </Select>
-                      </div>
-                    )}
-                    
-                    <div className="pt-4">
-                      <Button 
-                        type="submit"
-                        variant="brand"
-                        disabled={loading}
-                      >
-                        {loading ? 'Saving...' : 'Save Changes'}
-                      </Button>
-                    </div>
-                  </div>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="security" className="p-6">
-                <form onSubmit={handlePasswordChange}>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="currentPassword" className="block text-sm font-medium mb-1">
-                        Current Password
-                      </label>
-                      <Input
-                        type="password"
-                        id="currentPassword"
-                        name="currentPassword"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="newPassword" className="block text-sm font-medium mb-1">
-                        New Password
-                      </label>
-                      <Input
-                        type="password"
-                        id="newPassword"
-                        name="newPassword"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
-                        Confirm New Password
-                      </label>
-                      <Input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="pt-4">
-                      <Button 
-                        type="submit"
-                        variant="brand"
-                      >
-                        Change Password
-                      </Button>
-                    </div>
-                  </div>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="account" className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="text-lg font-semibold mb-2">Delete Account</h4>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Once you delete your account, there is no going back. Please be certain.
-                    </p>
-                    <Button variant="destructive">
-                      Delete Account
+                    </>
+                  )}
+                  
+                  <div className="pt-4">
+                    <Button 
+                      type="submit" 
+                      disabled={loading}
+                      className="w-full md:w-auto"
+                    >
+                      {loading ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
+              </form>
+            </Card>
+          )}
+          
+          {/* Health Profile Tab */}
+          {activeTab === 'health' && !isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
+            <HealthProfile />
+          )}
+          
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Security Settings</h2>
+              
+              <form onSubmit={handlePasswordChange}>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Current Password</label>
+                    <Input 
+                      type="password" 
+                      name="currentPassword" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">New Password</label>
+                    <Input 
+                      type="password" 
+                      name="newPassword" 
+                      required 
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Password must be at least 8 characters long and include at least one uppercase letter, 
+                      one lowercase letter, one number, and one special character.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Confirm New Password</label>
+                    <Input 
+                      type="password" 
+                      name="confirmPassword" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="pt-4">
+                    <Button 
+                      type="submit" 
+                      className="w-full md:w-auto"
+                    >
+                      Change Password
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </Card>
+          )}
+          
+          {/* Account Tab */}
+          {activeTab === 'account' && (
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Account Settings</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
+                  <p className="text-gray-500 mb-4">
+                    This action is irreversible. All of your data will be permanently deleted.
+                  </p>
+                  <Button 
+                    variant="destructive"
+                  >
+                    Delete My Account
+                  </Button>
+                </div>
+                
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-2">Export My Data</h3>
+                  <p className="text-gray-500 mb-4">
+                    Download a copy of all the personal data associated with your account.
+                  </p>
+                  <Button>
+                    Export Data
+                  </Button>
+                </div>
+                
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-2">Privacy Settings</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        id="marketing" 
+                        className="mr-2" 
+                      />
+                      <label htmlFor="marketing">
+                        Receive marketing emails
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        id="orderUpdates" 
+                        className="mr-2" 
+                        defaultChecked 
+                      />
+                      <label htmlFor="orderUpdates">
+                        Receive order updates via email
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        id="shareData" 
+                        className="mr-2" 
+                      />
+                      <label htmlFor="shareData">
+                        Share my order history for personalized recommendations
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

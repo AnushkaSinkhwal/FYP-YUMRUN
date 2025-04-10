@@ -17,6 +17,7 @@ import Listing from "./Pages/Listing";
 import ProductDetails from "./Pages/ProductDetails";
 import Profile from "./Pages/Profile";
 import BackToTop from "./components/BackToTop";
+import RestaurantDetails from './Pages/RestaurantDetails';
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -257,6 +258,18 @@ function App() {
                       {isHeaderFooterShow && <Header />}
                       <main id="main-content">
                         <ProductDetails />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
+                      <BackToTop />
+                    </>
+                  } />
+                  
+                  <Route path="/restaurant/:id" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <RestaurantDetails />
                       </main>
                       {isHeaderFooterShow && <Footer />}
                       {isOpenProductModel && <ProductModel productId={productId} />}

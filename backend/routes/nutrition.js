@@ -1,24 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const { auth } = require('../middleware/auth');
+const nutritionController = require('../controllers/nutritionController');
 
 // GET nutritional info for a food item
-router.get('/food/:id', (req, res) => {
-    res.status(200).json({ message: `Nutritional info for food ID: ${req.params.id}` });
-});
+router.get('/food/:id', nutritionController.getFoodNutrition);
 
 // POST analyze ingredients for nutritional value
-router.post('/analyze', (req, res) => {
-    res.status(200).json({ message: 'Analyze ingredients endpoint' });
-});
+router.post('/analyze', auth, nutritionController.analyzeIngredients);
 
 // GET nutritional info for a meal (combination of items)
-router.get('/meal/:id', (req, res) => {
-    res.status(200).json({ message: `Nutritional info for meal ID: ${req.params.id}` });
-});
+router.get('/meal/:id', nutritionController.getMealNutrition);
 
 // POST calculate nutritional value for custom meal
-router.post('/calculate', (req, res) => {
-    res.status(200).json({ message: 'Calculate custom meal nutrition endpoint' });
-});
+router.post('/calculate', auth, nutritionController.calculateCustomMealNutrition);
 
 module.exports = router; 
