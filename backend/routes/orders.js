@@ -28,6 +28,20 @@ router.get('/:id', auth, async (req, res) => {
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
+        
+        // Check if user is authorized to view this order
+        // User can view their own orders or restaurant owner can view their restaurant's orders
+        if (req.user._id.toString() !== order.userId.toString() && 
+            (req.user.restaurantId && req.user.restaurantId.toString() !== order.restaurantId.toString()) &&
+            req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this order' });
+        }
+
+        // If user is owner, populate customer info
+        if (req.user.restaurantId && req.user.restaurantId.toString() === order.restaurantId.toString()) {
+            await order.populate('userId', 'name email phone address');
+        }
+        
         res.status(200).json({ success: true, order });
     } catch (error) {
         console.error(`Error fetching order ${req.params.id}:`, error);
@@ -270,25 +284,44 @@ router.get('/user', protect, async (req, res) => {
 // GET restaurant orders for the logged-in owner
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        // Get restaurantId from middleware
-        if (!req.user.restaurantId) {
-            console.error('Middleware did not attach restaurantId to user object for owner:', req.user.userId);
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Could not determine the restaurant for this owner.' 
+        // Get restaurantId from user
+        const restaurantId = req.user.restaurantId;
+        
+        console.log(`[Orders API] Finding orders for restaurant: ${restaurantId}`);
+        
+        if (!restaurantId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Restaurant ID is missing'
             });
         }
-        const restaurantId = req.user.restaurantId;
-
-        // Fetch orders for the owner's restaurant using the user ID as restaurantId
-        const orders = await Order.find({ restaurantId }) 
-            .populate('userId', 'fullName email phone') // Populate customer details
-            .sort({ createdAt: -1 });
+        
+        // Find orders with simple query and proper error handling
+        let orders = [];
+        try {
+            orders = await Order.find({ restaurantId })
+                .sort('-createdAt')
+                .lean();
+                
+            console.log(`[Orders API] Found ${orders.length} orders`);
             
-        res.status(200).json({ success: true, data: orders });
+            return res.status(200).json({
+                success: true,
+                data: orders
+            });
+        } catch (queryError) {
+            console.error('[Orders API] Database query error:', queryError);
+            return res.status(500).json({
+                success: false,
+                message: 'Error retrieving orders from database'
+            });
+        }
     } catch (error) {
-        console.error(`Error fetching orders for restaurant owner ${req.user.userId}:`, error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('[Orders API] Uncaught error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while processing your request'
+        });
     }
 });
 

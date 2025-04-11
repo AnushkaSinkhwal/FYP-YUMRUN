@@ -331,7 +331,12 @@ export const restaurantAPI = {
   // Update order status
   updateOrderStatus: async (orderId, status) => {
     return api.post(`/orders/${orderId}/status`, { status });
-  }
+  },
+  
+  // Get analytics data
+  getAnalytics: async (period = 'week') => {
+    return api.get(`/restaurant/analytics?period=${period}`);
+  },
 };
 
 // User API methods
@@ -409,6 +414,11 @@ export const userAPI = {
   // Get user's loyalty points history
   getLoyaltyHistory: async () => {
     return api.get('/loyalty/history/me');
+  },
+  
+  // Create a new order
+  createOrder: async (orderData) => {
+    return api.post('/orders', orderData);
   },
   
   // Redeem loyalty points

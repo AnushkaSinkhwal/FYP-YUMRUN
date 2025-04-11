@@ -55,6 +55,11 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
     // Store cart items in session storage for later use
     const cartItems = JSON.parse(sessionStorage.getItem('cartItems') || '[]');
     
+    // Ensure amount is greater than or equal to Rs. 10 (Khalti requirement)
+    if (amount < 10) {
+      throw new Error('Payment amount must be at least Rs. 10');
+    }
+    
     // Format order data according to Khalti requirements
     const paymentData = {
       orderId,
@@ -109,6 +114,8 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
     // Provide more specific error messages
     if (error.message === 'Authentication token not found. Please log in again.') {
       errorMessage = error.message;
+    } else if (error.message === 'Payment amount must be at least Rs. 10') {
+      errorMessage = error.message;
     } else if (error.code === 'ERR_NETWORK') {
       errorMessage = 'Network error. Please check your internet connection and try again.';
     } else if (error.response) {
@@ -116,6 +123,8 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
         errorMessage = 'Authentication failed. Please log in again.';
       } else if (error.response.status === 400) {
         errorMessage = error.response.data?.message || 'Invalid payment request';
+      } else if (error.response.status === 503) {
+        errorMessage = 'The payment service is temporarily unavailable. Please try again later.';
       } else {
         errorMessage = error.response.data?.message || error.response.data?.error || 
                       `Server error (${error.response.status}): ${error.response.statusText}`;

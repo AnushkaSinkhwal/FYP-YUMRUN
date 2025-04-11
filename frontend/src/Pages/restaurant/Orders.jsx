@@ -75,13 +75,22 @@ const RestaurantOrders = () => {
     setError(null);
     
     try {
+      console.log('Fetching restaurant orders...');
       // Try to fetch real orders from the API
       const response = await restaurantAPI.getOrders();
+      console.log('Orders API response:', response?.data);
       
       if (response?.data?.success) {
         const ordersData = response.data.data || [];
         console.log('Successfully fetched restaurant orders:', ordersData);
-        setOrders(ordersData);
+        
+        if (ordersData.length === 0) {
+          // Handle the case when there are no orders nicely
+          setOrders([]);
+          setError(response.data.message || 'No orders found. New orders will appear here when customers place them.');
+        } else {
+          setOrders(ordersData);
+        }
       } else {
         // If API response indicates failure but returns a message
         if (response?.data?.message) {
@@ -108,6 +117,8 @@ const RestaurantOrders = () => {
         setError('Authentication error. Please log in again to continue.');
       } else if (err.response?.status === 404) {
         setError('Orders endpoint not found. The API may be misconfigured.');
+      } else if (err.response?.status === 500) {
+        setError('Server error. Please try again later or contact support.');
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else {
@@ -280,7 +291,8 @@ const RestaurantOrders = () => {
 
       {orders.length === 0 ? (
         <div className="p-6 text-center border rounded-md">
-          <p>No orders found.</p>
+          <p className="mb-4">No orders found.</p>
+          <p className="mb-4 text-sm text-gray-500">Orders will appear here when customers place them.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

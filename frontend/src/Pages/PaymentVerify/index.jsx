@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyKhaltiPayment } from '../../utils/payment';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { userAPI } from '../../utils/api';
+import { useCart } from '../../context/CartContext';
 import { Container, Card, Spinner, Alert, Button } from '../../components/ui';
 import { FiCheckCircle, FiAlertTriangle, FiShoppingBag } from 'react-icons/fi';
 
@@ -11,6 +13,7 @@ const PaymentVerify = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+  const { clearCart } = useCart();
   
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('processing');
@@ -23,9 +26,11 @@ const PaymentVerify = () => {
   useEffect(() => {
     // Try to get the pending order from session storage
     const pendingOrderJson = sessionStorage.getItem('pendingOrder');
+    let pendingOrder = null;
+    
     if (pendingOrderJson) {
       try {
-        const pendingOrder = JSON.parse(pendingOrderJson);
+        pendingOrder = JSON.parse(pendingOrderJson);
         setOrderData(pendingOrder);
         console.log('Pending order retrieved:', pendingOrder);
       } catch (error) {
@@ -33,6 +38,19 @@ const PaymentVerify = () => {
       }
     } else {
       console.log('No pending order data found in session storage');
+    }
+
+    // Try to get the order payload from session storage
+    const orderPayloadJson = sessionStorage.getItem('orderPayload');
+    let orderPayload = null;
+    
+    if (orderPayloadJson) {
+      try {
+        orderPayload = JSON.parse(orderPayloadJson);
+        console.log('Order payload retrieved:', orderPayload);
+      } catch (error) {
+        console.error('Error parsing order payload data:', error);
+      }
     }
 
     if (!currentUser) {
@@ -74,11 +92,48 @@ const PaymentVerify = () => {
         console.log('Payment verification result:', result);
         
         if (result.success) {
-          setStatus('success');
-          setMessage('Payment successful! Your order has been confirmed.');
+          // Create the order in the database
+          if (orderPayload) {
+            try {
+              console.log('Creating order in database...');
+              const orderResponse = await userAPI.createOrder(orderPayload);
+              
+              if (orderResponse.data && orderResponse.data.success) {
+                console.log('Order created successfully:', orderResponse.data.order);
+                // Update orderData with the actual order ID from the database
+                if (pendingOrder) {
+                  pendingOrder.orderId = orderResponse.data.order._id;
+                  setOrderData(pendingOrder);
+                }
+                
+                // Clear the cart
+                clearCart();
+                
+                setStatus('success');
+                setMessage('Payment successful! Your order has been confirmed.');
+                addToast('Order placed successfully!', { type: 'success' });
+              } else {
+                console.error('Error creating order:', orderResponse.data);
+                setStatus('success-payment-only');
+                setMessage('Payment successful, but there was an issue creating your order. Our team will contact you.');
+                addToast('Payment successful, but order creation failed.', { type: 'warning' });
+              }
+            } catch (orderError) {
+              console.error('Error creating order:', orderError);
+              setStatus('success-payment-only');
+              setMessage('Payment successful, but there was an issue creating your order. Our team will contact you.');
+              addToast('Payment successful, but order creation failed.', { type: 'warning' });
+            }
+          } else {
+            setStatus('success');
+            setMessage('Payment successful! Your order has been confirmed.');
+            addToast('Payment verified successfully', { type: 'success' });
+          }
+          
           // Clear any pending order data from session storage on success
           sessionStorage.removeItem('pendingOrder');
-          addToast('Payment verified successfully', { type: 'success' });
+          sessionStorage.removeItem('orderPayload');
+          sessionStorage.removeItem('cartItems');
         } else {
           if (result.status === 'Pending') {
             setStatus('pending');
@@ -101,7 +156,7 @@ const PaymentVerify = () => {
     };
     
     verifyPayment();
-  }, [pidx, txnStatus, currentUser, navigate, addToast]);
+  }, [pidx, txnStatus, currentUser, navigate, addToast, clearCart]);
   
   const getStatusIcon = () => {
     switch (status) {

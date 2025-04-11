@@ -623,26 +623,65 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
         const { MenuItem } = require('../models/menuItem');
         const Offer = require('../models/offer');
         
-        // Fetch counts and aggregated data
-        const [totalOrders, pendingOrders, menuItems, activeOffers, revenueData] = await Promise.all([
-            Order.countDocuments({ restaurantId }),
-            Order.countDocuments({ restaurantId, status: 'PENDING' }),
-            MenuItem.countDocuments({ restaurant: restaurantId }),
-            Offer.countDocuments({ restaurantId, isActive: true }),
-            Order.aggregate([
+        // Fetch counts and aggregated data with try/catch for each operation
+        let totalOrders = 0, pendingOrders = 0, menuItems = 0, activeOffers = 0;
+        let revenueData = [], recentOrders = [], recentMenuUpdates = [];
+        
+        try {
+            totalOrders = await Order.countDocuments({ restaurantId: restaurantId.toString() });
+        } catch (err) {
+            console.error('Error counting total orders:', err);
+        }
+        
+        try {
+            pendingOrders = await Order.countDocuments({ 
+                restaurantId: restaurantId.toString(), 
+                status: 'PENDING' 
+            });
+        } catch (err) {
+            console.error('Error counting pending orders:', err);
+        }
+        
+        try {
+            menuItems = await MenuItem.countDocuments({ restaurant: restaurantId });
+        } catch (err) {
+            console.error('Error counting menu items:', err);
+        }
+        
+        try {
+            activeOffers = await Offer.countDocuments({ 
+                restaurantId: restaurantId.toString(), 
+                isActive: true 
+            });
+        } catch (err) {
+            console.error('Error counting active offers:', err);
+        }
+        
+        try {
+            revenueData = await Order.aggregate([
                 { $match: { restaurantId: restaurantId.toString() } },
                 { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-            ])
-        ]);
+            ]);
+        } catch (err) {
+            console.error('Error aggregating revenue data:', err);
+        }
         
         // Get recent activity (latest orders and menu updates)
-        const recentOrders = await Order.find({ restaurantId })
-            .sort({ createdAt: -1 })
-            .limit(3);
+        try {
+            recentOrders = await Order.find({ restaurantId: restaurantId.toString() })
+                .sort({ createdAt: -1 })
+                .limit(3);
+        } catch (err) {
+            console.error('Error fetching recent orders:', err);
+        }
             
-        const recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId })
-            .sort({ updatedAt: -1 })
-            .limit(2);
+        try {
+            recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId })
+                .sort({ updatedAt: -1 })
+                .limit(2);
+        } catch (err) {
+            console.error('Error fetching recent menu updates:', err);
+        }
             
         // Format recent activity
         const recentActivity = [
@@ -650,7 +689,7 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
                 id: order._id,
                 type: "Order",
                 details: `New order #${order.orderNumber || order._id.toString().substring(0, 6)} received`,
-                status: order.status.toLowerCase(),
+                status: order.status?.toLowerCase() || 'pending',
                 date: order.createdAt,
                 link: `/restaurant/orders/${order._id}`
             })),
@@ -831,6 +870,313 @@ router.post('/test-offer', auth, isRestaurantOwner, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error creating test offer'
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/analytics
+ * @desc    Get restaurant analytics data
+ * @access  Private/RestaurantOwner
+ */
+router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        const period = req.query.period || 'week';
+        
+        // Import models
+        const Order = require('../models/order');
+        const { MenuItem } = require('../models/menuItem');
+        
+        // Define the date range based on period
+        let startDate;
+        const now = new Date();
+        const endDate = now;
+        
+        switch(period) {
+            case 'week':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+                break;
+            case 'month':
+                startDate = new Date(now);
+                startDate.setMonth(now.getMonth() - 1);
+                break;
+            case 'year':
+                startDate = new Date(now);
+                startDate.setFullYear(now.getFullYear() - 1);
+                break;
+            default:
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+        }
+        
+        // Get revenue data
+        const revenueData = await Order.aggregate([
+            { 
+                $match: { 
+                    restaurantId: restaurantId.toString(),
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    status: { $ne: 'CANCELLED' }
+                } 
+            },
+            { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+        ]);
+        
+        // Get previous period revenue for comparison
+        const previousStartDate = new Date(startDate);
+        const previousEndDate = new Date(startDate);
+        
+        if (period === 'week') {
+            previousStartDate.setDate(previousStartDate.getDate() - 7);
+        } else if (period === 'month') {
+            previousStartDate.setMonth(previousStartDate.getMonth() - 1);
+        } else if (period === 'year') {
+            previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
+        }
+        
+        const previousRevenueData = await Order.aggregate([
+            { 
+                $match: { 
+                    restaurantId: restaurantId.toString(),
+                    createdAt: { $gte: previousStartDate, $lte: previousEndDate },
+                    status: { $ne: 'CANCELLED' }
+                } 
+            },
+            { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+        ]);
+        
+        // Calculate revenue change percentage
+        const currentRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+        const previousRevenue = previousRevenueData.length > 0 ? previousRevenueData[0].total : 0;
+        let revenueChange = 0;
+        
+        if (previousRevenue > 0) {
+            revenueChange = parseFloat((((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(1));
+        } else if (currentRevenue > 0) {
+            revenueChange = 100; // if previous period had 0 revenue, but now has some
+        }
+        
+        // Get order count data
+        const orderCount = await Order.countDocuments({
+            restaurantId: restaurantId.toString(),
+            createdAt: { $gte: startDate, $lte: endDate }
+        });
+        
+        const previousOrderCount = await Order.countDocuments({
+            restaurantId: restaurantId.toString(),
+            createdAt: { $gte: previousStartDate, $lte: previousEndDate }
+        });
+        
+        // Calculate order change percentage
+        let orderChange = 0;
+        if (previousOrderCount > 0) {
+            orderChange = parseFloat((((orderCount - previousOrderCount) / previousOrderCount) * 100).toFixed(1));
+        } else if (orderCount > 0) {
+            orderChange = 100;
+        }
+        
+        // Get unique customer count
+        const customerData = await Order.aggregate([
+            { 
+                $match: { 
+                    restaurantId: restaurantId.toString(),
+                    createdAt: { $gte: startDate, $lte: endDate }
+                } 
+            },
+            { $group: { _id: "$userId" } },
+            { $count: "total" }
+        ]);
+        
+        const previousCustomerData = await Order.aggregate([
+            { 
+                $match: { 
+                    restaurantId: restaurantId.toString(),
+                    createdAt: { $gte: previousStartDate, $lte: previousEndDate }
+                } 
+            },
+            { $group: { _id: "$userId" } },
+            { $count: "total" }
+        ]);
+        
+        const customerCount = customerData.length > 0 ? customerData[0].total : 0;
+        const previousCustomerCount = previousCustomerData.length > 0 ? previousCustomerData[0].total : 0;
+        
+        // Calculate customer change percentage
+        let customerChange = 0;
+        if (previousCustomerCount > 0) {
+            customerChange = parseFloat((((customerCount - previousCustomerCount) / previousCustomerCount) * 100).toFixed(1));
+        } else if (customerCount > 0) {
+            customerChange = 100;
+        }
+        
+        // Calculate average order value
+        const avgOrderValue = orderCount > 0 ? parseFloat((currentRevenue / orderCount).toFixed(2)) : 0;
+        const previousAvgOrderValue = previousOrderCount > 0 ? parseFloat((previousRevenue / previousOrderCount).toFixed(2)) : 0;
+        
+        // Calculate average order value change
+        let avgOrderValueChange = 0;
+        if (previousAvgOrderValue > 0) {
+            avgOrderValueChange = parseFloat((((avgOrderValue - previousAvgOrderValue) / previousAvgOrderValue) * 100).toFixed(1));
+        }
+        
+        // Get popular items
+        const popularItems = await Order.aggregate([
+            { 
+                $match: { 
+                    restaurantId: restaurantId.toString(),
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    status: { $ne: 'CANCELLED' }
+                } 
+            },
+            { $unwind: "$items" },
+            { 
+                $group: { 
+                    _id: "$items.productId",
+                    name: { $first: "$items.name" },
+                    orders: { $sum: 1 },
+                    revenue: { $sum: { $multiply: [ "$items.price", "$items.quantity" ] } }
+                } 
+            },
+            { $sort: { orders: -1 } },
+            { $limit: 5 }
+        ]);
+        
+        return res.status(200).json({
+            success: true,
+            data: {
+                revenue: {
+                    total: currentRevenue,
+                    change: revenueChange,
+                    history: [] // You could add time series data here in the future
+                },
+                orders: {
+                    total: orderCount,
+                    change: orderChange,
+                    history: []
+                },
+                customers: {
+                    total: customerCount,
+                    change: customerChange,
+                    history: []
+                },
+                avgOrderValue: {
+                    total: avgOrderValue,
+                    change: avgOrderValueChange,
+                    history: []
+                },
+                popularItems: popularItems
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching restaurant analytics data:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching analytics data'
+        });
+    }
+});
+
+/**
+ * @route   POST /api/restaurant/generate-test-orders
+ * @desc    Generate sample test orders for development
+ * @access  Private/RestaurantOwner
+ */
+router.post('/generate-test-orders', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const restaurantId = req.user.userId;
+        const Order = require('../models/order');
+        const count = req.body.count || 3; // Default to 3 orders if not specified
+        const orderStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+        const createdOrders = [];
+        
+        console.log(`[Test Data] Generating ${count} test orders for restaurant ${restaurantId}`);
+        
+        // Generate a number of test orders
+        for (let i = 0; i < count; i++) {
+            // Generate a unique order number
+            const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+            
+            // Random order status (weighted toward PENDING and CONFIRMED)
+            const randomIndex = Math.floor(Math.random() * (orderStatuses.length + 2)); // Add weight
+            const status = orderStatuses[Math.min(randomIndex, orderStatuses.length - 1)];
+            
+            // Random date within last 7 days
+            const randomDaysAgo = Math.floor(Math.random() * 7);
+            const orderDate = new Date();
+            orderDate.setDate(orderDate.getDate() - randomDaysAgo);
+            
+            try {
+                // Create a sample order
+                const testOrder = new Order({
+                    orderNumber,
+                    userId: restaurantId, // Using restaurant owner as customer for simplicity
+                    restaurantId: restaurantId, // Store restaurantId as is without toString()
+                    items: [
+                        {
+                            productId: new mongoose.Types.ObjectId(), // Generate a random ID
+                            name: `Test Food Item ${i+1}`,
+                            price: 15.99 + i,
+                            quantity: 1 + Math.floor(Math.random() * 3),
+                            options: [
+                                { name: "Size", value: "Large", price: 2.00 }
+                            ]
+                        },
+                        {
+                            productId: new mongoose.Types.ObjectId(),
+                            name: `Side Dish ${i+1}`,
+                            price: 5.99,
+                            quantity: 1,
+                            options: []
+                        }
+                    ],
+                    totalPrice: 33.98 + (i * 5), // Base price
+                    deliveryFee: 3.99,
+                    tax: 3.80,
+                    tip: 5.00,
+                    grandTotal: 46.77 + (i * 5), // Total + fee + tax + tip
+                    status: status,
+                    paymentMethod: i % 2 === 0 ? 'CREDIT_CARD' : 'CASH',
+                    paymentStatus: i % 2 === 0 ? 'PAID' : 'PENDING',
+                    deliveryAddress: {
+                        street: "123 Test Street",
+                        city: "Test City",
+                        state: "TS",
+                        zipCode: "12345",
+                        country: "Test Country"
+                    },
+                    specialInstructions: `This is test order #${i+1} for development`,
+                    createdAt: orderDate,
+                    statusUpdates: [
+                        {
+                            status: status,
+                            timestamp: orderDate,
+                            updatedBy: restaurantId
+                        }
+                    ]
+                });
+                
+                console.log(`[Test Data] Saving test order #${i+1}`);
+                const savedOrder = await testOrder.save();
+                createdOrders.push(savedOrder);
+            } catch (orderError) {
+                console.error(`[Test Data] Error creating test order #${i+1}:`, orderError);
+                // Continue to create other orders
+            }
+        }
+        
+        console.log(`[Test Data] Successfully generated ${createdOrders.length} test orders`);
+        
+        return res.status(200).json({
+            success: true,
+            message: `Generated ${createdOrders.length} test orders successfully`,
+            data: createdOrders
+        });
+    } catch (error) {
+        console.error('Error generating test orders:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error generating test orders: ' + (error.message || 'Unknown error')
         });
     }
 });

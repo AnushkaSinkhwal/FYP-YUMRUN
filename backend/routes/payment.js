@@ -10,7 +10,7 @@ const { isValidObjectId } = require('mongoose');
 const KHALTI_API = {
   baseUrl: process.env.NODE_ENV === 'production' 
     ? 'https://khalti.com/api/v2' 
-    : 'https://a.khalti.com/api/v2',
+    : 'https://dev.khalti.com/api/v2',
   secretKey: process.env.KHALTI_SECRET_KEY
 };
 
@@ -95,8 +95,9 @@ router.post('/khalti/initiate', auth, async (req, res) => {
         // Log the user information to debug the userId issue
         console.log('User from request:', req.user);
         
-        // Extract userId from JWT token payload, which is where the auth middleware places it
-        const userId = req.user.userId; // This is how it's stored in the JWT
+        // Extract userId from JWT token payload or directly from user object if available
+        // The protect middleware sets req.user to the full user object, while auth middleware only sets decoded JWT data
+        const userId = req.user._id ? req.user._id : req.user.userId;
         
         if (!userId) {
           console.error('Could not extract valid userId from request:', req.user);
@@ -198,77 +199,144 @@ router.post('/khalti/verify', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing payment identifier (pidx)' });
     }
     
+    console.log('Verifying payment with pidx:', pidx);
+    
     // Find the payment by pidx
     const payment = await Payment.findOne({ 'transactionDetails.khaltiRef': pidx });
     if (!payment) {
-      return res.status(404).json({ success: false, message: 'Payment not found' });
+      console.log('Payment not found for pidx:', pidx);
+      // If payment is not found, try to verify directly with Khalti
+      try {
+        const khaltiResponse = await axios.post(
+          `${KHALTI_API.baseUrl}/epayment/lookup/`, 
+          { pidx },
+          {
+            headers: {
+              'Authorization': `Key ${KHALTI_API.secretKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        console.log('Khalti direct verification response:', khaltiResponse.data);
+        
+        // Return the status but indicate payment record not found
+        return res.status(200).json({
+          success: true,
+          directVerification: true,
+          message: 'Payment verified with Khalti but no local record found',
+          khaltiStatus: khaltiResponse.data.status,
+          data: khaltiResponse.data
+        });
+      } catch (directVerifyError) {
+        console.error('Error verifying directly with Khalti:', directVerifyError);
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Payment not found and direct verification failed' 
+        });
+      }
     }
     
-    // Verify with Khalti using lookup API
-    const response = await axios.post(
-      `${KHALTI_API.baseUrl}/epayment/lookup/`, 
-      { pidx },
-      {
-        headers: {
-          'Authorization': `Key ${KHALTI_API.secretKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    console.log('Found payment record:', payment);
     
-    // Update payment status based on Khalti response
-    if (response.data && response.data.status === 'Completed') {
-      payment.status = 'PAID';
-      payment.transactionDetails = {
-        ...payment.transactionDetails,
-        verifiedAt: new Date(),
-        khaltiStatus: response.data.status,
-        khaltiDetails: response.data,
-        transactionId: response.data.transaction_id
-      };
+    // Verify with Khalti using lookup API
+    try {
+      const response = await axios.post(
+        `${KHALTI_API.baseUrl}/epayment/lookup/`, 
+        { pidx },
+        {
+          headers: {
+            'Authorization': `Key ${KHALTI_API.secretKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      await payment.save();
+      console.log('Khalti verification response:', response.data);
       
-      // Update order status - Use toString() to avoid ObjectId comparison issues
-      const order = await Order.findOne({ _id: payment.orderId.toString() });
-      if (order) {
-        order.paymentStatus = 'Paid';
-        order.status = 'Confirmed';
-        await order.save();
+      // Update payment status based on Khalti response
+      if (response.data && response.data.status === 'Completed') {
+        payment.status = 'PAID';
+        payment.transactionDetails = {
+          ...payment.transactionDetails,
+          verifiedAt: new Date(),
+          khaltiStatus: response.data.status,
+          khaltiDetails: response.data,
+          transactionId: response.data.transaction_id
+        };
+        
+        await payment.save();
+        
+        // Update order status if order exists
+        try {
+          const order = await Order.findById(payment.orderId.toString());
+          if (order) {
+            order.paymentStatus = 'PAID';
+            order.status = 'CONFIRMED';
+            await order.save();
+            console.log('Order status updated:', order.status);
+          } else {
+            console.log('Order not found for payment:', payment.orderId);
+          }
+        } catch (orderError) {
+          console.error('Error updating order status:', orderError);
+        }
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Payment verified successfully',
+          payment
+        });
+      } else {
+        const status = response.data?.status || 'Failed';
+        
+        payment.status = status === 'Pending' ? 'PENDING' : 'FAILED';
+        payment.transactionDetails = {
+          ...payment.transactionDetails,
+          verifiedAt: new Date(),
+          khaltiStatus: status,
+          khaltiDetails: response.data
+        };
+        
+        await payment.save();
+        
+        // If status is Pending, return a 202 status code
+        if (status === 'Pending') {
+          return res.status(202).json({
+            success: false,
+            message: 'Payment is still pending',
+            payment
+          });
+        }
+        
+        return res.status(200).json({
+          success: false,
+          message: `Payment verification failed: ${status}`,
+          payment
+        });
+      }
+    } catch (khaltiError) {
+      console.error('Error calling Khalti verification API:', khaltiError);
+      
+      if (khaltiError.response) {
+        console.error('Khalti API error response:', {
+          status: khaltiError.response.status,
+          data: khaltiError.response.data
+        });
       }
       
-      return res.status(200).json({
-        success: true,
-        message: 'Payment verified successfully',
-        payment
-      });
-    } else {
-      const status = response.data?.status || 'Failed';
-      
-      payment.status = status === 'Pending' ? 'PENDING' : 'FAILED';
-      payment.transactionDetails = {
-        ...payment.transactionDetails,
-        verifiedAt: new Date(),
-        khaltiStatus: status,
-        khaltiDetails: response.data
-      };
-      
-      await payment.save();
-      
-      const statusCode = status === 'Pending' ? 202 : 400;
-      
-      return res.status(statusCode).json({
-        success: status === 'Pending',
-        message: status === 'Pending' ? 'Payment is pending' : 'Payment verification failed',
-        status: status
+      return res.status(500).json({
+        success: false,
+        message: 'Error verifying payment with Khalti',
+        error: khaltiError.message
       });
     }
   } catch (error) {
-    console.error('Khalti payment verification error:', error.response?.data || error.message);
+    console.error('Payment verification error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to verify payment',
-      error: error.response?.data?.detail || error.message
+      message: 'Server error during payment verification',
+      error: error.message
     });
   }
 });

@@ -4,6 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { initiateKhaltiPayment } from '../../utils/payment';
+import { userAPI } from '../../utils/api';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
 import {
   Container,
@@ -110,19 +111,63 @@ const Checkout = () => {
     setIsLoading(true);
 
     try {
+      // Get first cart item to identify restaurant
+      if (!cartItems.length) {
+        addToast('Your cart is empty', { type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Extract restaurant ID from first cart item
+      const restaurantId = cartItems[0].restaurantId;
+      
       // Create a unique order ID
       const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       
-      // If payment method is cash on delivery, redirect to confirmation page
+      // Format address for the API
+      const formattedAddress = {
+        street: deliveryAddress.address,
+        city: deliveryAddress.city,
+        state: '',
+        zipCode: '',
+        country: 'Nepal'
+      };
+      
+      // Create order payload
+      const orderPayload = {
+        items: cartItems.map(item => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          options: item.options || []
+        })),
+        restaurantId,
+        deliveryAddress: formattedAddress,
+        paymentMethod: paymentMethod === 'cod' ? 'CASH' : 'KHALTI',
+        specialInstructions: deliveryAddress.additionalInfo || ''
+      };
+      
+      // If payment method is cash on delivery
       if (paymentMethod === 'cod') {
-        // Here you would make an API call to create the order in the backend
-        // For now, we'll simulate a successful order
-        setTimeout(() => {
+        try {
+          // Create order in the database
+          const response = await userAPI.createOrder(orderPayload);
+          
+          if (response.data && response.data.success) {
+            // Clear cart and redirect to confirmation page
+            clearCart();
+            navigate(`/order-confirmation/${response.data.order._id}`);
+            addToast('Order placed successfully!', { type: 'success' });
+          } else {
+            throw new Error(response.data?.message || 'Failed to create order');
+          }
+        } catch (error) {
+          console.error('Error creating order:', error);
+          addToast(error.response?.data?.message || 'Failed to create order. Please try again.', { type: 'error' });
+        } finally {
           setIsLoading(false);
-          clearCart();
-          navigate(`/order-confirmation/${orderId}`);
-          addToast('Order placed successfully!', { type: 'success' });
-        }, 1500);
+        }
         return;
       }
       
@@ -130,6 +175,9 @@ const Checkout = () => {
       if (paymentMethod === 'khalti') {
         console.log('Initiating Khalti payment for order:', orderId);
         console.log('Amount:', cartStats.total);
+        
+        // Save order payload to session storage
+        sessionStorage.setItem('orderPayload', JSON.stringify(orderPayload));
         
         // Create customer details object for Khalti
         const customerDetails = {

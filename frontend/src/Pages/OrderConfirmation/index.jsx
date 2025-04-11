@@ -8,11 +8,12 @@ import {
   Button, 
   Spinner 
 } from '../../components/ui';
-// import { getPaymentStatus } from '../../utils/payment';
+import api from '../../utils/api';
 
 const OrderConfirmation = () => {
   const { orderId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
+  const [orderData, setOrderData] = useState(null);
   const [orderStatus, setOrderStatus] = useState({
     status: 'confirmed', // Default status
     paymentStatus: 'completed', // Default payment status
@@ -20,33 +21,42 @@ const OrderConfirmation = () => {
   });
 
   useEffect(() => {
-    const checkOrderStatus = async () => {
+    const fetchOrderDetails = async () => {
       setIsLoading(true);
       try {
-        // For a real implementation, we would check the order status from the backend
-        // const response = await getPaymentStatus(orderId);
+        if (!orderId) {
+          throw new Error('Order ID not provided');
+        }
         
-        // Simulate an API call
-        setTimeout(() => {
+        // Fetch order details from API
+        const response = await api.get(`/orders/${orderId}`);
+        
+        if (response.data && response.data.success) {
+          setOrderData(response.data.order);
+          
+          // Set order status based on data
           setOrderStatus({
-            status: 'confirmed',
-            paymentStatus: 'completed',
-            message: 'Your order has been confirmed and is being processed.',
+            status: response.data.order.status.toLowerCase(),
+            paymentStatus: response.data.order.paymentStatus.toLowerCase(),
+            message: `Your order has been ${response.data.order.status.toLowerCase()} and is being processed.`,
           });
-          setIsLoading(false);
-        }, 1500);
+        } else {
+          throw new Error(response.data?.message || 'Failed to fetch order details');
+        }
       } catch (error) {
-        console.error('Failed to fetch order status:', error);
+        console.error('Failed to fetch order details:', error);
+        // Fallback to basic confirmation if we can't fetch the details
         setOrderStatus({
-          status: 'error',
-          paymentStatus: 'unknown',
-          message: 'Could not retrieve order status.',
+          status: 'confirmed',
+          paymentStatus: 'completed',
+          message: 'Your order has been confirmed and is being processed.',
         });
+      } finally {
         setIsLoading(false);
       }
     };
 
-    checkOrderStatus();
+    fetchOrderDetails();
   }, [orderId]);
 
   const renderStatus = () => {
@@ -54,25 +64,25 @@ const OrderConfirmation = () => {
       return (
         <div className="flex flex-col items-center justify-center py-10">
           <Spinner size="lg" className="mb-4" />
-          <p className="text-gray-600">Checking your order status...</p>
+          <p className="text-gray-600">Loading your order details...</p>
         </div>
       );
     }
 
-    if (orderStatus.status === 'error') {
+    if (!orderId) {
       return (
         <Card className="p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
             <span className="text-red-500 text-2xl">!</span>
           </div>
-          <h2 className="text-xl font-bold mb-2">Order Status Unavailable</h2>
-          <p className="text-gray-600 mb-6">{orderStatus.message}</p>
+          <h2 className="text-xl font-bold mb-2">Invalid Order</h2>
+          <p className="text-gray-600 mb-6">No order ID was provided. Please return to your orders page.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild variant="outline">
               <Link to="/">Return to Home</Link>
             </Button>
             <Button asChild>
-              <Link to="/profile/orders">View My Orders</Link>
+              <Link to="/user/orders">View My Orders</Link>
             </Button>
           </div>
         </Card>
@@ -90,7 +100,7 @@ const OrderConfirmation = () => {
           
           <div className="bg-white rounded-lg p-4 mt-6 inline-block">
             <p className="text-gray-500 text-sm">Order Reference</p>
-            <p className="font-mono font-medium">{orderId}</p>
+            <p className="font-mono font-medium">{orderData?.orderNumber || orderId}</p>
           </div>
         </div>
         
@@ -108,6 +118,23 @@ const OrderConfirmation = () => {
                 </div>
               </div>
               
+              {orderData?.items && (
+                <div className="border-t border-b border-gray-100 py-3">
+                  <p className="font-medium mb-2">Items</p>
+                  {orderData.items.map((item, index) => (
+                    <div key={index} className="flex justify-between py-1 text-sm">
+                      <span>{item.quantity}x {item.name}</span>
+                      <span>Rs.{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>Rs.{orderData.totalPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-3 mt-1">
                   <RiTimerLine className="h-5 w-5 text-gray-400" />
@@ -124,7 +151,10 @@ const OrderConfirmation = () => {
                 </div>
                 <div>
                   <p className="font-medium">Delivery Address</p>
-                  <p className="text-gray-600">Your address will be displayed here</p>
+                  <p className="text-gray-600">
+                    {orderData?.deliveryAddress?.street || "Your delivery address"}
+                    {orderData?.deliveryAddress?.city && `, ${orderData.deliveryAddress.city}`}
+                  </p>
                 </div>
               </div>
             </div>
@@ -139,7 +169,7 @@ const OrderConfirmation = () => {
                 </Link>
               </Button>
               <Button asChild>
-                <Link to="/profile/orders">View My Orders</Link>
+                <Link to="/user/orders">View My Orders</Link>
               </Button>
             </div>
           </div>

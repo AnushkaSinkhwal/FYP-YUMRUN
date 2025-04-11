@@ -65,7 +65,7 @@ const isAdmin = (req, res, next) => {
  * Checks if the authenticated user is a restaurant owner
  */
 const isRestaurantOwner = (req, res, next) => {
-  if (!req.user.role || req.user.role !== 'restaurantOwner') {
+  if (!req.user.role || (req.user.role !== 'restaurantOwner' && req.user.role !== 'restaurant')) {
     console.log('[Auth Middleware] Access denied - Not a restaurant owner. User role:', req.user.role);
     return res.status(403).json({
       success: false,
@@ -76,7 +76,7 @@ const isRestaurantOwner = (req, res, next) => {
   // Add the user's ID as the restaurantId for convenience in routes
   req.user.restaurantId = req.user.userId;
   
-  console.log('[Auth Middleware] Restaurant owner access granted');
+  console.log('[Auth Middleware] Restaurant owner access granted for role:', req.user.role);
   next();
 };
 
