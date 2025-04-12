@@ -5,6 +5,7 @@ const User = require('../models/user');
 const Notification = require('../models/notification');
 const { auth, isAdmin } = require('../middleware/auth');
 const RestaurantApproval = require('../models/restaurantApproval');
+const { Restaurant } = require('../models/restaurant');
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -94,8 +95,8 @@ router.post('/login', async (req, res) => {
 router.get('/dashboard', auth, isAdmin, async (req, res) => {
   try {
     // Get counts for dashboard
-    const userCount = await User.countDocuments({ isAdmin: false, isRestaurantOwner: false });
-    const restaurantCount = await User.countDocuments({ isRestaurantOwner: true });
+    const userCount = await User.countDocuments({ role: 'customer' });
+    const restaurantCount = await User.countDocuments({ role: 'restaurant' });
     const pendingNotifications = await Notification.countDocuments({ status: 'PENDING' });
     
     // Return dashboard data
@@ -669,7 +670,7 @@ router.post('/users/:userId/approve-changes', auth, isAdmin, async (req, res) =>
     if (changes.phone) user.phone = changes.phone;
     
     // Update restaurant details if applicable
-    if (changes.restaurantDetails && user.isRestaurantOwner) {
+    if (changes.restaurantDetails && user.role === 'restaurant') {
       if (!user.restaurantDetails) {
         user.restaurantDetails = {};
       }
@@ -775,29 +776,12 @@ router.post('/users/:userId/reject-changes', auth, isAdmin, async (req, res) => 
   }
 });
 
-// GET restaurant owners
-router.get('/owners', auth, isAdmin, async (req, res) => {
-    try {
-        const owners = await User.find({ isRestaurantOwner: true }).select('-password');
-        res.status(200).json({ 
-            success: true,
-            data: owners
-        });
-    } catch (error) {
-        console.error('Get owners error:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Server error. Please try again.'
-        });
-    }
-});
-
 // GET system statistics
 router.get('/statistics', auth, isAdmin, async (req, res) => {
     try {
-        const userCount = await User.countDocuments({ isAdmin: false });
-        const ownerCount = await User.countDocuments({ isRestaurantOwner: true });
-        const staffCount = await User.countDocuments({ isDeliveryStaff: true });
+        const userCount = await User.countDocuments({ role: 'customer' });
+        const ownerCount = await User.countDocuments({ role: 'restaurant' });
+        const staffCount = await User.countDocuments({ role: 'deliveryRider' });
         
         res.status(200).json({ 
             success: true,
@@ -809,6 +793,71 @@ router.get('/statistics', auth, isAdmin, async (req, res) => {
         });
     } catch (error) {
         console.error('Statistics error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error. Please try again.'
+        });
+    }
+});
+
+// GET all restaurants 
+router.get('/restaurants', auth, isAdmin, async (req, res) => {
+    try {
+        // Get restaurants from Restaurant collection
+        const restaurantDocuments = await Restaurant.find()
+            .populate('owner', 'name username email phone restaurantDetails.cuisine restaurantDetails.approved createdAt');
+
+        // Format the restaurants combining data from both restaurant and owner documents
+        const restaurants = restaurantDocuments.map(restaurant => {
+            const owner = restaurant.owner;
+            // Get cuisine from restaurant or owner's restaurantDetails
+            let category = 'Uncategorized';
+            if (restaurant.cuisine && restaurant.cuisine.length > 0) {
+                category = restaurant.cuisine.join(', ');
+            } else if (owner?.restaurantDetails?.cuisine && owner.restaurantDetails.cuisine.length > 0) {
+                category = owner.restaurantDetails.cuisine.join(', ');
+            }
+            
+            return {
+                id: restaurant._id,
+                name: restaurant.name,
+                owner: owner?.name || owner?.fullName || owner?.username || 'Unknown Owner',
+                ownerId: owner?._id,
+                email: owner?.email || 'No email',
+                address: restaurant.location || 'No address provided',
+                phone: owner?.phone || 'No phone provided',
+                status: restaurant.isApproved ? 'Approved' : 'Pending',
+                isApproved: restaurant.isApproved,
+                createdAt: restaurant.dateCreated || restaurant.createdAt,
+                category: category,
+                description: restaurant.description,
+                logo: restaurant.logo
+            };
+        });
+
+        res.status(200).json({ 
+            success: true,
+            restaurants
+        });
+    } catch (error) {
+        console.error('Get restaurants error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error. Please try again.'
+        });
+    }
+});
+
+// GET restaurant owners
+router.get('/owners', auth, isAdmin, async (req, res) => {
+    try {
+        const owners = await User.find({ role: 'restaurant' }).select('-password');
+        res.status(200).json({ 
+            success: true,
+            data: owners
+        });
+    } catch (error) {
+        console.error('Get owners error:', error);
         res.status(500).json({ 
             success: false,
             message: 'Server error. Please try again.'

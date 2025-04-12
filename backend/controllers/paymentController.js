@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { Order } = require('../models/order');
+const Order = require('../models/order');
 const Payment = require('../models/payment');
 const { isValidObjectId } = require('mongoose');
 const asyncHandler = require('../middleware/asyncHandler');
@@ -7,7 +7,9 @@ const ErrorResponse = require('../utils/errorResponse');
 
 // Khalti API configuration
 const KHALTI_API = {
-  baseUrl: 'https://a.khalti.com/api/v2',
+  baseUrl: process.env.NODE_ENV === 'production' 
+    ? 'https://khalti.com/api/v2' 
+    : 'https://dev.khalti.com/api/v2',
   secretKey: process.env.KHALTI_SECRET_KEY
 };
 
@@ -20,22 +22,41 @@ exports.initiateKhaltiPayment = asyncHandler(async (req, res) => {
   const { amount, orderId, returnUrl } = req.body;
   const userId = req.user._id;
   
+  console.log('Payment initiation request received:', { amount, orderId, returnUrl });
+  console.log('Models available:', { Order: !!Order, Payment: !!Payment });
+  
   if (!amount || !orderId) {
     throw new ErrorResponse('Amount and order ID are required', 400);
   }
   
-  // Find the order
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new ErrorResponse('Order not found', 404);
-  }
-  
-  // Validate that the order belongs to the user
-  if (order.userId.toString() !== userId.toString()) {
-    throw new ErrorResponse('Unauthorized', 403);
-  }
-  
   try {
+    // Find the order - handle both MongoDB ObjectIds and string order numbers
+    console.log('Looking up order with ID:', orderId);
+    
+    let order;
+    if (isValidObjectId(orderId)) {
+      order = await Order.findById(orderId);
+    } else {
+      // Try to find by orderNumber if it's not a valid ObjectId
+      order = await Order.findOne({ orderNumber: orderId });
+    }
+    
+    console.log('Order found:', !!order);
+    
+    if (!order) {
+      throw new ErrorResponse(`Order not found with id: ${orderId}`, 404);
+    }
+    
+    // Validate that the order belongs to the user
+    console.log('Validating order belongs to user', { 
+      orderUserId: order.userId.toString(), 
+      requestUserId: userId.toString()
+    });
+    
+    if (order.userId.toString() !== userId.toString()) {
+      throw new ErrorResponse('Unauthorized - order does not belong to user', 403);
+    }
+    
     // Prepare data for Khalti API
     const khaltiData = {
       return_url: returnUrl || `${process.env.FRONTEND_URL}/payment/verify`,
@@ -50,17 +71,21 @@ exports.initiateKhaltiPayment = asyncHandler(async (req, res) => {
       }
     };
     
+    console.log('Khalti payment data:', khaltiData);
+    
     // Call Khalti API to initialize payment
     const khaltiResponse = await axios.post(
-      'https://a.khalti.com/api/v2/epayment/initiate/',
+      `${KHALTI_API.baseUrl}/epayment/initiate/`,
       khaltiData,
       {
         headers: {
-          'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
+          'Authorization': `Key ${KHALTI_API.secretKey}`,
           'Content-Type': 'application/json'
         }
       }
     );
+    
+    console.log('Khalti API response:', khaltiResponse.data);
     
     // Update order with payment information
     order.paymentDetails = {
@@ -79,8 +104,14 @@ exports.initiateKhaltiPayment = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Khalti API Error:', error.response?.data || error.message);
-    throw new ErrorResponse('Failed to initiate Khalti payment', 500);
+    console.error('Khalti API Error:', error);
+    if (error.response) {
+      console.error('API Response Error:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+    throw new ErrorResponse('Failed to initiate Khalti payment: ' + (error.message || 'Unknown error'), 500);
   }
 });
 
@@ -92,15 +123,28 @@ exports.initiateKhaltiPayment = asyncHandler(async (req, res) => {
 exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
   const { pidx, orderId } = req.body;
   
+  console.log('Payment verification request received:', { pidx, orderId });
+  
   if (!pidx || !orderId) {
     throw new ErrorResponse('Payment ID and order ID are required', 400);
   }
   
   try {
-    // Find the order
-    const order = await Order.findById(orderId);
+    // Find the order - handle both MongoDB ObjectIds and string order numbers
+    console.log('Looking up order with ID:', orderId);
+    
+    let order;
+    if (isValidObjectId(orderId)) {
+      order = await Order.findById(orderId);
+    } else {
+      // Try to find by orderNumber if it's not a valid ObjectId
+      order = await Order.findOne({ orderNumber: orderId });
+    }
+    
+    console.log('Order found:', !!order);
+    
     if (!order) {
-      throw new ErrorResponse('Order not found', 404);
+      throw new ErrorResponse(`Order not found with id: ${orderId}`, 404);
     }
     
     // Check if this payment has already been verified
@@ -114,17 +158,21 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
       });
     }
     
+    console.log('Verifying Khalti payment with pidx:', pidx);
+    
     // Verify payment with Khalti
     const khaltiResponse = await axios.post(
-      'https://a.khalti.com/api/v2/epayment/lookup/',
+      `${KHALTI_API.baseUrl}/epayment/lookup/`,
       { pidx },
       {
         headers: {
-          'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
+          'Authorization': `Key ${KHALTI_API.secretKey}`,
           'Content-Type': 'application/json'
         }
       }
     );
+    
+    console.log('Khalti verification response:', khaltiResponse.data);
     
     const paymentStatus = khaltiResponse.data.status;
     
@@ -138,9 +186,17 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
     
     // If payment is successful, update order status
     if (paymentStatus === 'Completed') {
-      order.status = 'paid';
+      order.status = 'CONFIRMED';
       order.isPaid = true;
       order.paidAt = Date.now();
+      order.paymentStatus = 'PAID';
+      
+      // Add a status update
+      order.statusUpdates.push({
+        status: 'CONFIRMED',
+        timestamp: Date.now(),
+        updatedBy: req.user._id
+      });
     }
     
     await order.save();
@@ -185,6 +241,8 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
 exports.khaltiWebhook = asyncHandler(async (req, res) => {
   const { event, data } = req.body;
   
+  console.log('Khalti webhook received:', { event, data });
+  
   // Validate webhook signature (implementation depends on Khalti requirements)
   
   // Process the event
@@ -192,10 +250,21 @@ exports.khaltiWebhook = asyncHandler(async (req, res) => {
     const { pidx, transaction_id, purchase_order_id } = data;
     
     try {
-      // Find and update the order
-      const order = await Order.findById(purchase_order_id);
+      // Find the order - handle both MongoDB ObjectIds and string order numbers
+      console.log('Looking up order with ID:', purchase_order_id);
+      
+      let order;
+      if (isValidObjectId(purchase_order_id)) {
+        order = await Order.findById(purchase_order_id);
+      } else {
+        // Try to find by orderNumber if it's not a valid ObjectId
+        order = await Order.findOne({ orderNumber: purchase_order_id });
+      }
+      
+      console.log('Order found:', !!order);
+      
       if (!order) {
-        return res.status(404).json({ success: false, message: 'Order not found' });
+        return res.status(404).json({ success: false, message: `Order not found with id: ${purchase_order_id}` });
       }
       
       // Update order payment details

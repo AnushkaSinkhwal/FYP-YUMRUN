@@ -2,8 +2,7 @@ const mongoose = require('mongoose');
 
 const orderItemSchema = new mongoose.Schema({
   productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'MenuItem',
+    type: String,
     required: true
   },
   name: {
@@ -143,7 +142,7 @@ const orderSchema = new mongoose.Schema({
   statusUpdates: [statusUpdateSchema],
   paymentMethod: {
     type: String,
-    enum: ['CREDIT_CARD', 'CASH', 'DIGITAL_WALLET', 'KHALTI'],
+    enum: ['CASH', 'KHALTI'],
     required: true
   },
   paymentStatus: {
@@ -179,11 +178,20 @@ const orderSchema = new mongoose.Schema({
     type: Date
   },
   deliveryAddress: {
-    street: String,
-    city: String,
+    street: {
+      type: String,
+      required: true
+    },
+    city: {
+      type: String,
+      required: true
+    },
     state: String,
     zipCode: String,
-    country: String,
+    country: {
+      type: String,
+      default: 'Nepal'
+    },
     coordinates: {
       lat: Number,
       lng: Number

@@ -75,30 +75,59 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
     
     console.log('Sending payment data:', paymentData);
     
-    // Call backend to initiate payment with retry mechanism
-    const response = await apiClient.post(`${API_URL}/payment/khalti/initiate`, paymentData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      timeout: 15000 // 15 seconds timeout
-    });
-
+    // Retry mechanism configuration
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
+    
+    // Function to wait
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Make API call with retries
+    let response;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Call backend to initiate payment
+        response = await apiClient.post(`${API_URL}/payment/khalti/initiate`, paymentData, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          timeout: 15000 // 15 seconds timeout
+        });
+        
+        // If we get here, the request was successful, so break out of retry loop
+        break;
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error.message);
+        
+        // If we've reached max retries, throw the last error
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+        
+        // Log retry attempt
+        console.log(`Retrying request (${attempt}/${MAX_RETRIES})...`);
+        
+        // Wait before next retry
+        await wait(RETRY_DELAY * attempt);
+      }
+    }
+    
     console.log('Payment initiation response:', response.data);
 
-    if (response.data.success && response.data.paymentUrl) {
+    if (response.data.success && response.data.data) {
       // Save orderId and payment information in session storage for retrieval after payment
       sessionStorage.setItem('pendingOrder', JSON.stringify({
         orderId,
         items: cartItems,
         amount: amount,
         paymentMethod: 'khalti',
-        paymentId: response.data.paymentId,
-        pidx: response.data.pidx
+        pidx: response.data.data.pidx
       }));
       
       // Redirect to Khalti payment page
-      window.location.href = response.data.paymentUrl;
+      window.location.href = response.data.data.paymentUrl;
       callback({ success: true });
     } else {
       callback({
@@ -174,13 +203,44 @@ export const verifyKhaltiPayment = async (payload) => {
     
     console.log('Sending verification data:', verificationData);
     
-    const response = await apiClient.post(`${API_URL}/payment/khalti/verify`, verificationData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      timeout: 15000 // 15 seconds timeout
-    });
+    // Retry mechanism configuration
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
+    
+    // Function to wait
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Make API call with retries
+    let response;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Call API to verify payment
+        response = await apiClient.post(`${API_URL}/payment/khalti/verify`, verificationData, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          timeout: 15000 // 15 seconds timeout
+        });
+        
+        // If we get here, the request was successful, so break out of retry loop
+        break;
+      } catch (error) {
+        console.error(`Verification attempt ${attempt} failed:`, error.message);
+        
+        // If we've reached max retries, throw the last error
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+        
+        // Log retry attempt
+        console.log(`Retrying verification (${attempt}/${MAX_RETRIES})...`);
+        
+        // Wait before next retry
+        await wait(RETRY_DELAY * attempt);
+      }
+    }
     
     console.log('Verification response:', response.data);
     

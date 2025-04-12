@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { Order } = require('../models/order');
+const Order = require('../models/order');
 const Payment = require('../models/payment');
 const { auth } = require('../middleware/auth');
 const { isValidObjectId } = require('mongoose');

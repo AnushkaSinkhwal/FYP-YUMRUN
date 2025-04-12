@@ -92,8 +92,13 @@ const SignIn = () => {
                 console.log('Stored user data:', userData);
                 
                 // Use React Router navigation instead of window.location
-                const dashboardPath = response.dashboardPath || '/';
-                navigate(dashboardPath, { replace: true });
+                // Ensure we're using the exact dashboardPath from response 
+                // without any modifications or fallbacks that could override it
+                console.log('Navigating to dashboardPath:', response.dashboardPath);
+                console.log('User role:', userData?.role);
+                
+                // Force navigation to the specific dashboard
+                navigate(response.dashboardPath, { replace: true });
             } else {
                 // Display the specific error message from the backend
                 const errorMessage = response.error || "Login failed. Please try again.";

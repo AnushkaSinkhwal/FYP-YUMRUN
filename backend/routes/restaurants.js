@@ -6,6 +6,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { Restaurant } = require('../models/restaurant');
+const { MenuItem } = require('../models/menuItem');
+const mongoose = require('mongoose');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -217,16 +219,35 @@ router.get('/', async (req, res) => {
             .sort({ name: 1 });
 
         // Format data for the frontend (ensure it matches frontend expectations)
-        const formattedRestaurants = approvedRestaurants.map(restaurant => ({
-            _id: restaurant._id, // Use _id or id as expected by frontend
-            id: restaurant.id,   // Include virtual id if used
-            name: restaurant.name,
-            description: restaurant.description || 'No description available.',
-            location: restaurant.location || 'Location not specified.',
-            logo: restaurant.logo || null, // Handle missing logo
-            cuisine: restaurant.cuisine || [], // Assuming cuisine might be added later
-            // Add other fields as needed by the frontend Shop component
-            // e.g., isOpen (if available in Restaurant model, otherwise default or omit)
+        const formattedRestaurants = await Promise.all(approvedRestaurants.map(async (restaurant) => {
+            // For each restaurant, calculate average rating from related menu items
+            const menuItems = await MenuItem.find({ restaurant: restaurant.owner });
+            
+            let totalRating = 0;
+            let reviewCount = 0;
+            
+            menuItems.forEach(item => {
+                if (item.numberOfRatings > 0) {
+                    totalRating += (item.averageRating * item.numberOfRatings);
+                    reviewCount += item.numberOfRatings;
+                }
+            });
+            
+            const avgRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+            
+            return {
+                _id: restaurant._id, // Use _id or id as expected by frontend
+                id: restaurant.id,   // Include virtual id if used
+                name: restaurant.name,
+                description: restaurant.description || 'No description available.',
+                location: restaurant.location || 'Location not specified.',
+                logo: restaurant.logo || null, // Handle missing logo
+                cuisine: restaurant.cuisine || [], // Assuming cuisine might be added later
+                rating: parseFloat(avgRating.toFixed(1)),
+                totalReviews: reviewCount,
+                // Add other fields as needed by the frontend Shop component
+                isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true
+            };
         }));
 
         return res.status(200).json({
@@ -245,13 +266,37 @@ router.get('/', async (req, res) => {
 // GET featured restaurants
 router.get('/featured', async (req, res) => {
     try {
-        // Placeholder: Fetch a few approved restaurants as featured
-        // In a real app, you'd likely have an 'isFeatured' flag in the model
-        const featuredRestaurants = await Restaurant.find({ isApproved: true }).limit(5);
+        // Fetch a few approved restaurants as featured
+        const featuredRestaurants = await Restaurant.find({ isApproved: true })
+            .populate('owner', 'restaurantDetails.logo')
+            .limit(5);
+        
+        // Format the restaurant data for frontend use
+        const formattedRestaurants = featuredRestaurants.map(restaurant => {
+            // Get logo from owner's restaurantDetails if available, otherwise use restaurant.logo
+            let logo = restaurant.logo;
+            if (restaurant.owner && restaurant.owner.restaurantDetails && restaurant.owner.restaurantDetails.logo) {
+                logo = restaurant.owner.restaurantDetails.logo;
+            }
+            
+            return {
+                id: restaurant._id,
+                name: restaurant.name,
+                description: restaurant.description,
+                location: restaurant.location,
+                address: restaurant.location, // For consistency with frontend
+                logo: logo,
+                image: logo, // Provide both logo and image fields for flexibility
+                cuisine: restaurant.cuisine || [],
+                rating: restaurant.rating || 4.5, // Default rating if not available
+                totalReviews: restaurant.totalReviews || 0,
+                isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true
+            };
+        });
         
         res.status(200).json({ 
             success: true, 
-            data: featuredRestaurants 
+            data: formattedRestaurants 
         });
     } catch (error) {
         console.error('Error fetching featured restaurants:', error);
@@ -270,6 +315,101 @@ router.post('/', (req, res) => {
 // PUT update restaurant
 router.put('/:id', (req, res) => {
     res.status(200).json({ message: `Update restaurant with ID: ${req.params.id}` });
+});
+
+// GET a single restaurant by ID
+router.get('/:id', async (req, res) => {
+    try {
+        const restaurantId = req.params.id;
+        
+        // Validate if it's a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid restaurant ID format'
+            });
+        }
+        
+        // Find the restaurant by ID
+        const restaurant = await Restaurant.findById(restaurantId)
+            .populate('owner', 'name email phone restaurantDetails');
+            
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
+            });
+        }
+
+        // Get menu items for this restaurant
+        const menuItems = await MenuItem.find({ restaurant: restaurant.owner._id })
+            .sort({ category: 1, item_name: 1 });
+            
+        // Calculate restaurant rating from menu items
+        let totalRating = 0;
+        let reviewCount = 0;
+        
+        menuItems.forEach(item => {
+            if (item.numberOfRatings > 0) {
+                totalRating += (item.averageRating * item.numberOfRatings);
+                reviewCount += item.numberOfRatings;
+            }
+        });
+        
+        const avgRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+        
+        // Format the response
+        const responseData = {
+            _id: restaurant._id,
+            id: restaurant._id, // For frontend compatibility
+            name: restaurant.name,
+            description: restaurant.description || 'No description available',
+            location: restaurant.location,
+            address: restaurant.location, // For frontend compatibility
+            logo: restaurant.logo,
+            cuisine: restaurant.cuisine || [],
+            isApproved: restaurant.isApproved,
+            isOpen: restaurant.isOpen,
+            openingTime: restaurant.openingTime,
+            closingTime: restaurant.closingTime,
+            priceRange: restaurant.priceRange,
+            deliveryRadius: restaurant.deliveryRadius,
+            minimumOrder: restaurant.minimumOrder,
+            deliveryFee: restaurant.deliveryFee,
+            owner: {
+                id: restaurant.owner._id,
+                name: restaurant.owner.name,
+                email: restaurant.owner.email,
+                phone: restaurant.owner.phone
+            },
+            rating: parseFloat(avgRating.toFixed(1)),
+            totalReviews: reviewCount,
+            menu: menuItems.map(item => ({
+                id: item._id,
+                name: item.item_name,
+                description: item.description,
+                price: item.item_price,
+                image: item.image,
+                category: item.category,
+                isAvailable: item.isAvailable,
+                isVegetarian: item.isVegetarian,
+                isPopular: item.isPopular,
+                rating: item.averageRating,
+                reviews: item.numberOfRatings
+            }))
+        };
+        
+        return res.status(200).json({
+            success: true,
+            data: responseData
+        });
+    } catch (error) {
+        console.error('Error fetching restaurant details:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
+        });
+    }
 });
 
 // DELETE restaurant

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Spinner, Button } from '../../components/ui';
-import { FaStar, FaFire, FaFilter, FaUtensils, FaSearch } from 'react-icons/fa';
+import { FaFire, FaFilter, FaUtensils, FaSearch } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
 
@@ -172,7 +172,7 @@ const Menu = () => {
     <div className="py-10">
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-6 text-center">Our Menu</h1>
+          <h1 className="mb-6 text-3xl font-bold text-center">Our Menu</h1>
           
           {/* Search Bar */}
           <div className="mb-6">
@@ -182,9 +182,9 @@ const Menu = () => {
                 placeholder="Search menu items..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
+                className="w-full py-3 pl-10 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
               />
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <FaSearch className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
             </div>
           </div>
           
@@ -211,17 +211,17 @@ const Menu = () => {
           <div className="mb-6">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center text-gray-700 hover:text-yumrun-orange mb-2"
+              className="flex items-center mb-2 text-gray-700 hover:text-yumrun-orange"
             >
               <FaFilter className="mr-2" />
               <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
             </button>
             
             {showFilters && (
-              <div className="bg-white p-4 rounded-lg shadow-md">
+              <div className="p-4 bg-white rounded-lg shadow-md">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Price Range
                     </label>
                     <select
@@ -238,7 +238,7 @@ const Menu = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Rating
                     </label>
                     <select
@@ -254,7 +254,7 @@ const Menu = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Sort By
                     </label>
                     <select
@@ -279,14 +279,14 @@ const Menu = () => {
               <Spinner size="lg" />
             </div>
           ) : error ? (
-            <div className="bg-red-100 text-red-700 p-4 rounded-md mb-6">
+            <div className="p-4 mb-6 text-red-700 bg-red-100 rounded-md">
               {error}
             </div>
           ) : sortedItems.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <FaUtensils className="mx-auto text-4xl text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Menu Items Found</h3>
-              <p className="text-gray-600 mb-4">
+            <div className="p-8 text-center bg-white rounded-lg shadow-md">
+              <FaUtensils className="mx-auto mb-4 text-4xl text-gray-300" />
+              <h3 className="mb-2 text-xl font-semibold">No Menu Items Found</h3>
+              <p className="mb-4 text-gray-600">
                 We couldn&apos;t find any items matching your criteria.
               </p>
               <Button
@@ -307,13 +307,13 @@ const Menu = () => {
                     <img 
                       src={item.image} 
                       alt={item.name} 
-                      className="w-full h-48 object-cover"
+                      className="object-cover w-full h-48"
                       onClick={() => navigate(`/product/${item.id}`)}
                       style={{ cursor: 'pointer' }}
                     />
                     {item.isPopular && (
                       <div className="absolute top-0 left-0 m-2">
-                        <span className="flex items-center px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded">
+                        <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
                           <FaFire className="mr-1" /> Popular
                         </span>
                       </div>
@@ -321,9 +321,9 @@ const Menu = () => {
                   </div>
                   
                   <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-start justify-between mb-2">
                       <h3 
-                        className="text-lg font-semibold text-gray-800 hover:text-yumrun-orange cursor-pointer"
+                        className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-yumrun-orange"
                         onClick={() => navigate(`/product/${item.id}`)}
                       >
                         {item.name}
@@ -331,21 +331,24 @@ const Menu = () => {
                       <span className="font-bold text-yumrun-orange">${item.price.toFixed(2)}</span>
                     </div>
                     
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+                    <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
                     
                     <div className="flex items-center mb-3">
-                      <div className="flex items-center">
-                        <FaStar className="text-yellow-500 mr-1" />
-                        <span className="text-sm font-medium">{item.rating}</span>
+                      <div className="flex items-center mr-2">
+                        <span className="mr-1 text-yellow-400">★</span>
+                        <span>{item.rating.toFixed(1)}</span>
                       </div>
-                      <span className="text-sm text-gray-500 ml-1">({item.totalReviews} reviews)</span>
-                      <Link 
-                        to={`/restaurant/${item.restaurant.id}`} 
-                        className="ml-auto text-sm text-gray-600 hover:text-yumrun-orange"
-                      >
-                        {item.restaurant.name}
-                      </Link>
+                      <span className="text-sm text-gray-500">
+                        ({item.totalReviews} {item.totalReviews === 1 ? 'review' : 'reviews'})
+                      </span>
                     </div>
+                    
+                    <Link 
+                      to={`/restaurant/${item.restaurant.id}`} 
+                      className="mb-3 text-sm text-gray-600 hover:text-yumrun-orange"
+                    >
+                      {item.restaurant.name}
+                    </Link>
                     
                     <Button 
                       onClick={() => handleAddToCart(item)}

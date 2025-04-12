@@ -1,7 +1,7 @@
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { CiHeart } from "react-icons/ci";
 import { FiShoppingCart } from "react-icons/fi";
-import { FaMapMarkerAlt, FaHeart } from "react-icons/fa";
+import { FaMapMarkerAlt, FaHeart, FaStore } from "react-icons/fa";
 import { useContext, useState } from 'react';
 import { MyContext } from '../../App';
 import PropTypes from 'prop-types';
@@ -14,6 +14,7 @@ import {
 } from '../ui';
 import { cn } from "../../lib/utils";
 import { useCart } from '../../context/CartContext';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const ProductItem = ({ 
     itemView = "four", 
@@ -24,7 +25,9 @@ const ProductItem = ({
     rating = 4.5, 
     oldPrice = "650", 
     newPrice = "520", 
-    imgSrc = "https://fmdadmin.foodmandu.com//Images/Vendor/269/Logo/web_240423103631_200624060757.listing-fire-and-ice.png" 
+    imgSrc = "https://fmdadmin.foodmandu.com//Images/Vendor/269/Logo/web_240423103631_200624060757.listing-fire-and-ice.png",
+    isRestaurant = false,
+    linkTo = ""
 }) => {
     const context = useContext(MyContext);
     const { addToCart } = useCart();
@@ -33,14 +36,29 @@ const ProductItem = ({
     const [imgLoaded, setImgLoaded] = useState(false);
     const [addedToCart, setAddedToCart] = useState(false);
 
+    // Determine the link based on whether it's a restaurant or a product
+    const itemLink = linkTo || (isRestaurant ? `/restaurant/${id}` : `/product/${id}`);
+
     const viewProductDetails = () => {
-        context.setProductId(id);
-        context.setIsOpenProductModel(true);
+        if (isRestaurant) {
+            // Navigate to restaurant page instead of opening modal
+            window.location.href = itemLink;
+        } else {
+            context.setProductId(id);
+            context.setIsOpenProductModel(true);
+        }
     };
 
     const handleAddToCart = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Skip for restaurants
+        if (isRestaurant) {
+            window.location.href = itemLink;
+            return;
+        }
+        
         setCartButtonClass('cart-added');
         setAddedToCart(true);
         
@@ -49,6 +67,29 @@ const ProductItem = ({
             setCartButtonClass('');
         }, 800);
 
+        // Extract restaurant ID from product ID
+        let restaurantId = '';
+        let restaurantName = '';
+        
+        // First try to get restaurant ID from product ID
+        if (id) {
+            const parts = id.split(':');
+            if (parts.length === 2) {
+                restaurantId = parts[0];
+            }
+        }
+        
+        // If no restaurant ID from product ID, try location object
+        if (!restaurantId && typeof location === 'object' && location !== null) {
+            restaurantId = location._id || location.id || '';
+            restaurantName = location.name || '';
+        }
+
+        // If still no restaurant ID, use a fallback from the product ID
+        if (!restaurantId && id) {
+            restaurantId = id.split('_')[0]; // Try underscore separator as fallback
+        }
+
         // Add the item to cart using the CartContext
         addToCart({
             id,
@@ -56,7 +97,12 @@ const ProductItem = ({
             price: parseFloat(newPrice),
             image: imgSrc,
             rating,
-            restaurant: location
+            restaurantId,
+            restaurant: {
+                id: restaurantId,
+                name: restaurantName || location || 'Restaurant',
+                _id: restaurantId // Add this as some parts of the code check for _id
+            }
         }, 1);
         
         // Show success briefly
@@ -77,8 +123,8 @@ const ProductItem = ({
     };
 
     const handleImageError = (e) => {
-        // Use a placeholder image on error
-        e.target.src = 'https://source.unsplash.com/random/300x200/?food';
+        // Use a proper placeholder image from the backend
+        e.target.src = isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
         setImgLoaded(true);
     };
 
@@ -128,10 +174,17 @@ const ProductItem = ({
     return (
         <Card className={`group relative overflow-hidden rounded-md transition-all duration-300 hover:shadow-lg ${getSizeClass()}`}>
             {/* Added to cart notification */}
-            {addedToCart && (
+            {addedToCart && !isRestaurant && (
                 <div className="absolute top-0 left-0 right-0 z-20 p-2 m-2 text-center text-white bg-green-500 rounded-md animate-fade-in-down">
                     Added to cart!
                 </div>
+            )}
+            
+            {/* Restaurant badge */}
+            {isRestaurant && (
+                <Badge className="absolute z-10 text-white bg-blue-500 top-2 left-2" variant="secondary">
+                    Restaurant
+                </Badge>
             )}
             
             <div className="relative overflow-hidden">
@@ -139,12 +192,12 @@ const ProductItem = ({
                 <div className="relative pt-[75%] bg-gray-50">
                     {!imgLoaded && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                            <div className="w-10 h-10 border-4 border-yumrun-primary border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
                         </div>
                     )}
-                    <Link to={`/product/${id}`} aria-label={`View ${name} details`}>
+                    <Link to={itemLink} aria-label={`View ${name} details`}>
                         <img 
-                            src={imgSrc} 
+                            src={getFullImageUrl(imgSrc)} 
                             className={cn(
                                 "absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                                 imgLoaded ? "opacity-100" : "opacity-0"
@@ -156,8 +209,8 @@ const ProductItem = ({
                         />
                     </Link>
                     
-                    {discount && parseFloat(discount) > 0 && (
-                        <Badge className="absolute top-2 left-2 bg-yumrun-accent text-white" variant="secondary">
+                    {!isRestaurant && discount && parseFloat(discount) > 0 && (
+                        <Badge className="absolute text-white top-2 left-2 bg-yumrun-accent" variant="secondary">
                             {discount}% OFF
                         </Badge>
                     )}
@@ -171,47 +224,51 @@ const ProductItem = ({
                             onClick={viewProductDetails}
                             aria-label="Quick view"
                         >
-                            <BsArrowsFullscreen className="w-4 h-4" />
+                            {isRestaurant ? <FaStore className="w-4 h-4" /> : <BsArrowsFullscreen className="w-4 h-4" />}
                         </Button>
                         
-                        <Button
-                            size="icon"
-                            variant="secondary"
-                            className={cn(
-                                "w-8 h-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
-                                favoriteActive 
-                                    ? "bg-pink-50 hover:bg-pink-100" 
-                                    : "bg-white hover:bg-gray-100"
-                            )}
-                            onClick={toggleFavorite}
-                            aria-label={favoriteActive ? "Remove from wishlist" : "Add to wishlist"}
-                        >
-                            {favoriteActive ? (
-                                <FaHeart className="w-4 h-4 text-yumrun-accent" />
-                            ) : (
-                                <CiHeart className="w-5 h-5" />
-                            )}
-                        </Button>
-                        
-                        <Button
-                            size="icon"
-                            variant="secondary"
-                            className={cn(
-                                "h-8 w-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
-                                cartButtonClass === 'cart-added' 
-                                    ? "animate-bounce bg-yumrun-primary text-white" 
-                                    : "bg-white hover:bg-gray-100"
-                            )}
-                            onClick={handleAddToCart}
-                            aria-label="Add to cart"
-                        >
-                            <FiShoppingCart className="w-4 h-4" />
-                        </Button>
+                        {!isRestaurant && (
+                            <>
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className={cn(
+                                        "w-8 h-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
+                                        favoriteActive 
+                                            ? "bg-pink-50 hover:bg-pink-100" 
+                                            : "bg-white hover:bg-gray-100"
+                                    )}
+                                    onClick={toggleFavorite}
+                                    aria-label={favoriteActive ? "Remove from wishlist" : "Add to wishlist"}
+                                >
+                                    {favoriteActive ? (
+                                        <FaHeart className="w-4 h-4 text-yumrun-accent" />
+                                    ) : (
+                                        <CiHeart className="w-5 h-5" />
+                                    )}
+                                </Button>
+                                
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className={cn(
+                                        "h-8 w-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
+                                        cartButtonClass === 'cart-added' 
+                                            ? "animate-bounce bg-yumrun-primary text-white" 
+                                            : "bg-white hover:bg-gray-100"
+                                    )}
+                                    onClick={handleAddToCart}
+                                    aria-label="Add to cart"
+                                >
+                                    <FiShoppingCart className="w-4 h-4" />
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
                 
                 <CardContent className="p-4">
-                    <Link to={`/product/${id}`} className="block transition-colors hover:text-yumrun-primary">
+                    <Link to={itemLink} className="block transition-colors hover:text-yumrun-primary">
                         <h3 className="text-lg font-medium line-clamp-1">{name}</h3>
                         
                         {location && (
@@ -227,40 +284,57 @@ const ProductItem = ({
                     </div>
                     
                     <div className="flex items-center justify-between mt-3">
-                        <div className="price-container">
-                            {oldPrice && parseFloat(oldPrice) > parseFloat(newPrice) ? (
-                                <span className="mr-2 text-sm text-gray-500 line-through">Rs.{oldPrice}</span>
-                            ) : null}
-                            <span className="font-medium text-yumrun-accent">Rs.{newPrice}</span>
-                        </div>
-                        
-                        <Button 
-                            size="sm" 
-                            variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
-                            className={cn(
-                                "gap-1 transition-all duration-300",
-                                cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : "",
-                                "hidden sm:flex"
-                            )}
-                            onClick={handleAddToCart}
-                        >
-                            <FiShoppingCart className="w-4 h-4" />
-                            <span>{cartButtonClass === 'cart-added' ? "Added" : "Add"}</span>
-                        </Button>
-                        
-                        {/* Mobile add button */}
-                        <Button
-                            size="icon"
-                            variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
-                            className={cn(
-                                "h-8 w-8 sm:hidden transition-all duration-300",
-                                cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : ""
-                            )}
-                            onClick={handleAddToCart}
-                            aria-label="Add to cart"
-                        >
-                            <FiShoppingCart className="w-4 h-4" />
-                        </Button>
+                        {!isRestaurant ? (
+                            <>
+                                <div className="price-container">
+                                    {oldPrice && parseFloat(oldPrice) > parseFloat(newPrice) ? (
+                                        <span className="mr-2 text-sm text-gray-500 line-through">Rs.{oldPrice}</span>
+                                    ) : null}
+                                    <span className="font-medium text-yumrun-accent">Rs.{newPrice}</span>
+                                </div>
+                                
+                                <Button 
+                                    size="sm" 
+                                    variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
+                                    className={cn(
+                                        "gap-1 transition-all duration-300",
+                                        cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : "",
+                                        "hidden sm:flex"
+                                    )}
+                                    onClick={handleAddToCart}
+                                >
+                                    <FiShoppingCart className="w-4 h-4" />
+                                    <span>{cartButtonClass === 'cart-added' ? "Added" : "Add"}</span>
+                                </Button>
+                                
+                                {/* Mobile add button */}
+                                <Button
+                                    size="icon"
+                                    variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
+                                    className={cn(
+                                        "h-8 w-8 sm:hidden transition-all duration-300",
+                                        cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : ""
+                                    )}
+                                    onClick={handleAddToCart}
+                                    aria-label="Add to cart"
+                                >
+                                    <FiShoppingCart className="w-4 h-4" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <div></div> {/* Empty div to maintain layout */}
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => window.location.href = itemLink}
+                                >
+                                    <FaStore className="w-4 h-4" />
+                                    <span>View</span>
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </CardContent>
             </div>
@@ -278,7 +352,9 @@ ProductItem.propTypes = {
     rating: PropTypes.number,
     oldPrice: PropTypes.string,
     newPrice: PropTypes.string,
-    imgSrc: PropTypes.string
+    imgSrc: PropTypes.string,
+    isRestaurant: PropTypes.bool,
+    linkTo: PropTypes.string
 };
 
 export default ProductItem;

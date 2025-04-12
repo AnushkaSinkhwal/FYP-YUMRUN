@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
-const restaurantSchema = mongoose.Schema({
-    restaurant_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        auto: true,
-        primaryKey: true
-    },
+const restaurantSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -31,6 +26,10 @@ const restaurantSchema = mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    cuisine: {
+        type: [String],
+        default: ['General'],
+    },
     dateCreated: {
         type: Date,
         default: Date.now,
@@ -45,5 +44,6 @@ restaurantSchema.set('toJSON', {
     virtuals: true,
 });
 
-exports.Restaurant = mongoose.model('Restaurant', restaurantSchema);
-exports.restaurantSchema = restaurantSchema; 
+// Create and export the model directly
+const Restaurant = mongoose.model('Restaurant', restaurantSchema);
+module.exports = Restaurant; 

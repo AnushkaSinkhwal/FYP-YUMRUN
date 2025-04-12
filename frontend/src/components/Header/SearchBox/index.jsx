@@ -2,6 +2,7 @@ import { IoSearchSharp } from "react-icons/io5";
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input } from '../../../components/ui';
+import axios from 'axios';
 
 const SearchBox = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -14,8 +15,8 @@ const SearchBox = () => {
     const inputRef = useRef(null);
     const searchDebounceRef = useRef(null);
 
-    // API endpoint for search suggestions
-    const API_URL = 'http://localhost:5000/api';
+    // Use the actual server URL
+    const API_URL = 'http://localhost:8000/api';
 
     // Extract search query from URL on component mount
     useEffect(() => {
@@ -61,32 +62,61 @@ const SearchBox = () => {
         // Debounce search to avoid too many requests
         searchDebounceRef.current = setTimeout(async () => {
             try {
-                // Try to fetch from actual API
-                try {
-                    const response = await fetch(`${API_URL}/suggestions?q=${encodeURIComponent(searchTerm)}`);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        setSuggestions(data);
-                        setShowSuggestions(true);
-                        setIsLoading(false);
-                        return;
-                    }
-                } catch (apiError) {
-                    console.warn('API suggestions failed, falling back to mock data:', apiError);
-                    // If API fails, we'll continue to fallback mock data
-                }
+                // Search for menu items
+                const menuResponse = await axios.get(`${API_URL}/search/menu-items?query=${encodeURIComponent(searchTerm)}`);
                 
-                // Fallback to mock suggestions
+                // Search for restaurants - we'll use the general restaurants endpoint and filter client-side
+                const restaurantsResponse = await axios.get(`${API_URL}/restaurants`);
+                
+                // Process menu items and convert to suggestion format
+                const foodSuggestions = menuResponse.data.data.slice(0, 3).map(item => ({
+                    id: item._id,
+                    name: item.item_name || item.name,
+                    type: 'food'
+                }));
+                
+                // Filter and process restaurants
+                const restaurantSuggestions = restaurantsResponse.data.data
+                    .filter(restaurant => 
+                        restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .slice(0, 2)
+                    .map(restaurant => ({
+                        id: restaurant._id,
+                        name: restaurant.name,
+                        type: 'restaurant'
+                    }));
+                
+                // Combine suggestions
+                const combinedSuggestions = [...foodSuggestions, ...restaurantSuggestions];
+                
+                if (combinedSuggestions.length > 0) {
+                    setSuggestions(combinedSuggestions);
+                    setShowSuggestions(true);
+                } else {
+                    // Fallback to food categories if no items found
+                    const categories = [
+                        { id: 'pizza', name: 'Pizza', type: 'category' },
+                        { id: 'burger', name: 'Burger', type: 'category' },
+                        { id: 'momo', name: 'Momo', type: 'category' }
+                    ];
+                    
+                    const filteredCategories = categories.filter(cat => 
+                        cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                    
+                    setSuggestions(filteredCategories);
+                    setShowSuggestions(filteredCategories.length > 0);
+                }
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+                
+                // Fallback to mock suggestions on error
                 const dummySuggestions = [
-                    { id: 1, name: 'Pizza', type: 'category' },
-                    { id: 2, name: 'Burger', type: 'category' },
-                    { id: 3, name: 'Namaste Restaurant', type: 'restaurant' },
-                    { id: 4, name: 'Chicken Momo', type: 'food' },
-                    { id: 5, name: 'Veg Thali', type: 'food' },
-                    { id: 6, name: 'American Chopsuey', type: 'food' },
-                    { id: 7, name: 'Chicken Burger', type: 'food' },
-                    { id: 8, name: 'KFC', type: 'restaurant' }
+                    { id: 'pizza', name: 'Pizza', type: 'category' },
+                    { id: 'burger', name: 'Burger', type: 'category' },
+                    { id: 'namaste', name: 'Namaste Restaurant', type: 'restaurant' },
+                    { id: 'momo', name: 'Chicken Momo', type: 'food' },
+                    { id: 'thali', name: 'Veg Thali', type: 'food' }
                 ];
 
                 const filteredSuggestions = dummySuggestions.filter(item =>
@@ -95,8 +125,6 @@ const SearchBox = () => {
 
                 setSuggestions(filteredSuggestions);
                 setShowSuggestions(filteredSuggestions.length > 0);
-            } catch (error) {
-                console.error('Error fetching suggestions:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -130,6 +158,8 @@ const SearchBox = () => {
             navigate(`/cat/${suggestion.id}`);
         } else if (suggestion.type === 'restaurant') {
             navigate(`/restaurant/${suggestion.id}`);
+        } else if (suggestion.type === 'food') {
+            navigate(`/product/${suggestion.id}`);
         } else {
             navigate(`/search?q=${encodeURIComponent(suggestion.name)}`);
         }

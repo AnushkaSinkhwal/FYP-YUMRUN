@@ -79,7 +79,10 @@ router.get('/', async (req, res) => {
             isVegetarian: item.isVegetarian,
             isVegan: item.isVegan,
             isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true
+            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+            averageRating: item.averageRating || 0,
+            numberOfRatings: item.numberOfRatings || 0,
+            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
         }));
         
         res.status(200).json({
@@ -115,7 +118,10 @@ router.get('/restaurant/:id', async (req, res) => {
             isVegetarian: item.isVegetarian,
             isVegan: item.isVegan,
             isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true
+            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+            averageRating: item.averageRating || 0,
+            numberOfRatings: item.numberOfRatings || 0,
+            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
         }));
         
         res.status(200).json({
@@ -151,7 +157,10 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
             isVegetarian: item.isVegetarian,
             isVegan: item.isVegan,
             isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true
+            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+            averageRating: item.averageRating || 0,
+            numberOfRatings: item.numberOfRatings || 0,
+            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
         }));
         
         res.status(200).json({
@@ -198,7 +207,11 @@ router.get('/:id', async (req, res) => {
             isVegetarian: menuItem.isVegetarian,
             isVegan: menuItem.isVegan,
             isGlutenFree: menuItem.isGlutenFree,
-            isAvailable: menuItem.isAvailable !== undefined ? menuItem.isAvailable : true
+            isAvailable: menuItem.isAvailable !== undefined ? menuItem.isAvailable : true,
+            averageRating: menuItem.averageRating || 0,
+            numberOfRatings: menuItem.numberOfRatings || 0,
+            isPopular: menuItem.numberOfRatings > 2 || menuItem.averageRating > 4,
+            dateCreated: menuItem.dateCreated
         };
         
         res.status(200).json({

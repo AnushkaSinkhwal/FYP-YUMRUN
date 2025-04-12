@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const UserReviews = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,11 +247,16 @@ const ReviewCard = ({
     <Card key={review.id} className="p-6 transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-start justify-between">
         <div className="flex gap-4">
-          <img
-            src={review.menuItem?.image || `https://source.unsplash.com/random/300x200/?food`}
-            alt={review.menuItem?.name}
-            className="object-cover w-24 h-24 rounded-lg"
-          />
+          <div className="flex-shrink-0 w-24 h-24 bg-gray-200 rounded-lg overflow-hidden">
+            <img
+              src={getFullImageUrl(review.menuItem?.image)}
+              alt={review.menuItem?.name || 'Food item'}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.src = PLACEHOLDERS.FOOD;
+              }}
+            />
+          </div>
           <div>
             <h3 className="text-lg font-semibold">
               {review.menuItem?.name || 'Food Item'}

@@ -73,7 +73,7 @@ exports.getHealthRecommendations = async (req, res) => {
             location: item.restaurant?.restaurantDetails?.address?.split(',')[0] || 'Location',
             price: item.item_price.toString(),
             rating: (4 + Math.random()).toFixed(1), // Random rating between 4.0-5.0 for demo
-            image: item.image || `https://source.unsplash.com/random/300x200/?${item.category.toLowerCase()}`,
+            image: item.image || `/uploads/placeholders/food-placeholder.jpg`,
             healthTag: getHealthTag(item, healthCondition),
             nutritionalInfo: {
                 calories: item.calories,

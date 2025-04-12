@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FaEdit, FaTrashAlt, FaUserPlus, FaSearch, FaFilter, FaEllipsisV } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaUserPlus, FaSearch, FaFilter } from 'react-icons/fa';
 import { adminAPI } from '../../utils/api';
-import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
+import { Card, Badge, Button, Alert, Spinner } from '../../components/ui';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -41,15 +41,45 @@ const Users = () => {
     }
   };
 
+  const getBadgeVariant = (status) => {
+    switch (status) {
+      case 'Active': return 'success';
+      case 'Inactive': return 'danger';
+      case 'Pending': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  const getUserRole = (user) => {
+    // First check the new 'role' field
+    if (user.role) {
+      switch (user.role) {
+        case 'admin': return 'Admin';
+        case 'restaurant': return 'Restaurant Owner';
+        case 'deliveryRider': return 'Delivery Driver';
+        case 'customer': return 'Customer';
+        default: return user.role.charAt(0).toUpperCase() + user.role.slice(1);
+      }
+    }
+    
+    // Fallback to old way if role field is not present
+    if (user.isAdmin) return 'Admin';
+    if (user.isRestaurantOwner) return 'Restaurant Owner';
+    if (user.isDeliveryDriver) return 'Delivery Driver';
+    return 'Customer';
+  };
+
+  const getUserStatus = (user) => {
+    return user.isActive ? 'Active' : 'Inactive';
+  };
+
   // Handle search and filter
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       (user.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
       (user.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     
-    const userRole = user.isAdmin ? 'Admin' : 
-                    user.isRestaurantOwner ? 'Restaurant Owner' : 
-                    user.isDeliveryDriver ? 'Delivery Driver' : 'Customer';
+    const userRole = getUserRole(user);
     
     const matchesRole = filterRole === 'all' || userRole === filterRole;
     
@@ -106,31 +136,11 @@ const Users = () => {
     }
   };
 
-  const getBadgeVariant = (status) => {
-    switch (status) {
-      case 'Active': return 'success';
-      case 'Inactive': return 'danger';
-      case 'Pending': return 'warning';
-      default: return 'default';
-    }
-  };
-
-  const getUserRole = (user) => {
-    if (user.isAdmin) return 'Admin';
-    if (user.isRestaurantOwner) return 'Restaurant Owner';
-    if (user.isDeliveryDriver) return 'Delivery Driver';
-    return 'Customer';
-  };
-
-  const getUserStatus = (user) => {
-    return user.isActive ? 'Active' : 'Inactive';
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+        <h1 className="mb-2 text-2xl font-bold text-gray-800 sm:text-3xl dark:text-gray-100">
           User Management
         </h1>
         <p className="text-gray-600 dark:text-gray-300">
@@ -145,22 +155,22 @@ const Users = () => {
       )}
 
       {success && (
-        <Alert variant="success" className="mb-6 bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
+        <Alert variant="success" className="mb-6 text-green-700 border border-green-200 bg-green-50 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
           {success}
         </Alert>
       )}
 
       {/* Action bar */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col justify-between gap-4 mb-6 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaSearch className="text-gray-400" />
             </div>
             <input
               type="text"
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
               placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -169,11 +179,11 @@ const Users = () => {
 
           {/* Role filter */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaFilter className="text-gray-400" />
             </div>
             <select
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
             >
@@ -197,11 +207,11 @@ const Users = () => {
       <Card className="shadow-sm dark:bg-gray-800">
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex justify-center items-center py-8">
+            <div className="flex items-center justify-center py-8">
               <Spinner size="lg" color="primary" />
             </div>
           ) : paginatedUsers.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
               No users found matching your search criteria
             </div>
           ) : (
@@ -210,10 +220,10 @@ const Users = () => {
                 <tr>
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Email</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Email</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Joined</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Joined</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -222,12 +232,12 @@ const Users = () => {
                   <tr key={user._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 font-medium">#{user._id.substring(0, 6)}</td>
                     <td className="px-4 py-3 font-medium">{user.name || user.username}</td>
-                    <td className="px-4 py-3 hidden md:table-cell">{user.email}</td>
+                    <td className="hidden px-4 py-3 md:table-cell">{user.email}</td>
                     <td className="px-4 py-3">
                       <Badge variant={
-                        user.isAdmin ? "primary" : 
-                        user.isRestaurantOwner ? "success" : 
-                        user.isDeliveryDriver ? "info" : 
+                        user.role === 'admin' ? "primary" : 
+                        user.role === 'restaurant' ? "success" : 
+                        user.role === 'deliveryRider' ? "info" : 
                         "default"
                       }>
                         {getUserRole(user)}
@@ -238,7 +248,7 @@ const Users = () => {
                         {getUserStatus(user)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="hidden px-4 py-3 md:table-cell">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -260,7 +270,7 @@ const Users = () => {
 
         {/* Pagination */}
         {!isLoading && totalPages > 1 && (
-          <div className="flex justify-between items-center px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
               <span className="font-medium">
@@ -292,11 +302,11 @@ const Users = () => {
 
       {/* Delete confirmation modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <Card className="max-w-md mx-auto dark:bg-gray-800 p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete the user "{userToDelete?.name || userToDelete?.username}"? This action cannot be undone.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <Card className="max-w-md p-6 mx-auto dark:bg-gray-800">
+            <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Confirm Delete</h3>
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
+              Are you sure you want to delete the user {userToDelete?.name || userToDelete?.username}? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <Button 

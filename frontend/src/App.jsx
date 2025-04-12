@@ -25,6 +25,7 @@ import Restaurants from './Pages/Restaurants';
 import Menu from './Pages/Menu';
 import Shop from "./Pages/Shop";
 import PaymentVerificationPage from './Pages/payment/Verify';
+import OrderDetail from './Pages/order/OrderDetail';
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -275,8 +276,8 @@ function App() {
                     </>
                   } />
                   
-                  {/* Restaurants Route */}
-                  <Route path="/restaurant" element={
+                  {/* Restaurants (plural) Route for users browsing restaurants */}
+                  <Route path="/restaurants" element={
                     <>
                       {isHeaderFooterShow && <Header />}
                       <main id="main-content">
@@ -286,6 +287,22 @@ function App() {
                       <BackToTop />
                     </>
                   } />
+                  
+                  {/* Restaurant (singular) Routes for restaurant owners dashboard */}
+                  <Route path="/restaurant" element={
+                    <ProtectedRoute allowedRoles={['restaurant']}>
+                      <RestaurantLayout />
+                    </ProtectedRoute>
+                  }>
+                    <Route index element={<RestaurantDashboard />} />
+                    <Route path="dashboard" element={<RestaurantDashboard />} />
+                    <Route path="menu" element={<RestaurantMenu />} />
+                    <Route path="orders" element={<RestaurantOrders />} />
+                    <Route path="profile" element={<RestaurantProfile />} />
+                    <Route path="analytics" element={<RestaurantAnalytics />} />
+                    <Route path="notifications" element={<RestaurantNotifications />} />
+                    <Route path="offers" element={<RestaurantOffers />} />
+                  </Route>
                   
                   {/* Menu Route */}
                   <Route path="/menu" element={
@@ -425,22 +442,6 @@ function App() {
                     </>
                   } />
 
-                  {/* Restaurant Routes */}
-                  <Route path="/restaurant" element={
-                    <ProtectedRoute allowedRoles={['restaurant']}>
-                      <RestaurantLayout />
-                    </ProtectedRoute>
-                  }>
-                    <Route index element={<RestaurantDashboard />} />
-                    <Route path="dashboard" element={<RestaurantDashboard />} />
-                    <Route path="menu" element={<RestaurantMenu />} />
-                    <Route path="orders" element={<RestaurantOrders />} />
-                    <Route path="profile" element={<RestaurantProfile />} />
-                    <Route path="analytics" element={<RestaurantAnalytics />} />
-                    <Route path="notifications" element={<RestaurantNotifications />} />
-                    <Route path="offers" element={<RestaurantOffers />} />
-                  </Route>
-                  
                   {/* Delivery Routes */}
                   <Route path="/delivery" element={
                     <ProtectedRoute allowedRoles={['deliveryRider']}>
@@ -501,6 +502,20 @@ function App() {
                   {/* Ensure other top-level pages use LayoutWrapper */} 
                   <Route path="/restaurants" element={<LayoutWrapper><Restaurants /></LayoutWrapper>} />
                   <Route path="/menu" element={<LayoutWrapper><Menu /></LayoutWrapper>} />
+
+                  <Route path="/order/:id" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <ProtectedRoute>
+                          <OrderDetail />
+                        </ProtectedRoute>
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      {isOpenProductModel && <ProductModel productId={productId} />}
+                      <BackToTop />
+                    </>
+                  } />
                 </Routes>
                 {isOpenProductModel && <ProductModel productId={productId} />}
                 <BackToTop />

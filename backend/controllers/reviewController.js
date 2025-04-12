@@ -250,7 +250,7 @@ exports.getUserReviews = async (req, res) => {
                             menuItem: {
                                 id: '60d21be9267d7acbc1230005',
                                 name: 'Chicken Burger',
-                                image: 'https://source.unsplash.com/random/300x200/?burger'
+                                image: '/uploads/placeholders/food-placeholder.jpg'
                             },
                             restaurant: {
                                 id: '60d21be9267d7acbc1230002',
@@ -265,7 +265,7 @@ exports.getUserReviews = async (req, res) => {
                             menuItem: {
                                 id: '60d21be9267d7acbc1230006',
                                 name: 'Vegetable Pizza',
-                                image: 'https://source.unsplash.com/random/300x200/?pizza'
+                                image: '/uploads/placeholders/food-placeholder.jpg'
                             },
                             restaurant: {
                                 id: '60d21be9267d7acbc1230007',

@@ -50,6 +50,56 @@ export const CartProvider = ({ children }) => {
 
   // Add item to cart
   const addToCart = (item, quantity = 1) => {
+    // Try to get restaurantId from different possible locations
+    let restaurantId = item.restaurantId || item.restaurant?.id || item.restaurant?._id;
+    
+    // If still no restaurantId, try to extract from item ID
+    if (!restaurantId && item.id) {
+      // Try colon separator first
+      const colonParts = item.id.split(':');
+      if (colonParts.length === 2) {
+        restaurantId = colonParts[0];
+      } else {
+        // Try underscore separator as fallback
+        const underscoreParts = item.id.split('_');
+        if (underscoreParts.length > 1) {
+          restaurantId = underscoreParts[0];
+        }
+      }
+    }
+
+    // If still no restaurantId, use the item ID itself as a last resort
+    if (!restaurantId) {
+      restaurantId = item.id;
+      console.warn('Using item ID as restaurant ID:', restaurantId);
+    }
+
+    // Check if cart has items from a different restaurant
+    if (cartItems.length > 0) {
+      const existingRestaurantId = cartItems[0].restaurantId || 
+                                 cartItems[0].restaurant?.id || 
+                                 cartItems[0].restaurant?._id;
+      
+      if (existingRestaurantId && restaurantId && existingRestaurantId !== restaurantId) {
+        addToast('Cannot add items from different restaurants to cart. Please clear your cart first.', { 
+          type: 'error',
+          duration: 5000 
+        });
+        return;
+      }
+    }
+
+    // Ensure the item has the restaurantId and restaurant info
+    const itemWithRestaurant = {
+      ...item,
+      restaurantId,
+      restaurant: {
+        id: restaurantId,
+        _id: restaurantId,
+        name: item.restaurant?.name || 'Restaurant'
+      }
+    };
+    
     setCartItems(prevItems => {
       // Check if item already exists in cart
       const existingItemIndex = prevItems.findIndex(
@@ -69,7 +119,7 @@ export const CartProvider = ({ children }) => {
         message = `Updated ${item.name} quantity in cart`;
       } else {
         // Add new item if it doesn't exist
-        updatedItems = [...prevItems, { ...item, quantity }];
+        updatedItems = [...prevItems, { ...itemWithRestaurant, quantity }];
         message = `Added ${item.name} to cart`;
       }
 

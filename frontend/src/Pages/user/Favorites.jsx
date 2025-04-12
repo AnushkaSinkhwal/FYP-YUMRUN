@@ -4,6 +4,7 @@ import { Card, Button, Input, Alert, Spinner, Badge, Tabs, TabsList, TabsTrigger
 import { FaSearch, FaHeart, FaMapMarkerAlt, FaShoppingCart, FaExclamationTriangle, FaInfoCircle, FaStar, FaUtensils, FaRegClock } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const UserFavorites = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -245,9 +246,12 @@ const UserFavorites = () => {
                 <Card key={restaurant.id} className="overflow-hidden transition-shadow hover:shadow-md">
                   <div className="relative h-32 bg-gray-200">
                     <img 
-                      src={restaurant.coverImage || `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`} 
+                      src={getFullImageUrl(restaurant.bannerImage)}
                       alt={restaurant.name}
                       className="object-cover w-full h-full"
+                      onError={(e) => {
+                        e.target.src = PLACEHOLDERS.RESTAURANT;
+                      }}
                     />
                   </div>
                   <div className="p-4">
@@ -331,11 +335,11 @@ const UserFavorites = () => {
                   <Card key={itemId} className="overflow-hidden transition-all duration-200 hover:shadow-lg border border-gray-200 dark:border-gray-700">
                     <div className="relative h-48 bg-gray-200 dark:bg-gray-800">
                       <img 
-                        src={item.image || `https://source.unsplash.com/random/600x400/?food,${encodeURIComponent(getItemName(item))}`} 
-                        alt={getItemName(item)}
+                        src={getFullImageUrl(item.image)}
+                        alt={getItemName(item)} 
                         className="object-cover w-full h-full"
                         onError={(e) => {
-                          e.target.src = 'https://source.unsplash.com/random/600x400/?food';
+                          e.target.src = PLACEHOLDERS.FOOD;
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 hover:opacity-100 transition-opacity"></div>

@@ -28,6 +28,30 @@ const Restaurants = () => {
       setError(null);
       
       try {
+        // Fetch restaurants using the new getRestaurants endpoint
+        console.log('Fetching restaurants data...');
+        const response = await adminAPI.getRestaurants();
+        
+        if (response.data && response.data.success) {
+          console.log('Restaurants API response:', response.data);
+          
+          // Use the formatted restaurants data from the endpoint
+          if (response.data.restaurants && response.data.restaurants.length > 0) {
+            console.log(`Found ${response.data.restaurants.length} restaurants`);
+            setRestaurants(response.data.restaurants);
+            setIsLoading(false);
+            return;
+          } else {
+            console.log('No restaurants found, trying fallback methods');
+          }
+        }
+      } catch (restaurantsApiError) {
+        console.error('Error fetching from restaurants API:', restaurantsApiError);
+        console.log('Falling back to other methods');
+      }
+      
+      // Try restaurant owners (legacy method 1)
+      try {
         // Fetch restaurant owners (users with isRestaurantOwner=true)
         console.log('Fetching users for restaurant data...');
         const response = await adminAPI.getUsers();
@@ -72,7 +96,7 @@ const Restaurants = () => {
         console.log('Falling back to restaurant-specific endpoint');
       }
       
-      // Try fetching from restaurant-specific endpoint as fallback
+      // Try fetching from restaurant-specific endpoint as fallback (legacy method 2)
       try {
         console.log('Fetching from restaurant approvals endpoint...');
         const restaurantResponse = await adminAPI.getRestaurantApprovals();

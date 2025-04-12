@@ -42,13 +42,18 @@ async function downloadImage(url, filepath) {
       return filepath;
     }
 
-    // For demonstration purposes, we'll use placeholder images
-    // In production, you'd download from the actual URL
-    const placeholderUrl = `https://placehold.co/600x400?text=${encodeURIComponent(path.basename(filepath, path.extname(filepath)))}`;
+    // Get keyword from filename for better image matching
+    const imageKeyword = path.basename(filepath, path.extname(filepath)).replace(/_/g, ' ');
+    
+    // Use reliable image service (Picsum Photos) that won't return 404s
+    const randomId = Math.floor(Math.random() * 1000) + 1;
+    const imageUrl = `https://picsum.photos/seed/${encodeURIComponent(imageKeyword)}${randomId}/600/400`;
+    
+    console.log(`Downloading image from: ${imageUrl}`);
     
     const response = await axios({
       method: 'GET',
-      url: placeholderUrl,
+      url: imageUrl,
       responseType: 'stream'
     });
 
@@ -64,7 +69,32 @@ async function downloadImage(url, filepath) {
     });
   } catch (error) {
     console.error(`Error downloading image ${url}:`, error.message);
-    return null;
+    
+    // Fallback to a reliable static image if download fails
+    try {
+      console.log(`Trying fallback image for ${filepath}`);
+      const fallbackUrl = 'https://fastly.picsum.photos/id/402/600/400.jpg';
+      
+      const fallbackResponse = await axios({
+        method: 'GET',
+        url: fallbackUrl,
+        responseType: 'stream'
+      });
+      
+      const writer = fs.createWriteStream(filepath);
+      fallbackResponse.data.pipe(writer);
+      
+      return new Promise((resolve, reject) => {
+        writer.on('finish', () => {
+          console.log(`Downloaded fallback image: ${filepath}`);
+          resolve(filepath);
+        });
+        writer.on('error', reject);
+      });
+    } catch (fallbackError) {
+      console.error(`Fallback image download failed for ${filepath}:`, fallbackError.message);
+      return null;
+    }
   }
 }
 
@@ -778,13 +808,66 @@ const generateOrder = (userId, restaurantId, menuItems) => {
 // Function to seed the database
 const seedDatabase = async () => {
   try {
+    // Create necessary directories
+    const uploadDirs = [
+      path.join(process.cwd(), 'uploads'),
+      path.join(process.cwd(), 'uploads/menu'),
+      path.join(process.cwd(), 'uploads/restaurants'),
+      path.join(process.cwd(), 'uploads/placeholders'),
+      path.join(process.cwd(), 'uploads/users')
+    ];
+    
+    for (const dir of uploadDirs) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+      }
+    }
+    
+    // Create a default food placeholder if it doesn't exist
+    const defaultPlaceholderPath = path.join(process.cwd(), 'uploads/placeholders/food-placeholder.jpg');
+    if (!fs.existsSync(defaultPlaceholderPath)) {
+      // Download a real food placeholder image
+      await downloadImage('food-placeholder', defaultPlaceholderPath);
+      console.log(`Created default food placeholder at ${defaultPlaceholderPath}`);
+    }
+    
+    // Create a default restaurant placeholder if it doesn't exist
+    const restaurantPlaceholderPath = path.join(process.cwd(), 'uploads/placeholders/restaurant-placeholder.jpg');
+    if (!fs.existsSync(restaurantPlaceholderPath)) {
+      // Download a real restaurant placeholder image
+      await downloadImage('restaurant-placeholder', restaurantPlaceholderPath);
+      console.log(`Created default restaurant placeholder at ${restaurantPlaceholderPath}`);
+    }
+    
     // Connect to the database
     await mongoose.connect(process.env.CONNECTION_STRING);
     console.log('Connected to MongoDB');
 
-    // Clear existing data
-    await User.deleteMany({ role: 'restaurant' });
-    await Restaurant.deleteMany({});
+    // Clear existing data, but preserve test users created by createTestUsers.js
+    // Find and preserve the test restaurant owner
+    const preservedOwner = await User.findOne({ email: 'owner@yumrun.com' });
+    const preservedRestaurant = preservedOwner ? await Restaurant.findOne({ owner: preservedOwner._id }) : null;
+    
+    // Only delete restaurant users that aren't from our test script
+    if (preservedOwner) {
+      console.log('Preserving test restaurant owner:', preservedOwner.email);
+      await User.deleteMany({ 
+        role: 'restaurant', 
+        email: { $ne: preservedOwner.email } 
+      });
+    } else {
+      await User.deleteMany({ role: 'restaurant' });
+    }
+    
+    // Only delete restaurants that aren't from our test script
+    if (preservedRestaurant) {
+      console.log('Preserving test restaurant:', preservedRestaurant.name);
+      await Restaurant.deleteMany({ _id: { $ne: preservedRestaurant._id } });
+    } else {
+      await Restaurant.deleteMany({});
+    }
+    
     await MenuItem.deleteMany({});
     
     // Only clear reviews created by this script
@@ -794,7 +877,7 @@ const seedDatabase = async () => {
       console.log('Cleared existing reviews');
     }
     
-    console.log('Cleared existing restaurant data');
+    console.log('Cleared existing restaurant data while preserving test users');
 
     // Create restaurant owner users
     const restaurants = [];
@@ -805,8 +888,13 @@ const seedDatabase = async () => {
       const logoFilename = path.basename(sampleRestaurants[i].logo);
       const logoFilePath = path.join(restaurantsDir, logoFilename);
       
-      // Download the restaurant logo
-      await downloadImage(`https://source.unsplash.com/random/?restaurant,${sampleRestaurants[i].name.toLowerCase().replace(/\s+/g, '-')}`, logoFilePath);
+      // Download real restaurant logo image
+      if (!fs.existsSync(logoFilePath)) {
+        // Use restaurant name as keyword for relevant image
+        const keyword = sampleRestaurants[i].name.replace(/\s+/g, '-').toLowerCase();
+        await downloadImage(keyword, logoFilePath);
+        console.log(`Downloaded logo for ${sampleRestaurants[i].name} at ${logoFilePath}`);
+      }
       
       // Create the restaurant owner
       const owner = new User({
@@ -845,7 +933,8 @@ const seedDatabase = async () => {
         description: sampleRestaurants[i].description,
         logo: sampleRestaurants[i].logo,
         owner: restaurants[i]._id,
-        isApproved: true
+        isApproved: true,
+        cuisine: sampleRestaurants[i].cuisine
       });
       const savedRestaurant = await restaurant.save();
       createdRestaurants.push(savedRestaurant);
@@ -861,11 +950,24 @@ const seedDatabase = async () => {
       const menuItems = generateMenuItems(restaurant.owner, restaurant.name);
       
       for (const menuItem of menuItems) {
-        // Download menu item image
+        // Use the existing path in the menuItem.image
         const imageFilename = path.basename(menuItem.image);
-        const imageFilePath = path.join(menuDir, imageFilename);
+        const imageDir = path.dirname(menuItem.image).substring(1); // Remove leading slash
         
-        await downloadImage(`https://source.unsplash.com/random/?food,${menuItem.item_name.toLowerCase().replace(/\s+/g, '-')}`, imageFilePath);
+        // Ensure directory exists
+        const fullDirPath = path.join(process.cwd(), imageDir);
+        if (!fs.existsSync(fullDirPath)) {
+          fs.mkdirSync(fullDirPath, { recursive: true });
+        }
+        
+        // Download a real image for the menu item
+        const fullImagePath = path.join(process.cwd(), menuItem.image.substring(1));
+        if (!fs.existsSync(fullImagePath)) {
+          // Use the item name as keyword for more relevant images
+          const keyword = menuItem.item_name.replace(/\s+/g, '-').toLowerCase();
+          await downloadImage(keyword, fullImagePath);
+          console.log(`Downloaded image for ${menuItem.item_name} at ${fullImagePath}`);
+        }
         
         const item = new MenuItem(menuItem);
         const savedItem = await item.save();

@@ -24,11 +24,19 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
   
-  // Determine the user's role from either role property or legacy isRole properties
-  const userRole = currentUser.role || 
-    (currentUser.isAdmin ? 'admin' : 
-     currentUser.isRestaurantOwner ? 'restaurant' : 
-     currentUser.isDeliveryRider ? 'deliveryRider' : 'customer');
+  // Determine the user's role with more comprehensive checks
+  let userRole = 'customer'; // default
+  
+  if (currentUser.role) {
+    // If role is explicitly set, use it
+    userRole = currentUser.role;
+  } else if (currentUser.isAdmin) {
+    userRole = 'admin';
+  } else if (currentUser.isRestaurantOwner || (currentUser.restaurantDetails && Object.keys(currentUser.restaurantDetails).length > 0)) {
+    userRole = 'restaurant';
+  } else if (currentUser.isDeliveryRider || currentUser.isDeliveryStaff) {
+    userRole = 'deliveryRider';
+  }
   
   console.log('ProtectedRoute - Current user role:', userRole);
   console.log('ProtectedRoute - Allowed roles:', allowedRoles);
@@ -37,16 +45,18 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   // If roles are specified, check if user has required role
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     console.log('ProtectedRoute: User does not have required role, redirecting');
+    console.log('User role:', userRole, 'Allowed roles:', allowedRoles);
+    
     // Redirect to appropriate dashboard based on user role
     switch (userRole) {
       case 'admin':
         return <Navigate to="/admin/dashboard" replace />;
       case 'restaurant':
-      case 'restaurant':
         return <Navigate to="/restaurant/dashboard" replace />;
       case 'deliveryRider':
         return <Navigate to="/delivery/dashboard" replace />;
       case 'customer':
+        return <Navigate to="/user/dashboard" replace />;
       default:
         return <Navigate to="/" replace />;
     }

@@ -9,8 +9,18 @@ export const AuthContext = createContext();
 const normalizeUserData = (userData) => {
   if (!userData) return null;
   
+  console.log('Normalizing user data:', userData);
+  
+  // First check for restaurant details to determine if user is a restaurant owner
+  // This takes priority over explicit role to ensure restaurant owners are correctly identified
+  if (userData.restaurantDetails && Object.keys(userData.restaurantDetails).length > 0) {
+    console.log('User has restaurant details, setting role to restaurant');
+    return { ...userData, role: 'restaurant' };
+  }
+  
   // If role is already defined, use it
   if (userData.role) {
+    console.log('User has explicit role:', userData.role);
     // Convert 'restaurant' to 'restaurant' for consistency
     if (userData.role === 'restaurant') {
       return { ...userData, role: 'restaurant' };
@@ -23,30 +33,21 @@ const normalizeUserData = (userData) => {
   
   if (userData.isAdmin) {
     role = 'admin';
+    console.log('User is admin based on isAdmin flag');
   } else if (userData.isRestaurantOwner) {
     role = 'restaurant';
+    console.log('User is restaurant owner based on isRestaurantOwner flag');
   } else if (userData.isDeliveryStaff || userData.isDeliveryRider) {
     role = 'deliveryRider';
+    console.log('User is delivery rider based on isDeliveryStaff/isDeliveryRider flag');
+  } else {
+    console.log('User has no special role flags, defaulting to customer');
   }
+  
+  console.log('Final normalized role:', role);
   
   // Return a new object with the role property added
   return { ...userData, role };
-};
-
-// Helper function to get dashboard path based on user role
-const getDashboardPath = (role) => {
-  switch (role) {
-    case 'admin':
-      return '/admin/dashboard';
-    case 'restaurant':
-    case 'restaurant':
-      return '/restaurant/dashboard';
-    case 'deliveryRider':
-      return '/delivery/dashboard';
-    case 'customer':
-    default:
-      return '/';
-  }
 };
 
 // Auth provider component
@@ -66,7 +67,13 @@ export const AuthProvider = ({ children }) => {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         const parsedUserData = JSON.parse(userData);
-        setCurrentUser(normalizeUserData(parsedUserData));
+        console.log('Loading stored user data:', parsedUserData);
+        
+        // Ensure the user data has the correct role format
+        const normalizedUser = normalizeUserData(parsedUserData);
+        console.log('Normalized user data on load:', normalizedUser);
+        
+        setCurrentUser(normalizedUser);
       } catch (error) {
         console.error('Error processing stored auth data:', error);
         // Clear storage and Axios header on error
@@ -98,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       
       // This is a successful API response
       if (response.data && response.data.success) {
-        const { token, user, dashboardPath } = response.data;
+        const { token, user } = response.data;
         const normalizedUser = normalizeUserData(user);
         
         // Save to localStorage
@@ -112,10 +119,28 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(normalizedUser);
         setIsLoading(false);
         
+        // Determine correct dashboard path based on role
+        let roleDashboardPath;
+        const userRole = normalizedUser.role;
+        
+        console.log('Login success - User role determined as:', userRole);
+        
+        if (userRole === 'admin') {
+          roleDashboardPath = '/admin/dashboard';
+        } else if (userRole === 'restaurant') {
+          roleDashboardPath = '/restaurant/dashboard';
+        } else if (userRole === 'deliveryRider') {
+          roleDashboardPath = '/delivery/dashboard';
+        } else {
+          roleDashboardPath = '/user/dashboard';
+        }
+        
+        console.log('Redirecting to dashboard path:', roleDashboardPath);
+        
         return { 
           success: true, 
           user: normalizedUser,
-          dashboardPath: dashboardPath || getDashboardPath(normalizedUser.role)
+          dashboardPath: roleDashboardPath
         };
       } else {
         const errorMessage = response.data?.message || 'Login failed: Invalid response format';
@@ -236,7 +261,7 @@ export const AuthProvider = ({ children }) => {
     (!currentUser?.role && !currentUser?.isAdmin && !currentUser?.isRestaurantOwner && !currentUser?.isDeliveryRider);
     
   const isRestaurantOwner = () => currentUser?.role === 'restaurant' || 
-    currentUser?.isRestaurantOwner === true || currentUser?.role === 'restaurant'; // Added 'restaurant'
+    currentUser?.isRestaurantOwner === true;
     
   const isDeliveryRider = () => currentUser?.role === 'deliveryRider' || 
     currentUser?.isDeliveryRider === true || 

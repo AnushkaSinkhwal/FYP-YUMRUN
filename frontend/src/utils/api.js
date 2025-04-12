@@ -225,6 +225,11 @@ export const adminAPI = {
     return api.get('/admin/restaurant-approvals');
   },
   
+  // Get all restaurants
+  getRestaurants: async () => {
+    return api.get('/admin/restaurants');
+  },
+  
   // Get count of pending restaurant profile approvals
   getRestaurantApprovalsCount: async () => {
     return api.get('/admin/restaurant-approvals/count');
@@ -354,6 +359,11 @@ export const userAPI = {
   // Get user orders
   getOrders: async () => {
     return api.get('/orders/user');
+  },
+  
+  // Get a specific order by ID
+  getOrder: async (orderId) => {
+    return api.get(`/orders/${orderId}`);
   },
   
   // Submit a review

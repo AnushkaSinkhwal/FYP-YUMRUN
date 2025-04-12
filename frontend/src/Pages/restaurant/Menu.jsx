@@ -3,6 +3,7 @@ import { Card, Button, Input, Textarea, Label, Alert, Dialog, DialogContent, Dia
 import { FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaUtensils } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 // API URL from environment or default
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -15,19 +16,7 @@ console.log('API configuration:', {
 
 // Helper function to get the complete image URL
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return '';
-  
-  // Check if the image path is already a complete URL
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  
-  // If we're using the proxy, we can just use the path relative to the origin
-  // Strip any leading / to avoid double slashes
-  const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-  
-  console.log(`Image path: ${imagePath} -> /${cleanPath}`);
-  return `/${cleanPath}`;
+  return getFullImageUrl(imagePath);
 };
 
 const CATEGORIES = [
@@ -432,7 +421,7 @@ const RestaurantMenu = () => {
               name="isAvailable"
               checked={formData.isAvailable}
               onChange={(e) => setFormData(prev => ({ ...prev, isAvailable: e.target.checked }))}
-              className="h-4 w-4"
+              className="w-4 h-4"
             />
             <Label htmlFor="isAvailable" className="ml-2">Available for order</Label>
           </div>
@@ -467,7 +456,7 @@ const RestaurantMenu = () => {
             <img 
               src={formData.imagePreview} 
               alt="Preview" 
-              className="h-28 w-auto object-cover rounded-md border border-gray-300"
+              className="object-cover w-auto border border-gray-300 rounded-md h-28"
               onError={(e) => {
                 console.error('Error loading image preview:', formData.imagePreview);
                 e.target.onerror = null;
@@ -538,7 +527,7 @@ const RestaurantMenu = () => {
               name="isVegetarian"
               checked={formData.isVegetarian}
               onChange={(e) => setFormData(prev => ({ ...prev, isVegetarian: e.target.checked }))}
-              className="h-4 w-4"
+              className="w-4 h-4"
             />
             <Label htmlFor="isVegetarian" className="ml-2">Vegetarian</Label>
           </div>
@@ -549,7 +538,7 @@ const RestaurantMenu = () => {
               name="isVegan"
               checked={formData.isVegan}
               onChange={(e) => setFormData(prev => ({ ...prev, isVegan: e.target.checked }))}
-              className="h-4 w-4"
+              className="w-4 h-4"
             />
             <Label htmlFor="isVegan" className="ml-2">Vegan</Label>
           </div>
@@ -560,7 +549,7 @@ const RestaurantMenu = () => {
               name="isGlutenFree"
               checked={formData.isGlutenFree}
               onChange={(e) => setFormData(prev => ({ ...prev, isGlutenFree: e.target.checked }))}
-              className="h-4 w-4"
+              className="w-4 h-4"
             />
             <Label htmlFor="isGlutenFree" className="ml-2">Gluten Free</Label>
           </div>
@@ -622,7 +611,7 @@ const RestaurantMenu = () => {
                         onError={(e) => {
                           console.error('Error loading image:', item.image);
                           e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+                          e.target.src = PLACEHOLDERS.FOOD;
                           
                           // Add border to make it clear this is a placeholder
                           e.target.style.border = '2px dashed #ff0000';

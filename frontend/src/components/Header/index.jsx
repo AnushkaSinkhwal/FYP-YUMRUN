@@ -240,7 +240,7 @@ const Header = () => {
                         )}
                         
                         {/* Conditional Restaurant Dashboard Link */}
-                        {currentUser.role === 'restaurant' && (
+                        {(currentUser.role === 'restaurant' || (currentUser.restaurantDetails && Object.keys(currentUser.restaurantDetails).length > 0)) && (
                           <Link 
                             to="/restaurant/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
@@ -252,7 +252,7 @@ const Header = () => {
                         )}
 
                         {/* Conditional Delivery Dashboard Link */}
-                        {currentUser.role === 'deliveryRider' && (
+                        {(currentUser.role === 'deliveryRider' || currentUser.isDeliveryRider) && (
                           <Link 
                             to="/delivery/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
@@ -264,7 +264,7 @@ const Header = () => {
                         )}
 
                         {/* Conditional Admin Dashboard Link */}
-                        {currentUser.role === 'admin' && (
+                        {(currentUser.role === 'admin' || currentUser.isAdmin) && (
                           <Link 
                             to="/admin/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 

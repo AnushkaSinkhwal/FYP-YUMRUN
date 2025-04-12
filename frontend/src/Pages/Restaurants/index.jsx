@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Container, Button, Spinner } from '../../components/ui';
 import { FaStar, FaMapMarkerAlt, FaUtensils, FaClock, FaSearch } from 'react-icons/fa';
 import axios from 'axios';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const Restaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -37,7 +38,9 @@ const Restaurants = () => {
             cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine[0] : restaurant.cuisine || 'Various',
             priceRange: restaurant.priceRange || '',
             deliveryTime: restaurant.deliveryTime || '',
-            image: restaurant.logo || restaurant.image || `/uploads/restaurants/default_restaurant.jpg`,
+            image: restaurant.logo ? getFullImageUrl(restaurant.logo) : 
+                   restaurant.image ? getFullImageUrl(restaurant.image) : 
+                   PLACEHOLDERS.RESTAURANT,
             address: restaurant.location || restaurant.address || 'Address not available',
             isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : false
           }));
@@ -63,8 +66,9 @@ const Restaurants = () => {
   // Filter restaurants based on search and filters
   const filteredRestaurants = restaurants.filter(restaurant => {
     // Search filter
-    if (searchQuery && !restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
-        !restaurant.cuisine.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery && 
+        (!restaurant.name || !restaurant.name.toLowerCase().includes(searchQuery.toLowerCase())) && 
+        (!restaurant.cuisine || typeof restaurant.cuisine !== 'string' || !restaurant.cuisine.toLowerCase().includes(searchQuery.toLowerCase()))) {
       return false;
     }
     
@@ -213,9 +217,11 @@ const Restaurants = () => {
                       <div className="flex items-center mb-2">
                         <div className="flex items-center mr-2">
                           <FaStar className="mr-1 text-yellow-500" />
-                          <span className="text-sm font-medium">{restaurant.rating}</span>
+                          <span className="text-sm font-medium">{restaurant.rating.toFixed(1)}</span>
                         </div>
-                        <span className="text-sm text-gray-500">({restaurant.totalReviews} reviews)</span>
+                        <span className="text-sm text-gray-500">
+                          ({restaurant.totalReviews} {restaurant.totalReviews === 1 ? 'review' : 'reviews'})
+                        </span>
                       </div>
                       
                       <div className="flex items-center mb-2 text-sm text-gray-600">

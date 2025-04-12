@@ -336,6 +336,17 @@ const DashboardLayout = ({ children, role }) => {
             
             {/* Right-side controls */}
             <div className="flex items-center space-x-3">
+              {/* Home button */}
+              <button 
+                onClick={() => navigate('/')}
+                className="flex items-center p-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Go to Homepage"
+                title="Return to Homepage"
+              >
+                <FaHome className="w-5 h-5" />
+                <span className="hidden ml-2 md:inline">Home</span>
+              </button>
+              
               {/* Notifications */}
               <button 
                 onClick={() => navigate(getNotificationLink())}

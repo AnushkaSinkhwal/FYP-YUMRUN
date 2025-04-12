@@ -14,30 +14,80 @@ const PaymentVerificationPage = () => {
     const verifyPayment = async () => {
       // Get parameters from URL
       const pidx = queryParams.get('pidx');
-      const orderId = queryParams.get('orderId');
-      const method = queryParams.get('method');
+      let orderId = queryParams.get('orderId');
+      const method = queryParams.get('method') || 'khalti'; // Default to Khalti
+      const txnStatus = queryParams.get('status');
+      
+      console.log('Payment callback received:', { 
+        pidx, 
+        orderId, 
+        method, 
+        status: txnStatus,
+        allParams: Object.fromEntries(queryParams.entries())
+      });
+      
+      // If order ID is missing but we have pidx, try to get order ID from session storage
+      if (!orderId && pidx) {
+        try {
+          const pendingOrderJson = sessionStorage.getItem('pendingOrder');
+          if (pendingOrderJson) {
+            const pendingOrder = JSON.parse(pendingOrderJson);
+            if (pendingOrder.pidx === pidx || !pendingOrder.pidx) {
+              orderId = pendingOrder.orderId;
+              console.log('Retrieved order ID from session storage:', orderId);
+            }
+          }
+        } catch (error) {
+          console.error('Error retrieving order ID from session storage:', error);
+        }
+      }
       
       // If we don't have necessary params, show error
       if (!pidx || !orderId) {
         setStatus('error');
-        setError('Missing payment information. Please try again.');
+        setError('Missing payment information. Please try again or check your orders page.');
+        return;
+      }
+      
+      // If the status indicates a failure, show error without verification
+      if (txnStatus === 'User canceled' || txnStatus === 'Failed' || txnStatus === 'Expired') {
+        setStatus('error');
+        setError(`Payment ${txnStatus.toLowerCase()}. Please try again.`);
         return;
       }
       
       try {
+        console.log(`Verifying ${method} payment for order ${orderId} with pidx ${pidx}`);
+        
         // Process based on payment method
-        if (method === 'khalti' || !method) { // Default to Khalti if not specified
+        if (method === 'khalti') {
           const response = await userAPI.verifyKhaltiPayment({
             pidx,
             orderId
           });
           
-          if (response.data.success) {
-            setStatus('success');
-            setOrderDetails(response.data.data.order);
+          console.log('Payment verification response:', response);
+          
+          if (response.data && response.data.success) {
+            // Determine status based on payment status
+            const paymentStatus = response.data.data?.status;
+            
+            if (paymentStatus === 'Completed') {
+              setStatus('success');
+              setOrderDetails(response.data.data.order);
+              
+              // Clear pending order from session storage
+              sessionStorage.removeItem('pendingOrder');
+            } else if (paymentStatus === 'Pending') {
+              setStatus('pending');
+              setOrderDetails(response.data.data.order);
+            } else {
+              setStatus('error');
+              setError(`Payment status is ${paymentStatus}. Please try again or contact support.`);
+            }
           } else {
             setStatus('error');
-            setError(response.data.message || 'Payment verification failed');
+            setError(response.data?.message || 'Payment verification failed');
           }
         } else {
           // For future payment methods
@@ -47,12 +97,39 @@ const PaymentVerificationPage = () => {
       } catch (err) {
         console.error('Error verifying payment:', err);
         setStatus('error');
-        setError('An error occurred while verifying payment. Please contact support.');
+        
+        // Extract more detailed error information if available
+        let errorMessage = 'An error occurred while verifying payment. Please check your orders page or contact support.';
+        if (err.response) {
+          errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        setError(errorMessage);
       }
     };
     
     verifyPayment();
-  }, [queryParams]);
+  }, [queryParams, navigate]);
+
+  const handleTryAgain = () => {
+    // Check if we have order details to retry payment
+    const pendingOrderJson = sessionStorage.getItem('pendingOrder');
+    if (pendingOrderJson) {
+      try {
+        const pendingOrder = JSON.parse(pendingOrderJson);
+        if (pendingOrder.orderId) {
+          navigate(`/payment/${pendingOrder.orderId}`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error retrieving pending order for retry:', error);
+      }
+    }
+    // If no order details, just go to orders page
+    navigate('/orders');
+  };
 
   const handleGoToOrder = () => {
     if (orderDetails && orderDetails._id) {
@@ -112,7 +189,7 @@ const PaymentVerificationPage = () => {
               {error || 'There was an error processing your payment. Please try again.'}
             </Alert>
             <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-              <Button onClick={handleGoToOrder}>View Order</Button>
+              <Button onClick={handleTryAgain}>Try Again</Button>
               <Button variant="outline" onClick={handleGoToHome}>Go to Home</Button>
             </div>
           </div>

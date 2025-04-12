@@ -23,73 +23,67 @@ export const NotificationProvider = ({ children }) => {
 
   // Load notifications based on user role and auth state
   useEffect(() => {
-    if (auth.isLoading) {
-      setLoading(true);
-      return;
-    }
-    
-    if (!auth.isAuthenticated || !authUser) {
+    if (authUser) {
+      fetchNotifications();
+    } else {
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
-      setError(null);
-      return;
     }
+  }, [authUser]);
 
-    const fetchNotifications = async () => {
-      setError(null);
+  // Poll for new notifications
+  useEffect(() => {
+    if (authUser) {
+      const interval = setInterval(fetchNotifications, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [authUser]);
 
-      try {
-        let response;
-        
-        switch (authUser.role) {
-          case 'admin':
-            response = await adminAPI.getNotifications();
-            break;
-          case 'restaurant':
-          case 'restaurant':
-            response = await restaurantAPI.getNotifications();
-            break;
-          case 'deliveryRider':
-            response = { data: { success: true, notifications: [], unreadCount: 0 } };
-            break;
-          default:
-            response = await userAPI.getNotifications();
-        }
+  // Fetch notifications based on user role
+  const fetchNotifications = async () => {
+    if (!authUser) return;
 
-        if (response?.data?.success) {
-            const fetchedNotifications = response.data.notifications || response.data.data?.notifications || [];
-            const fetchedUnreadCount = response.data.unreadCount ?? response.data.data?.unreadCount ?? 0;
-            
-            setNotifications(fetchedNotifications);
-            setUnreadCount(fetchedUnreadCount);
-        } else {
-            const errorMsg = response?.data?.error?.message || response?.data?.message || 'Failed to fetch notifications format.';
-            console.error('Notification API error:', errorMsg);
-            setError(errorMsg);
-            setNotifications([]);
-            setUnreadCount(0);
-        }
-        
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-        if (err.response?.status !== 401) { 
-          setError('Failed to load notifications. Please try again later.');
-        }
-        setNotifications([]);
-        setUnreadCount(0);
-      } finally {
-        if (loading) setLoading(false);
+    try {
+      setLoading(true);
+      let response;
+
+      switch (authUser.role) {
+        case 'admin':
+          response = await adminAPI.getNotifications();
+          break;
+        case 'restaurant':
+          response = await restaurantAPI.getNotifications();
+          break;
+        case 'deliveryRider':
+          // Temp placeholder until delivery API is implemented
+          response = { data: { success: true, notifications: [] } };
+          break;
+        default:
+          response = await userAPI.getNotifications();
       }
-    };
 
-    fetchNotifications();
-    
-    const intervalId = setInterval(fetchNotifications, 60000);
-    
-    return () => clearInterval(intervalId);
-
-  }, [auth.isLoading, auth.isAuthenticated, authUser]);
+      if (response?.data?.success) {
+        setNotifications(response.data.notifications || []);
+        
+        // Count unread notifications
+        const unreadNotifications = (response.data.notifications || [])
+          .filter(notification => !notification.isRead)
+          .length;
+          
+        setUnreadCount(unreadNotifications);
+        setError(null);
+      } else {
+        console.error('Error fetching notifications:', response?.data?.message);
+        setError('Failed to load notifications');
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Mark a notification as read
   const markAsRead = async (notificationId) => {
@@ -97,11 +91,11 @@ export const NotificationProvider = ({ children }) => {
 
     try {
       let response;
+      
       switch (authUser.role) {
         case 'admin':
-          response = await adminAPI.processNotification(notificationId, 'mark-read');
+          response = await adminAPI.markNotificationAsRead(notificationId);
           break;
-        case 'restaurant':
         case 'restaurant':
           response = await restaurantAPI.markNotificationAsRead(notificationId);
           break;
@@ -113,20 +107,18 @@ export const NotificationProvider = ({ children }) => {
       }
 
       if (response?.data?.success) {
-          setNotifications(prevNotifications => 
-            prevNotifications.map(notification => 
-              notification._id === notificationId
-                ? { ...notification, isRead: true }
-                : notification
-            )
-          );
-    
-          const notification = notifications.find(n => n._id === notificationId);
-          if (notification && !notification.isRead) {
-             setUnreadCount(prevCount => Math.max(0, prevCount - 1));
-          }
+        setNotifications(prevNotifications =>
+          prevNotifications.map(notification =>
+            notification._id === notificationId
+              ? { ...notification, isRead: true }
+              : notification
+          )
+        );
+        
+        // Decrement unread count
+        setUnreadCount(prevCount => Math.max(0, prevCount - 1));
       } else {
-          console.error('Failed to mark notification as read (API Error)');
+        console.error('Failed to mark notification as read (API Error)');
       }
 
     } catch (err) {
@@ -144,7 +136,6 @@ export const NotificationProvider = ({ children }) => {
         case 'admin':
           response = await adminAPI.processNotification('all', 'mark-all-read');
           break;
-        case 'restaurant':
         case 'restaurant':
           response = await restaurantAPI.markAllNotificationsAsRead();
           break;

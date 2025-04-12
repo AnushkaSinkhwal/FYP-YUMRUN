@@ -3,6 +3,7 @@ import { IoCartSharp } from "react-icons/io5";
 import { MdClose } from "react-icons/md";
 import { FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 import { MyContext } from '../../App';
 import ProductZoom from '../ProductZoom';
 import axios from 'axios';
@@ -23,6 +24,7 @@ import { cn } from '../../lib/utils';
 const ProductModel = ({ productId }) => {
     const context = useContext(MyContext);
     const { addToCart } = useCart();
+    const { addToast } = useToast();
     const [quantity, setQuantity] = useState(1);
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -58,13 +60,28 @@ const ProductModel = ({ productId }) => {
     const handleAddToCart = () => {
         if (!product) return;
         
+        // Ensure we have restaurantId for the order
+        const restaurantId = product.restaurantId || 
+                             (product.restaurant && product.restaurant._id) || 
+                             (product.restaurant && product.restaurant.id);
+        
+        if (!restaurantId) {
+            console.error('Missing restaurantId for product:', product);
+            // Display toast warning if available
+            if (typeof addToast === 'function') {
+                addToast('Cannot add to cart: Missing restaurant information', { type: 'error' });
+            }
+            return;
+        }
+        
         addToCart({
             id: product.id,
             name: product.name,
             price: product.price,
             image: product.image,
             rating: product.rating || 0,
-            restaurant: product.restaurant?.name || ''
+            restaurant: product.restaurant?.name || '',
+            restaurantId: restaurantId
         }, quantity);
         
         // Close the modal after adding to cart

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, Alert, Badge } from '../../components/ui';
-import { FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaReceipt, FaExternalLinkAlt, FaShoppingBag, FaSync } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { userAPI } from '../../utils/api';
 import { toast } from 'react-toastify';
 
@@ -16,6 +16,7 @@ const UserOrders = () => {
   const [tempRatings, setTempRatings] = useState({});
   const [ratingInProgress, setRatingInProgress] = useState(null);
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOrders();
@@ -156,7 +157,7 @@ const UserOrders = () => {
     if (!dateString) return '';
     try {
       return new Date(dateString).toLocaleString();
-    } catch (error) {
+    } catch {
       return dateString;
     }
   };
@@ -371,12 +372,13 @@ const UserOrders = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2 mt-4">
-                  <Link to={`/order/${orderId}`}>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <FaReceipt className="w-4 h-4" />
-                      Details
-                    </Button>
-                  </Link>
+                  <Button 
+                    variant="link" 
+                    onClick={() => navigate(`/order/${orderId}`)}
+                    className="text-blue-600 hover:text-blue-900"
+                  >
+                    View Details
+                  </Button>
                   
                   {order.trackingUrl && (
                     <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer">
@@ -439,7 +441,7 @@ const UserOrders = () => {
                 <FaShoppingBag className="w-16 h-16 mx-auto mb-4 text-gray-400" />
                 <h3 className="mb-2 text-xl font-semibold">No orders yet</h3>
                 <p className="max-w-md mx-auto mb-6 text-gray-600 dark:text-gray-400">
-                  It looks like you haven't placed any orders yet. Browse our restaurants and place your first order!
+                  It looks like you haven&apos;t placed any orders yet. Browse our restaurants and place your first order!
                 </p>
                 <Button asChild>
                   <Link to="/">Browse Restaurants</Link>

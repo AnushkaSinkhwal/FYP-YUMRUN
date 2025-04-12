@@ -4,6 +4,7 @@ import { Container, Button, Spinner, Alert } from '../../components/ui';
 import { FaStar, FaMapMarkerAlt, FaUtensils, FaPhone, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const RestaurantDetails = () => {
   const { id } = useParams();
@@ -47,31 +48,37 @@ const RestaurantDetails = () => {
   // Fetch menu items
   useEffect(() => {
     const fetchMenuItems = async () => {
-      if (!id) return;
-      
       setMenuLoading(true);
       setMenuError(null);
       
       try {
-        const response = await axios.get(`/api/menu/restaurant/${id}`);
+        const response = await axios.get(`/api/menu?restaurantId=${id}`);
+        console.log('Menu API response:', response.data);
         
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform API data to match frontend format
-          const formattedItems = response.data.data.map(item => ({
+          const formattedMenuItems = response.data.data.map(item => ({
             id: item._id || item.id,
-            name: item.name || item.item_name,
-            description: item.description,
-            price: item.price || item.item_price,
-            category: item.category.toLowerCase() || 'main course',
-            image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
-            rating: item.averageRating || 4.5,
-            totalReviews: item.numberOfRatings || 0,
-            isPopular: item.isPopular || false
+            name: item.name,
+            description: item.description || 'No description available',
+            price: item.price || 0,
+            category: item.category || 'Uncategorized',
+            image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
+            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+            isVegetarian: item.isVegetarian || false,
+            isVegan: item.isVegan || false,
+            isGlutenFree: item.isGlutenFree || false,
+            isPopular: item.isPopular || false,
+            rating: item.rating || 0,
+            totalReviews: item.totalReviews || 0,
+            calories: item.nutritionInfo?.calories || null,
+            allergens: item.allergens || []
           }));
           
-          setMenuItems(formattedItems);
+          console.log('Formatted menu items:', formattedMenuItems);
+          setMenuItems(formattedMenuItems);
         } else {
-          setMenuError('No menu items available for this restaurant');
+          setMenuError(response.data.message || 'Failed to load menu items');
           setMenuItems([]);
         }
       } catch (err) {
@@ -83,8 +90,10 @@ const RestaurantDetails = () => {
       }
     };
     
-    fetchMenuItems();
-  }, [id]);
+    if (id && !loading && restaurant) {
+      fetchMenuItems();
+    }
+  }, [id, loading, restaurant]);
 
   // Get unique categories from menu items
   const categories = ['all', ...new Set(menuItems.map(item => item.category))];
@@ -135,7 +144,9 @@ const RestaurantDetails = () => {
             <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-md">
               <div className="relative h-64">
                 <img 
-                  src={restaurant.image || restaurant.logo || `/uploads/restaurants/default_restaurant.jpg`} 
+                  src={restaurant.image ? getFullImageUrl(restaurant.image) : 
+                       restaurant.logo ? getFullImageUrl(restaurant.logo) : 
+                       PLACEHOLDERS.RESTAURANT} 
                   alt={restaurant.name} 
                   className="object-cover w-full h-full"
                 />

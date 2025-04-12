@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt } from "react-icons/fa";
 import { publicAPI } from "../../utils/api";
 import { ArrowPathIcon as RefreshIcon, InformationCircleIcon, NoSymbolIcon as BanIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { PLACEHOLDERS } from '../../utils/imageUtils';
 
 // Function to format health condition for display
 const formatHealthCondition = (condition) => {
@@ -47,10 +48,8 @@ const Home = () => {
     const newsletterRef = useRef(null);
     const featuredRestaurantsRef = useRef(null);
 
-    // Default fallback image for food items
-    const defaultFoodImage = "https://source.unsplash.com/random/300x200/?food";
-    // Default fallback image for restaurants
-    const defaultRestaurantImage = "https://source.unsplash.com/random/600x400/?restaurant";
+    // Default fallback image - use imported PLACEHOLDERS
+    const defaultRestaurantImage = PLACEHOLDERS.RESTAURANT;
 
     // Handle window resize for responsive design
     useEffect(() => {
@@ -116,10 +115,10 @@ const Home = () => {
             // This would be a real API call in production
             const response = await fetch(`/api/recommendations?healthCondition=${healthCondition}`);
             
-            // If API is not yet implemented, fall back to mock data
             if (!response.ok) {
-                // Fallback to mock data for demo purposes
-                await mockFetchRecommendations(healthCondition);
+                // Just set empty state instead of falling back to mock data
+                setHealthRecommendations([]);
+                console.error('Health recommendations API not available');
                 return;
             }
             
@@ -132,149 +131,11 @@ const Home = () => {
             }
         } catch (error) {
             console.error('Error fetching health recommendations:', error);
-            // Fallback to mock data for demo purposes
-            await mockFetchRecommendations(healthCondition);
+            // Just set empty state instead of using mock data
+            setHealthRecommendations([]);
         } finally {
             setLoadingRecs(false);
         }
-    };
-    
-    // Mock function for demo purposes - will be replaced by real API in production
-    const mockFetchRecommendations = async (healthCondition) => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Different recommendations based on health condition
-        let recommendations = [];
-        
-        switch(healthCondition) {
-            case "Diabetes":
-                recommendations = [
-                    {
-                        id: 1,
-                        name: "Low-Sugar Mediterranean Bowl",
-                        restaurant: "Green Garden Cafe",
-                        location: "Baluwatar",
-                        rating: 4.7,
-                        price: "440",
-                        healthTag: "Low Glycemic Index",
-                        image: "https://source.unsplash.com/random/300x200/?salad"
-                    },
-                    {
-                        id: 2,
-                        name: "Protein-Packed Lunch Box",
-                        restaurant: "Fitness Fuel",
-                        location: "Jhamsikhel",
-                        rating: 4.3,
-                        price: "390",
-                        healthTag: "Sugar-Free",
-                        image: "https://source.unsplash.com/random/300x200/?protein"
-                    },
-                    {
-                        id: 3,
-                        name: "Green Power Smoothie",
-                        restaurant: "Juice Station",
-                        location: "Patan",
-                        rating: 4.6,
-                        price: "220",
-                        healthTag: "No Added Sugar",
-                        image: "https://source.unsplash.com/random/300x200/?smoothie"
-                    }
-                ];
-                break;
-                
-            case "Heart Condition":
-                recommendations = [
-                    {
-                        id: 4,
-                        name: "Omega-3 Rich Salmon Bowl",
-                        restaurant: "Heart Healthy Eats",
-                        location: "Durbar Marg",
-                        rating: 4.8,
-                        price: "520",
-                        healthTag: "Low Sodium",
-                        image: "https://source.unsplash.com/random/300x200/?salmon"
-                    },
-                    {
-                        id: 5,
-                        name: "Oatmeal Breakfast Bowl",
-                        restaurant: "Morning Glory",
-                        location: "Boudha",
-                        rating: 4.5,
-                        price: "280",
-                        healthTag: "Heart-Friendly",
-                        image: "https://source.unsplash.com/random/300x200/?oatmeal"
-                    }
-                ];
-                break;
-                
-            case "Hypertension":
-                recommendations = [
-                    {
-                        id: 6,
-                        name: "DASH Diet Platter",
-                        restaurant: "Balanced Bites",
-                        location: "Kupondole",
-                        rating: 4.6,
-                        price: "390",
-                        healthTag: "Low Sodium",
-                        image: "https://source.unsplash.com/random/300x200/?vegetables"
-                    },
-                    {
-                        id: 7,
-                        name: "Potassium-Rich Bowl",
-                        restaurant: "Nutrient Cafe",
-                        location: "Pulchowk",
-                        rating: 4.4,
-                        price: "350",
-                        healthTag: "BP Friendly",
-                        image: "https://source.unsplash.com/random/300x200/?banana"
-                    }
-                ];
-                break;
-                
-            case "Other":
-                recommendations = [
-                    {
-                        id: 8,
-                        name: "Custom Nutrition Bowl",
-                        restaurant: "Personalized Plates",
-                        location: "Lazimpat",
-                        rating: 4.9,
-                        price: "450",
-                        healthTag: "Customized Nutrition",
-                        image: "https://source.unsplash.com/random/300x200/?healthy"
-                    }
-                ];
-                break;
-                
-            default: // Healthy
-                recommendations = [
-                    {
-                        id: 9,
-                        name: "Balanced Macro Bowl",
-                        restaurant: "FitFood",
-                        location: "Sanepa",
-                        rating: 4.7,
-                        price: "420",
-                        healthTag: "Well-Balanced",
-                        image: "https://source.unsplash.com/random/300x200/?bowl"
-                    },
-                    {
-                        id: 10,
-                        name: "Protein Power Plate",
-                        restaurant: "Muscle Kitchen",
-                        location: "Thamel",
-                        rating: 4.5,
-                        price: "480",
-                        healthTag: "High Protein",
-                        image: "https://source.unsplash.com/random/300x200/?chicken"
-                    }
-                ];
-                break;
-        }
-        
-        setHealthRecommendations(recommendations);
     };
 
     // Fetch menu items from API
@@ -284,134 +145,63 @@ const Home = () => {
                 setLoadingProducts(true);
                 setProductsError(null);
                 
-                // Sample menu items to use as fallback
-                const sampleMenuItems = [
-                    {
-                        id: 'item1',
-                        name: 'Classic Margherita Pizza',
-                        price: 495,
-                        rating: 4.7,
-                        restaurant: { name: 'Pizza Palace' },
-                        image: 'https://source.unsplash.com/random/300x200/?pizza',
-                        discount: '15'
-                    },
-                    {
-                        id: 'item2',
-                        name: 'Chicken Momo',
-                        price: 280,
-                        rating: 4.5,
-                        restaurant: { name: 'Momo House' },
-                        image: 'https://source.unsplash.com/random/300x200/?dumplings',
-                        discount: '10'
-                    },
-                    {
-                        id: 'item3',
-                        name: 'Vegetable Biryani',
-                        price: 350,
-                        rating: 4.3,
-                        restaurant: { name: 'Spice Route' },
-                        image: 'https://source.unsplash.com/random/300x200/?biryani',
-                        discount: '0'
-                    },
-                    {
-                        id: 'item4',
-                        name: 'Chicken Burger',
-                        price: 320,
-                        rating: 4.2,
-                        restaurant: { name: 'Burger House' },
-                        image: 'https://source.unsplash.com/random/300x200/?burger',
-                        discount: '20'
-                    },
-                    {
-                        id: 'item5',
-                        name: 'Grilled Fish',
-                        price: 550,
-                        rating: 4.6,
-                        restaurant: { name: 'Seafood Central' },
-                        image: 'https://source.unsplash.com/random/300x200/?fish',
-                        discount: '5'
-                    },
-                    {
-                        id: 'item6',
-                        name: 'Chocolate Cake',
-                        price: 210,
-                        rating: 4.8,
-                        restaurant: { name: 'Sweet Delights' },
-                        image: 'https://source.unsplash.com/random/300x200/?cake',
-                        discount: '0'
-                    }
-                ];
+                const response = await fetch('/api/menu');
                 
-                try {
-                    const response = await fetch('/api/menu');
+                if (response.ok) {
+                    const data = await response.json();
                     
-                    if (response.ok) {
-                        const data = await response.json();
+                    if (data.success) {
+                        // Process the menu items
+                        const allItems = data.data || [];
                         
-                        if (data.success) {
-                            // Process the menu items
-                            const allItems = data.data || [];
+                        // Process each item to ensure discount and price data is correctly formatted
+                        const processedItems = allItems.map(item => {
+                            // Skip items without essential data
+                            if (!item || !item.name || !item.price) return null;
                             
-                            // Process each item to ensure discount and price data is correctly formatted
-                            const processedItems = allItems.map(item => {
-                                // Skip items without essential data
-                                if (!item || !item.name || !item.price) return null;
-                                
-                                return {
-                                    ...item,
-                                    // Ensure image has a fallback
-                                    image: item.image || `https://source.unsplash.com/random/300x200/?food,${encodeURIComponent(item.name)}`,
-                                    // Only include oldPrice if there's a valid discount
-                                    oldPrice: item.discount && parseFloat(item.discount) > 0 
-                                        ? item.price 
-                                        : null,
-                                    // If there's a discount, calculate the new price
-                                    price: item.discount && parseFloat(item.discount) > 0 
-                                        ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
-                                        : item.price
-                                };
-                            }).filter(item => item !== null); // Remove null items
+                            return {
+                                ...item,
+                                // Use only the image from the database
+                                image: item.image,
+                                // Only include oldPrice if there's a valid discount
+                                oldPrice: item.discount && parseFloat(item.discount) > 0 
+                                    ? item.price 
+                                    : null,
+                                // If there's a discount, calculate the new price
+                                price: item.discount && parseFloat(item.discount) > 0 
+                                    ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
+                                    : item.price
+                            };
+                        }).filter(item => item !== null); // Remove null items
+                        
+                        if (processedItems.length > 0) {
+                            // For featured products (random selection of 5 items)
+                            const shuffled = [...processedItems].sort(() => 0.5 - Math.random());
+                            setFeaturedProducts(shuffled.slice(0, 5));
                             
-                            if (processedItems.length > 0) {
-                                // For featured products (random selection of 5 items)
-                                const shuffled = [...processedItems].sort(() => 0.5 - Math.random());
-                                setFeaturedProducts(shuffled.slice(0, 5));
-                                
-                                // For new products (most recent 4 items by date)
-                                const sortedByDate = [...processedItems].sort((a, b) => 
-                                    new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-                                );
-                                setNewProducts(sortedByDate.slice(0, 4));
-                                setLoadingProducts(false);
-                                return;
-                            }
+                            // For new products (most recent 4 items by date)
+                            const sortedByDate = [...processedItems].sort((a, b) => 
+                                new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                            );
+                            setNewProducts(sortedByDate.slice(0, 4));
+                            setLoadingProducts(false);
+                            return;
                         }
                     }
                     
-                    // If we get here, either the API failed or returned invalid data
+                    // If API returns success but no valid items
+                    setFeaturedProducts([]);
+                    setNewProducts([]);
+                    setLoadingProducts(false);
+                } else {
+                    // If API fails
                     throw new Error('Failed to fetch menu items');
-                } catch (error) {
-                    console.error('Error fetching menu items:', error);
-                    // Don't set error message in state if we're going to use fallback data
-                    // setProductsError('Failed to load restaurant menu items');
-                    
-                    // Use fallback data instead
-                    console.log('Using sample menu items as fallback');
-                    const processedSamples = sampleMenuItems.map(item => ({
-                        ...item,
-                        oldPrice: item.discount && parseFloat(item.discount) > 0 
-                            ? item.price 
-                            : null,
-                        price: item.discount && parseFloat(item.discount) > 0 
-                            ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
-                            : item.price
-                    }));
-                    
-                    const shuffled = [...processedSamples].sort(() => 0.5 - Math.random());
-                    setFeaturedProducts(shuffled.slice(0, 5));
-                    setNewProducts(shuffled.slice(0, 4));
                 }
-            } finally {
+            } catch (error) {
+                console.error('Error fetching menu items:', error);
+                setProductsError('Failed to load menu items.');
+                setFeaturedProducts([]);
+                setNewProducts([]);
                 setLoadingProducts(false);
             }
         };
@@ -425,42 +215,6 @@ const Home = () => {
             setLoadingRestaurants(true);
             setRestaurantsError(null);
             
-            // Sample restaurants data to use as fallback in case of error
-            const sampleRestaurants = [
-                {
-                    id: 'rest1',
-                    name: 'The Green Garden',
-                    rating: 4.8,
-                    cuisine: ['Vegetarian', 'Healthy', 'Organic'],
-                    address: '123 Green St, Kathmandu',
-                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,vegetarian'
-                },
-                {
-                    id: 'rest2',
-                    name: 'Spice House',
-                    rating: 4.5,
-                    cuisine: ['Indian', 'Spicy', 'Curry'],
-                    address: '456 Spice Ave, Kathmandu',
-                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,indian'
-                },
-                {
-                    id: 'rest3',
-                    name: 'Burger Palace',
-                    rating: 4.2,
-                    cuisine: ['Fast Food', 'Burgers', 'American'],
-                    address: '789 Fast Blvd, Kathmandu',
-                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,burger'
-                },
-                {
-                    id: 'rest4',
-                    name: 'Sushi Express',
-                    rating: 4.7,
-                    cuisine: ['Japanese', 'Sushi', 'Asian'],
-                    address: '101 Ocean Dr, Kathmandu',
-                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,sushi'
-                }
-            ];
-            
             try {
                 // Use publicAPI from api.js
                 const response = await publicAPI.getFeaturedRestaurants();
@@ -470,17 +224,13 @@ const Home = () => {
                 } else {
                     // Handle cases where API returns success:true but empty data
                     console.log('No featured restaurants returned from API.');
-                    setFeaturedRestaurants([]); // Show empty state instead of fallback
-                    // Optionally set an info message instead of error
-                    // setRestaurantsError('No featured restaurants currently available.');
+                    setFeaturedRestaurants([]); // Show empty state
                 }
             } catch (error) {
                 console.error('Error fetching restaurants:', error);
-                // Set the error message for the UI
-                setRestaurantsError('Failed to load featured restaurants. Displaying samples.'); 
-                // Use fallback data only if the fetch truly fails
-                console.log('Using sample restaurant data as fallback due to error.');
-                setFeaturedRestaurants(sampleRestaurants);
+                // Show error message and empty state instead of fallback data
+                setRestaurantsError('Failed to load featured restaurants.');
+                setFeaturedRestaurants([]);
             } finally {
                 setLoadingRestaurants(false);
             }
@@ -575,8 +325,8 @@ const Home = () => {
                                                             className="object-cover w-full h-full transition-opacity duration-500"
                                                             onLoad={(e) => e.target.parentElement.querySelector('div').classList.add('opacity-0')}
                                                             onError={(e) => {
-                                                                e.target.src = defaultFoodImage;
-                                                                e.target.parentElement.querySelector('div').classList.add('opacity-0');
+                                                                e.target.onerror = null;
+                                                                e.target.src = PLACEHOLDERS.FOOD;
                                                             }}
                                                             loading="lazy"
                                                         />
@@ -624,7 +374,7 @@ const Home = () => {
                                             loading="lazy"
                                             onError={(e) => {
                                                 console.warn('Banner image failed to load, using fallback');
-                                                e.target.src = defaultFoodImage;
+                                                e.target.src = PLACEHOLDERS.BANNER;
                                             }}
                                         />
                                     </div>
@@ -641,7 +391,7 @@ const Home = () => {
                                             loading="lazy"
                                             onError={(e) => {
                                                 console.warn('Banner image failed to load, using fallback');
-                                                e.target.src = defaultFoodImage;
+                                                e.target.src = PLACEHOLDERS.BANNER;
                                             }}
                                         />
                                     </div>
@@ -658,7 +408,7 @@ const Home = () => {
                                             loading="lazy"
                                             onError={(e) => {
                                                 console.warn('Banner image failed to load, using fallback');
-                                                e.target.src = defaultFoodImage;
+                                                e.target.src = PLACEHOLDERS.BANNER;
                                             }}
                                         />
                                     </div>
@@ -811,21 +561,36 @@ const Home = () => {
                                                     key={restaurant.id} 
                                                     className="overflow-hidden transition-all duration-300 transform hover:shadow-md hover:-translate-y-1"
                                                 >
-                                                    <div className="relative h-40 bg-gray-100">
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                                            <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
-                                                        </div>
+                                                    <div className="relative h-48 bg-gray-100">
+                                                        {loadingRestaurants ? (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                                                <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                                                            </div>
+                                                        ) : null}
                                                         <img 
-                                                            src={restaurant.coverImage || `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`} 
+                                                            src={restaurant.logo || restaurant.image || defaultRestaurantImage}
                                                             alt={restaurant.name}
-                                                            className="object-cover w-full h-full transition-opacity duration-500"
-                                                            onLoad={(e) => e.target.parentElement.querySelector('div').classList.add('opacity-0')}
-                                                            onError={(e) => {
-                                                                console.warn(`Restaurant image failed to load for ${restaurant.name}, using fallback`);
-                                                                e.target.src = defaultRestaurantImage;
-                                                                e.target.parentElement.querySelector('div').classList.add('opacity-0');
+                                                            className="object-cover w-full h-full transition-transform duration-300"
+                                                            onLoad={(e) => {
+                                                                // Hide spinner parent when image loads
+                                                                if (e.target.parentElement) {
+                                                                    const spinner = e.target.parentElement.querySelector('[class*="animate-spin"]');
+                                                                    if (spinner && spinner.parentElement) {
+                                                                        spinner.parentElement.style.display = 'none';
+                                                                    }
+                                                                }
                                                             }}
-                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.src = '/uploads/placeholders/restaurant-placeholder.jpg';
+                                                                // Hide spinner after fallback image is set
+                                                                if (e.target.parentElement) {
+                                                                    const spinner = e.target.parentElement.querySelector('[class*="animate-spin"]');
+                                                                    if (spinner && spinner.parentElement) {
+                                                                        spinner.parentElement.style.display = 'none';
+                                                                    }
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
                                                     <div className="p-4">

@@ -19,10 +19,10 @@ const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
     
     if (pidx && orderId) {
       verifyPayment(pidx);
-    } else if (status === 'FAILED') {
-      setError('Payment failed. Please try again.');
+    } else if (status === 'FAILED' || status === 'User canceled') {
+      setError('Payment was canceled or failed. Please try again.');
       setKhaltiStatus('failed');
-      if (onFailure) onFailure('Payment failed');
+      if (onFailure) onFailure('Payment was canceled or failed');
     }
   }, [orderId, onFailure]);
 
@@ -36,29 +36,51 @@ const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
     setError(null);
     
     try {
+      console.log('Initiating Khalti payment for order:', orderId, 'amount:', amount);
+      
       // Call the API to initiate Khalti payment
       const response = await userAPI.initiateKhaltiPayment({
         orderId,
         amount,
-        returnUrl: `${window.location.origin}/payment/verify?orderId=${orderId}`
+        returnUrl: `${window.location.origin}/payment/verify?orderId=${orderId}&method=khalti`
       });
       
-      if (response.data.success) {
+      console.log('Payment initiation response:', response);
+      
+      if (response.data && response.data.success) {
         setKhaltiStatus('initiated');
-        // Store payment URL in local state if we need to access it before redirect
+        
+        // Store payment details in session storage
+        sessionStorage.setItem('pendingOrder', JSON.stringify({
+          orderId,
+          amount,
+          paymentMethod: 'khalti',
+          pidx: response.data.data.pidx,
+          initiatedAt: new Date().toISOString()
+        }));
         
         // Redirect to Khalti payment page
         window.location.href = response.data.data.paymentUrl;
       } else {
-        setError(response.data.message || 'Failed to initiate payment');
+        const errorMsg = response.data?.message || 'Failed to initiate payment';
+        console.error('Payment initiation failed:', errorMsg);
+        setError(errorMsg);
         setKhaltiStatus('failed');
-        if (onFailure) onFailure(response.data.message || 'Failed to initiate payment');
+        if (onFailure) onFailure(errorMsg);
       }
     } catch (err) {
       console.error('Error initiating Khalti payment:', err);
-      setError('An error occurred while initiating payment');
+      let errorMessage = 'An error occurred while initiating payment';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setKhaltiStatus('failed');
-      if (onFailure) onFailure('An error occurred while initiating payment');
+      if (onFailure) onFailure(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -70,25 +92,41 @@ const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
     setKhaltiStatus('verifying');
     
     try {
+      console.log('Verifying Khalti payment with pidx:', pidx, 'for order:', orderId);
+      
       // Call the API to verify Khalti payment
       const response = await userAPI.verifyKhaltiPayment({
         orderId,
         pidx
       });
       
-      if (response.data.success && response.data.data.status === 'Completed') {
+      console.log('Payment verification response:', response);
+      
+      if (response.data && response.data.success && response.data.data && response.data.data.status === 'Completed') {
         setKhaltiStatus('success');
+        // Clear the pending order from session storage
+        sessionStorage.removeItem('pendingOrder');
         if (onSuccess) onSuccess(response.data.data);
       } else {
-        setError(response.data.message || 'Payment verification failed');
+        const errorMsg = response.data?.message || 'Payment verification failed';
+        console.error('Payment verification failed:', errorMsg);
+        setError(errorMsg);
         setKhaltiStatus('failed');
-        if (onFailure) onFailure(response.data.message || 'Payment verification failed');
+        if (onFailure) onFailure(errorMsg);
       }
     } catch (err) {
       console.error('Error verifying Khalti payment:', err);
-      setError('An error occurred while verifying payment');
+      let errorMessage = 'An error occurred while verifying payment';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setKhaltiStatus('failed');
-      if (onFailure) onFailure('An error occurred while verifying payment');
+      if (onFailure) onFailure(errorMessage);
     } finally {
       setLoading(false);
     }

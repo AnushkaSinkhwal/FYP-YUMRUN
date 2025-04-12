@@ -34,16 +34,57 @@ const Checkout = () => {
     city: 'Bhaktapur',
     additionalInfo: '',
   });
+  const [orderRestaurantId, setOrderRestaurantId] = useState(null);
 
   // Form validation
   const [errors, setErrors] = useState({});
 
   // Check if cart is empty and redirect if needed
   useEffect(() => {
-    if (cartItems.length === 0) {
-      navigate('/cart');
+    if (!cartItems.length) {
       addToast('Your cart is empty', { type: 'error' });
+      navigate('/');
+      return;
     }
+
+    // Get restaurantId from first cart item
+    const firstItem = cartItems[0];
+    let restaurantId = firstItem.restaurantId;
+    
+    // Try to get restaurantId from different possible locations
+    if (!restaurantId) {
+      if (firstItem.restaurant?.id) {
+        restaurantId = firstItem.restaurant.id;
+      } else if (firstItem.restaurant?._id) {
+        restaurantId = firstItem.restaurant._id;
+      } else if (firstItem.id) {
+        // Try to extract restaurant ID from item ID if it follows pattern restaurant_id:product_id
+        const parts = firstItem.id.split(':');
+        if (parts.length === 2) {
+          restaurantId = parts[0];
+        }
+      }
+    }
+
+    // Validate all items are from same restaurant if restaurantId exists
+    if (restaurantId) {
+      const hasMultipleRestaurants = cartItems.some(item => {
+        const itemRestaurantId = item.restaurantId || item.restaurant?.id || item.restaurant?._id;
+        return itemRestaurantId && itemRestaurantId !== restaurantId;
+      });
+
+      if (hasMultipleRestaurants) {
+        addToast('Error: Items from multiple restaurants detected in cart', { 
+          type: 'error',
+          duration: 5000
+        });
+        navigate('/cart');
+        return;
+      }
+    }
+
+    // Set restaurant ID for the order
+    setOrderRestaurantId(restaurantId || null);
   }, [cartItems, navigate, addToast]);
 
   // Update form when user data changes
@@ -118,23 +159,13 @@ const Checkout = () => {
         return;
       }
       
-      // Extract restaurant ID from first cart item
-      const restaurantId = cartItems[0].restaurantId;
-      
       // Create a unique order ID
       const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       
-      // Format address for the API
-      const formattedAddress = {
-        street: deliveryAddress.address,
-        city: deliveryAddress.city,
-        state: '',
-        zipCode: '',
-        country: 'Nepal'
-      };
-      
       // Create order payload
       const orderPayload = {
+        orderNumber: orderId,
+        userId: currentUser._id,
         items: cartItems.map(item => ({
           productId: item.id,
           name: item.name,
@@ -142,16 +173,32 @@ const Checkout = () => {
           quantity: item.quantity,
           options: item.options || []
         })),
-        restaurantId,
-        deliveryAddress: formattedAddress,
+        restaurantId: orderRestaurantId || cartItems[0]?.id?.split(':')[0] || cartItems[0]?.restaurantId,
+        totalPrice: cartStats.subTotal,
+        deliveryFee: cartStats.shipping,
+        tax: 0,
+        grandTotal: cartStats.total,
+        status: 'PENDING',
         paymentMethod: paymentMethod === 'cod' ? 'CASH' : 'KHALTI',
+        paymentStatus: 'PENDING',
+        isPaid: false,
+        deliveryAddress: {
+          street: deliveryAddress.address,
+          city: deliveryAddress.city,
+          state: '',
+          zipCode: '',
+          country: 'Nepal'
+        },
         specialInstructions: deliveryAddress.additionalInfo || ''
       };
+      
+      console.log('Order payload:', orderPayload);
       
       // If payment method is cash on delivery
       if (paymentMethod === 'cod') {
         try {
           // Create order in the database
+          console.log('Sending order payload:', orderPayload);
           const response = await userAPI.createOrder(orderPayload);
           
           if (response.data && response.data.success) {
@@ -160,11 +207,35 @@ const Checkout = () => {
             navigate(`/order-confirmation/${response.data.order._id}`);
             addToast('Order placed successfully!', { type: 'success' });
           } else {
-            throw new Error(response.data?.message || 'Failed to create order');
+            const errorMsg = response.data?.message || 'Failed to create order';
+            console.error('Order creation failed:', errorMsg);
+            throw new Error(errorMsg);
           }
         } catch (error) {
           console.error('Error creating order:', error);
-          addToast(error.response?.data?.message || 'Failed to create order. Please try again.', { type: 'error' });
+          let errorMessage = 'Failed to create order. Please try again.';
+          
+          if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            console.error('Server error response:', error.response.data);
+            errorMessage = error.response.data?.message || 
+                         error.response.data?.error || 
+                         'Server error: ' + error.response.status;
+          } else if (error.request) {
+            // The request was made but no response was received
+            console.error('No response received:', error.request);
+            errorMessage = 'No response from server. Please check your connection.';
+          } else {
+            // Something happened in setting up the request that triggered an Error
+            console.error('Error setting up request:', error.message);
+            errorMessage = error.message;
+          }
+          
+          addToast(errorMessage, { 
+            type: 'error',
+            duration: 5000
+          });
         } finally {
           setIsLoading(false);
         }
@@ -230,34 +301,34 @@ const Checkout = () => {
     <section className="py-10">
       <Container>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold">Checkout</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Checkout</h1>
           <Link 
             to="/cart" 
-            className="inline-flex items-center text-yumrun-primary hover:text-yumrun-secondary transition-colors"
+            className="inline-flex items-center transition-colors text-yumrun-primary hover:text-yumrun-secondary"
           >
             <FiArrowLeft className="mr-2" />
             Back to Cart
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Delivery Information */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6 lg:col-span-2">
             {/* Delivery Address */}
             <Card>
-              <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center">
+              <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
                 <FiMapPin className="mr-2 text-yumrun-primary" />
                 <h2 className="font-medium">Delivery Information</h2>
               </div>
               
               <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <Label htmlFor="fullName" className="mb-1.5">
                       Full Name <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                      <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
                         <FiUser />
                       </div>
                       <Input
@@ -269,7 +340,7 @@ const Checkout = () => {
                         placeholder="Your full name"
                       />
                     </div>
-                    {errors.fullName && <p className="mt-1 text-red-500 text-sm">{errors.fullName}</p>}
+                    {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
                   </div>
                   
                   <div>
@@ -277,7 +348,7 @@ const Checkout = () => {
                       Phone Number <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                      <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
                         <FiPhone />
                       </div>
                       <Input
@@ -289,7 +360,7 @@ const Checkout = () => {
                         placeholder="10-digit phone number"
                       />
                     </div>
-                    {errors.phone && <p className="mt-1 text-red-500 text-sm">{errors.phone}</p>}
+                    {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
                   </div>
                 </div>
                 
@@ -298,7 +369,7 @@ const Checkout = () => {
                     Email Address <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
                       <FiMail />
                     </div>
                     <Input
@@ -311,7 +382,7 @@ const Checkout = () => {
                       placeholder="Your email address"
                     />
                   </div>
-                  {errors.email && <p className="mt-1 text-red-500 text-sm">{errors.email}</p>}
+                  {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                 </div>
                 
                 <div>
@@ -332,10 +403,10 @@ const Checkout = () => {
                       rows={2}
                     />
                   </div>
-                  {errors.address && <p className="mt-1 text-red-500 text-sm">{errors.address}</p>}
+                  {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <Label htmlFor="city" className="mb-1.5">
                       City
@@ -370,7 +441,7 @@ const Checkout = () => {
             
             {/* Payment Method */}
             <Card>
-              <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center">
+              <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
                 <FiCreditCard className="mr-2 text-yumrun-primary" />
                 <h2 className="font-medium">Payment Method</h2>
               </div>
@@ -421,7 +492,7 @@ const Checkout = () => {
                 </div>
                 
                 <div className="p-4">
-                  <div className="max-h-64 overflow-y-auto mb-4">
+                  <div className="mb-4 overflow-y-auto max-h-64">
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                         <div className="flex-1">
@@ -437,22 +508,22 @@ const Checkout = () => {
                     ))}
                   </div>
                   
-                  <div className="space-y-3 pt-3 border-t border-gray-100">
-                    <div className="flex justify-between items-center">
+                  <div className="pt-3 space-y-3 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium">Rs.{cartStats.subTotal.toFixed(2)}</span>
                     </div>
                     
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Delivery Fee</span>
                       <span className="font-medium">
                         {cartStats.shipping === 0 ? 'Free' : `Rs.${cartStats.shipping.toFixed(2)}`}
                       </span>
                     </div>
                     
-                    <div className="h-px bg-gray-100 my-3"></div>
+                    <div className="h-px my-3 bg-gray-100"></div>
                     
-                    <div className="flex justify-between items-center font-medium">
+                    <div className="flex items-center justify-between font-medium">
                       <span>Total</span>
                       <span className="text-lg text-yumrun-accent">Rs.{cartStats.total.toFixed(2)}</span>
                     </div>
