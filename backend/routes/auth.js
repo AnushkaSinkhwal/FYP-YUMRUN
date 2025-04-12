@@ -4,6 +4,8 @@ const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { auth } = require('../middleware/auth');
+const crypto = require('crypto');
+const { sendEmail, emailTemplates } = require('../utils/emailService');
 
 /**
  * @route   POST /api/auth/login
@@ -176,6 +178,13 @@ router.post('/register', async (req, res) => {
     // Save user to database
     await user.save();
 
+    // Send welcome email (fire and forget, don't block response)
+    sendEmail({
+      to: user.email,
+      subject: 'Welcome to YumRun!',
+      html: emailTemplates.welcomeEmail(user)
+    }).catch(err => console.error('Failed to send welcome email:', err)); // Log error if email fails
+
     // Generate JWT token
     const token = jwt.sign(
       {
@@ -206,9 +215,18 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    // Ensure consistent error response format
+    let errorMessage = 'Server error during registration. Please try again.';
+    if (error.message && typeof error.message === 'string') {
+      errorMessage = error.message; // Use mongoose validation messages if available
+    } else if (error.code === 11000) { // Handle duplicate key error specifically
+        errorMessage = 'User with this email already exists.';
+        return res.status(400).json({ success: false, message: errorMessage });
+    }
+    
     res.status(500).json({
       success: false,
-      message: error.message
+      message: errorMessage // Send a clean message to the frontend
     });
   }
 });
@@ -237,6 +255,154 @@ router.get('/me', auth, async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error);
     return res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again.'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate input
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your email address'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account with that email address exists'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Set token and expiry in user document
+    user.resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+    
+    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
+    
+    await user.save();
+
+    // Create reset URL
+    const resetUrl = `${process.env.WEBSITE_URL}/reset-password/${resetToken}`;
+
+    // Send email
+    const emailResult = await sendEmail({
+      to: user.email,
+      subject: 'YumRun - Reset Your Password',
+      html: emailTemplates.passwordResetEmail({
+        resetLink: resetUrl,
+        name: user.fullName
+      })
+    });
+
+    if (!emailResult.success) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: 'Email could not be sent. Please try again later.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again.'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:resetToken
+ * @desc    Reset password
+ * @access  Public
+ */
+router.post('/reset-password/:resetToken', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { resetToken } = req.params;
+
+    // Validate input
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a new password'
+      });
+    }
+
+    // Hash token from params
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Find user by reset token and check if token is expired
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset token is invalid or has expired'
+      });
+    }
+
+    // Set new password
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    
+    await user.save();
+
+    // Send confirmation email
+    await sendEmail({
+      to: user.email,
+      subject: 'YumRun - Password Reset Successful',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #FF5722;">Password Reset Successful</h2>
+          <p>Hello ${user.fullName || 'there'},</p>
+          <p>Your password has been successfully reset. You can now log in with your new password.</p>
+          <p>If you did not make this change, please contact our support team immediately.</p>
+          <p>Best regards,<br>The YumRun Team</p>
+        </div>
+      `
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
       success: false,
       message: 'Server error. Please try again.'
     });

@@ -5,6 +5,7 @@ const User = require('../models/user');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { Restaurant } = require('../models/restaurant');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -206,75 +207,57 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
     }
 });
 
-// GET all restaurants (public)
+// GET all restaurants (public) - FIXED
 router.get('/', async (req, res) => {
     try {
-        const restaurants = await User.find({ role: 'restaurantOwner' })
-            .select('fullName email phone restaurantDetails')
-            .sort({ 'restaurantDetails.name': 1 });
-        
-        const formattedRestaurants = restaurants.map(restaurant => ({
-            id: restaurant._id,
-            name: restaurant.restaurantDetails.name,
-            description: restaurant.restaurantDetails.description,
-            address: restaurant.restaurantDetails.address,
-            logo: restaurant.restaurantDetails.logo,
-            coverImage: restaurant.restaurantDetails.coverImage,
-            cuisine: restaurant.restaurantDetails.cuisine || [],
-            isOpen: restaurant.restaurantDetails.isOpen
+        // Query the Restaurant collection for approved restaurants
+        const approvedRestaurants = await Restaurant.find({ isApproved: true })
+            .select('name description location logo cuisine owner dateCreated') // Select relevant fields
+            .populate('owner', 'name') // Optionally populate owner name if needed
+            .sort({ name: 1 });
+
+        // Format data for the frontend (ensure it matches frontend expectations)
+        const formattedRestaurants = approvedRestaurants.map(restaurant => ({
+            _id: restaurant._id, // Use _id or id as expected by frontend
+            id: restaurant.id,   // Include virtual id if used
+            name: restaurant.name,
+            description: restaurant.description || 'No description available.',
+            location: restaurant.location || 'Location not specified.',
+            logo: restaurant.logo || null, // Handle missing logo
+            cuisine: restaurant.cuisine || [], // Assuming cuisine might be added later
+            // Add other fields as needed by the frontend Shop component
+            // e.g., isOpen (if available in Restaurant model, otherwise default or omit)
         }));
-        
+
         return res.status(200).json({
             success: true,
             data: formattedRestaurants
         });
     } catch (error) {
-        console.error('Error fetching restaurants:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Server error. Please try again.' 
+        console.error('Error fetching approved restaurants:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
         });
     }
 });
 
-// GET restaurant by ID (public)
-router.get('/:id', async (req, res) => {
+// GET featured restaurants
+router.get('/featured', async (req, res) => {
     try {
-        const restaurant = await User.findOne({ 
-            _id: req.params.id, 
-            role: 'restaurantOwner' 
-        }).select('fullName email phone restaurantDetails');
+        // Placeholder: Fetch a few approved restaurants as featured
+        // In a real app, you'd likely have an 'isFeatured' flag in the model
+        const featuredRestaurants = await Restaurant.find({ isApproved: true }).limit(5);
         
-        if (!restaurant) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Restaurant not found' 
-            });
-        }
-        
-        return res.status(200).json({
-            success: true,
-            data: {
-                id: restaurant._id,
-                name: restaurant.restaurantDetails.name,
-                description: restaurant.restaurantDetails.description,
-                address: restaurant.restaurantDetails.address,
-                phone: restaurant.phone,
-                logo: restaurant.restaurantDetails.logo,
-                coverImage: restaurant.restaurantDetails.coverImage,
-                cuisine: restaurant.restaurantDetails.cuisine || [],
-                openingHours: restaurant.restaurantDetails.openingHours || {},
-                isOpen: restaurant.restaurantDetails.isOpen,
-                deliveryRadius: restaurant.restaurantDetails.deliveryRadius || 5,
-                minimumOrder: restaurant.restaurantDetails.minimumOrder || 0,
-                deliveryFee: restaurant.restaurantDetails.deliveryFee || 0
-            }
+        res.status(200).json({ 
+            success: true, 
+            data: featuredRestaurants 
         });
     } catch (error) {
-        console.error('Error fetching restaurant:', error);
+        console.error('Error fetching featured restaurants:', error);
         return res.status(500).json({ 
             success: false, 
-            message: 'Server error. Please try again.' 
+            message: 'Server error fetching featured restaurants.' 
         });
     }
 });

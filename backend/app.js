@@ -4,6 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const errorHandler = require('./middleware/errorHandler');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -44,9 +45,10 @@ const paymentRoutes = require('./routes/payment');
 const nutritionRoutes = require('./routes/nutrition');
 const loyaltyRoutes = require('./routes/loyalty');
 const searchRoutes = require('./routes/search');
+const contactRoutes = require('./routes/contact');
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static('uploads'));
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -65,6 +67,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/contact', contactRoutes);
 
 // API Status Route
 app.get('/api/status', (req, res) => {

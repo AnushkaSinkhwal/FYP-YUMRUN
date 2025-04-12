@@ -9,6 +9,7 @@ const {
   createOrderNotification, 
   createRestaurantOrderNotification 
 } = require('../utils/notifications');
+const { sendEmail, emailTemplates } = require('../utils/emailService');
 
 // GET all orders
 router.get('/', auth, async (req, res) => {
@@ -99,6 +100,20 @@ router.post('/', auth, async (req, res) => {
         });
 
         await newOrder.save();
+
+        // Get user details for email
+        const user = await User.findById(req.user._id);
+
+        // Send order confirmation email (fire and forget)
+        if (user) {
+            sendEmail({
+                to: user.email,
+                subject: `YumRun Order Confirmation #${newOrder.orderNumber}`,
+                html: emailTemplates.orderConfirmationEmail(newOrder, user) 
+            }).catch(err => console.error('Failed to send order confirmation email:', err));
+        } else {
+            console.error('Could not find user to send order confirmation email for order:', newOrder._id);
+        }
 
         // Create notifications for user and restaurant
         await createOrderNotification(newOrder, req.user._id);
@@ -372,8 +387,22 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
         
         await order.save();
         
-        // Consider sending notification to the customer about the status update
-        // await createUserOrderStatusUpdateNotification(order, order.userId);
+        // Send status update email to the customer
+        const customer = await User.findById(order.userId);
+        if (customer) {
+            const emailOptions = {
+                order: order, 
+                status: status.toLowerCase(), // Use lowercase status for template key
+                name: customer.fullName
+            };
+            sendEmail({
+                to: customer.email,
+                subject: `YumRun Order Update: ${order.orderNumber} is now ${status}`,
+                html: emailTemplates.orderStatusUpdateEmail(emailOptions)
+            }).catch(err => console.error('Failed to send order status update email:', err));
+        } else {
+            console.error('Could not find customer to send status update email for order:', order._id);
+        }
         
         // Populate user details in the response
         const updatedOrder = await Order.findById(order._id)

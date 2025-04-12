@@ -4,14 +4,14 @@
   "description": "YUMRUN - A health-focused food ordering and delivery web application",
   "main": "index.js",
   "scripts": {
-    "install:all": "npm run install:backend && npm run install:frontend",
-    "install:backend": "cd backend && npm install",
-    "install:frontend": "cd frontend && npm install",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run start",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:frontend",
-    "build:frontend": "cd frontend && npm run build"
+    "install:all": "yarn install:backend && yarn install:frontend",
+    "install:backend": "cd backend && yarn install",
+    "install:frontend": "cd frontend && yarn install",
+    "dev": "concurrently \"yarn run dev:backend\" \"yarn run dev:frontend\"",
+    "dev:backend": "cd backend && yarn run start",
+    "dev:frontend": "cd frontend && yarn run dev",
+    "build": "yarn run build:frontend",
+    "build:frontend": "cd frontend && yarn run build"
   },
   "repository": {
     "type": "git",

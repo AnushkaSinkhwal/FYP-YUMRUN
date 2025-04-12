@@ -1,7 +1,8 @@
 import { createContext, useEffect, useState, useContext } from "react";
+import PropTypes from 'prop-types';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, Link } from "react-router-dom";
 import Home from "./Pages/Home";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -18,6 +19,11 @@ import ProductDetails from "./Pages/ProductDetails";
 import Profile from "./Pages/Profile";
 import BackToTop from "./components/BackToTop";
 import RestaurantDetails from './Pages/RestaurantDetails';
+import About from './Pages/About';
+import Contact from './Pages/Contact';
+import Restaurants from './Pages/Restaurants';
+import Menu from './Pages/Menu';
+import Shop from "./Pages/Shop";
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -69,6 +75,21 @@ import UserReviews from "./Pages/user/Reviews";
 import UserRewards from "./Pages/user/Rewards";
 import UserNotifications from "./Pages/user/Notifications";
 import UserSettings from "./Pages/user/Settings";
+
+// Placeholder pages
+const PlaceholderPage = ({ title }) => (
+  <div className="py-20 text-center">
+    <h1 className="text-3xl font-bold">{title || 'Page Under Construction'}</h1>
+    <p className="mt-4">This page is currently under development.</p>
+    <Link to="/" className="mt-6 inline-block bg-yumrun-primary text-white px-6 py-2 rounded hover:bg-yumrun-primary-dark">
+      Go Home
+    </Link>
+  </div>
+);
+
+PlaceholderPage.propTypes = {
+  title: PropTypes.string
+};
 
 // Create a RouteChangeDetector component
 const RouteChangeDetector = () => {
@@ -229,6 +250,54 @@ function App() {
                     </>
                   } />
                   
+                  {/* About Route */}
+                  <Route path="/about" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <About />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      <BackToTop />
+                    </>
+                  } />
+                  
+                  {/* Contact Route */}
+                  <Route path="/contact" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <Contact />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      <BackToTop />
+                    </>
+                  } />
+                  
+                  {/* Restaurants Route */}
+                  <Route path="/restaurant" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <Restaurants />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      <BackToTop />
+                    </>
+                  } />
+                  
+                  {/* Menu Route */}
+                  <Route path="/menu" element={
+                    <>
+                      {isHeaderFooterShow && <Header />}
+                      <main id="main-content">
+                        <Menu />
+                      </main>
+                      {isHeaderFooterShow && <Footer />}
+                      <BackToTop />
+                    </>
+                  } />
+                  
                   <Route path="/cat/:id" element={
                     <>
                       {isHeaderFooterShow && <Header />}
@@ -357,7 +426,7 @@ function App() {
 
                   {/* Restaurant Routes */}
                   <Route path="/restaurant" element={
-                    <ProtectedRoute allowedRoles={['restaurantOwner', 'restaurant']}>
+                    <ProtectedRoute allowedRoles={['restaurantOwner']}>
                       <RestaurantLayout />
                     </ProtectedRoute>
                   }>
@@ -415,7 +484,22 @@ function App() {
                       <BackToTop />
                     </>
                   } />
+
+                  {/* Category/Shop/Favorites Placeholders */}
+                  <Route path="/cat/shop" element={<LayoutWrapper><Shop /></LayoutWrapper>} />
+                  <Route path="/cat/favourites" element={<LayoutWrapper><PlaceholderPage title="Favourites Page" /></LayoutWrapper>} />
+                  <Route path="/cat/breakfast" element={<LayoutWrapper><PlaceholderPage title="Breakfast Category" /></LayoutWrapper>} />
+                  <Route path="/cat/lunch" element={<LayoutWrapper><PlaceholderPage title="Lunch Category" /></LayoutWrapper>} />
+                  <Route path="/cat/dinner" element={<LayoutWrapper><PlaceholderPage title="Dinner Category" /></LayoutWrapper>} />
+                  <Route path="/cat/drinks" element={<LayoutWrapper><PlaceholderPage title="Drinks Category" /></LayoutWrapper>} />
+                  <Route path="/cat/desserts" element={<LayoutWrapper><PlaceholderPage title="Desserts Category" /></LayoutWrapper>} />
+                  
+                  {/* Ensure other top-level pages use LayoutWrapper */} 
+                  <Route path="/restaurants" element={<LayoutWrapper><Restaurants /></LayoutWrapper>} />
+                  <Route path="/menu" element={<LayoutWrapper><Menu /></LayoutWrapper>} />
                 </Routes>
+                {isOpenProductModel && <ProductModel productId={productId} />}
+                <BackToTop />
               </MyContext.Provider>
             </NotificationProvider>
           </CartProvider>
@@ -424,6 +508,22 @@ function App() {
     </BrowserRouter>
   );
 }
+
+// Helper component to wrap pages with Header/Footer conditionally
+const LayoutWrapper = ({ children }) => {
+  const { isHeaderFooterShow } = useContext(MyContext);
+  return (
+    <>
+      {isHeaderFooterShow && <Header />}
+      <main id="main-content">{children}</main>
+      {isHeaderFooterShow && <Footer />}
+    </>
+  );
+};
+
+LayoutWrapper.propTypes = {
+  children: PropTypes.node.isRequired
+};
 
 export default App;
 export { MyContext };

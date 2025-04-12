@@ -34,8 +34,14 @@ const SignUp = () => {
     
     const navigate = useNavigate();
     
-    // Hide header and footer for auth pages
-    context.setisHeaderFooterShow(false);
+    // Hide header and footer for auth pages using useEffect
+    useEffect(() => {
+        context.setisHeaderFooterShow(false);
+        // Cleanup function to show header/footer when component unmounts
+        return () => {
+            context.setisHeaderFooterShow(true);
+        };
+    }, [context]); // Dependency array includes context to adhere to linting rules
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -192,10 +198,10 @@ const SignUp = () => {
                     state: { message: "Registration successful! Please login to continue." }
                 });
             } else {
-                setError(result?.error || "Registration failed");
+                setError(result?.message || "Registration failed. Please try again.");
             }
         } catch (err) {
-            setError("An unexpected error occurred: " + (err.message || err));
+            setError("An unexpected error occurred: " + (err.response?.data?.message || err.message || "Please check your connection and try again."));
         }
     };
 

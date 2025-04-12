@@ -4,6 +4,7 @@ const { auth, isDeliveryRider, isAdmin } = require('../middleware/auth');
 const Order = require('../models/order');
 const User = require('../models/user');
 const { createDeliveryNotification } = require('../utils/notifications');
+const { sendEmail, emailTemplates } = require('../utils/emailService');
 
 // GET all delivery staff (Admin only)
 router.get('/staff', auth, isAdmin, async (req, res) => {
@@ -222,8 +223,23 @@ router.post('/update-status/:orderId', auth, isDeliveryRider, async (req, res) =
         
         await order.save();
         
-        // Create notification for customer
-        // await createDeliveryNotification(order, status);
+        // Send status update email to the customer
+        const customer = await User.findById(order.userId);
+        if (customer) {
+            const emailStatus = normalizedStatus.toLowerCase().replace(/_/g, '-'); // Convert OUT_FOR_DELIVERY to on-the-way
+            const emailOptions = {
+                order: order,
+                status: emailStatus, 
+                name: customer.fullName
+            };
+            sendEmail({
+                to: customer.email,
+                subject: `YumRun Order Update: ${order.orderNumber} is now ${normalizedStatus.replace('_', ' ')}`,
+                html: emailTemplates.orderStatusUpdateEmail(emailOptions)
+            }).catch(err => console.error('Failed to send delivery status update email:', err));
+        } else {
+            console.error('Could not find customer to send delivery status update email for order:', order._id);
+        }
         
         res.status(200).json({ 
             success: true, 

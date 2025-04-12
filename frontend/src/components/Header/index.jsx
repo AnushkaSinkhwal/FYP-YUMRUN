@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Logo from '../../assets/images/logo.png'; // Updated logo path
-import CityDropdown from "../CityDropdown";
-import { FaRegUserCircle, FaSearch, FaMapMarkerAlt, FaSignOutAlt, FaUser, FaUtensils, FaCog } from "react-icons/fa";
+// import CityDropdown from "../CityDropdown"; // Removed unused import
+import { FaRegUserCircle, FaSearch, FaSignOutAlt, FaUser, FaUtensils, FaCog } from "react-icons/fa"; // Removed FaMapMarkerAlt
 import { RiDashboardLine } from "react-icons/ri";
 import { BsTelephone } from "react-icons/bs";
 import { MdOutlineEmail } from "react-icons/md";
@@ -122,6 +122,16 @@ const Header = () => {
     window.location.href = '/';
   };
 
+  // Add Navbar Links (Removed "Offers")
+  const navLinks = [
+    { name: "Home", path: "/" },
+    { name: "Restaurants", path: "/restaurants" },
+    { name: "Shop", path: "/cat/shop" }, // Added Shop link
+    { name: "Menu", path: "/menu" }, 
+    { name: "About Us", path: "/about" },
+    { name: "Contact", path: "/contact" },
+  ];
+
   return (
     <div className="w-full bg-white border-b border-gray-200">
       {/* Top Strip */}
@@ -156,10 +166,6 @@ const Header = () => {
 
             {/* Search and Navigation */}
             <div className="items-center flex-1 hidden px-6 space-x-4 lg:flex">
-              <div className="flex items-center mr-3">
-                <FaMapMarkerAlt className="mr-2 text-yumrun-secondary" aria-hidden="true" />
-                <CityDropdown />
-              </div>
               <div className="flex-1">
                 <SearchBox />
               </div>
@@ -214,10 +220,7 @@ const Header = () => {
                       
                       <div className="py-1">
                         <Link 
-                          to={(currentUser.role === 'customer' || 
-                               (!currentUser.role && !currentUser.isAdmin && !currentUser.isRestaurantOwner && !currentUser.isDeliveryRider)) 
-                            ? "/user/profile" 
-                            : "/profile"}
+                          to="/user/profile"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
                           onClick={() => setShowUserDropdown(false)}
                         >
@@ -225,9 +228,8 @@ const Header = () => {
                           My Profile
                         </Link>
                         
-                        {/* Show user dashboard for regular users - check both ways to determine role */}
-                        {(currentUser.role === 'customer' || 
-                          (!currentUser.role && !currentUser.isAdmin && !currentUser.isRestaurantOwner && !currentUser.isDeliveryRider)) && (
+                        {/* Conditional Dashboard Link */}
+                        {currentUser.role === 'customer' && (
                           <Link 
                             to="/user/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
@@ -238,8 +240,45 @@ const Header = () => {
                           </Link>
                         )}
                         
+                        {/* Conditional Restaurant Dashboard Link */}
+                        {currentUser.role === 'restaurantOwner' && (
+                          <Link 
+                            to="/restaurant/dashboard" 
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                            onClick={() => setShowUserDropdown(false)}
+                          >
+                            <FaUtensils className="w-4 h-4 mr-2" />
+                            Restaurant Dashboard
+                          </Link>
+                        )}
+
+                        {/* Conditional Delivery Dashboard Link */}
+                        {currentUser.role === 'deliveryRider' && (
+                          <Link 
+                            to="/delivery/dashboard" 
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                            onClick={() => setShowUserDropdown(false)}
+                          >
+                            <RiDashboardLine className="w-4 h-4 mr-2" />
+                            Delivery Dashboard
+                          </Link>
+                        )}
+
+                        {/* Conditional Admin Dashboard Link */}
+                        {currentUser.role === 'admin' && (
+                          <Link 
+                            to="/admin/dashboard" 
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                            onClick={() => setShowUserDropdown(false)}
+                          >
+                            <RiDashboardLine className="w-4 h-4 mr-2" />
+                            Admin Dashboard
+                          </Link>
+                        )}
+
+                        {/* Settings Link (visible to all logged-in users) */}
                         <Link 
-                          to="/user/settings" 
+                          to={currentUser.role === 'customer' ? "/user/settings" : "/profile"} // Redirect non-customers to profile as placeholder
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
                           onClick={() => setShowUserDropdown(false)}
                         >
@@ -247,34 +286,6 @@ const Header = () => {
                           Settings
                         </Link>
                       </div>
-                      
-                      {/* Admin and Restaurant Owner sections - check both ways to determine role */}
-                      {((currentUser.role === 'admin' || currentUser.isAdmin) || 
-                         (currentUser.role === 'restaurantOwner' || currentUser.isRestaurantOwner)) && (
-                        <div className="py-1 border-t border-gray-100">
-                          {(currentUser.role === 'admin' || currentUser.isAdmin) && (
-                            <Link 
-                              to="/admin/dashboard" 
-                              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
-                              onClick={() => setShowUserDropdown(false)}
-                            >
-                              <RiDashboardLine className="w-4 h-4 mr-2" />
-                              Admin Dashboard
-                            </Link>
-                          )}
-                          
-                          {(currentUser.role === 'restaurantOwner' || currentUser.isRestaurantOwner) && (
-                            <Link 
-                              to="/restaurant/dashboard" 
-                              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
-                              onClick={() => setShowUserDropdown(false)}
-                            >
-                              <FaUtensils className="w-4 h-4 mr-2" />
-                              Restaurant Dashboard
-                            </Link>
-                          )}
-                        </div>
-                      )}
                       
                       <div className="py-1 border-t border-gray-100">
                         <button 
@@ -319,7 +330,7 @@ const Header = () => {
         </Container>
       </header>
       
-      <Navigation />
+      <Navigation links={navLinks} />
     </div>
   );
 }
