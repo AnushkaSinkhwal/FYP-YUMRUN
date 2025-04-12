@@ -126,7 +126,6 @@ const Header = () => {
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Restaurants", path: "/restaurants" },
-    { name: "Shop", path: "/cat/shop" }, // Added Shop link
     { name: "Menu", path: "/menu" }, 
     { name: "About Us", path: "/about" },
     { name: "Contact", path: "/contact" },
@@ -241,7 +240,7 @@ const Header = () => {
                         )}
                         
                         {/* Conditional Restaurant Dashboard Link */}
-                        {currentUser.role === 'restaurantOwner' && (
+                        {currentUser.role === 'restaurant' && (
                           <Link 
                             to="/restaurant/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 

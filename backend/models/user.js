@@ -183,7 +183,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['customer', 'restaurantOwner', 'deliveryRider', 'admin'],
+        enum: ['customer', 'restaurant', 'deliveryRider', 'admin'],
         default: 'customer'
     },
     healthCondition: {
@@ -225,6 +225,26 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    loyaltyTier: {
+        type: String,
+        enum: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'],
+        default: 'BRONZE'
+    },
+    // Track accumulated lifetime points (never decreases)
+    lifetimeLoyaltyPoints: {
+        type: Number,
+        default: 0
+    },
+    // Track when loyalty tier was last updated
+    tierUpdateDate: {
+        type: Date,
+        default: Date.now
+    },
+    // Reference to loyalty transactions
+    loyaltyTransactions: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'LoyaltyTransaction'
+    }],
     orderHistory: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order'
@@ -232,7 +252,7 @@ const userSchema = new mongoose.Schema({
     restaurantDetails: {
         type: restaurantDetailsSchema,
         required: function() {
-            return this.role === 'restaurantOwner';
+            return this.role === 'restaurant';
         }
     },
     deliveryRiderDetails: {

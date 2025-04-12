@@ -151,6 +151,33 @@ const orderSchema = new mongoose.Schema({
     enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED'],
     default: 'PENDING'
   },
+  paymentDetails: {
+    provider: {
+      type: String,
+      enum: ['khalti', 'esewa', 'cash', 'card'],
+      default: 'cash'
+    },
+    status: {
+      type: String,
+      enum: ['initiated', 'completed', 'failed', 'pending', 'refunded'],
+      default: 'pending'
+    },
+    sessionId: String,
+    transaction_id: String,
+    initiatedAt: Date,
+    verifiedAt: Date,
+    metadata: {
+      type: Object,
+      default: {}
+    }
+  },
+  isPaid: {
+    type: Boolean,
+    default: false
+  },
+  paidAt: {
+    type: Date
+  },
   deliveryAddress: {
     street: String,
     city: String,

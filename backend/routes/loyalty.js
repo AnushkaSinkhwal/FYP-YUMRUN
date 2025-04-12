@@ -1,21 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/authMiddleware');
 const loyaltyController = require('../controllers/loyaltyController');
 
-// GET user loyalty points
-router.get('/user/:userId', auth, loyaltyController.getUserPoints);
+// Get user's loyalty information with tier benefits
+router.get('/info', protect, loyaltyController.getLoyaltyInfo);
 
-// POST add loyalty points
-router.post('/add', auth, loyaltyController.addPoints);
+// Get user's transaction history with pagination
+router.get('/transactions', protect, loyaltyController.getLoyaltyTransactions);
 
-// POST redeem loyalty points
-router.post('/redeem', auth, loyaltyController.redeemPoints);
+// Add points from completed order
+router.post('/earn', protect, loyaltyController.addOrderPoints);
 
-// GET loyalty history for user
-router.get('/history/:userId', auth, loyaltyController.getPointsHistory);
+// Redeem points for rewards
+router.post('/redeem', protect, loyaltyController.redeemPoints);
 
-// GET available rewards
-router.get('/rewards', loyaltyController.getAvailableRewards);
+// Admin endpoint to adjust user points (admin only)
+router.post('/adjust', 
+  protect, 
+  authorize('admin'), 
+  loyaltyController.adjustPoints
+);
+
+// Process expired points (admin/system only)
+router.post('/process-expired', 
+  protect, 
+  authorize('admin'), 
+  loyaltyController.processExpiredPoints
+);
 
 module.exports = router; 

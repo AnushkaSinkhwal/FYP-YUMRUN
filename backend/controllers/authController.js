@@ -94,7 +94,7 @@ exports.login = async (req, res) => {
 // Register new user
 exports.register = async (req, res) => {
     try {
-        const { name, email, phone, password, healthCondition } = req.body;
+        const { name, email, phone, password, healthCondition, role, restaurantName, restaurantAddress, restaurantDescription, panNumber } = req.body;
         
         // Validate input
         if (!name || !email || !phone || !password) {
@@ -120,19 +120,63 @@ exports.register = async (req, res) => {
             });
         }
         
-        // Create new user (regular user, not admin)
+        // Set user roles based on role parameter
+        let isAdmin = false;
+        let isRestaurantOwner = false;
+        let isDeliveryStaff = false;
+        
+        if (role === 'restaurant') {
+            isRestaurantOwner = true;
+            // Additional validation for restaurant owner
+            if (!restaurantName || !restaurantAddress || !restaurantDescription) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Restaurant details are required',
+                        code: 'VALIDATION_ERROR'
+                    }
+                });
+            }
+        } else if (role === 'deliveryRider') {
+            isDeliveryStaff = true;
+        } else if (role === 'admin') {
+            isAdmin = true;
+        }
+        
+        // Create new user
         const user = new User({
             name,
             email,
             phone,
             password,
             healthCondition: healthCondition || 'Healthy',
-            isAdmin: false,
-            isRestaurantOwner: false,
-            isDeliveryStaff: false
+            isAdmin,
+            isRestaurantOwner,
+            isDeliveryStaff
         });
         
         await user.save();
+        
+        // If registering as restaurant owner, create restaurant entry (not approved by default)
+        if (isRestaurantOwner) {
+            try {
+                const Restaurant = require('../models/restaurant').Restaurant;
+                const newRestaurant = new Restaurant({
+                    name: restaurantName,
+                    location: restaurantAddress,
+                    description: restaurantDescription,
+                    owner: user._id,
+                    isApproved: false, // Not approved by default
+                });
+                
+                await newRestaurant.save();
+                console.log(`Restaurant created for user ${user._id} (awaiting approval)`);
+            } catch (restaurantError) {
+                console.error('Error creating restaurant:', restaurantError);
+                // Continue with registration even if restaurant creation fails
+                // We'll handle this case separately
+            }
+        }
         
         // Generate JWT token
         const token = generateToken(user);

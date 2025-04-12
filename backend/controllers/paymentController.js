@@ -2,6 +2,8 @@ const axios = require('axios');
 const { Order } = require('../models/order');
 const Payment = require('../models/payment');
 const { isValidObjectId } = require('mongoose');
+const asyncHandler = require('../middleware/asyncHandler');
+const ErrorResponse = require('../utils/errorResponse');
 
 // Khalti API configuration
 const KHALTI_API = {
@@ -9,203 +11,233 @@ const KHALTI_API = {
   secretKey: process.env.KHALTI_SECRET_KEY
 };
 
-// Initiate payment with Khalti
-exports.initiateKhaltiPayment = async (req, res) => {
+/**
+ * Initiate Khalti payment
+ * @route POST /api/payment/khalti/initiate
+ * @access Private
+ */
+exports.initiateKhaltiPayment = asyncHandler(async (req, res) => {
+  const { amount, orderId, returnUrl } = req.body;
+  const userId = req.user._id;
+  
+  if (!amount || !orderId) {
+    throw new ErrorResponse('Amount and order ID are required', 400);
+  }
+  
+  // Find the order
+  const order = await Order.findById(orderId);
+  if (!order) {
+    throw new ErrorResponse('Order not found', 404);
+  }
+  
+  // Validate that the order belongs to the user
+  if (order.userId.toString() !== userId.toString()) {
+    throw new ErrorResponse('Unauthorized', 403);
+  }
+  
   try {
-    const { orderId, returnUrl, amount } = req.body;
-    
-    if (!orderId || !returnUrl || !amount) {
-      return res.status(400).json({ success: false, message: 'Missing required information' });
-    }
-    
-    if (!isValidObjectId(orderId)) {
-      return res.status(400).json({ success: false, message: 'Invalid order ID' });
-    }
-
-    // Find the order and verify it belongs to the user
-    const order = await Order.findOne({ _id: orderId, user: req.user.id });
-    
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-    
-    if (order.status !== 'Pending') {
-      return res.status(400).json({ success: false, message: 'Order is not in pending state' });
-    }
-
-    // Check if payment already initiated
-    const existingPayment = await Payment.findOne({ orderId });
-    if (existingPayment && existingPayment.status !== 'FAILED') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Payment already initiated for this order',
-        paymentId: existingPayment._id
-      });
-    }
-    
-    // Prepare payment data for Khalti
-    const payload = {
-      return_url: returnUrl,
-      website_url: process.env.WEBSITE_URL || 'https://yumrun.com',
-      amount: amount * 100, // Khalti expects amount in paisa
-      purchase_order_id: orderId.toString(),
-      purchase_order_name: `YumRun Order #${orderId}`,
+    // Prepare data for Khalti API
+    const khaltiData = {
+      return_url: returnUrl || `${process.env.FRONTEND_URL}/payment/verify`,
+      website_url: process.env.FRONTEND_URL,
+      amount: Math.round(amount * 100), // Convert to paisa (Khalti uses smallest currency unit)
+      purchase_order_id: orderId,
+      purchase_order_name: `Order #${orderId}`,
       customer_info: {
-        name: req.user.name,
+        name: req.user.fullName,
         email: req.user.email,
-        phone: req.user.phone || ''
+        phone: req.user.phone
       }
     };
     
-    // Make API call to Khalti to initiate payment
-    const response = await axios.post(
-      `${KHALTI_API.baseUrl}/epayment/initiate/`, 
-      payload,
+    // Call Khalti API to initialize payment
+    const khaltiResponse = await axios.post(
+      'https://a.khalti.com/api/v2/epayment/initiate/',
+      khaltiData,
       {
         headers: {
-          'Authorization': `Key ${KHALTI_API.secretKey}`,
+          'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
           'Content-Type': 'application/json'
         }
       }
     );
     
-    if (response.data && response.data.payment_url) {
-      // Create a new payment record
-      const payment = new Payment({
-        userId: req.user.id,
-        orderId: orderId,
-        amount: amount,
-        paymentMethod: 'KHALTI',
-        status: 'INITIATED',
-        transactionDetails: {
-          khaltiRef: response.data.pidx,
-          initiatedAt: new Date(),
-          paymentUrl: response.data.payment_url
-        }
-      });
-      
-      await payment.save();
-      
-      // Update order status
-      order.paymentMethod = 'Khalti';
-      await order.save();
-      
+    // Update order with payment information
+    order.paymentDetails = {
+      provider: 'khalti',
+      status: 'initiated',
+      sessionId: khaltiResponse.data.pidx,
+      initiatedAt: Date.now()
+    };
+    await order.save();
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        paymentUrl: khaltiResponse.data.payment_url,
+        pidx: khaltiResponse.data.pidx
+      }
+    });
+  } catch (error) {
+    console.error('Khalti API Error:', error.response?.data || error.message);
+    throw new ErrorResponse('Failed to initiate Khalti payment', 500);
+  }
+});
+
+/**
+ * Verify Khalti payment
+ * @route POST /api/payment/khalti/verify
+ * @access Private
+ */
+exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
+  const { pidx, orderId } = req.body;
+  
+  if (!pidx || !orderId) {
+    throw new ErrorResponse('Payment ID and order ID are required', 400);
+  }
+  
+  try {
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw new ErrorResponse('Order not found', 404);
+    }
+    
+    // Check if this payment has already been verified
+    if (order.paymentDetails?.status === 'completed') {
       return res.status(200).json({
         success: true,
-        paymentUrl: response.data.payment_url,
-        paymentId: payment._id
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to initiate payment with Khalti'
-      });
-    }
-  } catch (error) {
-    console.error('Khalti payment initiation error:', error.response?.data || error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to initiate payment',
-      error: error.response?.data?.detail || error.message
-    });
-  }
-};
-
-// Verify Khalti payment
-exports.verifyKhaltiPayment = async (req, res) => {
-  try {
-    const { paymentId, pidx } = req.body;
-    
-    if (!paymentId || !pidx) {
-      return res.status(400).json({ success: false, message: 'Missing payment ID or pidx' });
-    }
-    
-    if (!isValidObjectId(paymentId)) {
-      return res.status(400).json({ success: false, message: 'Invalid payment ID' });
-    }
-    
-    // Find the payment
-    const payment = await Payment.findById(paymentId);
-    if (!payment) {
-      return res.status(404).json({ success: false, message: 'Payment not found' });
-    }
-    
-    if (payment.userId.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-    
-    // Check if payment is already verified
-    if (payment.status === 'PAID') {
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Payment already verified',
-        payment
+        data: {
+          message: 'Payment already verified',
+          order
+        }
       });
     }
     
-    // Verify with Khalti
-    const response = await axios.post(
-      `${KHALTI_API.baseUrl}/epayment/lookup/`, 
+    // Verify payment with Khalti
+    const khaltiResponse = await axios.post(
+      'https://a.khalti.com/api/v2/epayment/lookup/',
       { pidx },
       {
         headers: {
-          'Authorization': `Key ${KHALTI_API.secretKey}`,
+          'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
           'Content-Type': 'application/json'
         }
       }
     );
     
-    // Update payment status based on Khalti response
-    if (response.data && response.data.status === 'Completed') {
-      payment.status = 'PAID';
-      payment.transactionDetails = {
-        ...payment.transactionDetails,
-        verifiedAt: new Date(),
-        khaltiStatus: response.data.status,
-        khaltiDetails: response.data
-      };
-      
-      await payment.save();
-      
-      // Update order status
-      const order = await Order.findById(payment.orderId);
-      if (order) {
-        order.paymentStatus = 'Paid';
-        order.status = 'Confirmed';
-        await order.save();
+    const paymentStatus = khaltiResponse.data.status;
+    
+    // Update order with payment status
+    order.paymentDetails = {
+      ...order.paymentDetails,
+      status: paymentStatus === 'Completed' ? 'completed' : 'failed',
+      transaction_id: khaltiResponse.data.transaction_id || null,
+      verifiedAt: Date.now()
+    };
+    
+    // If payment is successful, update order status
+    if (paymentStatus === 'Completed') {
+      order.status = 'paid';
+      order.isPaid = true;
+      order.paidAt = Date.now();
+    }
+    
+    await order.save();
+    
+    // Award loyalty points if payment is successful
+    if (paymentStatus === 'Completed') {
+      try {
+        const loyaltyController = require('./loyaltyController');
+        await loyaltyController.addOrderPoints({
+          body: {
+            orderId: order._id,
+            orderTotal: order.totalPrice
+          },
+          user: { _id: order.userId }
+        }, {
+          status: () => ({ json: () => {} })
+        });
+      } catch (error) {
+        console.error('Error awarding loyalty points:', error);
+        // Don't throw error here - payment is still successful
+      }
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        status: paymentStatus,
+        order
+      }
+    });
+  } catch (error) {
+    console.error('Khalti Verification Error:', error.response?.data || error.message);
+    throw new ErrorResponse('Failed to verify Khalti payment', 500);
+  }
+});
+
+/**
+ * Handle Khalti payment webhook
+ * @route POST /api/payment/khalti/webhook
+ * @access Public
+ */
+exports.khaltiWebhook = asyncHandler(async (req, res) => {
+  const { event, data } = req.body;
+  
+  // Validate webhook signature (implementation depends on Khalti requirements)
+  
+  // Process the event
+  if (event === 'payment_completed') {
+    const { pidx, transaction_id, purchase_order_id } = data;
+    
+    try {
+      // Find and update the order
+      const order = await Order.findById(purchase_order_id);
+      if (!order) {
+        return res.status(404).json({ success: false, message: 'Order not found' });
       }
       
-      return res.status(200).json({
-        success: true,
-        message: 'Payment verified successfully',
-        payment
-      });
-    } else {
-      payment.status = 'FAILED';
-      payment.transactionDetails = {
-        ...payment.transactionDetails,
-        verifiedAt: new Date(),
-        khaltiStatus: response.data?.status || 'Failed',
-        khaltiDetails: response.data
+      // Update order payment details
+      order.paymentDetails = {
+        provider: 'khalti',
+        status: 'completed',
+        sessionId: pidx,
+        transaction_id: transaction_id,
+        verifiedAt: Date.now()
       };
       
-      await payment.save();
+      // Update order status
+      order.status = 'paid';
+      order.isPaid = true;
+      order.paidAt = Date.now();
       
-      return res.status(400).json({
-        success: false,
-        message: 'Payment verification failed',
-        status: response.data?.status
-      });
+      await order.save();
+      
+      // Award loyalty points
+      try {
+        const loyaltyController = require('./loyaltyController');
+        await loyaltyController.addOrderPoints({
+          body: {
+            orderId: order._id,
+            orderTotal: order.totalPrice
+          },
+          user: { _id: order.userId }
+        }, {
+          status: () => ({ json: () => {} })
+        });
+      } catch (error) {
+        console.error('Error awarding loyalty points:', error);
+      }
+    } catch (error) {
+      console.error('Error processing Khalti webhook:', error);
+      return res.status(500).json({ success: false, message: 'Error processing webhook' });
     }
-  } catch (error) {
-    console.error('Khalti payment verification error:', error.response?.data || error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to verify payment',
-      error: error.response?.data?.detail || error.message
-    });
   }
-};
+  
+  // Acknowledge receipt of webhook
+  res.status(200).json({ received: true });
+});
 
 // Get payment status by order ID
 exports.getPaymentStatus = async (req, res) => {

@@ -22,92 +22,36 @@ const Restaurants = () => {
       setError(null);
       
       try {
-        // In a real app, this would include query params for filtering
+        // Fetch restaurants from the API
         const response = await axios.get('/api/restaurants');
-        if (response.data.success) {
-          setRestaurants(response.data.data || []);
+        console.log('Restaurant API response:', response.data);
+        
+        if (response.data.success && Array.isArray(response.data.data)) {
+          // Transform the API data to match our frontend format
+          const formattedRestaurants = response.data.data.map(restaurant => ({
+            id: restaurant._id || restaurant.id,
+            name: restaurant.name,
+            description: restaurant.description,
+            rating: restaurant.rating || 0,
+            totalReviews: restaurant.totalReviews || 0,
+            cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine[0] : restaurant.cuisine || 'Various',
+            priceRange: restaurant.priceRange || '',
+            deliveryTime: restaurant.deliveryTime || '',
+            image: restaurant.logo || restaurant.image || `/uploads/restaurants/default_restaurant.jpg`,
+            address: restaurant.location || restaurant.address || 'Address not available',
+            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : false
+          }));
+          
+          console.log('Formatted restaurants:', formattedRestaurants);
+          setRestaurants(formattedRestaurants);
         } else {
           setError(response.data.message || 'Failed to fetch restaurants');
+          setRestaurants([]);
         }
       } catch (err) {
         console.error('Error fetching restaurants:', err);
         setError('An error occurred while loading restaurants');
-        
-        // For demo purposes, set some mock data if API fails
-        setRestaurants([
-          {
-            id: 1,
-            name: 'Burger Kingdom',
-            rating: 4.5,
-            totalReviews: 120,
-            cuisine: 'Fast Food',
-            priceRange: '$$',
-            deliveryTime: '20-30 min',
-            image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '123 Main St, Foodie District',
-            isOpen: true
-          },
-          {
-            id: 2,
-            name: 'Pizza Paradise',
-            rating: 4.2,
-            totalReviews: 85,
-            cuisine: 'Italian',
-            priceRange: '$$',
-            deliveryTime: '25-35 min',
-            image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '456 Oak Avenue, Downtown',
-            isOpen: true
-          },
-          {
-            id: 3,
-            name: 'Sushi Supreme',
-            rating: 4.8,
-            totalReviews: 210,
-            cuisine: 'Japanese',
-            priceRange: '$$$',
-            deliveryTime: '30-40 min',
-            image: 'https://images.unsplash.com/photo-1563612116625-3012372fccce?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '789 Cherry Lane, Uptown',
-            isOpen: true
-          },
-          {
-            id: 4,
-            name: 'Taco Temple',
-            rating: 4.1,
-            totalReviews: 65,
-            cuisine: 'Mexican',
-            priceRange: '$',
-            deliveryTime: '15-25 min',
-            image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '101 Pine Street, West End',
-            isOpen: false
-          },
-          {
-            id: 5,
-            name: 'Curry Corner',
-            rating: 4.4,
-            totalReviews: 95,
-            cuisine: 'Indian',
-            priceRange: '$$',
-            deliveryTime: '35-45 min',
-            image: 'https://images.unsplash.com/photo-1585937421612-70a008356c36?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '202 Maple Drive, East Side',
-            isOpen: true
-          },
-          {
-            id: 6,
-            name: 'Noodle Nook',
-            rating: 4.3,
-            totalReviews: 78,
-            cuisine: 'Thai',
-            priceRange: '$$',
-            deliveryTime: '25-35 min',
-            image: 'https://images.unsplash.com/photo-1569562211093-4ed0d0758f12?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            address: '303 Cedar Road, North District',
-            isOpen: true
-          }
-        ]);
+        setRestaurants([]);
       } finally {
         setLoading(false);
       }
@@ -158,14 +102,17 @@ const Restaurants = () => {
     }));
   };
 
+  // Get unique cuisines from restaurants data
+  const availableCuisines = ['all', ...new Set(restaurants.map(r => r.cuisine).filter(Boolean))];
+
   return (
     <div className="py-10">
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-6 text-center">All Restaurants</h1>
+          <h1 className="mb-6 text-3xl font-bold text-center">All Restaurants</h1>
           
           {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="p-6 mb-8 bg-white rounded-lg shadow-md">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
               <div className="flex-1 mb-4 md:mb-0">
                 <div className="relative">
@@ -174,9 +121,9 @@ const Restaurants = () => {
                     placeholder="Search restaurants or cuisines..."
                     value={searchQuery}
                     onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
+                    className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
                   />
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <FaSearch className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                 </div>
               </div>
               
@@ -187,12 +134,9 @@ const Restaurants = () => {
                   className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
                 >
                   <option value="all">All Cuisines</option>
-                  <option value="Fast Food">Fast Food</option>
-                  <option value="Italian">Italian</option>
-                  <option value="Japanese">Japanese</option>
-                  <option value="Mexican">Mexican</option>
-                  <option value="Indian">Indian</option>
-                  <option value="Thai">Thai</option>
+                  {availableCuisines.filter(c => c !== 'all').map(cuisine => (
+                    <option key={cuisine} value={cuisine}>{cuisine}</option>
+                  ))}
                 </select>
                 
                 <select
@@ -226,15 +170,15 @@ const Restaurants = () => {
               <Spinner size="lg" />
             </div>
           ) : error ? (
-            <div className="bg-red-100 text-red-700 p-4 rounded-md mb-6">
+            <div className="p-4 mb-6 text-red-700 bg-red-100 rounded-md">
               {error}
             </div>
           ) : filteredRestaurants.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <FaUtensils className="mx-auto text-4xl text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Restaurants Found</h3>
-              <p className="text-gray-600 mb-4">
-                We couldn't find any restaurants matching your criteria.
+            <div className="p-8 text-center bg-white rounded-lg shadow-md">
+              <FaUtensils className="mx-auto mb-4 text-4xl text-gray-300" />
+              <h3 className="mb-2 text-xl font-semibold">No Restaurants Found</h3>
+              <p className="mb-4 text-gray-600">
+                We couldn&apos;t find any restaurants matching your criteria.
               </p>
               <Button
                 onClick={() => {
@@ -254,7 +198,7 @@ const Restaurants = () => {
                       <img 
                         src={restaurant.image} 
                         alt={restaurant.name} 
-                        className="w-full h-48 object-cover"
+                        className="object-cover w-full h-48"
                       />
                       <div className="absolute top-0 right-0 m-2">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
@@ -264,30 +208,32 @@ const Restaurants = () => {
                     </div>
                     
                     <div className="p-4">
-                      <h3 className="text-lg font-semibold mb-1 text-gray-800">{restaurant.name}</h3>
+                      <h3 className="mb-1 text-lg font-semibold text-gray-800">{restaurant.name}</h3>
                       
                       <div className="flex items-center mb-2">
                         <div className="flex items-center mr-2">
-                          <FaStar className="text-yellow-500 mr-1" />
+                          <FaStar className="mr-1 text-yellow-500" />
                           <span className="text-sm font-medium">{restaurant.rating}</span>
                         </div>
                         <span className="text-sm text-gray-500">({restaurant.totalReviews} reviews)</span>
                       </div>
                       
-                      <div className="flex items-center text-sm text-gray-600 mb-2">
+                      <div className="flex items-center mb-2 text-sm text-gray-600">
                         <FaMapMarkerAlt className="mr-1 text-gray-400" />
                         <span className="truncate">{restaurant.address}</span>
                       </div>
                       
                       <div className="flex items-center justify-between mt-3">
-                        <span className="text-sm bg-gray-100 px-2 py-1 rounded">{restaurant.cuisine}</span>
+                        <span className="px-2 py-1 text-sm bg-gray-100 rounded">{restaurant.cuisine}</span>
                         <span className="text-sm font-medium">{restaurant.priceRange}</span>
                       </div>
                       
-                      <div className="flex items-center mt-3 text-sm text-gray-600">
-                        <FaClock className="mr-1 text-gray-400" />
-                        <span>Delivery: {restaurant.deliveryTime}</span>
-                      </div>
+                      {restaurant.deliveryTime && (
+                        <div className="flex items-center mt-3 text-sm text-gray-600">
+                          <FaClock className="mr-1 text-gray-400" />
+                          <span>Delivery: {restaurant.deliveryTime}</span>
+                        </div>
+                      )}
                     </div>
                   </Link>
                 </div>

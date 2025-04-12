@@ -1,18 +1,48 @@
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middleware/auth');
 const nutritionController = require('../controllers/nutritionController');
+const { protect } = require('../middleware/authMiddleware');
 
-// GET nutritional info for a food item
+/**
+ * @route   GET /api/nutrition/food/:id
+ * @desc    Get nutritional info for a specific food item
+ * @access  Public
+ */
 router.get('/food/:id', nutritionController.getFoodNutrition);
 
-// POST analyze ingredients for nutritional value
-router.post('/analyze', auth, nutritionController.analyzeIngredients);
+/**
+ * @route   POST /api/nutrition/analyze
+ * @desc    Analyze nutrition for custom ingredients
+ * @access  Public
+ */
+router.post('/analyze', nutritionController.analyzeIngredients);
 
-// GET nutritional info for a meal (combination of items)
+/**
+ * @route   GET /api/nutrition/meal/:id
+ * @desc    Get nutritional info for a meal (combination of menu items)
+ * @access  Public
+ */
 router.get('/meal/:id', nutritionController.getMealNutrition);
 
-// POST calculate nutritional value for custom meal
-router.post('/calculate', auth, nutritionController.calculateCustomMealNutrition);
+/**
+ * @route   POST /api/nutrition/calculate
+ * @desc    Calculate nutrition for custom meal
+ * @access  Public
+ */
+router.post('/calculate', nutritionController.calculateCustomMealNutrition);
+
+/**
+ * @route   GET /api/nutrition/user/daily
+ * @desc    Get user's daily nutritional summary based on orders
+ * @access  Private
+ */
+router.get('/user/daily', protect, nutritionController.getUserDailyNutrition);
+
+/**
+ * @route   GET /api/nutrition/user/weekly
+ * @desc    Get user's weekly nutritional summary
+ * @access  Private
+ */
+router.get('/user/weekly', protect, nutritionController.getUserWeeklyNutrition);
 
 module.exports = router; 

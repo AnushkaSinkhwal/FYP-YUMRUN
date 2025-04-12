@@ -1,5 +1,7 @@
 const { MenuItem } = require('../models/menuItem');
 const mongoose = require('mongoose');
+const { Order } = require('../models/order');
+const { User } = require('../models/user');
 
 // Get nutritional info for a food item
 exports.getFoodNutrition = async (req, res) => {
@@ -283,4 +285,237 @@ exports.calculateCustomMealNutrition = async (req, res) => {
             error: error.message
         });
     }
+};
+
+// Get user's daily nutritional summary based on orders
+exports.getUserDailyNutrition = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { date } = req.query;
+    
+    // Default to today if no date provided
+    const targetDate = date ? new Date(date) : new Date();
+    
+    // Set time to start of day
+    targetDate.setHours(0, 0, 0, 0);
+    
+    // Set time to end of day for query
+    const endDate = new Date(targetDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Find orders for this user on the target date
+    const orders = await Order.find({
+      userId,
+      createdAt: { $gte: targetDate, $lte: endDate },
+      status: { $nin: ['CANCELLED'] }
+    });
+    
+    // Initialize nutrition totals
+    const nutritionTotals = {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      sodium: 0,
+      fiber: 0,
+      sugar: 0,
+      meals: []
+    };
+    
+    // Calculate total nutrition from all orders
+    orders.forEach(order => {
+      if (order.totalNutritionalInfo) {
+        nutritionTotals.calories += order.totalNutritionalInfo.calories || 0;
+        nutritionTotals.protein += order.totalNutritionalInfo.protein || 0;
+        nutritionTotals.carbs += order.totalNutritionalInfo.carbs || 0;
+        nutritionTotals.fat += order.totalNutritionalInfo.fat || 0;
+        nutritionTotals.sodium += order.totalNutritionalInfo.sodium || 0;
+        nutritionTotals.fiber += order.totalNutritionalInfo.fiber || 0;
+        nutritionTotals.sugar += order.totalNutritionalInfo.sugar || 0;
+      }
+      
+      // Add meal info
+      nutritionTotals.meals.push({
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        time: order.createdAt,
+        nutritionalInfo: order.totalNutritionalInfo
+      });
+    });
+    
+    // Get user's health profile for calculating percentages of daily goals
+    const user = await User.findById(userId);
+    let dailyGoals = null;
+    
+    if (user && user.healthProfile && user.healthProfile.dailyCalorieGoal) {
+      const { dailyCalorieGoal, macroTargets } = user.healthProfile;
+      
+      dailyGoals = {
+        calories: dailyCalorieGoal,
+        protein: (dailyCalorieGoal * (macroTargets.protein / 100)) / 4, // Protein has 4 calories per gram
+        carbs: (dailyCalorieGoal * (macroTargets.carbs / 100)) / 4, // Carbs have 4 calories per gram
+        fat: (dailyCalorieGoal * (macroTargets.fat / 100)) / 9, // Fat has 9 calories per gram
+        sodium: 2300, // Default recommendation in mg
+        fiber: 28, // Default recommendation in grams
+        sugar: 50 // Default recommendation in grams
+      };
+    }
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        date: targetDate,
+        nutritionTotals,
+        dailyGoals,
+        percentageOfGoals: dailyGoals ? {
+          calories: Math.round((nutritionTotals.calories / dailyGoals.calories) * 100),
+          protein: Math.round((nutritionTotals.protein / dailyGoals.protein) * 100),
+          carbs: Math.round((nutritionTotals.carbs / dailyGoals.carbs) * 100),
+          fat: Math.round((nutritionTotals.fat / dailyGoals.fat) * 100),
+          sodium: Math.round((nutritionTotals.sodium / dailyGoals.sodium) * 100),
+          fiber: Math.round((nutritionTotals.fiber / dailyGoals.fiber) * 100),
+          sugar: Math.round((nutritionTotals.sugar / dailyGoals.sugar) * 100)
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user daily nutrition:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching daily nutrition data',
+      error: error.message
+    });
+  }
+};
+
+// Get user's weekly nutritional summary
+exports.getUserWeeklyNutrition = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { startDate } = req.query;
+    
+    // Default to start of current week if no date provided
+    const now = new Date();
+    let targetStartDate;
+    
+    if (startDate) {
+      targetStartDate = new Date(startDate);
+    } else {
+      // Get start of current week (Sunday)
+      targetStartDate = new Date(now);
+      targetStartDate.setDate(now.getDate() - now.getDay());
+    }
+    
+    // Set time to start of day
+    targetStartDate.setHours(0, 0, 0, 0);
+    
+    // Calculate end date (7 days from start date)
+    const targetEndDate = new Date(targetStartDate);
+    targetEndDate.setDate(targetStartDate.getDate() + 7);
+    targetEndDate.setHours(23, 59, 59, 999);
+    
+    // Find orders for this user within the date range
+    const orders = await Order.find({
+      userId,
+      createdAt: { $gte: targetStartDate, $lte: targetEndDate },
+      status: { $nin: ['CANCELLED'] }
+    }).sort({ createdAt: 1 });
+    
+    // Prepare daily data for each day in the week
+    const dailyData = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(targetStartDate);
+      day.setDate(targetStartDate.getDate() + i);
+      
+      // Start and end of this day
+      const dayStart = new Date(day);
+      dayStart.setHours(0, 0, 0, 0);
+      
+      const dayEnd = new Date(day);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      // Filter orders for this day
+      const dayOrders = orders.filter(order => 
+        order.createdAt >= dayStart && order.createdAt <= dayEnd
+      );
+      
+      // Calculate nutrition totals for this day
+      const dayNutrition = {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        sodium: 0,
+        fiber: 0,
+        sugar: 0
+      };
+      
+      dayOrders.forEach(order => {
+        if (order.totalNutritionalInfo) {
+          dayNutrition.calories += order.totalNutritionalInfo.calories || 0;
+          dayNutrition.protein += order.totalNutritionalInfo.protein || 0;
+          dayNutrition.carbs += order.totalNutritionalInfo.carbs || 0;
+          dayNutrition.fat += order.totalNutritionalInfo.fat || 0;
+          dayNutrition.sodium += order.totalNutritionalInfo.sodium || 0;
+          dayNutrition.fiber += order.totalNutritionalInfo.fiber || 0;
+          dayNutrition.sugar += order.totalNutritionalInfo.sugar || 0;
+        }
+      });
+      
+      dailyData.push({
+        date: day,
+        orderCount: dayOrders.length,
+        nutrition: dayNutrition
+      });
+    }
+    
+    // Calculate week totals
+    const weekTotals = dailyData.reduce((totals, day) => {
+      totals.calories += day.nutrition.calories;
+      totals.protein += day.nutrition.protein;
+      totals.carbs += day.nutrition.carbs;
+      totals.fat += day.nutrition.fat;
+      totals.sodium += day.nutrition.sodium;
+      totals.fiber += day.nutrition.fiber;
+      totals.sugar += day.nutrition.sugar;
+      return totals;
+    }, {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      sodium: 0,
+      fiber: 0,
+      sugar: 0
+    });
+    
+    // Calculate daily averages
+    const dailyAverage = {
+      calories: Math.round(weekTotals.calories / 7),
+      protein: Math.round(weekTotals.protein / 7),
+      carbs: Math.round(weekTotals.carbs / 7),
+      fat: Math.round(weekTotals.fat / 7),
+      sodium: Math.round(weekTotals.sodium / 7),
+      fiber: Math.round(weekTotals.fiber / 7),
+      sugar: Math.round(weekTotals.sugar / 7)
+    };
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        startDate: targetStartDate,
+        endDate: targetEndDate,
+        dailyData,
+        weekTotals,
+        dailyAverage
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user weekly nutrition:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching weekly nutrition data',
+      error: error.message
+    });
+  }
 }; 

@@ -2,8 +2,7 @@ import HomeBanner from "../../components/HomeBanner";
 import banner1 from "../../assets/images/banner1.jpg";
 import banner2 from "../../assets/images/banner2.jpg";
 import banner5 from "../../assets/images/banner5.jpg";
-import { FaLongArrowAltRight, FaHeartbeat, FaLeaf, FaSeedling } from "react-icons/fa";
-import { GiWheat } from "react-icons/gi";
+import { FaLongArrowAltRight } from "react-icons/fa";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -16,14 +15,21 @@ import { useEffect, useState, useRef } from 'react';
 import { Container, Button, Alert, Spinner, Card } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt } from "react-icons/fa";
+import { publicAPI } from "../../utils/api";
+import { ArrowPathIcon as RefreshIcon, InformationCircleIcon, NoSymbolIcon as BanIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+
+// Function to format health condition for display
+const formatHealthCondition = (condition) => {
+    if (!condition) return '';
+    return condition.charAt(0).toUpperCase() + condition.slice(1);
+};
 
 const Home = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const [isLoaded, setIsLoaded] = useState(false);
     const [healthRecommendations, setHealthRecommendations] = useState([]);
     const [loadingRecs, setLoadingRecs] = useState(false);
-    const [recsError, setRecsError] = useState(null);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [newProducts, setNewProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
@@ -32,15 +38,19 @@ const Home = () => {
     const [loadingRestaurants, setLoadingRestaurants] = useState(true);
     const [restaurantsError, setRestaurantsError] = useState(null);
     
-    const { user } = useAuth();
+    const { currentUser } = useAuth();
     const navigate = useNavigate();
     
     const bestSellersRef = useRef(null);
     const newProductsRef = useRef(null);
-    const healthRecsRef = useRef(null);
     const bannersRef = useRef(null);
     const newsletterRef = useRef(null);
     const featuredRestaurantsRef = useRef(null);
+
+    // Default fallback image for food items
+    const defaultFoodImage = "https://source.unsplash.com/random/300x200/?food";
+    // Default fallback image for restaurants
+    const defaultRestaurantImage = "https://source.unsplash.com/random/600x400/?restaurant";
 
     // Handle window resize for responsive design
     useEffect(() => {
@@ -93,15 +103,14 @@ const Home = () => {
 
     // Fetch health-focused recommendations based on user's health condition
     useEffect(() => {
-        if (user && user.healthCondition) {
-            fetchHealthRecommendations(user.healthCondition);
+        if (currentUser && currentUser.healthCondition) {
+            fetchHealthRecommendations(currentUser.healthCondition);
         }
-    }, [user]);
+    }, [currentUser]);
 
     // Function to fetch health recommendations
     const fetchHealthRecommendations = async (healthCondition) => {
         setLoadingRecs(true);
-        setRecsError(null);
         
         try {
             // This would be a real API call in production
@@ -123,7 +132,6 @@ const Home = () => {
             }
         } catch (error) {
             console.error('Error fetching health recommendations:', error);
-            setRecsError('Unable to load recommendations. Please try again later.');
             // Fallback to mock data for demo purposes
             await mockFetchRecommendations(healthCondition);
         } finally {
@@ -414,77 +422,72 @@ const Home = () => {
     // Fetch featured restaurants
     useEffect(() => {
         const fetchRestaurants = async () => {
-            try {
-                setLoadingRestaurants(true);
-                setRestaurantsError(null);
-                
-                // Sample restaurants data to use as fallback
-                const sampleRestaurants = [
-                    {
-                        id: 'rest1',
-                        name: 'The Green Garden',
-                        rating: 4.8,
-                        cuisine: ['Vegetarian', 'Healthy', 'Organic'],
-                        address: '123 Green St, Kathmandu',
-                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,vegetarian'
-                    },
-                    {
-                        id: 'rest2',
-                        name: 'Spice House',
-                        rating: 4.5,
-                        cuisine: ['Indian', 'Spicy', 'Curry'],
-                        address: '456 Spice Ave, Kathmandu',
-                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,indian'
-                    },
-                    {
-                        id: 'rest3',
-                        name: 'Burger Palace',
-                        rating: 4.2,
-                        cuisine: ['Fast Food', 'Burgers', 'American'],
-                        address: '789 Fast Blvd, Kathmandu',
-                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,burger'
-                    },
-                    {
-                        id: 'rest4',
-                        name: 'Sushi Express',
-                        rating: 4.7,
-                        cuisine: ['Japanese', 'Sushi', 'Asian'],
-                        address: '101 Ocean Dr, Kathmandu',
-                        coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,sushi'
-                    }
-                ];
-                
-                try {
-                    const response = await fetch('/api/restaurants/featured');
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-                            setFeaturedRestaurants(data.data);
-                            setLoadingRestaurants(false);
-                            return;
-                        }
-                    }
-                    
-                    // If we get here, either the response wasn't OK or the data was invalid
-                    throw new Error('Failed to fetch restaurants');
-                } catch (error) {
-                    console.error('Error fetching restaurants:', error);
-                    // Don't set error message in state if we're going to use fallback data
-                    // setRestaurantsError('Failed to load featured restaurants');
-                    
-                    // Use fallback data instead
-                    console.log('Using sample restaurant data as fallback');
-                    setFeaturedRestaurants(sampleRestaurants);
+            setLoadingRestaurants(true);
+            setRestaurantsError(null);
+            
+            // Sample restaurants data to use as fallback in case of error
+            const sampleRestaurants = [
+                {
+                    id: 'rest1',
+                    name: 'The Green Garden',
+                    rating: 4.8,
+                    cuisine: ['Vegetarian', 'Healthy', 'Organic'],
+                    address: '123 Green St, Kathmandu',
+                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,vegetarian'
+                },
+                {
+                    id: 'rest2',
+                    name: 'Spice House',
+                    rating: 4.5,
+                    cuisine: ['Indian', 'Spicy', 'Curry'],
+                    address: '456 Spice Ave, Kathmandu',
+                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,indian'
+                },
+                {
+                    id: 'rest3',
+                    name: 'Burger Palace',
+                    rating: 4.2,
+                    cuisine: ['Fast Food', 'Burgers', 'American'],
+                    address: '789 Fast Blvd, Kathmandu',
+                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,burger'
+                },
+                {
+                    id: 'rest4',
+                    name: 'Sushi Express',
+                    rating: 4.7,
+                    cuisine: ['Japanese', 'Sushi', 'Asian'],
+                    address: '101 Ocean Dr, Kathmandu',
+                    coverImage: 'https://source.unsplash.com/random/600x400/?restaurant,sushi'
                 }
+            ];
+            
+            try {
+                // Use publicAPI from api.js
+                const response = await publicAPI.getFeaturedRestaurants();
+                
+                if (response.data.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
+                    setFeaturedRestaurants(response.data.data);
+                } else {
+                    // Handle cases where API returns success:true but empty data
+                    console.log('No featured restaurants returned from API.');
+                    setFeaturedRestaurants([]); // Show empty state instead of fallback
+                    // Optionally set an info message instead of error
+                    // setRestaurantsError('No featured restaurants currently available.');
+                }
+            } catch (error) {
+                console.error('Error fetching restaurants:', error);
+                // Set the error message for the UI
+                setRestaurantsError('Failed to load featured restaurants. Displaying samples.'); 
+                // Use fallback data only if the fetch truly fails
+                console.log('Using sample restaurant data as fallback due to error.');
+                setFeaturedRestaurants(sampleRestaurants);
             } finally {
                 setLoadingRestaurants(false);
             }
         };
         
         fetchRestaurants();
-    }, []);
+    }, [currentUser]);
 
     // Determine number of slides based on screen width
     const getSlidesPerView = () => {
@@ -505,115 +508,100 @@ const Home = () => {
             <HomeCat/>
             
             {/* Health Recommendations Section (Conditional) */}
-            {user?.healthCondition && (
+            {currentUser?.healthCondition && (loadingRecs || healthRecommendations.length > 0) && (
                 <section className="py-10 bg-gradient-to-r from-green-50 to-blue-50">
                     <Container>
-                        <div 
-                            ref={healthRecsRef} 
-                            className="mb-8 opacity-0 transform translate-y-4 transition-all duration-700"
-                        >
-                            <div className="flex flex-wrap items-center justify-between mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <FaHeartbeat className="text-xl text-yumrun-primary" />
-                                        <h2 className="text-2xl font-bold text-gray-900">RECOMMENDATIONS FOR YOU</h2>
-                                    </div>
-                                    <p className="mt-1 text-gray-600">
-                                        {user?.healthCondition === "Healthy" 
-                                            ? "Nutritious options to maintain your healthy lifestyle" 
-                                            : `Special recommendations for ${user?.healthCondition}`}
-                                    </p>
-                                </div>
-                                
-                                <Button 
-                                    variant="outline"
-                                    className="flex items-center gap-2 mt-2 sm:mt-0"
-                                >
-                                    View All <FaLongArrowAltRight />
-                                </Button>
+                        <div className="flex flex-col items-start justify-between mb-6 md:flex-row md:items-center">
+                            <div>
+                                <h2 className="mb-2 text-2xl font-bold text-gray-800">Health Recommendations</h2>
+                                <p className="text-gray-600">Personalized for your health profile</p>
                             </div>
                             
-                            <Alert className="mb-6" variant="info">
-                                <div className="flex items-center gap-2">
-                                    {user?.healthCondition === "Diabetes" && <FaSeedling className="text-green-600" />}
-                                    {user?.healthCondition === "Heart Condition" && <FaHeartbeat className="text-red-600" />}
-                                    {user?.healthCondition === "Hypertension" && <FaLeaf className="text-green-600" />}
-                                    {user?.healthCondition === "Gluten Free" && <GiWheat className="text-amber-600" />}
-                                    These meals are tailored to your health profile. You indicated: <strong>{user?.healthCondition}</strong>
-                                </div>
-                            </Alert>
+                            <div>
+                                <Button onClick={() => fetchHealthRecommendations(currentUser.healthCondition)}>
+                                    <RefreshIcon className="w-4 h-4 mr-2" /> Refresh
+                                </Button>
+                            </div>
                         </div>
+
+                        <Alert type="info" className="mb-6">
+                            <div className="flex">
+                                <InformationCircleIcon className="w-5 h-5 mr-2 text-blue-400" />
+                                <div>
+                                    <span className="font-medium">Health insights:</span> These recommendations are based on your health condition: <span className="font-medium">{formatHealthCondition(currentUser.healthCondition)}</span>
+                                </div>
+                            </div>
+                        </Alert>
 
                         {loadingRecs ? (
                             <div className="flex justify-center py-10">
-                                <div className="flex flex-col items-center">
-                                    <Spinner size="lg" className="text-yumrun-primary" />
-                                    <p className="mt-4 text-gray-600">Loading recommendations...</p>
-                                </div>
+                                <Spinner size="lg" />
                             </div>
-                        ) : recsError ? (
-                            <Alert variant="error" className="mb-6">
-                                {recsError}
-                            </Alert>
                         ) : healthRecommendations.length > 0 ? (
-                            <div className="product-slider">
+                            <div>
                                 <Swiper
-                                    slidesPerView={getSlidesPerView()}
+                                    slidesPerView={1}
                                     spaceBetween={20}
-                                    pagination={{
-                                        clickable: true,
-                                        dynamicBullets: true,
+                                    pagination={{ clickable: true }}
+                                    breakpoints={{
+                                        640: { slidesPerView: 2 },
+                                        1024: { slidesPerView: 3 }
                                     }}
-                                    navigation={true}
-                                    modules={[Navigation, Pagination, Autoplay]}
-                                    autoplay={{
-                                        delay: 6000,
-                                        disableOnInteraction: false,
-                                    }}
-                                    className="product-swiper"
+                                    className="py-4"
                                 >
-                                    {healthRecommendations.map(item => (
-                                        <SwiperSlide key={item.id}>
-                                            <div className="overflow-hidden bg-white rounded-lg shadow-md">
-                                                <div className="relative pb-[56.25%] overflow-hidden">
-                                                    <img 
-                                                        src={item.image}
-                                                        alt={item.name}
-                                                        className="absolute top-0 left-0 object-cover w-full h-full"
-                                                        onError={(e) => {
-                                                            e.target.src = `https://source.unsplash.com/random/300x200/?healthy,${encodeURIComponent(item.name)}`;
-                                                        }}
-                                                    />
-                                                    <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                                        {item.healthTag}
-                                                    </span>
-                                                </div>
-                                                <div className="p-4">
-                                                    <h3 className="text-lg font-semibold text-gray-900 truncate">{item.name}</h3>
-                                                    <p className="mb-2 text-sm text-gray-500">{item.restaurant} · {item.location}</p>
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center">
-                                                            <span className="mr-1 text-yellow-400">★</span>
-                                                            <span className="text-sm font-medium">{item.rating}</span>
+                                    {healthRecommendations.map((rec, index) => (
+                                        <SwiperSlide key={index}>
+                                            <div className="flex flex-col h-full p-5 bg-white rounded-lg shadow-md">
+                                                <div className="mb-4">
+                                                    {rec.type === 'avoid' ? (
+                                                        <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                            <BanIcon className="w-3 h-3 mr-1" /> Avoid
                                                         </div>
-                                                        <span className="font-bold text-yumrun-primary">Rs. {item.price}</span>
-                                                    </div>
+                                                    ) : (
+                                                        <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            <CheckCircleIcon className="w-3 h-3 mr-1" /> Recommended
+                                                        </div>
+                                                    )}
                                                 </div>
+
+                                                {rec.image && (
+                                                    <div className="relative w-full h-32 mb-3 overflow-hidden rounded-md bg-gray-50">
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                                            <div className="w-8 h-8 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                                                        </div>
+                                                        <img 
+                                                            src={rec.image} 
+                                                            alt={rec.title || "Health recommendation"}
+                                                            className="object-cover w-full h-full transition-opacity duration-500"
+                                                            onLoad={(e) => e.target.parentElement.querySelector('div').classList.add('opacity-0')}
+                                                            onError={(e) => {
+                                                                e.target.src = defaultFoodImage;
+                                                                e.target.parentElement.querySelector('div').classList.add('opacity-0');
+                                                            }}
+                                                            loading="lazy"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <h3 className="mb-2 text-lg font-semibold">{rec.title}</h3>
+                                                <p className="flex-grow mb-4 text-sm text-gray-600">{rec.description}</p>
+                                                
+                                                {rec.productId && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => navigate(`/product/${rec.productId}`)}
+                                                        className="mt-auto"
+                                                    >
+                                                        View Product
+                                                    </Button>
+                                                )}
                                             </div>
                                         </SwiperSlide>
                                     ))}
                                 </Swiper>
                             </div>
-                        ) : (
-                            <div className="py-8 text-center">
-                                <p className="text-gray-600">No recommendations available for your health profile.</p>
-                                <p className="mt-2">
-                                    <Button variant="link" onClick={() => fetchHealthRecommendations(user.healthCondition)}>
-                                        Refresh
-                                    </Button>
-                                </p>
-                            </div>
-                        )}
+                        ) : null }
                     </Container>
                 </section>
             )}
@@ -634,6 +622,10 @@ const Home = () => {
                                             className="w-full h-auto transition-transform duration-500 hover:scale-105" 
                                             alt="Promotional Banner"
                                             loading="lazy"
+                                            onError={(e) => {
+                                                console.warn('Banner image failed to load, using fallback');
+                                                e.target.src = defaultFoodImage;
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -647,6 +639,10 @@ const Home = () => {
                                             className="w-full h-auto transition-transform duration-500 hover:scale-105" 
                                             alt="Promotional Banner"
                                             loading="lazy"
+                                            onError={(e) => {
+                                                console.warn('Banner image failed to load, using fallback');
+                                                e.target.src = defaultFoodImage;
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -660,6 +656,10 @@ const Home = () => {
                                             className="w-full h-auto transition-transform duration-500 hover:scale-105" 
                                             alt="Promotional Banner"
                                             loading="lazy"
+                                            onError={(e) => {
+                                                console.warn('Banner image failed to load, using fallback');
+                                                e.target.src = defaultFoodImage;
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -722,7 +722,7 @@ const Home = () => {
                                             ))}
                                         </Swiper>
                                     ) : (
-                                        <div className="text-center py-8">
+                                        <div className="py-8 text-center">
                                             <p className="text-gray-500">No featured dishes available</p>
                                         </div>
                                     )}
@@ -771,18 +771,18 @@ const Home = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-8">
+                                    <div className="py-8 text-center">
                                         <p className="text-gray-500">No new dishes available</p>
                                     </div>
                                 )}
                             </div>
                             
                             {/* Featured Restaurants Section */}
-                            <div ref={featuredRestaurantsRef}>
+                            <div ref={featuredRestaurantsRef} className="mt-12">
                                 <div className="flex flex-wrap items-center justify-between mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">FEATURED RESTAURANTS</h2>
-                                        <p className="text-gray-500">Top-rated restaurants in your area</p>
+                                        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">FEATURED RESTAURANTS</h2>
+                                        <p className="text-sm text-gray-500 sm:text-base">Top-rated restaurants in your area</p>
                                     </div>
 
                                     <Button 
@@ -796,8 +796,9 @@ const Home = () => {
 
                                 <div className="mb-12">
                                     {loadingRestaurants ? (
-                                        <div className="flex justify-center py-12">
-                                            <Spinner size="lg" />
+                                        <div className="flex flex-col items-center justify-center py-12">
+                                            <Spinner size="lg" className="text-yumrun-primary" />
+                                            <p className="mt-4 text-gray-600">Finding the best restaurants for you...</p>
                                         </div>
                                     ) : restaurantsError ? (
                                         <Alert variant="error" className="mb-4">
@@ -806,15 +807,25 @@ const Home = () => {
                                     ) : featuredRestaurants.length > 0 ? (
                                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                             {featuredRestaurants.map((restaurant) => (
-                                                <Card key={restaurant.id} className="overflow-hidden transition-shadow hover:shadow-md">
-                                                    <div className="relative h-40 bg-gray-200">
+                                                <Card 
+                                                    key={restaurant.id} 
+                                                    className="overflow-hidden transition-all duration-300 transform hover:shadow-md hover:-translate-y-1"
+                                                >
+                                                    <div className="relative h-40 bg-gray-100">
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                                            <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                                                        </div>
                                                         <img 
                                                             src={restaurant.coverImage || `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`} 
                                                             alt={restaurant.name}
-                                                            className="object-cover w-full h-full"
+                                                            className="object-cover w-full h-full transition-opacity duration-500"
+                                                            onLoad={(e) => e.target.parentElement.querySelector('div').classList.add('opacity-0')}
                                                             onError={(e) => {
-                                                                e.target.src = `https://source.unsplash.com/random/600x400/?restaurant,${encodeURIComponent(restaurant.name)}`;
+                                                                console.warn(`Restaurant image failed to load for ${restaurant.name}, using fallback`);
+                                                                e.target.src = defaultRestaurantImage;
+                                                                e.target.parentElement.querySelector('div').classList.add('opacity-0');
                                                             }}
+                                                            loading="lazy"
                                                         />
                                                     </div>
                                                     <div className="p-4">
@@ -849,8 +860,15 @@ const Home = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8">
-                                            <p className="text-gray-500">No featured restaurants available</p>
+                                        <div className="flex flex-col items-center justify-center py-8 text-center rounded-lg bg-gray-50">
+                                            <p className="text-gray-500">No featured restaurants available at this time.</p>
+                                            <Button 
+                                                variant="link" 
+                                                className="mt-2" 
+                                                onClick={() => navigate('/restaurants')}
+                                            >
+                                                Browse all restaurants
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -861,30 +879,35 @@ const Home = () => {
                     {/* Newsletter Subscription Section */}
                     <div 
                         ref={newsletterRef}
-                        className="px-6 py-10 mt-16 rounded-lg shadow-md md:px-10 bg-gradient-to-r from-yumrun-primary/90 to-yumrun-primary"
+                        className="px-6 py-8 mt-12 rounded-lg shadow-md md:px-10 md:py-10 bg-gradient-to-r from-yumrun-primary/90 to-yumrun-primary"
                     >
                         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
                             <div className="text-white md:w-1/2">
-                                <h2 className="mb-2 text-3xl font-bold">Subscribe to Our Newsletter</h2>
+                                <h2 className="mb-2 text-2xl font-bold md:text-3xl">Subscribe to Our Newsletter</h2>
                                 <p className="opacity-90">Stay updated with our latest offers, promotions, and food trends</p>
                             </div>
                             
                             <div className="w-full md:w-1/2">
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <div className="relative flex-grow">
-                                        <input 
-                                            type="email" 
-                                            placeholder="Your email address" 
-                                            className="w-full px-4 py-3 border-0 rounded-md focus:ring-2 focus:ring-white/50 focus:outline-none"
-                                        />
-                                        <IoIosMail className="absolute text-xl text-gray-400 transform -translate-y-1/2 right-3 top-1/2" />
+                                <form onSubmit={(e) => e.preventDefault()} className="w-full">
+                                    <div className="flex flex-col gap-3 sm:flex-row">
+                                        <div className="relative flex-grow">
+                                            <input 
+                                                type="email" 
+                                                placeholder="Your email address" 
+                                                className="w-full px-4 py-3 border-0 rounded-md focus:ring-2 focus:ring-white/50 focus:outline-none"
+                                                aria-label="Email address"
+                                                required
+                                            />
+                                            <IoIosMail className="absolute text-xl text-gray-400 transform -translate-y-1/2 right-3 top-1/2" aria-hidden="true" />
+                                        </div>
+                                        <Button 
+                                            type="submit"
+                                            className="px-6 py-3 font-medium bg-white rounded-md hover:bg-gray-100 text-yumrun-primary focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-yumrun-primary"
+                                        >
+                                            Subscribe
+                                        </Button>
                                     </div>
-                                    <Button 
-                                        className="px-6 py-3 font-medium bg-white rounded-md hover:bg-gray-100 text-yumrun-primary"
-                                    >
-                                        Subscribe
-                                    </Button>
-                                </div>
+                                </form>
                                 <p className="mt-2 text-xs text-white/80">
                                     By subscribing, you agree to our Terms of Service and Privacy Policy
                                 </p>

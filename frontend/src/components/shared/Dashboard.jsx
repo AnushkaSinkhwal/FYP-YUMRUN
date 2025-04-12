@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, Badge, Button, Spinner, Tabs, TabsList, TabsTrigger, TabsContent, Alert } from "../ui";
 import PropTypes from 'prop-types';
-import { FaSync } from 'react-icons/fa';
+import { FaSync, FaHome } from 'react-icons/fa';
 
 const Dashboard = ({ 
   stats = [], 
@@ -61,9 +61,22 @@ const Dashboard = ({
 
   return (
     <div className="p-6">
-      {/* Header with refresh button */}
+      {/* Header with refresh button and home button */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            asChild
+            className="flex items-center gap-2 text-gray-600 hover:text-primary"
+          >
+            <Link to="/">
+              <FaHome className="text-lg" />
+              <span className="hidden sm:inline">Home</span>
+            </Link>
+          </Button>
+        </div>
         {onRefresh && (
           <Button 
             variant="outline" 

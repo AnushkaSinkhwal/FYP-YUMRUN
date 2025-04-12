@@ -127,7 +127,7 @@ const SignUp = () => {
         }
         
         // Role-specific validation
-        if (role === "restaurantOwner") {
+        if (role === "restaurant") {
             if (!formData.restaurantName.trim()) {
                 setError("Restaurant name is required");
                 return;
@@ -179,7 +179,7 @@ const SignUp = () => {
         // Add role-specific data
         if (role === "customer") {
             userData.healthCondition = formData.healthCondition;
-        } else if (role === "restaurantOwner") {
+        } else if (role === "restaurant") {
             userData.restaurantName = formData.restaurantName;
             userData.restaurantAddress = formData.restaurantAddress;
             userData.restaurantDescription = formData.restaurantDescription;
@@ -239,8 +239,8 @@ const SignUp = () => {
                                     <Label htmlFor="customer">Customer</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="restaurantOwner" id="restaurantOwner" />
-                                    <Label htmlFor="restaurantOwner">Restaurant Owner</Label>
+                                    <RadioGroupItem value="restaurant" id="restaurant" />
+                                    <Label htmlFor="restaurant">Restaurant Owner</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="deliveryRider" id="deliveryRider" />
@@ -334,7 +334,7 @@ const SignUp = () => {
                             </div>
                         )}
 
-                        {role === "restaurantOwner" && (
+                        {role === "restaurant" && (
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-gray-700">Restaurant Information</h3>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

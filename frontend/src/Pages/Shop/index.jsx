@@ -60,7 +60,7 @@ const Shop = () => {
       {!loading && !error && restaurants.length > 0 && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {restaurants.map((restaurant) => (
-            <Link key={restaurant._id || restaurant.id} to={`/restaurants/${restaurant._id || restaurant.id}`} className="block group">
+            <Link key={restaurant._id || restaurant.id} to={`/restaurant/${restaurant._id || restaurant.id}`} className="block group">
               <Card className="overflow-hidden transition-shadow duration-300 hover:shadow-lg">
                 <CardHeader className="p-0">
                   {restaurant.logo && (

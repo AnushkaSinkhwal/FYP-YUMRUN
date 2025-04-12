@@ -20,17 +20,11 @@ const Menu = () => {
     sortBy: 'popularity'
   });
 
-  // Categories
-  const categories = [
+  // Categories - will be dynamically populated based on available menu items
+  const [categories, setCategories] = useState([
     { id: 'all', name: 'All Items' },
-    { id: 'popular', name: 'Most Popular' },
-    { id: 'breakfast', name: 'Breakfast' },
-    { id: 'lunch', name: 'Lunch' },
-    { id: 'dinner', name: 'Dinner' },
-    { id: 'appetizers', name: 'Appetizers' },
-    { id: 'desserts', name: 'Desserts' },
-    { id: 'drinks', name: 'Drinks' }
-  ];
+    { id: 'popular', name: 'Most Popular' }
+  ]);
 
   // Fetch menu items
   useEffect(() => {
@@ -39,140 +33,50 @@ const Menu = () => {
       setError(null);
       
       try {
-        // In a real app, this would include query params for filtering
-        const response = await axios.get('/api/menu-items');
-        if (response.data.success) {
-          setMenuItems(response.data.data || []);
+        // Fetch menu items from the API
+        const response = await axios.get('/api/menu');
+        console.log('Menu API response:', response.data);
+        
+        if (response.data.success && Array.isArray(response.data.data)) {
+          // Transform the API data to match our frontend format
+          const formattedItems = response.data.data.map(item => ({
+            id: item._id || item.id,
+            name: item.name || item.item_name,
+            description: item.description,
+            price: item.price || item.item_price,
+            rating: item.averageRating || 0,
+            totalReviews: item.numberOfRatings || 0,
+            category: item.category ? item.category.toLowerCase() : 'main course',
+            restaurant: {
+              id: item.restaurant && (item.restaurant._id || item.restaurant.id || item.restaurant),
+              name: item.restaurant && item.restaurant.name ? item.restaurant.name : 'Restaurant'
+            },
+            image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
+            isPopular: item.isPopular || false
+          }));
+          
+          console.log('Formatted menu items:', formattedItems);
+          setMenuItems(formattedItems);
+          
+          // Extract all unique categories from the menu items
+          const uniqueCategories = [...new Set(formattedItems.map(item => item.category))];
+          // Create the categories array with 'all' and 'popular' at the beginning
+          setCategories([
+            { id: 'all', name: 'All Items' },
+            { id: 'popular', name: 'Most Popular' },
+            ...uniqueCategories.map(category => ({
+              id: category,
+              name: category.charAt(0).toUpperCase() + category.slice(1) // Capitalize first letter
+            }))
+          ]);
         } else {
           setError(response.data.message || 'Failed to fetch menu items');
+          setMenuItems([]);
         }
       } catch (err) {
         console.error('Error fetching menu items:', err);
         setError('An error occurred while loading menu items');
-        
-        // For demo purposes, set some mock data if API fails
-        setMenuItems([
-          {
-            id: 1,
-            name: 'Classic Cheeseburger',
-            description: 'Juicy beef patty with melted cheese, lettuce, tomato, and special sauce',
-            price: 8.99,
-            rating: 4.7,
-            totalReviews: 120,
-            category: 'lunch',
-            restaurant: { id: 1, name: 'Burger Kingdom' },
-            image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: true
-          },
-          {
-            id: 2,
-            name: 'Margherita Pizza',
-            description: 'Classic pizza with tomato sauce, mozzarella cheese, and fresh basil',
-            price: 12.99,
-            rating: 4.5,
-            totalReviews: 85,
-            category: 'dinner',
-            restaurant: { id: 2, name: 'Pizza Paradise' },
-            image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: true
-          },
-          {
-            id: 3,
-            name: 'Salmon Sushi Roll',
-            description: 'Fresh salmon, avocado, and cucumber wrapped in seaweed and rice',
-            price: 14.99,
-            rating: 4.9,
-            totalReviews: 65,
-            category: 'dinner',
-            restaurant: { id: 3, name: 'Sushi Supreme' },
-            image: 'https://images.unsplash.com/photo-1563612116625-3012372fccce?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: true
-          },
-          {
-            id: 4,
-            name: 'Beef Tacos',
-            description: 'Three soft tacos with seasoned beef, lettuce, cheese, and salsa',
-            price: 9.99,
-            rating: 4.2,
-            totalReviews: 45,
-            category: 'lunch',
-            restaurant: { id: 4, name: 'Taco Temple' },
-            image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: false
-          },
-          {
-            id: 5,
-            name: 'Chicken Curry',
-            description: 'Tender chicken pieces in a rich and spicy curry sauce with rice',
-            price: 13.99,
-            rating: 4.6,
-            totalReviews: 78,
-            category: 'dinner',
-            restaurant: { id: 5, name: 'Curry Corner' },
-            image: 'https://images.unsplash.com/photo-1585937421612-70a008356c36?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: true
-          },
-          {
-            id: 6,
-            name: 'Pad Thai',
-            description: 'Stir-fried rice noodles with eggs, tofu, bean sprouts, and peanuts',
-            price: 11.99,
-            rating: 4.4,
-            totalReviews: 56,
-            category: 'dinner',
-            restaurant: { id: 6, name: 'Noodle Nook' },
-            image: 'https://images.unsplash.com/photo-1569562211093-4ed0d0758f12?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: false
-          },
-          {
-            id: 7,
-            name: 'Avocado Toast',
-            description: 'Toasted sourdough bread topped with mashed avocado, eggs, and microgreens',
-            price: 8.99,
-            rating: 4.3,
-            totalReviews: 42,
-            category: 'breakfast',
-            restaurant: { id: 2, name: 'Pizza Paradise' },
-            image: 'https://images.unsplash.com/photo-1603046891726-56f56a782bbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: false
-          },
-          {
-            id: 8,
-            name: 'Chocolate Lava Cake',
-            description: 'Warm chocolate cake with a gooey molten center, served with vanilla ice cream',
-            price: 6.99,
-            rating: 4.8,
-            totalReviews: 89,
-            category: 'desserts',
-            restaurant: { id: 1, name: 'Burger Kingdom' },
-            image: 'https://images.unsplash.com/photo-1615583724355-e4b6f6f5a5f2?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: true
-          },
-          {
-            id: 9,
-            name: 'Fresh Strawberry Smoothie',
-            description: 'Blend of fresh strawberries, yogurt, and a hint of honey',
-            price: 4.99,
-            rating: 4.5,
-            totalReviews: 37,
-            category: 'drinks',
-            restaurant: { id: 5, name: 'Curry Corner' },
-            image: 'https://images.unsplash.com/photo-1553530666-ba11a7d3be3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: false
-          },
-          {
-            id: 10,
-            name: 'Loaded Nachos',
-            description: 'Crispy tortilla chips topped with melted cheese, jalapeños, guacamole, and sour cream',
-            price: 7.99,
-            rating: 4.1,
-            totalReviews: 29,
-            category: 'appetizers',
-            restaurant: { id: 4, name: 'Taco Temple' },
-            image: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=300&q=80',
-            isPopular: false
-          }
-        ]);
+        setMenuItems([]);
       } finally {
         setLoading(false);
       }
@@ -383,7 +287,7 @@ const Menu = () => {
               <FaUtensils className="mx-auto text-4xl text-gray-300 mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Menu Items Found</h3>
               <p className="text-gray-600 mb-4">
-                We couldn't find any items matching your criteria.
+                We couldn&apos;t find any items matching your criteria.
               </p>
               <Button
                 onClick={() => {

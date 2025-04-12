@@ -46,15 +46,27 @@ NextArrow.propTypes = {
 
 const HomeBanner = () => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState({
+    slide1: false,
+    slide2: false,
+    slide3: false
+  });
 
   useEffect(() => {
     // Set loaded after a small delay to allow for animations
     const timer = setTimeout(() => {
       setIsLoaded(true);
-    }, 300);
+    }, 200);
     
     return () => clearTimeout(timer);
   }, []);
+
+  const handleImageLoad = (slideKey) => {
+    setImagesLoaded(prev => ({
+      ...prev,
+      [slideKey]: true
+    }));
+  };
 
   const settings = {
     dots: true,
@@ -71,13 +83,13 @@ const HomeBanner = () => {
     prevArrow: <PrevArrow />,
     nextArrow: <NextArrow />,
     appendDots: dots => (
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+      <div className="absolute left-0 right-0 flex justify-center bottom-6">
         <ul className="flex items-center space-x-2"> {dots} </ul>
       </div>
     ),
     customPaging: i => (
       <button 
-        className="w-3 h-3 rounded-full bg-white/50 hover:bg-white/80 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yumrun-primary/50" 
+        className="w-3 h-3 transition-all duration-300 rounded-full bg-white/50 hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-yumrun-primary/50" 
         aria-label={`Go to slide ${i + 1}`}
       />
     ),
@@ -99,67 +111,94 @@ const HomeBanner = () => {
     ]
   };
   
-  const handleImageLoad = () => {
-    // Image load handler for potential future optimizations
-  };
+  const bannerImage1 = "https://wallpapers.com/images/featured/food-4k-1pf6px6ryqfjtnyr.jpg";
+  const bannerImage2 = "https://images.unsplash.com/photo-1478144592103-25e218a04891?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Zm9vZCUyMHdoaXRlfGVufDB8fDB8fHww";
+  const bannerImage3 = "https://wallpapers.com/images/featured/food-ccsaubvss63lkcyb.jpg";
   
   return (
     <div className={cn(
-      "relative overflow-hidden bg-gray-100 transition-opacity duration-500",
+      "relative overflow-hidden bg-gray-50 transition-opacity duration-500",
       isLoaded ? "opacity-100" : "opacity-0"
     )}>
       <div className="relative">
         <Slider {...settings}>
           <div className="relative">
-            <div className="w-full h-[500px] md:h-[600px] bg-gray-200 animate-pulse"></div>
+            <div className="w-full h-[400px] sm:h-[450px] md:h-[550px] bg-gray-100 animate-pulse">
+              {!imagesLoaded.slide1 && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                </div>
+              )}
+            </div>
             <img 
-              src="https://wallpapers.com/images/featured/food-4k-1pf6px6ryqfjtnyr.jpg" 
+              src={bannerImage1}
               alt="Delicious food selection showcasing our menu variety"
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
-              onLoad={handleImageLoad}
+              className={cn(
+                "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+                imagesLoaded.slide1 ? "opacity-100" : "opacity-0"
+              )}
+              loading="eager"
+              onLoad={() => handleImageLoad('slide1')}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent">
-              <Container className="h-full flex items-center">
-                <div className="max-w-lg text-white px-4 py-12 animate-fade-in">
-                  <h2 className="text-4xl md:text-5xl font-bold mb-4">Delicious Food Delivered Fast</h2>
-                  <p className="text-xl md:text-2xl opacity-90">Order your favorite dishes with just a few clicks</p>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent">
+              <Container className="flex items-center h-full">
+                <div className="max-w-lg px-4 py-8 text-white animate-fade-in">
+                  <h2 className="mb-4 text-3xl font-bold sm:text-4xl md:text-5xl">Delicious Food Delivered Fast</h2>
+                  <p className="text-lg sm:text-xl md:text-2xl opacity-90">Order your favorite dishes with just a few clicks</p>
                 </div>
               </Container>
             </div>
           </div>
           <div className="relative">
-            <div className="w-full h-[500px] md:h-[600px] bg-gray-200 animate-pulse"></div>
+            <div className="w-full h-[400px] sm:h-[450px] md:h-[550px] bg-gray-100 animate-pulse">
+              {!imagesLoaded.slide2 && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                </div>
+              )}
+            </div>
             <img 
-              src="https://images.unsplash.com/photo-1478144592103-25e218a04891?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Zm9vZCUyMHdoaXRlfGVufDB8fDB8fHww" 
+              src={bannerImage2}
               alt="Fresh and healthy menu options"
-              className="absolute inset-0 w-full h-full object-cover"
+              className={cn(
+                "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+                imagesLoaded.slide2 ? "opacity-100" : "opacity-0"
+              )}
               loading="lazy"
-              onLoad={handleImageLoad}
+              onLoad={() => handleImageLoad('slide2')}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent">
-              <Container className="h-full flex items-center">
-                <div className="max-w-lg text-white px-4 py-12 animate-fade-in">
-                  <h2 className="text-4xl md:text-5xl font-bold mb-4">Fresh Ingredients, Amazing Taste</h2>
-                  <p className="text-xl md:text-2xl opacity-90">Quality food from the best restaurants in town</p>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent">
+              <Container className="flex items-center h-full">
+                <div className="max-w-lg px-4 py-8 text-white animate-fade-in">
+                  <h2 className="mb-4 text-3xl font-bold sm:text-4xl md:text-5xl">Fresh Ingredients, Amazing Taste</h2>
+                  <p className="text-lg sm:text-xl md:text-2xl opacity-90">Quality food from the best restaurants in town</p>
                 </div>
               </Container>
             </div>
           </div>
           <div className="relative">
-            <div className="w-full h-[500px] md:h-[600px] bg-gray-200 animate-pulse"></div>
+            <div className="w-full h-[400px] sm:h-[450px] md:h-[550px] bg-gray-100 animate-pulse">
+              {!imagesLoaded.slide3 && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
+                </div>
+              )}
+            </div>
             <img 
-              src="https://wallpapers.com/images/featured/food-ccsaubvss63lkcyb.jpg"
+              src={bannerImage3}
               alt="Special promotion on selected restaurants"
-              className="absolute inset-0 w-full h-full object-cover"
+              className={cn(
+                "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+                imagesLoaded.slide3 ? "opacity-100" : "opacity-0"
+              )}
               loading="lazy"
-              onLoad={handleImageLoad}
+              onLoad={() => handleImageLoad('slide3')}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent">
-              <Container className="h-full flex items-center">
-                <div className="max-w-lg text-white px-4 py-12 animate-fade-in">
-                  <h2 className="text-4xl md:text-5xl font-bold mb-4">Special Offers Every Day</h2>
-                  <p className="text-xl md:text-2xl opacity-90">Save on your favorite meals with our daily deals</p>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent">
+              <Container className="flex items-center h-full">
+                <div className="max-w-lg px-4 py-8 text-white animate-fade-in">
+                  <h2 className="mb-4 text-3xl font-bold sm:text-4xl md:text-5xl">Special Offers Every Day</h2>
+                  <p className="text-lg sm:text-xl md:text-2xl opacity-90">Save on your favorite meals with our daily deals</p>
                 </div>
               </Container>
             </div>

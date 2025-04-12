@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     let dashboardPath = '/';
     if (user.role === 'admin') {
       dashboardPath = '/admin/dashboard'; // Admin dashboard
-    } else if (user.role === 'restaurantOwner') {
+    } else if (user.role === 'restaurant') {
       dashboardPath = '/restaurant/dashboard'; // Restaurant dashboard
     } else if (user.role === 'deliveryRider') {
       dashboardPath = '/delivery/dashboard'; // Delivery dashboard
@@ -151,7 +151,7 @@ router.post('/register', async (req, res) => {
     // Add role-specific fields
     if (role === 'customer') {
       userFields.healthCondition = healthCondition || 'Healthy';
-    } else if (role === 'restaurantOwner') {
+    } else if (role === 'restaurant') {
       userFields.restaurantDetails = {
         name: restaurantName,
         address: restaurantAddress,
@@ -178,14 +178,7 @@ router.post('/register', async (req, res) => {
     // Save user to database
     await user.save();
 
-    // Send welcome email (fire and forget, don't block response)
-    sendEmail({
-      to: user.email,
-      subject: 'Welcome to YumRun!',
-      html: emailTemplates.welcomeEmail(user)
-    }).catch(err => console.error('Failed to send welcome email:', err)); // Log error if email fails
-
-    // Generate JWT token
+    // User successfully saved, now generate token and prepare response
     const token = jwt.sign(
       {
         userId: user._id,
@@ -197,22 +190,40 @@ router.post('/register', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRY || '24h' }
     );
 
-    // Prepare user data (exclude sensitive fields)
+    // Prepare user data for the response (exclude sensitive fields)
     const userData = {
       id: user._id,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      healthCondition: user.healthCondition,
-      restaurantDetails: user.restaurantDetails,
-      deliveryRiderDetails: user.deliveryRiderDetails
+      // Only include relevant details, avoid sending everything back
+      // healthCondition: user.healthCondition, 
+      // restaurantDetails: user.restaurantDetails,
+      // deliveryRiderDetails: user.deliveryRiderDetails
     };
 
+    // Try sending welcome email AFTER successful user save and token generation
+    try {
+        await sendEmail({
+            to: user.email,
+            subject: 'Welcome to YumRun!',
+            html: emailTemplates.welcomeEmail(user)
+        });
+        console.log(`Welcome email sent successfully to ${user.email}`);
+    } catch (emailError) {
+        console.error(`Failed to send welcome email to ${user.email}:`, emailError); 
+        // Do not block registration success if email fails, just log it.
+    }
+
+    // Send success response with the structure expected by frontend context
     res.status(201).json({
       success: true,
-      token,
-      user: userData
+      data: { // Nest user and token under 'data'
+        user: userData,
+        token
+      }
     });
+
   } catch (error) {
     console.error('Registration error:', error);
     // Ensure consistent error response format
@@ -301,7 +312,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Create reset URL
-    const resetUrl = `${process.env.WEBSITE_URL}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     // Send email
     const emailResult = await sendEmail({

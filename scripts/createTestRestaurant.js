@@ -30,7 +30,7 @@ mongoose.connect(process.env.CONNECTION_STRING)
       fullName: 'Test Restaurant',
       email: 'testrestaurant@example.com',
       password: hashedPassword,
-      role: 'restaurantOwner',
+      role: 'restaurant',
       phone: '1234567890',
       isVerified: true,
       restaurantDetails: {

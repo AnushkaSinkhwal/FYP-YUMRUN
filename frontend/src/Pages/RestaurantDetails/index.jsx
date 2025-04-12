@@ -1,365 +1,308 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaStar, FaMapMarkerAlt, FaPhone, FaClock, FaUtensils, FaTag, FaHeart, FaRegHeart } from 'react-icons/fa';
-import { IoFastFood } from 'react-icons/io5';
-import axios from 'axios';
-import { 
-    Container, Button, Alert, Spinner, Tabs, TabsList, 
-    TabsTrigger, TabsContent, Card, Badge 
-} from '../../components/ui';
-import { useAuth } from '../../context/AuthContext';
+import { Container, Button, Spinner, Alert } from '../../components/ui';
+import { FaStar, FaMapMarkerAlt, FaUtensils, FaPhone, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
-import NutritionalInfo from '../../components/ProductFeatures/NutritionalInfo';
+import axios from 'axios';
 
 const RestaurantDetails = () => {
-    const { id: restaurantId } = useParams();
-    const navigate = useNavigate();
-    const { isAuthenticated } = useAuth();
-    const { addToCart } = useCart();
-    
-    const [restaurant, setRestaurant] = useState(null);
-    const [menuItems, setMenuItems] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [menuLoading, setMenuLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [menuError, setMenuError] = useState(null);
-    const [isFavorite, setIsFavorite] = useState(false);
-    const [favoriteLoading, setFavoriteLoading] = useState(false);
-    const [activeCategory, setActiveCategory] = useState(null);
-    const [categories, setCategories] = useState([]);
-    
-    // Fetch restaurant data
-    useEffect(() => {
-        const fetchRestaurantData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await axios.get(`/api/restaurants/${restaurantId}`);
-                if (response.data.success) {
-                    setRestaurant(response.data.data);
-                } else {
-                    setError(response.data.message || 'Failed to fetch restaurant details');
-                }
-            } catch (err) {
-                console.error('Error fetching restaurant details:', err);
-                setError(err.response?.data?.message || 'An error occurred while loading restaurant data');
-            } finally {
-                setLoading(false);
-            }
-        };
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  
+  const [restaurant, setRestaurant] = useState(null);
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [menuLoading, setMenuLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [menuError, setMenuError] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('all');
 
-        if (restaurantId) {
-            fetchRestaurantData();
+  // Fetch restaurant details
+  useEffect(() => {
+    const fetchRestaurantDetails = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await axios.get(`/api/restaurants/${id}`);
+        if (response.data.success) {
+          setRestaurant(response.data.data);
+        } else {
+          setError(response.data.message || 'Failed to load restaurant details');
         }
-    }, [restaurantId]);
+      } catch (err) {
+        console.error('Error fetching restaurant details:', err);
+        setError('Failed to load restaurant details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (id) {
+      fetchRestaurantDetails();
+    }
+  }, [id]);
 
-    // Fetch menu items
-    useEffect(() => {
-        const fetchMenuItems = async () => {
-            setMenuLoading(true);
-            setMenuError(null);
-            try {
-                const response = await axios.get(`/api/restaurants/${restaurantId}/menu`);
-                if (response.data.success) {
-                    const items = response.data.data || [];
-                    setMenuItems(items);
-                    
-                    // Extract unique categories
-                    const uniqueCategories = [...new Set(items.map(item => item.category))];
-                    setCategories(uniqueCategories);
-                    
-                    // Set first category as active if available
-                    if (uniqueCategories.length > 0 && !activeCategory) {
-                        setActiveCategory(uniqueCategories[0]);
-                    }
-                } else {
-                    setMenuError(response.data.message || 'Failed to fetch menu items');
-                }
-            } catch (err) {
-                console.error('Error fetching menu items:', err);
-                setMenuError(err.response?.data?.message || 'An error occurred while loading menu items');
-            } finally {
-                setMenuLoading(false);
-            }
-        };
-
-        if (restaurantId) {
-            fetchMenuItems();
+  // Fetch menu items
+  useEffect(() => {
+    const fetchMenuItems = async () => {
+      if (!id) return;
+      
+      setMenuLoading(true);
+      setMenuError(null);
+      
+      try {
+        const response = await axios.get(`/api/menu/restaurant/${id}`);
+        
+        if (response.data.success && Array.isArray(response.data.data)) {
+          // Transform API data to match frontend format
+          const formattedItems = response.data.data.map(item => ({
+            id: item._id || item.id,
+            name: item.name || item.item_name,
+            description: item.description,
+            price: item.price || item.item_price,
+            category: item.category.toLowerCase() || 'main course',
+            image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
+            rating: item.averageRating || 4.5,
+            totalReviews: item.numberOfRatings || 0,
+            isPopular: item.isPopular || false
+          }));
+          
+          setMenuItems(formattedItems);
+        } else {
+          setMenuError('No menu items available for this restaurant');
+          setMenuItems([]);
         }
-    }, [restaurantId, activeCategory]);
+      } catch (err) {
+        console.error('Error fetching menu items:', err);
+        setMenuError('Failed to load menu items');
+        setMenuItems([]);
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+    
+    fetchMenuItems();
+  }, [id]);
 
-    // Check favorite status if user is authenticated
-    useEffect(() => {
-        const checkFavoriteStatus = async () => {
-            if (!isAuthenticated || !restaurantId) return;
+  // Get unique categories from menu items
+  const categories = ['all', ...new Set(menuItems.map(item => item.category))];
+  
+  // Filter menu items by category
+  const filteredMenuItems = activeCategory === 'all' 
+    ? menuItems 
+    : menuItems.filter(item => item.category === activeCategory);
+
+  // Handle add to cart
+  const handleAddToCart = (item) => {
+    if (!restaurant) return;
+    
+    addToCart({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      quantity: 1,
+      restaurantId: restaurant.id || restaurant._id,
+      restaurantName: restaurant.name
+    });
+  };
+
+  return (
+    <div className="py-8">
+      <Container>
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Spinner size="lg" />
+          </div>
+        ) : error ? (
+          <Alert variant="error" className="mb-6">
+            {error}
+          </Alert>
+        ) : restaurant ? (
+          <>
+            {/* Back Button */}
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center mb-4 text-gray-600 hover:text-yumrun-orange"
+            >
+              <FaArrowLeft className="mr-2" />
+              <span>Back to Restaurants</span>
+            </button>
             
-            try {
-                const response = await axios.get(`/api/favorites/check-restaurant/${restaurantId}`);
-                if (response.data.success) {
-                    setIsFavorite(response.data.data.isFavorite);
-                }
-            } catch (error) {
-                console.error('Error checking favorite status:', error);
-            }
-        };
-        
-        checkFavoriteStatus();
-    }, [isAuthenticated, restaurantId]);
-
-    // Toggle favorite status
-    const toggleFavorite = async () => {
-        if (!isAuthenticated) {
-            navigate('/signin', { state: { from: `/restaurant/${restaurantId}` } });
-            return;
-        }
-        
-        setFavoriteLoading(true);
-        try {
-            if (isFavorite) {
-                await axios.delete(`/api/favorites/restaurant/${restaurantId}`);
-            } else {
-                await axios.post('/api/favorites/restaurant', { restaurantId });
-            }
-            setIsFavorite(!isFavorite);
-        } catch (error) {
-            console.error('Error toggling favorite status:', error);
-        } finally {
-            setFavoriteLoading(false);
-        }
-    };
-
-    // Add item to cart
-    const handleAddToCart = (item) => {
-        addToCart({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            image: item.image,
-            restaurant: restaurant?.name || '',
-            restaurantId: restaurantId
-        }, 1);
-    };
-
-    // Format opening hours
-    const formatOpeningHours = (hours) => {
-        if (!hours) return 'Hours not available';
-        
-        const today = new Date().toLocaleLowerCase();
-        const dayOfWeek = today.split(' ')[0];
-        
-        const todayHours = hours[dayOfWeek];
-        if (!todayHours) return 'Hours not available for today';
-        
-        return `Today: ${todayHours.open} - ${todayHours.close}`;
-    };
-
-    // Loading state
-    if (loading) {
-        return (
-            <Container className="flex items-center justify-center min-h-[60vh]">
-                <Spinner size="xl" />
-            </Container>
-        );
-    }
-
-    // Error state
-    if (error) {
-        return (
-            <Container className="py-8">
-                <Alert variant="error" className="mb-4">
-                    {error}
-                </Alert>
-                <Button onClick={() => navigate('/')}>
-                    Return to Home
-                </Button>
-            </Container>
-        );
-    }
-
-    // If we have restaurant data
-    return (
-        <div className="pb-16">
-            {/* Restaurant Header/Banner */}
-            <div className="relative h-64 md:h-80 bg-gray-200">
+            {/* Restaurant Header */}
+            <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-md">
+              <div className="relative h-64">
                 <img 
-                    src={restaurant?.coverImage || `https://source.unsplash.com/random/1200x400/?restaurant,food,${encodeURIComponent(restaurant?.name || '')}`} 
-                    alt={restaurant?.name}
-                    className="object-cover w-full h-full"
+                  src={restaurant.image || restaurant.logo || `/uploads/restaurants/default_restaurant.jpg`} 
+                  alt={restaurant.name} 
+                  className="object-cover w-full h-full"
                 />
-                <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-                <Container className="absolute bottom-0 left-0 right-0 p-6">
-                    <div className="flex items-start justify-between">
-                        <div className="text-white">
-                            <h1 className="text-3xl font-bold">{restaurant?.name}</h1>
-                            <div className="flex flex-wrap items-center gap-3 mt-2">
-                                <div className="flex items-center">
-                                    <FaStar className="mr-1 text-yellow-400" />
-                                    <span>{restaurant?.rating?.toFixed(1) || '0.0'}</span>
-                                </div>
-                                {restaurant?.cuisine && (
-                                    <div className="flex flex-wrap gap-1">
-                                        {restaurant.cuisine.map((type, index) => (
-                                            <Badge key={index} variant="outline" className="bg-white/20 text-white">
-                                                {type}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="flex items-center">
-                                    <FaMapMarkerAlt className="mr-1 text-gray-300" />
-                                    <span className="text-sm">{restaurant?.address}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <Button
-                            variant="outline"
-                            className="bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-white/20"
-                            onClick={toggleFavorite}
-                            disabled={favoriteLoading}
-                        >
-                            {isFavorite ? <FaHeart className="mr-2 text-red-500" /> : <FaRegHeart className="mr-2" />}
-                            {isFavorite ? 'Saved' : 'Save'}
-                        </Button>
+                <div className="absolute top-0 right-0 m-4">
+                  <span className={`px-3 py-1 rounded text-sm font-semibold ${restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                    {restaurant.isOpen ? 'Open' : 'Closed'}
+                  </span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent">
+                  <h1 className="mb-2 text-3xl font-bold text-white">{restaurant.name}</h1>
+                  <div className="flex items-center mb-2 text-white">
+                    <div className="flex items-center mr-4">
+                      <FaStar className="mr-1 text-yellow-400" />
+                      <span className="font-medium">{restaurant.rating || '0'}</span>
+                      <span className="ml-1 text-gray-300">({restaurant.totalReviews || '0'} reviews)</span>
                     </div>
-                </Container>
-            </div>
-            
-            {/* Restaurant Info & Menu */}
-            <Container className="py-6">
-                {/* Restaurant Info */}
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-                    <div className="md:col-span-2">
-                        <Card className="p-6">
-                            <h2 className="mb-4 text-xl font-semibold">About {restaurant?.name}</h2>
-                            <p className="mb-6 text-gray-600">{restaurant?.description}</p>
-                            
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div className="flex items-center gap-2">
-                                    <FaPhone className="text-gray-400" />
-                                    <span>{restaurant?.phone || 'Phone not available'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <FaClock className="text-gray-400" />
-                                    <span>{formatOpeningHours(restaurant?.openingHours)}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <FaTag className="text-gray-400" />
-                                    <span>Min. Order: ${restaurant?.minimumOrder?.toFixed(2) || '0.00'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <IoFastFood className="text-gray-400" />
-                                    <span>Delivery Fee: ${restaurant?.deliveryFee?.toFixed(2) || '0.00'}</span>
-                                </div>
-                            </div>
-                        </Card>
+                    <div className="flex items-center">
+                      <span className="mr-2">{Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(', ') : restaurant.cuisine}</span>
+                      <span>•</span>
+                      <span className="ml-2">{restaurant.priceRange || ''}</span>
                     </div>
-                    
-                    <div>
-                        <Card className="p-6">
-                            <h2 className="mb-4 text-xl font-semibold">Opening Hours</h2>
-                            {restaurant?.openingHours ? (
-                                <dl className="space-y-2">
-                                    {Object.entries(restaurant.openingHours).map(([day, hours]) => (
-                                        <div key={day} className="flex justify-between">
-                                            <dt className="font-medium capitalize">{day}</dt>
-                                            <dd>{hours.open} - {hours.close}</dd>
-                                        </div>
-                                    ))}
-                                </dl>
-                            ) : (
-                                <p className="text-gray-500">Opening hours not available</p>
-                            )}
-                        </Card>
-                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-4">
+                  <h2 className="mb-2 text-xl font-semibold">About</h2>
+                  <p className="text-gray-700">{restaurant.description || 'No description available'}</p>
                 </div>
                 
-                {/* Menu Section */}
-                <div className="mt-8">
-                    <h2 className="mb-6 text-2xl font-bold">Menu</h2>
-                    
-                    {menuLoading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Spinner size="lg" />
-                        </div>
-                    ) : menuError ? (
-                        <Alert variant="error" className="mb-4">
-                            {menuError}
-                        </Alert>
-                    ) : menuItems.length === 0 ? (
-                        <div className="py-8 text-center">
-                            <FaUtensils className="mx-auto mb-4 text-4xl text-gray-300" />
-                            <p className="text-gray-500">No menu items available</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Category Tabs */}
-                            <Tabs defaultValue={activeCategory} onValueChange={setActiveCategory}>
-                                <TabsList className="mb-6">
-                                    {categories.map((category) => (
-                                        <TabsTrigger key={category} value={category}>
-                                            {category}
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-                                
-                                {categories.map((category) => (
-                                    <TabsContent key={category} value={category}>
-                                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                            {menuItems
-                                                .filter(item => item.category === category)
-                                                .map(item => (
-                                                    <Card key={item.id} className="overflow-hidden">
-                                                        <div className="relative h-48 bg-gray-200">
-                                                            <img 
-                                                                src={item.image || `https://source.unsplash.com/random/300x200/?food,${encodeURIComponent(item.name)}`} 
-                                                                alt={item.name}
-                                                                className="object-cover w-full h-full"
-                                                                onError={(e) => {
-                                                                    e.target.src = `https://source.unsplash.com/random/300x200/?food`;
-                                                                }}
-                                                            />
-                                                            {item.discount > 0 && (
-                                                                <Badge className="absolute top-2 right-2 bg-red-500">
-                                                                    {item.discount}% OFF
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        <div className="p-4">
-                                                            <div className="flex items-start justify-between">
-                                                                <h3 className="text-lg font-semibold">{item.name}</h3>
-                                                                <div className="text-lg font-bold">
-                                                                    ${item.price.toFixed(2)}
-                                                                </div>
-                                                            </div>
-                                                            <p className="mt-2 text-sm text-gray-500 line-clamp-2">
-                                                                {item.description}
-                                                            </p>
-                                                            
-                                                            {item.nutritionalInfo && (
-                                                                <div className="mt-3">
-                                                                    <NutritionalInfo nutritionalData={item.nutritionalInfo} className="text-xs" />
-                                                                </div>
-                                                            )}
-                                                            
-                                                            <Button 
-                                                                className="w-full mt-4"
-                                                                onClick={() => handleAddToCart(item)}
-                                                            >
-                                                                Add to Cart
-                                                            </Button>
-                                                        </div>
-                                                    </Card>
-                                                ))}
-                                        </div>
-                                    </TabsContent>
-                                ))}
-                            </Tabs>
-                        </>
-                    )}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div>
+                    <h2 className="mb-2 text-xl font-semibold">Contact</h2>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-gray-600">
+                        <FaMapMarkerAlt className="mr-2 text-gray-400" />
+                        <span>{restaurant.address || restaurant.location || 'Address not available'}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <FaPhone className="mr-2 text-gray-400" />
+                        <span>{restaurant.phone || 'Phone not available'}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <FaEnvelope className="mr-2 text-gray-400" />
+                        <span>{restaurant.email || 'Email not available'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h2 className="mb-2 text-xl font-semibold">Hours</h2>
+                    <div className="space-y-1">
+                      {restaurant.openingHours ? (
+                        Object.entries(restaurant.openingHours).map(([day, hours]) => (
+                          <div key={day} className="flex justify-between text-gray-600">
+                            <span className="capitalize">{day}</span>
+                            <span>{hours.open} - {hours.close}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-600">Opening hours not available</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-            </Container>
-        </div>
-    );
+              </div>
+            </div>
+            
+            {/* Menu Section */}
+            <div className="mt-8">
+              <h2 className="mb-6 text-2xl font-bold">Menu</h2>
+              
+              {/* Category Tabs */}
+              <div className="mb-6 overflow-x-auto">
+                <div className="flex space-x-2 min-w-max">
+                  {categories.map((category, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setActiveCategory(category)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors capitalize ${
+                        activeCategory === category 
+                          ? 'bg-yumrun-orange text-white' 
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {menuLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Spinner size="lg" />
+                </div>
+              ) : menuError ? (
+                <Alert variant="error" className="mb-4">
+                  {menuError}
+                </Alert>
+              ) : filteredMenuItems.length === 0 ? (
+                <div className="py-8 text-center">
+                  <FaUtensils className="mx-auto mb-4 text-4xl text-gray-300" />
+                  <p className="text-gray-500">No menu items available</p>
+                </div>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredMenuItems.map(item => (
+                    <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
+                      <div className="relative">
+                        <img 
+                          src={item.image} 
+                          alt={item.name} 
+                          className="object-cover w-full h-48 cursor-pointer"
+                          onClick={() => navigate(`/product/${item.id}`)}
+                        />
+                        {item.isPopular && (
+                          <div className="absolute top-0 left-0 m-2">
+                            <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
+                              Popular
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 
+                            className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-yumrun-orange"
+                            onClick={() => navigate(`/product/${item.id}`)}
+                          >
+                            {item.name}
+                          </h3>
+                          <span className="font-bold text-yumrun-orange">${item.price.toFixed(2)}</span>
+                        </div>
+                        
+                        <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                        
+                        <div className="flex items-center mb-3">
+                          <div className="flex items-center">
+                            <FaStar className="mr-1 text-yellow-500" />
+                            <span className="text-sm font-medium">{item.rating}</span>
+                          </div>
+                          <span className="ml-1 text-sm text-gray-500">({item.totalReviews} reviews)</span>
+                        </div>
+                        
+                        <Button 
+                          onClick={() => handleAddToCart(item)}
+                          className="w-full"
+                        >
+                          Add to Cart
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="py-12 text-center">
+            <p className="text-gray-500">Restaurant not found</p>
+          </div>
+        )}
+      </Container>
+    </div>
+  );
 };
 
 export default RestaurantDetails; 

@@ -77,6 +77,37 @@ exports.protect = async (req, res, next) => {
 };
 
 /**
+ * Middleware to authorize based on user roles
+ * @param {...string} roles - Allowed roles for the route
+ * @returns {function} - Express middleware
+ */
+exports.authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Authentication required',
+          code: 'AUTH_ERROR'
+        }
+      });
+    }
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          message: `User role '${req.user.role}' is not authorized to access this resource`,
+          code: 'PERMISSION_DENIED'
+        }
+      });
+    }
+    
+    next();
+  };
+};
+
+/**
  * Middleware to restrict access to admin users only
  */
 exports.admin = (req, res, next) => {
@@ -96,8 +127,8 @@ exports.admin = (req, res, next) => {
 /**
  * Middleware to restrict access to restaurant owners only
  */
-exports.restaurantOwner = (req, res, next) => {
-  if (req.user && (req.user.role === 'restaurant' || req.user.role === 'restaurantOwner')) {
+exports.restaurant = (req, res, next) => {
+  if (req.user && (req.user.role === 'restaurant' || req.user.role === 'restaurant')) {
     next();
   } else {
     return res.status(403).json({

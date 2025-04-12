@@ -1,259 +1,331 @@
 const User = require('../models/user');
 const Order = require('../models/order');
-const { LoyaltyPoints } = require('../models/loyalty');
+const LoyaltyTransaction = require('../models/loyaltyTransaction');
 const mongoose = require('mongoose');
+const asyncHandler = require('../middleware/asyncHandler');
+const ErrorResponse = require('../utils/errorResponse');
+const { 
+    calculateTier, 
+    getTierBenefits,
+    LOYALTY_TIERS,
+    calculateOrderPoints
+} = require('../utils/loyaltyUtils');
 
-// Helper function to calculate points based on order total
-const calculatePoints = (orderTotal) => {
+// Helper function to calculate base points based on order total
+const calculateBasePoints = (orderTotal) => {
     // For every 100 spent, earn 10 points
     return Math.floor(orderTotal / 100) * 10;
 };
 
-// Get user's current loyalty points
-exports.getUserPoints = async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid user ID format'
-            });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            points: user.loyaltyPoints || 0
-        });
-    } catch (error) {
-        console.error('Error fetching user loyalty points:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching loyalty points',
-            error: error.message
-        });
+/**
+ * Get user's loyalty information including tier benefits
+ * @route GET /api/loyalty/info
+ * @access Private
+ */
+exports.getLoyaltyInfo = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ErrorResponse('User not found', 404);
     }
-};
-
-// Add loyalty points to user account (after order completion)
-exports.addPoints = async (req, res) => {
-    try {
-        const { userId, orderId, points, orderTotal } = req.body;
-
-        if (!userId || (!points && !orderTotal)) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID and either points or order total are required'
-            });
+    
+    // Get user's current tier and benefits
+    const tier = user.loyaltyTier;
+    const tierBenefits = getTierBenefits(tier);
+    
+    // Calculate points needed for next tier
+    let nextTier = null;
+    let pointsToNextTier = 0;
+    
+    if (tier !== 'PLATINUM') {
+        // Find the next tier
+        const tiers = Object.keys(LOYALTY_TIERS);
+        const currentTierIndex = tiers.indexOf(tier);
+        nextTier = tiers[currentTierIndex + 1];
+        
+        if (nextTier) {
+            pointsToNextTier = LOYALTY_TIERS[nextTier] - user.lifetimeLoyaltyPoints;
         }
-
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid user ID format'
-            });
-        }
-
-        // Find the user
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Calculate points if not provided directly
-        const pointsToAdd = points || calculatePoints(orderTotal);
-
-        // Create a new loyalty points record
-        const loyaltyRecord = new LoyaltyPoints({
-            points: pointsToAdd,
-            user: userId,
-            orderId: orderId || null,
-            type: 'earned',
-            description: orderId ? `Points earned from order #${orderId}` : 'Points added to account'
-        });
-
-        await loyaltyRecord.save();
-
-        // Update user's total points
-        user.loyaltyPoints = (user.loyaltyPoints || 0) + pointsToAdd;
-        await user.save();
-
-        // If order ID is provided, update the order with points earned
-        if (orderId && mongoose.Types.ObjectId.isValid(orderId)) {
-            const order = await Order.findById(orderId);
-            if (order) {
-                order.loyaltyPointsEarned = pointsToAdd;
-                await order.save();
-            }
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: `${pointsToAdd} points added successfully`,
-            currentPoints: user.loyaltyPoints
-        });
-    } catch (error) {
-        console.error('Error adding loyalty points:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while adding loyalty points',
-            error: error.message
-        });
     }
-};
-
-// Redeem loyalty points for discount
-exports.redeemPoints = async (req, res) => {
-    try {
-        const { userId, points, orderId } = req.body;
-
-        if (!userId || !points || !orderId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID, points, and order ID are required'
-            });
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid ID format'
-            });
-        }
-
-        // Find the user
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Check if user has enough points
-        if ((user.loyaltyPoints || 0) < points) {
-            return res.status(400).json({
-                success: false,
-                message: 'Not enough loyalty points'
-            });
-        }
-
-        // Find the order
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-
-        // Calculate discount (10 points = Rs. 1 off)
-        const discountAmount = points / 10;
-
-        // Create a new loyalty points record for redemption
-        const loyaltyRecord = new LoyaltyPoints({
-            points: -points, // Negative value for points spent
-            user: userId,
-            orderId: orderId,
-            type: 'redeemed',
-            description: `Points redeemed for Rs. ${discountAmount} discount on order #${orderId}`
-        });
-
-        await loyaltyRecord.save();
-
-        // Update user's total points
-        user.loyaltyPoints -= points;
-        await user.save();
-
-        // Update order with points used and adjust total
-        order.loyaltyPointsUsed = points;
-        // Reduce the total by the discount amount
-        order.totalPrice = Math.max(0, order.totalPrice - discountAmount);
-        await order.save();
-
-        return res.status(200).json({
-            success: true,
-            message: `${points} points redeemed successfully for Rs. ${discountAmount} discount`,
+    
+    return res.status(200).json({
+        success: true,
+        data: {
             currentPoints: user.loyaltyPoints,
-            updatedOrder: {
-                id: order._id,
-                totalPrice: order.totalPrice,
-                loyaltyPointsUsed: order.loyaltyPointsUsed
+            lifetimePoints: user.lifetimeLoyaltyPoints,
+            currentTier: tier,
+            tierBenefits,
+            nextTier,
+            pointsToNextTier: pointsToNextTier > 0 ? pointsToNextTier : 0,
+            tierUpdateDate: user.tierUpdateDate
+        }
+    });
+});
+
+/**
+ * Get user's loyalty transactions history
+ * @route GET /api/loyalty/transactions
+ * @access Private
+ */
+exports.getLoyaltyTransactions = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+    
+    const query = { user: userId };
+    
+    // Allow filtering by transaction type
+    if (req.query.type && ['EARN', 'REDEEM', 'ADJUST', 'EXPIRE'].includes(req.query.type.toUpperCase())) {
+        query.type = req.query.type.toUpperCase();
+    }
+    
+    // Date range filter
+    if (req.query.startDate) {
+        query.createdAt = { $gte: new Date(req.query.startDate) };
+    }
+    
+    if (req.query.endDate) {
+        query.createdAt = { ...query.createdAt || {}, $lte: new Date(req.query.endDate) };
+    }
+    
+    const transactions = await LoyaltyTransaction.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+    
+    const total = await LoyaltyTransaction.countDocuments(query);
+    
+    return res.status(200).json({
+        success: true,
+        data: {
+            transactions,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        }
+    });
+});
+
+/**
+ * Add points from completed order
+ * @route POST /api/loyalty/earn
+ * @access Private
+ */
+exports.addOrderPoints = asyncHandler(async (req, res) => {
+    const { orderId, orderTotal } = req.body;
+    const userId = req.user._id;
+    
+    if (!orderId || !orderTotal) {
+        throw new ErrorResponse('Order ID and total are required', 400);
+    }
+    
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+        // Find user
+        const user = await User.findById(userId).session(session);
+        if (!user) {
+            throw new ErrorResponse('User not found', 404);
+        }
+        
+        // Calculate points based on order total and user's tier
+        const basePoints = calculateBasePoints(orderTotal);
+        const pointsToAdd = calculateOrderPoints(basePoints, user.loyaltyTier);
+        
+        // Set expiry date (12 months from now)
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + 12);
+        
+        // Create loyalty transaction
+        const transaction = new LoyaltyTransaction({
+            user: userId,
+            points: pointsToAdd,
+            type: 'EARN',
+            source: 'ORDER',
+            description: `Points earned from order #${orderId}`,
+            referenceId: orderId,
+            balance: user.loyaltyPoints + pointsToAdd,
+            expiryDate
+        });
+        
+        await transaction.save({ session });
+        
+        // Update user's points
+        user.loyaltyPoints += pointsToAdd;
+        user.lifetimeLoyaltyPoints += pointsToAdd;
+        await user.save({ session });
+        
+        // Update order with points earned (if order model has this field)
+        const order = await Order.findById(orderId).session(session);
+        if (order) {
+            order.loyaltyPointsEarned = pointsToAdd;
+            await order.save({ session });
+        }
+        
+        await session.commitTransaction();
+        
+        return res.status(200).json({
+            success: true,
+            data: {
+                transaction,
+                currentPoints: user.loyaltyPoints,
+                lifetimePoints: user.lifetimeLoyaltyPoints
             }
         });
     } catch (error) {
-        console.error('Error redeeming loyalty points:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while redeeming loyalty points',
-            error: error.message
-        });
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
     }
-};
+});
 
-// Get loyalty points history for a user
-exports.getPointsHistory = async (req, res) => {
+/**
+ * Redeem points for a reward
+ * @route POST /api/loyalty/redeem
+ * @access Private
+ */
+exports.redeemPoints = asyncHandler(async (req, res) => {
+    const { rewardId, pointsToRedeem } = req.body;
+    const userId = req.user._id;
+    
+    if (!rewardId || !pointsToRedeem || pointsToRedeem <= 0) {
+        throw new ErrorResponse('Valid reward and points amount are required', 400);
+    }
+    
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
     try {
-        const { userId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid user ID format'
-            });
+        // Find user
+        const user = await User.findById(userId).session(session);
+        if (!user) {
+            throw new ErrorResponse('User not found', 404);
         }
-
-        const history = await LoyaltyPoints.find({ user: userId })
-            .sort({ date: -1 }) // Most recent first
-            .limit(50); // Limit to 50 records
-
+        
+        // Check if user has enough points
+        if (user.loyaltyPoints < pointsToRedeem) {
+            throw new ErrorResponse('Insufficient loyalty points', 400);
+        }
+        
+        // Create redemption transaction
+        const transaction = new LoyaltyTransaction({
+            user: userId,
+            points: -pointsToRedeem, // Negative for redemption
+            type: 'REDEEM',
+            source: 'SYSTEM',
+            description: `Redeemed points for reward: ${rewardId}`,
+            referenceId: null, // Could store reward ID if rewards have ObjectIds
+            balance: user.loyaltyPoints - pointsToRedeem
+        });
+        
+        await transaction.save({ session });
+        
+        // Update user points
+        user.loyaltyPoints -= pointsToRedeem;
+        await user.save({ session });
+        
+        await session.commitTransaction();
+        
         return res.status(200).json({
             success: true,
-            history
+            data: {
+                transaction,
+                currentPoints: user.loyaltyPoints
+            }
         });
     } catch (error) {
-        console.error('Error fetching loyalty points history:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching loyalty points history',
-            error: error.message
-        });
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
     }
-};
+});
 
-// Get available rewards that can be redeemed with points
-exports.getAvailableRewards = async (req, res) => {
+/**
+ * Admin endpoint to adjust user points
+ * @route POST /api/loyalty/adjust
+ * @access Private (Admin only)
+ */
+exports.adjustPoints = asyncHandler(async (req, res) => {
+    const { userId, points, reason } = req.body;
+    const adminId = req.user._id;
+    
+    if (!userId || !points || !reason) {
+        throw new ErrorResponse('User ID, points and reason are required', 400);
+    }
+    
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
     try {
-        // Define a list of standard rewards
-        const rewards = [
-            { id: 1, name: 'Rs. 50 off your order', pointsRequired: 500, value: 50 },
-            { id: 2, name: 'Rs. 100 off your order', pointsRequired: 1000, value: 100 },
-            { id: 3, name: 'Rs. 200 off your order', pointsRequired: 2000, value: 200 },
-            { id: 4, name: 'Free delivery', pointsRequired: 300, value: 'free_delivery' },
-            { id: 5, name: 'Buy one get one free', pointsRequired: 1500, value: 'bogo' }
-        ];
-
+        // Find user
+        const user = await User.findById(userId).session(session);
+        if (!user) {
+            throw new ErrorResponse('User not found', 404);
+        }
+        
+        // Create adjustment transaction
+        const transaction = new LoyaltyTransaction({
+            user: userId,
+            points: points, // Can be positive or negative
+            type: 'ADJUST',
+            source: 'ADMIN',
+            description: reason,
+            adjustedBy: adminId,
+            balance: user.loyaltyPoints + points
+        });
+        
+        await transaction.save({ session });
+        
+        // Update user points
+        user.loyaltyPoints += points;
+        
+        // If adding points, also update lifetime points
+        if (points > 0) {
+            user.lifetimeLoyaltyPoints += points;
+        }
+        
+        await user.save({ session });
+        
+        await session.commitTransaction();
+        
         return res.status(200).json({
             success: true,
-            rewards
+            data: {
+                transaction,
+                currentPoints: user.loyaltyPoints,
+                lifetimePoints: user.lifetimeLoyaltyPoints
+            }
         });
     } catch (error) {
-        console.error('Error fetching available rewards:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching available rewards',
-            error: error.message
-        });
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
     }
-}; 
+});
+
+/**
+ * Process expired points (cron job endpoint)
+ * @route POST /api/loyalty/process-expired
+ * @access Private (System/Admin only)
+ */
+exports.processExpiredPoints = asyncHandler(async (req, res) => {
+    const { processExpiredPoints } = require('../utils/loyaltyUtils');
+    
+    const processed = await processExpiredPoints(LoyaltyTransaction, User);
+    
+    return res.status(200).json({
+        success: true,
+        data: {
+            processed
+        }
+    });
+}); 

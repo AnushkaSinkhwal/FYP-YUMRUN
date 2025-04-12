@@ -1,138 +1,469 @@
 import { useState, useEffect } from 'react';
-import { FaShoppingBag, FaUtensils, FaWallet, FaBox, FaUserEdit, FaBell } from 'react-icons/fa';
-import Dashboard from '../../components/shared/Dashboard';
+import { Card, Button } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 import { userAPI } from '../../utils/api';
-import { toast } from 'react-toastify';
+import LoyaltyDashboard from '../../components/Loyalty/LoyaltyDashboard';
+import HealthRecommendations from '../../components/Recommendations/HealthRecommendations';
+import NutritionSummary from '../../components/NutritionTracker/NutritionSummary';
+import HealthProfile from '../../components/Profile/HealthProfile';
+import { formatDate } from '../../utils/helpers';
+import { useNavigate } from 'react-router-dom';
 
-function UserDashboard() {
-  const [dashboardData, setDashboardData] = useState({
-    totalOrders: 0,
-    favoriteRestaurants: 0,
-    savedAmount: 0,
-    pendingOrders: 0,
-  });
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+const UserDashboard = () => {
+  const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('recommendations');
+  const [profile, setProfile] = useState(null);
+  const [orderHistory, setOrderHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchUserData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchUserData = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
       
-      console.log('Fetching dashboard data...');
-      const response = await userAPI.getDashboard();
-      console.log('Dashboard response:', response.data);
-      
-      if (response.data && response.data.success) {
-        const data = response.data.data || {};
-        
-        setDashboardData({
-          totalOrders: data.totalOrders || 0,
-          favoriteRestaurants: data.favoriteRestaurants || 0,
-          savedAmount: data.savedAmount || 0,
-          pendingOrders: data.pendingOrders || 0,
-        });
-        
-        // Set recent activity from API response
-        if (data.recentActivity && data.recentActivity.length > 0) {
-          setRecentActivity(data.recentActivity.map(activity => ({
-            id: activity.id,
-            type: activity.title.toLowerCase().includes('order') ? 'order' : 'notification',
-            details: activity.description,
-            status: activity.status || 'pending',
-            date: activity.time,
-            link: activity.link || '/user/notifications'
-          })));
-        } else {
-          setRecentActivity([]);
-        }
-      } else {
-        throw new Error(response.data?.message || 'Failed to load dashboard data');
+      // Fetch user profile
+      const profileResponse = await userAPI.getProfile();
+      if (profileResponse.data.success) {
+        setProfile(profileResponse.data.data);
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data');
-      toast.error('Failed to load dashboard data');
+      
+      // Fetch order history
+      const orderResponse = await userAPI.getOrders();
+      if (orderResponse.data.success) {
+        setOrderHistory(orderResponse.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError('An error occurred while loading your dashboard');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Stats data based on fetched dashboard data
-  const stats = [
-    {
-      title: 'Total Orders',
-      count: dashboardData.totalOrders,
-      icon: <FaShoppingBag className='text-blue-500' />,
-      color: 'bg-blue-100',
-      link: '/user/orders'
-    },
-    {
-      title: 'Favorite Restaurants',
-      count: dashboardData.favoriteRestaurants,
-      icon: <FaUtensils className='text-red-500' />,
-      color: 'bg-red-100',
-      link: '/user/favorites'
-    },
-    {
-      title: 'Saved Amount',
-      count: `$${dashboardData.savedAmount.toFixed(2)}`,
-      icon: <FaWallet className='text-green-500' />,
-      color: 'bg-green-100',
-      link: '/user/rewards'
-    },
-    {
-      title: 'Pending Orders',
-      count: dashboardData.pendingOrders,
-      icon: <FaBox className='text-yellow-500' />,
-      color: 'bg-yellow-100',
-      link: '/user/orders'
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="container p-6 mx-auto">
+        <div className="text-center">
+          <p>Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Quick actions
-  const quickActions = [
-    {
-      title: 'My Orders',
-      description: 'View your order history and track current orders',
-      link: '/user/orders',
-      icon: <FaShoppingBag className="w-8 h-8 mb-3" />,
-      gradient: 'bg-gradient-to-r from-blue-500 to-blue-600',
-      buttonText: 'View Orders'
-    },
-    {
-      title: 'Edit Profile',
-      description: 'Update your personal information and preferences',
-      link: '/user/profile',
-      icon: <FaUserEdit className="w-8 h-8 mb-3" />,
-      gradient: 'bg-gradient-to-r from-purple-500 to-purple-600',
-      buttonText: 'Edit Profile'
-    },
-    {
-      title: 'Notifications',
-      description: 'Check your notifications and updates',
-      link: '/user/notifications',
-      icon: <FaBell className="w-8 h-8 mb-3" />,
-      gradient: 'bg-gradient-to-r from-yellow-500 to-yellow-600',
-      buttonText: 'View Notifications'
-    },
-  ];
+  if (error) {
+    return (
+      <div className="container p-6 mx-auto">
+        <div className="p-6 text-center bg-red-100 rounded-lg">
+          <p className="text-red-600">{error}</p>
+          <Button onClick={fetchUserData} className="mt-2">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Dashboard 
-      stats={stats}
-      quickActions={quickActions}
-      recentActivity={recentActivity}
-      isLoading={isLoading}
-      error={error}
-      onRefresh={fetchDashboardData}
-    />
+    <div className="container p-6 mx-auto">
+      <div className="flex flex-col gap-6 md:flex-row">
+        {/* Sidebar */}
+        <div className="w-full md:w-1/4">
+          <Card className="p-6">
+            <div className="mb-6 text-center">
+              <div className="flex items-center justify-center w-20 h-20 mx-auto mb-2 text-2xl font-bold text-center text-white rounded-full bg-primary">
+                {currentUser?.fullName?.charAt(0) || 'U'}
+              </div>
+              <h2 className="text-xl font-bold">{currentUser?.fullName || 'User'}</h2>
+              <p className="text-gray-500">{currentUser?.email}</p>
+              
+              {profile?.healthCondition && (
+                <div className="inline-block px-3 py-1 mt-2 text-xs text-white bg-blue-500 rounded-full">
+                  {profile.healthCondition}
+                </div>
+              )}
+            </div>
+            
+            <nav className="space-y-2">
+              <button
+                onClick={() => setActiveTab('recommendations')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'recommendations' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Personalized Recommendations
+              </button>
+              <button
+                onClick={() => setActiveTab('health')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'health' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Health Profile
+              </button>
+              <button
+                onClick={() => setActiveTab('nutrition')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'nutrition' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Nutrition Tracker
+              </button>
+              <button
+                onClick={() => setActiveTab('calorie')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'calorie' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Calorie Counter
+              </button>
+              <button
+                onClick={() => setActiveTab('loyalty')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'loyalty' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Loyalty Points
+              </button>
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={`w-full text-left p-2 rounded-md ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Order History
+              </button>
+            </nav>
+            
+            <div className="pt-4 mt-6 border-t">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/profile')}
+              >
+                Edit Profile
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full mt-2"
+                onClick={() => navigate('/')}
+              >
+                Return to Home
+              </Button>
+            </div>
+          </Card>
+          
+          {/* Health Summary */}
+          {profile?.healthProfile && activeTab !== 'health' && (
+            <Card className="p-4 mt-4">
+              <h3 className="mb-2 text-sm font-medium">Health Summary</h3>
+              <div className="text-xs text-gray-500">
+                <p>Dietary Preferences: {profile.healthProfile.dietaryPreferences.join(', ')}</p>
+                <p>Health Conditions: {profile.healthProfile.healthConditions.join(', ')}</p>
+                {profile.healthProfile.allergies?.length > 0 && (
+                  <p>Allergies: {profile.healthProfile.allergies.join(', ')}</p>
+                )}
+                {profile.healthProfile.dailyCalorieGoal && (
+                  <p>Daily Calorie Goal: {profile.healthProfile.dailyCalorieGoal} kcal</p>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+        
+        {/* Main Content */}
+        <div className="flex-1">
+          {/* Recommendations Tab */}
+          {activeTab === 'recommendations' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Your Personalized Recommendations</h2>
+              <HealthRecommendations healthCondition={profile?.healthCondition} />
+            </div>
+          )}
+          
+          {/* Health Profile Tab */}
+          {activeTab === 'health' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Health Profile</h2>
+              <HealthProfile />
+            </div>
+          )}
+          
+          {/* Nutrition Tracker Tab */}
+          {activeTab === 'nutrition' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Nutrition Tracker</h2>
+              
+              {orderHistory.length > 0 ? (
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="mb-4 text-lg font-semibold">Recent Meals Nutritional Summary</h3>
+                    {orderHistory.slice(0, 3).map((order) => (
+                      <div key={order.id} className="py-3 border-b last:border-0">
+                        <div className="flex justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium">{formatDate(order.createdAt, { hour: undefined, minute: undefined })}</h4>
+                            <p className="text-sm text-gray-500">Order #{order.orderNumber}</p>
+                          </div>
+                          <Button variant="link" onClick={() => navigate(`/orders/${order.id}`)}>
+                            View Details
+                          </Button>
+                        </div>
+                        <NutritionSummary 
+                          nutritionalInfo={order.totalNutritionalInfo} 
+                          dailyGoals={profile?.healthProfile?.dailyCalorieGoal ? {
+                            calories: profile.healthProfile.dailyCalorieGoal,
+                            protein: profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.protein / 100) / 4,
+                            carbs: profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.carbs / 100) / 4,
+                            fat: profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.fat / 100) / 9
+                          } : undefined}
+                        />
+                      </div>
+                    ))}
+                  </Card>
+                  
+                  <Card className="p-6">
+                    <h3 className="mb-4 text-lg font-semibold">Nutritional Tips Based on Your Diet</h3>
+                    <ul className="ml-6 space-y-2 list-disc">
+                      {profile?.healthCondition === 'Diabetes' && (
+                        <>
+                          <li>Focus on low glycemic index foods to maintain stable blood sugar levels</li>
+                          <li>Aim for consistent meal times and portion sizes</li>
+                          <li>Increase fiber intake to help regulate glucose absorption</li>
+                        </>
+                      )}
+                      
+                      {profile?.healthCondition === 'Heart Condition' && (
+                        <>
+                          <li>Choose foods low in saturated fats and trans fats</li>
+                          <li>Limit sodium intake to less than 2,300mg per day</li>
+                          <li>Include heart-healthy omega-3 fatty acids in your diet</li>
+                        </>
+                      )}
+                      
+                      {profile?.healthCondition === 'Hypertension' && (
+                        <>
+                          <li>Follow a DASH diet approach (Dietary Approaches to Stop Hypertension)</li>
+                          <li>Limit sodium to 1,500-2,300mg per day</li>
+                          <li>Include potassium-rich foods to help control blood pressure</li>
+                        </>
+                      )}
+                      
+                      {(!profile?.healthCondition || profile?.healthCondition === 'Healthy') && (
+                        <>
+                          <li>Maintain a balanced diet with a variety of nutrients</li>
+                          <li>Focus on whole foods rather than processed options</li>
+                          <li>Stay hydrated and limit sugary beverages</li>
+                        </>
+                      )}
+                    </ul>
+                  </Card>
+                </div>
+              ) : (
+                <Card className="p-6 text-center">
+                  <h3 className="mb-2 text-lg font-semibold">No Order History</h3>
+                  <p className="mb-4 text-gray-500">
+                    You haven't placed any orders yet. Order meals to start tracking your nutrition.
+                  </p>
+                  <Button onClick={() => navigate('/restaurants')}>
+                    Browse Restaurants
+                  </Button>
+                </Card>
+              )}
+            </div>
+          )}
+          
+          {/* Calorie Counter Tab (New) */}
+          {activeTab === 'calorie' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Calorie Counter</h2>
+              
+              <Card className="p-6">
+                <h3 className="mb-4 text-lg font-semibold">Daily Calorie Information</h3>
+                
+                {profile?.healthProfile?.dailyCalorieGoal ? (
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-lg bg-blue-50">
+                      <h4 className="font-semibold text-blue-700">Your Daily Calorie Goal</h4>
+                      <div className="flex items-center mt-2">
+                        <div className="flex items-center justify-center w-16 h-16 mr-4 text-xl font-bold text-white bg-blue-500 rounded-full">
+                          {profile.healthProfile.dailyCalorieGoal}
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Calories per day based on your:</p>
+                          <ul className="pl-5 mt-1 text-sm text-gray-600 list-disc">
+                            <li>Activity level: {profile.healthProfile.fitnessLevel || 'Not specified'}</li>
+                            <li>Goal: {profile.healthProfile.weightManagementGoal || 'Not specified'}</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {orderHistory.length > 0 ? (
+                      <div>
+                        <h4 className="mb-2 font-semibold">Today&apos;s Consumption</h4>
+                        {/* This is a placeholder - in a real app, you would filter by today's date */}
+                        <div className="p-4 rounded-lg bg-gray-50">
+                          <div className="flex justify-between mb-1">
+                            <span>Total calories consumed today:</span>
+                            <span className="font-semibold">{orderHistory[0]?.totalNutritionalInfo?.calories || 0} cal</span>
+                          </div>
+                          <div className="flex justify-between mb-1">
+                            <span>Remaining calories:</span>
+                            <span className="font-semibold">{(profile.healthProfile.dailyCalorieGoal - (orderHistory[0]?.totalNutritionalInfo?.calories || 0))} cal</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                          <Button onClick={() => navigate('/restaurants')} className="w-full">
+                            Order a Meal
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center rounded-lg bg-gray-50">
+                        <p className="mb-4 text-gray-500">
+                          No calorie data available. Place orders to track your calorie intake.
+                        </p>
+                        <Button onClick={() => navigate('/restaurants')}>
+                          Browse Restaurants
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center">
+                    <p className="mb-4 text-gray-500">
+                      You haven&apos;t set your daily calorie goal yet. Complete your health profile to get started.
+                    </p>
+                    <Button onClick={() => setActiveTab('health')}>
+                      Set Calorie Goal
+                    </Button>
+                  </div>
+                )}
+              </Card>
+              
+              <Card className="p-6 mt-6">
+                <h3 className="mb-4 text-lg font-semibold">Macro Distribution</h3>
+                
+                {profile?.healthProfile?.macroTargets ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 rounded-lg bg-green-50">
+                      <h4 className="text-green-700">Protein</h4>
+                      <p className="mt-1 text-2xl font-bold text-green-700">{profile.healthProfile.macroTargets.protein}%</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        ~{Math.round(profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.protein / 100) / 4)}g per day
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-blue-50">
+                      <h4 className="text-blue-700">Carbohydrates</h4>
+                      <p className="mt-1 text-2xl font-bold text-blue-700">{profile.healthProfile.macroTargets.carbs}%</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        ~{Math.round(profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.carbs / 100) / 4)}g per day
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-yellow-50">
+                      <h4 className="text-yellow-700">Fat</h4>
+                      <p className="mt-1 text-2xl font-bold text-yellow-700">{profile.healthProfile.macroTargets.fat}%</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        ~{Math.round(profile.healthProfile.dailyCalorieGoal * (profile.healthProfile.macroTargets.fat / 100) / 9)}g per day
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center">
+                    <p className="mb-4 text-gray-500">
+                      You haven&apos;t set your macro targets yet. Complete your health profile to track macronutrients.
+                    </p>
+                    <Button onClick={() => setActiveTab('health')}>
+                      Set Macro Targets
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+          
+          {/* Loyalty Tab */}
+          {activeTab === 'loyalty' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Loyalty Points</h2>
+              <LoyaltyDashboard />
+            </div>
+          )}
+          
+          {/* Orders Tab */}
+          {activeTab === 'orders' && (
+            <div>
+              <h2 className="mb-6 text-2xl font-bold">Order History</h2>
+              
+              {orderHistory.length > 0 ? (
+                <Card className="overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Order ID</th>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Date</th>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Total</th>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Restaurant</th>
+                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {orderHistory.map((order) => (
+                          <tr key={order.id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{order.orderNumber}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">Rs. {order.totalAmount}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${order.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                order.status === 'processing' ? 'bg-blue-100 text-blue-800' : 
+                                order.status === 'delivered' ? 'bg-green-100 text-green-800' : 
+                                order.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
+                                'bg-yellow-100 text-yellow-800'}`}
+                              >
+                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{order.restaurant?.name || 'Unknown'}</div>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                              <Button 
+                                variant="link" 
+                                onClick={() => navigate(`/orders/${order.id}`)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                View Details
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-6 text-center">
+                  <h3 className="mb-2 text-lg font-semibold">No Order History</h3>
+                  <p className="mb-4 text-gray-500">
+                    You haven't placed any orders yet.
+                  </p>
+                  <Button onClick={() => navigate('/restaurants')}>
+                    Browse Restaurants
+                  </Button>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
 export default UserDashboard; 

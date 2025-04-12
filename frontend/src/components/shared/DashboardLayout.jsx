@@ -157,8 +157,9 @@ const DashboardLayout = ({ children, role }) => {
         }
       } else if (userRole === 'deliveryuser') {
         // For delivery users, check for unread notifications
+        // (Using userAPI for now, create deliveryAPI if needed)
         try {
-          const response = await userAPI.getUnreadNotificationCount();
+          const response = await userAPI.getUnreadNotificationCount(); // Assuming delivery uses user notifications
           
           if (response.data.success) {
             setNotificationCount(response.data.count || 0);
@@ -223,7 +224,8 @@ const DashboardLayout = ({ children, role }) => {
       case 'restaurant':
         return '/restaurant/notifications';
       case 'deliveryuser':
-        return '/delivery/notifications';
+        // Corrected role check for delivery user navigation
+        return '/delivery/notifications'; 
       case 'user':
       default:
         return '/user/notifications';
@@ -234,29 +236,22 @@ const DashboardLayout = ({ children, role }) => {
     // Fetch user details based on role
     const fetchUserDetails = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        let response;
-        if (userRole === 'restaurant') {
-          response = await restaurantAPI.getRestaurantProfile();
-        } else if (userRole === 'admin' || userRole === 'user' || userRole === 'deliveryuser') {
-          response = await userAPI.getUserProfile();
-        }
-
-        if (response && response.data && response.data.success) {
+        // Use currentUser from useAuth context instead of fetching again
+        if (currentUser) {
           setUserData({
-            name: response.data.user.name || response.data.restaurant.name || 'User',
-            email: response.data.user.email || response.data.restaurant.email || '',
+            name: currentUser.fullName || currentUser.name || 'User',
+            email: currentUser.email || ''
           });
         }
       } catch (error) {
-        console.error('Error fetching user details:', error);
+        console.error('Error setting user details from context:', error);
+        // Fallback or default values if needed
+        setUserData({ name: 'User', email: '' });
       }
     };
 
     fetchUserDetails();
-  }, [userRole]);
+  }, [currentUser]);
 
   return (
     <div className="flex h-screen text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
@@ -309,7 +304,7 @@ const DashboardLayout = ({ children, role }) => {
                 >
                   {item.icon}
                   <span className="ml-3">{item.label}</span>
-                  {item.badge && (
+                  {item.badge && notificationCount > 0 && (
                     <span className="flex items-center justify-center w-5 h-5 ml-auto text-xs font-bold text-white bg-red-600 rounded-full">
                       {notificationCount > 9 ? '9+' : notificationCount}
                     </span>
@@ -363,16 +358,17 @@ const DashboardLayout = ({ children, role }) => {
                 >
                   <img
                     className="w-8 h-8 rounded-full"
-                    src="/assets/img/default-avatar.png"
+                    // Use a placeholder or fetched avatar URL
+                    src={currentUser?.avatar || "/assets/img/default-avatar.png"} 
                     alt="User Avatar"
                   />
-                  <span className="hidden md:block">{userData.name}</span>
+                  <span className="hidden md:block">{userData.name || 'User'}</span>
                 </button>
                 {showProfileDropdown && (
                   <div className="absolute right-0 z-50 w-56 mt-2 bg-white rounded-md shadow-lg dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{userData.name}</p>
-                      <p className="text-xs text-gray-500 truncate dark:text-gray-400">{userData.email}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{userData.name || 'User'}</p>
+                      <p className="text-xs text-gray-500 truncate dark:text-gray-400">{userData.email || 'No email'}</p>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getRoleTitle()}</p>
                     </div>
                     <div className="py-1">
@@ -406,7 +402,7 @@ const DashboardLayout = ({ children, role }) => {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <main id="main-content" className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
           {children || <Outlet />}
         </main>
       </div>
@@ -416,7 +412,7 @@ const DashboardLayout = ({ children, role }) => {
 
 DashboardLayout.propTypes = {
   children: PropTypes.node,
-  role: PropTypes.string
+  role: PropTypes.string // Role prop is now optional
 };
 
 export default DashboardLayout; 

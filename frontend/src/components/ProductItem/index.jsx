@@ -1,7 +1,7 @@
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { CiHeart } from "react-icons/ci";
 import { FiShoppingCart } from "react-icons/fi";
-import { FaMapMarkerAlt } from "react-icons/fa";
+import { FaMapMarkerAlt, FaHeart } from "react-icons/fa";
 import { useContext, useState } from 'react';
 import { MyContext } from '../../App';
 import PropTypes from 'prop-types';
@@ -31,6 +31,7 @@ const ProductItem = ({
     const [cartButtonClass, setCartButtonClass] = useState('');
     const [favoriteActive, setFavoriteActive] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
+    const [addedToCart, setAddedToCart] = useState(false);
 
     const viewProductDetails = () => {
         context.setProductId(id);
@@ -41,6 +42,7 @@ const ProductItem = ({
         e.preventDefault();
         e.stopPropagation();
         setCartButtonClass('cart-added');
+        setAddedToCart(true);
         
         // Reset animation class after animation completes
         setTimeout(() => {
@@ -56,6 +58,11 @@ const ProductItem = ({
             rating,
             restaurant: location
         }, 1);
+        
+        // Show success briefly
+        setTimeout(() => {
+            setAddedToCart(false);
+        }, 2000);
     };
     
     const toggleFavorite = (e) => {
@@ -95,11 +102,12 @@ const ProductItem = ({
                         )}
                         fill="currentColor" 
                         viewBox="0 0 20 20"
+                        aria-hidden="true"
                     >
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                 ))}
-                <span className="ml-1 text-sm font-medium text-gray-600">{rating}</span>
+                <span className="ml-1 text-sm font-medium text-gray-600" aria-label={`${rating} out of 5 stars`}>{rating}</span>
             </div>
         );
     };
@@ -118,13 +126,20 @@ const ProductItem = ({
     };
 
     return (
-        <Card className={`group overflow-hidden transition-all duration-300 hover:shadow-md ${getSizeClass()}`}>
+        <Card className={`group relative overflow-hidden rounded-md transition-all duration-300 hover:shadow-lg ${getSizeClass()}`}>
+            {/* Added to cart notification */}
+            {addedToCart && (
+                <div className="absolute top-0 left-0 right-0 z-20 p-2 m-2 text-center text-white bg-green-500 rounded-md animate-fade-in-down">
+                    Added to cart!
+                </div>
+            )}
+            
             <div className="relative overflow-hidden">
                 {/* Image container with aspect ratio */}
-                <div className="relative pt-[75%] bg-gray-100">
+                <div className="relative pt-[75%] bg-gray-50">
                     {!imgLoaded && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                            <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                            <div className="w-10 h-10 border-4 border-yumrun-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                     )}
                     <Link to={`/product/${id}`} aria-label={`View ${name} details`}>
@@ -142,7 +157,7 @@ const ProductItem = ({
                     </Link>
                     
                     {discount && parseFloat(discount) > 0 && (
-                        <Badge className="absolute top-2 left-2 bg-yumrun-accent" variant="secondary">
+                        <Badge className="absolute top-2 left-2 bg-yumrun-accent text-white" variant="secondary">
                             {discount}% OFF
                         </Badge>
                     )}
@@ -152,7 +167,7 @@ const ProductItem = ({
                         <Button
                             size="icon"
                             variant="secondary"
-                            className="w-8 h-8 bg-white rounded-full shadow-sm hover:bg-gray-100"
+                            className="w-8 h-8 bg-white rounded-full shadow-md hover:bg-gray-100 focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none"
                             onClick={viewProductDetails}
                             aria-label="Quick view"
                         >
@@ -162,21 +177,30 @@ const ProductItem = ({
                         <Button
                             size="icon"
                             variant="secondary"
-                            className="w-8 h-8 bg-white rounded-full shadow-sm hover:bg-gray-100"
+                            className={cn(
+                                "w-8 h-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
+                                favoriteActive 
+                                    ? "bg-pink-50 hover:bg-pink-100" 
+                                    : "bg-white hover:bg-gray-100"
+                            )}
                             onClick={toggleFavorite}
                             aria-label={favoriteActive ? "Remove from wishlist" : "Add to wishlist"}
                         >
-                            <CiHeart 
-                                className={cn("h-5 w-5", favoriteActive ? "text-yumrun-accent fill-yumrun-accent" : "")}
-                            />
+                            {favoriteActive ? (
+                                <FaHeart className="w-4 h-4 text-yumrun-accent" />
+                            ) : (
+                                <CiHeart className="w-5 h-5" />
+                            )}
                         </Button>
                         
                         <Button
                             size="icon"
                             variant="secondary"
                             className={cn(
-                                "h-8 w-8 rounded-full bg-white hover:bg-gray-100 shadow-sm",
-                                cartButtonClass === 'cart-added' && "animate-bounce bg-yumrun-primary text-white"
+                                "h-8 w-8 rounded-full shadow-md focus:ring-2 focus:ring-yumrun-primary/50 focus:outline-none",
+                                cartButtonClass === 'cart-added' 
+                                    ? "animate-bounce bg-yumrun-primary text-white" 
+                                    : "bg-white hover:bg-gray-100"
                             )}
                             onClick={handleAddToCart}
                             aria-label="Add to cart"
@@ -212,12 +236,30 @@ const ProductItem = ({
                         
                         <Button 
                             size="sm" 
-                            variant="outline"
-                            className="items-center hidden gap-1 md:flex"
+                            variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
+                            className={cn(
+                                "gap-1 transition-all duration-300",
+                                cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : "",
+                                "hidden sm:flex"
+                            )}
                             onClick={handleAddToCart}
                         >
                             <FiShoppingCart className="w-4 h-4" />
-                            <span>Add</span>
+                            <span>{cartButtonClass === 'cart-added' ? "Added" : "Add"}</span>
+                        </Button>
+                        
+                        {/* Mobile add button */}
+                        <Button
+                            size="icon"
+                            variant={cartButtonClass === 'cart-added' ? "secondary" : "outline"}
+                            className={cn(
+                                "h-8 w-8 sm:hidden transition-all duration-300",
+                                cartButtonClass === 'cart-added' ? "bg-yumrun-primary text-white" : ""
+                            )}
+                            onClick={handleAddToCart}
+                            aria-label="Add to cart"
+                        >
+                            <FiShoppingCart className="w-4 h-4" />
                         </Button>
                     </div>
                 </CardContent>

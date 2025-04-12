@@ -130,6 +130,40 @@ router.get('/history', auth, isDeliveryRider, async (req, res) => {
     }
 });
 
+// GET today's earnings summary (For delivery staff)
+router.get('/earnings-summary', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        const completedDeliveriesToday = await Order.find({
+            deliveryPersonId: req.user._id,
+            status: 'DELIVERED',
+            actualDeliveryTime: { $gte: startOfDay, $lt: endOfDay }
+        });
+
+        // Basic earnings calculation: assume a fixed amount per delivery for now
+        // TODO: Implement a more realistic earnings model (e.g., based on distance, base pay + tips)
+        const earnings = completedDeliveriesToday.length * 5; // Example: $5 per delivery
+        const deliveriesCount = completedDeliveriesToday.length;
+
+        res.status(200).json({
+            success: true,
+            summary: {
+                todayEarnings: earnings,
+                todayCompletedDeliveries: deliveriesCount
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching earnings summary:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error fetching earnings summary' 
+        });
+    }
+});
+
 // GET delivery status for specific order
 router.get('/status/:orderId', auth, async (req, res) => {
     try {
@@ -410,6 +444,83 @@ router.post('/assign/:orderId/:staffId', auth, isAdmin, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Server error' 
+        });
+    }
+});
+
+// GET delivery dashboard data (combines multiple endpoints for one dashboard call)
+router.get('/dashboard', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const riderId = req.user._id;
+        
+        // Get active deliveries
+        const activeDeliveries = await Order.find({ 
+            deliveryPersonId: riderId,
+            status: { $in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] }
+        })
+        .populate('restaurantId', 'name')
+        .sort({ createdAt: -1 });
+        
+        // Get available orders
+        const availableOrders = await Order.find({ 
+            status: { $in: ['READY', 'Ready'] },
+            $or: [
+                { deliveryPersonId: { $exists: false } },
+                { deliveryPersonId: null }
+            ]
+        })
+        .sort({ createdAt: 1 });
+
+        // Get completed deliveries for today (for earnings calculation)
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        const completedDeliveriesToday = await Order.find({
+            deliveryPersonId: riderId,
+            status: 'DELIVERED',
+            actualDeliveryTime: { $gte: startOfDay, $lt: endOfDay }
+        });
+
+        // Get recent deliveries for activity feed
+        const recentDeliveries = await Order.find({ 
+            deliveryPersonId: riderId
+        })
+        .populate('restaurantId', 'name')
+        .sort({ updatedAt: -1 })
+        .limit(10);
+
+        // Format recent activity
+        const recentActivity = recentDeliveries.map(delivery => ({
+            id: delivery._id,
+            type: 'Delivery',
+            details: `Order #${delivery.orderNumber || delivery._id.toString().substring(0, 6)} - ${delivery.restaurantId?.name || 'Restaurant'}`,
+            status: delivery.status.toLowerCase(),
+            date: delivery.updatedAt || delivery.createdAt,
+            link: `/delivery/orders/${delivery._id}`
+        }));
+
+        // Basic earnings calculation: assume a fixed amount per delivery plus tips
+        const basePayPerDelivery = 5; // $5 base pay per delivery
+        const todayEarnings = completedDeliveriesToday.reduce((total, order) => {
+            return total + basePayPerDelivery + (order.tip || 0);
+        }, 0);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                activeDeliveries: activeDeliveries.length,
+                availableOrders: availableOrders.length,
+                todayCompletedDeliveries: completedDeliveriesToday.length,
+                todayEarnings: todayEarnings,
+                recentActivity
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching delivery dashboard data:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error fetching dashboard data' 
         });
     }
 });

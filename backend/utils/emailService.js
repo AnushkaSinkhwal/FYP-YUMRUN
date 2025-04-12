@@ -121,7 +121,7 @@ const emailTemplates = {
               <li>Save your favorite restaurants for quick access</li>
             </ul>
             <p>Start exploring our extensive menu offerings now!</p>
-            <a href="${process.env.WEBSITE_URL}" class="button">Get Started</a>
+            <a href="${process.env.FRONTEND_URL}" class="button">Get Started</a>
             <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
             <p>Enjoy your food journey!</p>
             <p>Best regards,<br>The YumRun Team</p>
@@ -386,7 +386,7 @@ const emailTemplates = {
               </div>
             </div>
 
-            <a href="${process.env.WEBSITE_URL}/order-confirmation/${order._id}" class="button">View Order Details</a>
+            <a href="${process.env.FRONTEND_URL}/order-confirmation/${order._id}" class="button">View Order Details</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>Enjoy your meal!</p>
@@ -533,7 +533,7 @@ const emailTemplates = {
               ` : ''}
             </div>
             
-            <a href="${process.env.WEBSITE_URL}/order-confirmation/${order._id}" class="button">Track Your Order</a>
+            <a href="${process.env.FRONTEND_URL}/order-confirmation/${order._id}" class="button">Track Your Order</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>Thank you for choosing YumRun!</p>
@@ -636,7 +636,7 @@ const emailTemplates = {
               <li>Set up payment methods</li>
             </ol>
             
-            <a href="${process.env.WEBSITE_URL}/restaurant/dashboard" class="button">Go to Dashboard</a>
+            <a href="${process.env.FRONTEND_URL}/restaurant/dashboard" class="button">Go to Dashboard</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>We look forward to a successful partnership!</p>

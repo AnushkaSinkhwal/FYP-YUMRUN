@@ -128,7 +128,7 @@ const RestaurantDashboard = () => {
 
   return (
     <Dashboard
-      role="restaurantOwner"
+      role="restaurant"
       stats={stats}
       quickActions={quickActions}
       recentActivity={dashboardData.recentActivity}

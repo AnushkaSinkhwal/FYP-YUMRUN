@@ -36,17 +36,17 @@ const Restaurants = () => {
           console.log('User API response:', response.data);
           
           // Filter users who are restaurant owners
-          const restaurantOwners = (response.data.users || []).filter(user => 
+          const restaurants = (response.data.users || []).filter(user => 
             user.isRestaurantOwner
           );
           
-          console.log(`Found ${restaurantOwners.length} restaurant owners in users`);
+          console.log(`Found ${restaurants.length} restaurant owners in users`);
           
-          if (restaurantOwners.length === 0) {
+          if (restaurants.length === 0) {
             console.log('No restaurant owners found in user data, trying restaurant-specific endpoint');
           } else {
             // Process to match our expected format
-            const formattedRestaurants = restaurantOwners.map(owner => ({
+            const formattedRestaurants = restaurants.map(owner => ({
               id: owner._id,
               name: owner.restaurantDetails?.name || 'Unnamed Restaurant',
               owner: owner.name || owner.username || 'Unknown Owner',

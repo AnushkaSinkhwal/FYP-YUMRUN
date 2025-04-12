@@ -1,40 +1,90 @@
+import { useState, useEffect } from 'react';
 import { FaMotorcycle, FaCheckCircle, FaClock, FaDollarSign } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
+import { deliveryAPI } from '../../utils/api'; // Assuming deliveryAPI exists
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const DeliveryDashboard = () => {
-  // Delivery-specific stats
-  const stats = [
-    {
-      title: "Active Deliveries",
-      count: 2,
-      icon: <FaMotorcycle size={24} />,
-      color: "bg-blue-100 text-blue-700 dark:bg-blue-800/30 dark:text-blue-300",
-      link: "/delivery/orders",
-    },
-    {
-      title: "Completed Today",
-      count: 8,
-      icon: <FaCheckCircle size={24} />,
-      color: "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300",
-      link: "/delivery/history",
-    },
-    {
-      title: "Pending Pickups",
-      count: 3,
-      icon: <FaClock size={24} />,
-      color: "bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300",
-      link: "/delivery/orders?status=pending",
-    },
-    {
-      title: "Today's Earnings",
-      count: "$45.50",
-      icon: <FaDollarSign size={24} />,
-      color: "bg-purple-100 text-purple-700 dark:bg-purple-800/30 dark:text-purple-300",
-      link: "/delivery/earnings",
-    },
-  ];
+  const { currentUser } = useAuth();
+  const [stats, setStats] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Delivery-specific quick actions
+  useEffect(() => {
+    if (currentUser) {
+      fetchDashboardData();
+    }
+  }, [currentUser]);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Using the unified dashboard endpoint
+      const response = await deliveryAPI.getDashboard();
+      
+      if (response.data?.success) {
+        const data = response.data.data;
+        
+        // Process Stats
+        const fetchedStats = [
+          {
+            title: "Active Deliveries",
+            count: data.activeDeliveries || 0,
+            icon: <FaMotorcycle size={24} />,
+            color: "bg-blue-100 text-blue-700 dark:bg-blue-800/30 dark:text-blue-300",
+            link: "/delivery/orders?status=active",
+          },
+          {
+            title: "Completed Today",
+            count: data.todayCompletedDeliveries || 0,
+            icon: <FaCheckCircle size={24} />,
+            color: "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300",
+            link: "/delivery/history",
+          },
+          {
+            title: "Available Orders",
+            count: data.availableOrders || 0,
+            icon: <FaClock size={24} />,
+            color: "bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300",
+            link: "/delivery/orders?status=available",
+          },
+          {
+            title: "Today's Earnings",
+            count: `$${(data.todayEarnings || 0).toFixed(2)}`,
+            icon: <FaDollarSign size={24} />,
+            color: "bg-purple-100 text-purple-700 dark:bg-purple-800/30 dark:text-purple-300",
+            link: "/delivery/earnings",
+          },
+        ];
+        setStats(fetchedStats);
+        
+        // Use the formatted activity from backend
+        setRecentActivity(data.recentActivity || []);
+      } else {
+        throw new Error(response.data?.message || 'Failed to load dashboard data');
+      }
+    } catch (err) {
+      console.error("Error fetching delivery dashboard data:", err);
+      setError("Failed to load dashboard data. " + (err.response?.data?.message || err.message || 'Please try again later.'));
+      toast.error("Failed to load dashboard data. Please try again later.");
+      
+      // Set default/empty state on error
+      setStats([
+        { title: "Active Deliveries", count: 0, icon: <FaMotorcycle size={24} />, color: "bg-gray-100 text-gray-700", link: "/delivery/orders?status=active" },
+        { title: "Completed Today", count: 0, icon: <FaCheckCircle size={24} />, color: "bg-gray-100 text-gray-700", link: "/delivery/history" },
+        { title: "Available Orders", count: 0, icon: <FaClock size={24} />, color: "bg-gray-100 text-gray-700", link: "/delivery/orders?status=available" },
+        { title: "Today's Earnings", count: "$0.00", icon: <FaDollarSign size={24} />, color: "bg-gray-100 text-gray-700", link: "/delivery/earnings" },
+      ]);
+      setRecentActivity([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delivery-specific quick actions (remain static for now)
   const quickActions = [
     {
       title: "View Orders",
@@ -62,40 +112,15 @@ const DeliveryDashboard = () => {
     }
   ];
 
-  // Delivery-specific recent activity
-  const recentActivity = [
-    {
-      id: 1,
-      type: "Delivery",
-      details: "Order #123 delivered successfully",
-      status: "completed",
-      date: new Date().toLocaleDateString(),
-      link: "/delivery/orders/123"
-    },
-    {
-      id: 2,
-      type: "Pickup",
-      details: "New order #124 ready for pickup",
-      status: "pending",
-      date: new Date().toLocaleDateString(),
-      link: "/delivery/orders/124"
-    },
-    {
-      id: 3,
-      type: "Earnings",
-      details: "Weekly payment processed",
-      status: "completed",
-      date: new Date().toLocaleDateString(),
-      link: "/delivery/earnings"
-    }
-  ];
-
   return (
     <Dashboard
-      role="deliveryUser"
+      role="deliveryuser"
+      isLoading={isLoading}
+      error={error}
       stats={stats}
       quickActions={quickActions}
       recentActivity={recentActivity}
+      onRefresh={fetchDashboardData} // Pass refresh function
     />
   );
 };

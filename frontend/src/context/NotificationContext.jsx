@@ -47,7 +47,7 @@ export const NotificationProvider = ({ children }) => {
             response = await adminAPI.getNotifications();
             break;
           case 'restaurant':
-          case 'restaurantOwner':
+          case 'restaurant':
             response = await restaurantAPI.getNotifications();
             break;
           case 'deliveryRider':
@@ -102,7 +102,7 @@ export const NotificationProvider = ({ children }) => {
           response = await adminAPI.processNotification(notificationId, 'mark-read');
           break;
         case 'restaurant':
-        case 'restaurantOwner':
+        case 'restaurant':
           response = await restaurantAPI.markNotificationAsRead(notificationId);
           break;
         case 'deliveryRider':
@@ -145,7 +145,7 @@ export const NotificationProvider = ({ children }) => {
           response = await adminAPI.processNotification('all', 'mark-all-read');
           break;
         case 'restaurant':
-        case 'restaurantOwner':
+        case 'restaurant':
           response = await restaurantAPI.markAllNotificationsAsRead();
           break;
         case 'deliveryRider':

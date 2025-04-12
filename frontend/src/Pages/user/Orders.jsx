@@ -3,7 +3,8 @@ import { Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, 
 import { FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaReceipt, FaExternalLinkAlt, FaShoppingBag, FaSync } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api from '../../utils/api';
+import { userAPI } from '../../utils/api';
+import { toast } from 'react-toastify';
 
 const UserOrders = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,8 +32,8 @@ const UserOrders = () => {
       setError(null);
       
       console.log('Fetching orders...');
-      const response = await api.get('/orders/user');
-      console.log('Orders response:', response);
+      const response = await userAPI.getOrders();
+      console.log('Orders response:', response.data);
       
       if (response.data && response.data.success) {
         if (Array.isArray(response.data.data)) {
@@ -53,10 +54,13 @@ const UserOrders = () => {
       if (err.response && err.response.status === 500) {
         setError('Server error occurred. The team has been notified and is working on it.');
         console.error('Server error details:', err.response.data);
+        toast.error('Server error occurred. The team has been notified.');
       } else if (err.message.includes('Network Error')) {
         setError('Network connection issue. Please check your internet connection.');
+        toast.error('Network connection issue. Please check your internet connection.');
       } else {
         setError('Failed to load orders. Please try again later.');
+        toast.error('Failed to load orders. Please try again later.');
       }
       
       // Set empty orders array to prevent showing stale data
@@ -82,7 +86,7 @@ const UserOrders = () => {
     try {
       setRatingInProgress(orderId);
       
-      const response = await api.post('/reviews', {
+      const response = await userAPI.submitReview({
         orderId,
         rating,
         comment: ''
@@ -104,12 +108,15 @@ const UserOrders = () => {
           delete newState[orderId];
           return newState;
         });
+        
+        toast.success('Rating submitted successfully');
       } else {
         throw new Error(response.data?.message || 'Failed to submit review');
       }
     } catch (err) {
       console.error('Error submitting rating:', err);
       setError('Failed to submit rating. Please try again.');
+      toast.error('Failed to submit rating. Please try again.');
     } finally {
       setRatingInProgress(null);
     }

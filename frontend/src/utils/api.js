@@ -351,6 +351,16 @@ export const userAPI = {
     return api.get('/user/profile');
   },
   
+  // Get user orders
+  getOrders: async () => {
+    return api.get('/orders/user');
+  },
+  
+  // Submit a review
+  submitReview: async (reviewData) => {
+    return api.post('/reviews', reviewData);
+  },
+  
   // Update user profile
   updateProfile: async (profileData) => {
     return api.put('/user/profile', profileData);
@@ -431,6 +441,21 @@ export const userAPI = {
     return api.get('/search/personalized');
   },
   
+  // Initiate Khalti payment
+  initiateKhaltiPayment: async (paymentData) => {
+    return api.post('/payment/khalti/initiate', paymentData);
+  },
+  
+  // Verify Khalti payment
+  verifyKhaltiPayment: async (verificationData) => {
+    return api.post('/payment/khalti/verify', verificationData);
+  },
+  
+  // Get payment status
+  getPaymentStatus: async (orderId) => {
+    return api.get(`/payment/status/${orderId}`);
+  },
+  
   // Get a user's saved addresses
   getAddresses: async () => {
     return api.get('/user/addresses');
@@ -465,6 +490,78 @@ export const userAPI = {
   removeFavorite: async (itemId) => {
     return api.delete(`/favorites/${itemId}`);
   }
+};
+
+// Delivery Rider API methods
+export const deliveryAPI = {
+  // Get dashboard data
+  getDashboard: async () => {
+    return api.get('/delivery/dashboard');
+  },
+  
+  // Get active deliveries for the logged-in rider
+  getActiveDeliveries: async () => {
+    return api.get('/delivery/active');
+  },
+
+  // Get available orders for pickup
+  getAvailableOrders: async () => {
+    return api.get('/delivery/available');
+  },
+
+  // Get delivery history for the logged-in rider
+  getDeliveryHistory: async (limit = 50) => {
+    return api.get(`/delivery/history?limit=${limit}`);
+  },
+
+  // Get earnings summary for the logged-in rider
+  getEarningsSummary: async () => {
+    return api.get('/delivery/earnings-summary');
+  },
+
+  // Get details of a specific order
+  getOrderDetails: async (orderId) => {
+    // Note: This might need a specific delivery endpoint or use a general order endpoint
+    // Assuming a general order endpoint exists for now
+    return api.get(`/orders/${orderId}`); 
+  },
+
+  // Accept an available order for delivery
+  acceptOrder: async (orderId) => {
+    return api.post(`/delivery/accept/${orderId}`);
+  },
+
+  // Update the status of an order (e.g., picked up, delivered)
+  updateOrderStatus: async (orderId, status) => {
+    return api.post(`/delivery/update-status/${orderId}`, { status });
+  },
+
+  // Get the delivery rider's profile
+  getProfile: async () => {
+    // Assuming this uses the generic user profile endpoint
+    return userAPI.getProfile();
+  },
+
+  // Update the delivery rider's profile
+  updateProfile: async (profileData) => {
+    // Assuming this uses the generic user profile update endpoint
+    return userAPI.updateProfile(profileData);
+  },
+
+  // Update delivery rider settings (e.g., vehicle type, availability)
+  updateSettings: async (settingsData) => {
+    // This might need a specific endpoint, using user settings for now
+    return userAPI.updateSettings(settingsData);
+  },
+
+};
+
+// General Public API methods (examples)
+export const publicAPI = {
+  getFeaturedRestaurants: async () => {
+    return api.get('/restaurants/featured');
+  },
+  // Add other public endpoints like search, menu items etc. here
 };
 
 // Export default instance

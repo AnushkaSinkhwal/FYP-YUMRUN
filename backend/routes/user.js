@@ -9,6 +9,7 @@ const Notification = require('../models/notification');
 const RestaurantApproval = require('../models/restaurantApproval');
 const { auth } = require('../middleware/auth');
 const mongoose = require('mongoose');
+const userController = require('../controllers/userController');
 
 // Sign Up Route
 router.post(
@@ -170,96 +171,42 @@ router.post('/login', async (req, res) => {
  * @desc    Get the current user's profile
  * @access  Private
  */
-router.get('/profile', protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-    
-    return res.status(200).json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error fetching profile'
-    });
-  }
-});
+router.get('/profile', protect, userController.getUserProfile);
 
 /**
  * @route   PUT /api/user/profile
  * @desc    Update the current user's profile
  * @access  Private
  */
-router.put('/profile', protect, async (req, res) => {
-  try {
-    const { fullName, phone, healthCondition } = req.body;
-    
-    // Find the user
-    const user = await User.findById(req.user.userId);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-    
-    // Store original values for change tracking
-    const changes = {};
-    
-    // Update fields if provided
-    if (fullName && fullName !== user.fullName) {
-      changes.fullName = { from: user.fullName, to: fullName };
-      user.fullName = fullName;
-    }
-    
-    if (phone && phone !== user.phone) {
-      // Validate phone number format (10 digits)
-      if (!/^\d{10}$/.test(phone)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number must be exactly 10 digits'
-        });
-      }
-      
-      changes.phone = { from: user.phone, to: phone };
-      user.phone = phone;
-    }
-    
-    if (healthCondition && healthCondition !== user.healthCondition) {
-      changes.healthCondition = { from: user.healthCondition, to: healthCondition };
-      user.healthCondition = healthCondition;
-    }
-    
-    // Explicitly call save with a promise to ensure it completes
-    const savedUser = await user.save();
-    
-    // Log that the save was successful
-    console.log(`User profile updated successfully. User ID: ${savedUser._id}, Phone updated from ${changes.phone?.from} to ${savedUser.phone}`);
-    
-    // No approval needed for basic profile updates
-    return res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully',
-      user: savedUser
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error updating profile: ' + error.message
-    });
-  }
-});
+router.put('/profile', protect, userController.updateUserProfile);
+
+/**
+ * @route   PUT /api/user/health-profile
+ * @desc    Update the current user's health profile
+ * @access  Private
+ */
+router.put('/health-profile', protect, userController.updateHealthProfile);
+
+/**
+ * @route   GET /api/user/order-history
+ * @desc    Get the user's order history with nutritional information
+ * @access  Private
+ */
+router.get('/order-history', protect, userController.getOrderHistory);
+
+/**
+ * @route   GET /api/user/loyalty
+ * @desc    Get the user's loyalty points and history
+ * @access  Private
+ */
+router.get('/loyalty', protect, userController.getLoyaltyDetails);
+
+/**
+ * @route   GET /api/user/notifications/unread-count
+ * @desc    Get count of unread notifications for a user
+ * @access  Private
+ */
+router.get('/notifications/unread-count', protect, userController.getUnreadNotificationsCount);
 
 /**
  * @route   PUT /api/user/profile/email
@@ -695,45 +642,6 @@ router.get('/notifications', protect, async (req, res) => {
 });
 
 /**
- * @route   GET /api/user/notifications/unread-count
- * @desc    Get count of unread notifications for the current user
- * @access  Private
- */
-router.get('/notifications/unread-count', protect, async (req, res) => {
-  try {
-    // For now, just return 0 as we haven't implemented the real notifications system yet
-    return res.status(200).json({
-      success: true,
-      data: {
-        count: 0
-      }
-    });
-    
-    // TODO: When notifications are implemented, replace with actual count:
-    // const count = await Notification.countDocuments({ 
-    //   user: req.user.userId,
-    //   read: false
-    // });
-    
-    // return res.status(200).json({
-    //   success: true,
-    //   data: {
-    //     count
-    //   }
-    // });
-  } catch (error) {
-    console.error('Error fetching unread notifications count:', error);
-    return res.status(500).json({
-      success: false,
-      error: {
-        message: 'Server error. Please try again.',
-        code: 'SERVER_ERROR'
-      }
-    });
-  }
-});
-
-/**
  * @route   PUT /api/user/notifications/:id/read
  * @desc    Mark a notification as read
  * @access  Private
@@ -841,34 +749,107 @@ router.delete('/notifications/:id', protect, async (req, res) => {
 router.get('/dashboard', protect, async (req, res) => {
   try {
     const userId = req.user._id;
+    console.log(`[Dashboard API] Fetching dashboard data for user: ${userId}`);
     
     // Get user's orders count
     const Order = require('../models/order');
-    const totalOrders = await Order.countDocuments({ userId });
+    console.log(`[Dashboard API] Counting total orders for userId: ${userId}`);
+    let totalOrders = 0;
+    try {
+      totalOrders = await Order.countDocuments({ userId });
+      console.log(`[Dashboard API] Found ${totalOrders} total orders`);
+    } catch (error) {
+      console.error('[Dashboard API] Error counting total orders:', error);
+    }
     
     // Get pending orders count
-    const pendingOrders = await Order.countDocuments({ 
-      userId, 
-      status: { $in: ['PENDING', 'PREPARING', 'CONFIRMED', 'READY'] } 
-    });
+    console.log(`[Dashboard API] Counting pending orders for userId: ${userId}`);
+    let pendingOrders = 0;
+    try {
+      pendingOrders = await Order.countDocuments({ 
+        userId, 
+        status: { $in: ['PENDING', 'PREPARING', 'CONFIRMED', 'READY'] } 
+      });
+      console.log(`[Dashboard API] Found ${pendingOrders} pending orders`);
+    } catch (error) {
+      console.error('[Dashboard API] Error counting pending orders:', error);
+    }
     
     // Get favorites count
-    const user = await User.findById(userId);
-    const favoriteRestaurants = user?.favorites?.length || 0;
+    console.log(`[Dashboard API] Fetching user data for favorites`);
+    let favoriteRestaurants = 0;
+    try {
+      const user = await User.findById(userId);
+      favoriteRestaurants = user?.favorites?.length || 0;
+      console.log(`[Dashboard API] User has ${favoriteRestaurants} favorite restaurants`);
+    } catch (error) {
+      console.error('[Dashboard API] Error getting favorites count:', error);
+    }
     
-    // Calculate amount saved from offers or use dummy data
+    // Calculate amount saved from offers or use placeholder value
+    // In a real app, this would be calculated from actual order data
     const savedAmount = Math.floor(Math.random() * 100);
+    console.log(`[Dashboard API] Calculated saved amount: $${savedAmount}`);
     
-    // Get recent notifications as activity or use dummy data
+    // Get recent orders for activity feed
+    console.log(`[Dashboard API] Fetching recent orders for activity feed`);
+    let recentOrders = [];
+    try {
+      recentOrders = await Order.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .lean();
+        
+      console.log(`[Dashboard API] Found ${recentOrders.length} recent orders`);
+    } catch (error) {
+      console.error('[Dashboard API] Error fetching recent orders:', error);
+    }
+    
+    // Get recent notifications
+    console.log(`[Dashboard API] Fetching recent notifications`);
     const Notification = require('../models/notification');
-    const notifications = await Notification.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(5);
+    let notifications = [];
+    try {
+      notifications = await Notification.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(5);
+        
+      console.log(`[Dashboard API] Found ${notifications.length} notifications`);
+    } catch (error) {
+      console.error('[Dashboard API] Error fetching notifications:', error);
+    }
     
+    // Combine orders and notifications for activity feed
     let recentActivity = [];
     
-    if (notifications.length === 0) {
-      // Use dummy data if no real notifications
+    // Map orders to activity items
+    const orderActivities = recentOrders.map(order => ({
+      id: order._id,
+      title: `Order ${order.status === 'DELIVERED' ? 'Delivered' : 'Placed'}`,
+      description: `Your order #${order.orderNumber || order._id.toString().substring(0, 6)} ${order.status === 'DELIVERED' ? 'from' : 'with'} ${order.restaurantId?.name || 'Restaurant'} ${order.status === 'DELIVERED' ? 'has been delivered' : 'has been ' + order.status.toLowerCase()}`,
+      time: order.status === 'DELIVERED' ? order.updatedAt : order.createdAt,
+      status: order.status.toLowerCase(),
+      link: `/user/orders`
+    }));
+    
+    // Map notifications to activity items
+    const notificationActivities = notifications.map(notification => ({
+      id: notification._id,
+      title: notification.title || 'Notification',
+      description: notification.message,
+      time: notification.createdAt,
+      status: notification.status === 'READ' ? 'completed' : 'pending',
+      link: `/user/notifications/${notification._id}`
+    }));
+    
+    // Combine and sort by date
+    recentActivity = [...orderActivities, ...notificationActivities]
+      .sort((a, b) => new Date(b.time) - new Date(a.time))
+      .slice(0, 5);  // Take only the 5 most recent
+    
+    // If no real activity, use placeholder data in development
+    if (recentActivity.length === 0 && process.env.NODE_ENV === 'development') {
+      console.log('[Dashboard API] No activity found, generating placeholder data');
       recentActivity = [
         {
           id: '1234567890',
@@ -895,113 +876,27 @@ router.get('/dashboard', protect, async (req, res) => {
           link: '/user/orders'
         }
       ];
-    } else {
-      recentActivity = notifications.map(notification => ({
-        id: notification._id,
-        title: notification.title || 'Notification',
-        description: notification.message,
-        time: notification.createdAt,
-        status: notification.status === 'READ' ? 'completed' : 'pending',
-        link: `/user/notifications/${notification._id}`
-      }));
     }
+    
+    console.log(`[Dashboard API] Returning dashboard data with ${recentActivity.length} activity items`);
     
     return res.status(200).json({
       success: true,
       data: {
-        totalOrders: totalOrders || 3,
-        favoriteRestaurants: favoriteRestaurants || 2,
+        totalOrders,
+        favoriteRestaurants,
         savedAmount,
-        pendingOrders: pendingOrders || 1,
+        pendingOrders,
         recentActivity
       }
     });
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
+    console.error('[Dashboard API] Error fetching dashboard data:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching dashboard data'
     });
   }
-});
-
-// Update user health profile
-router.put('/health-profile', auth, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const { healthProfile } = req.body;
-
-        if (!healthProfile) {
-            return res.status(400).json({
-                success: false,
-                message: 'Health profile data is required'
-            });
-        }
-
-        // Find user by ID
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Validate macro targets sum to 100%
-        if (healthProfile.macroTargets) {
-            const { protein, carbs, fat } = healthProfile.macroTargets;
-            const total = (protein || 0) + (carbs || 0) + (fat || 0);
-            if (total !== 100) {
-                console.log(`Macro targets (${protein}% protein, ${carbs}% carbs, ${fat}% fat) do not add up to 100%. Saving anyway.`);
-                // We'll still save, but log the inconsistency
-            }
-        }
-
-        // Update health profile
-        user.healthProfile = healthProfile;
-
-        await user.save();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Health profile updated successfully',
-            healthProfile: user.healthProfile
-        });
-    } catch (error) {
-        console.error('Error updating health profile:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while updating health profile',
-            error: error.message
-        });
-    }
-});
-
-// Get loyalty points for current user
-router.get('/loyalty', auth, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            loyaltyPoints: user.loyaltyPoints || 0
-        });
-    } catch (error) {
-        console.error('Error fetching loyalty points:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching loyalty points',
-            error: error.message
-        });
-    }
 });
 
 module.exports = router;

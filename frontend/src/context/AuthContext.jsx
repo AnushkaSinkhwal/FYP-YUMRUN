@@ -11,8 +11,8 @@ const normalizeUserData = (userData) => {
   
   // If role is already defined, use it
   if (userData.role) {
-    // Convert 'restaurantOwner' to 'restaurant' for consistency
-    if (userData.role === 'restaurantOwner') {
+    // Convert 'restaurant' to 'restaurant' for consistency
+    if (userData.role === 'restaurant') {
       return { ...userData, role: 'restaurant' };
     }
     return userData;
@@ -38,7 +38,7 @@ const getDashboardPath = (role) => {
   switch (role) {
     case 'admin':
       return '/admin/dashboard';
-    case 'restaurantOwner':
+    case 'restaurant':
     case 'restaurant':
       return '/restaurant/dashboard';
     case 'deliveryRider':
@@ -173,9 +173,13 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const errorMessage = error.response?.data?.error?.message || 'Registration failed. Please try again.';
+      // Extract specific error message from backend response if available
+      const backendErrorMessage = error.response?.data?.message;
+      const errorMessage = backendErrorMessage || 'Registration failed. Please try again.';
+      
       setError(errorMessage);
       setIsLoading(false);
+      // Return the specific error message
       return { success: false, error: errorMessage };
     }
   };
@@ -231,7 +235,7 @@ export const AuthProvider = ({ children }) => {
   const isCustomer = () => currentUser?.role === 'customer' || 
     (!currentUser?.role && !currentUser?.isAdmin && !currentUser?.isRestaurantOwner && !currentUser?.isDeliveryRider);
     
-  const isRestaurantOwner = () => currentUser?.role === 'restaurantOwner' || 
+  const isRestaurantOwner = () => currentUser?.role === 'restaurant' || 
     currentUser?.isRestaurantOwner === true || currentUser?.role === 'restaurant'; // Added 'restaurant'
     
   const isDeliveryRider = () => currentUser?.role === 'deliveryRider' || 

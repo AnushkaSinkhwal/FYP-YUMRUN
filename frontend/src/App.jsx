@@ -24,6 +24,7 @@ import Contact from './Pages/Contact';
 import Restaurants from './Pages/Restaurants';
 import Menu from './Pages/Menu';
 import Shop from "./Pages/Shop";
+import PaymentVerificationPage from './Pages/payment/Verify';
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -426,7 +427,7 @@ function App() {
 
                   {/* Restaurant Routes */}
                   <Route path="/restaurant" element={
-                    <ProtectedRoute allowedRoles={['restaurantOwner']}>
+                    <ProtectedRoute allowedRoles={['restaurant']}>
                       <RestaurantLayout />
                     </ProtectedRoute>
                   }>
@@ -484,6 +485,9 @@ function App() {
                       <BackToTop />
                     </>
                   } />
+
+                  {/* Payment routes */}
+                  <Route path="/payment/verify" element={<PaymentVerificationPage />} />
 
                   {/* Category/Shop/Favorites Placeholders */}
                   <Route path="/cat/shop" element={<LayoutWrapper><Shop /></LayoutWrapper>} />

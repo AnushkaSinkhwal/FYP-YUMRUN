@@ -7,9 +7,12 @@ import { useState, useEffect } from "react";
 import { MdOutlineFastfood, MdOutlineLocalPizza, MdOutlineRamenDining, MdOutlineCoffee, MdOutlineBakeryDining } from "react-icons/md";
 import { GiNoodles, GiChickenLeg, GiHamburger, GiCakeSlice, GiSushis } from "react-icons/gi";
 import { Container } from '../ui';
+import { useNavigate } from 'react-router-dom';
 
 const HomeCat = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    const [activeCategory, setActiveCategory] = useState(null);
+    const navigate = useNavigate();
     
     useEffect(() => {
         const handleResize = () => {
@@ -24,10 +27,17 @@ const HomeCat = () => {
 
     // Determine number of slides based on screen width
     const getSlidesPerView = () => {
-        if (windowWidth < 576) return 3.5;
+        if (windowWidth < 480) return 3.5;
+        if (windowWidth < 640) return 4.5;
         if (windowWidth < 768) return 5.5;
         if (windowWidth < 992) return 7.5;
         return 10;
+    };
+    
+    const handleCategoryClick = (categoryName) => {
+        setActiveCategory(categoryName);
+        // Navigate to search page with category filter
+        navigate(`/restaurants?category=${encodeURIComponent(categoryName)}`);
     };
     
     const categories = [
@@ -94,20 +104,20 @@ const HomeCat = () => {
     ];
 
     return (
-        <section className="py-10 bg-white">
+        <section className="py-8 bg-white border-t border-gray-100">
             <Container>
                 <div className="flex flex-wrap items-center justify-between mb-6">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">FEATURED CATEGORIES</h2>
-                        <p className="text-gray-500">Explore our popular food categories</p>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">FEATURED CATEGORIES</h2>
+                        <p className="text-sm sm:text-base text-gray-500">Explore our popular food categories</p>
                     </div>
                 </div>
                 
                 <Swiper
                     slidesPerView={getSlidesPerView()}
-                    spaceBetween={15}
-                    speed={800}
-                    navigation={true} 
+                    spaceBetween={12}
+                    speed={600}
+                    navigation={windowWidth >= 640} 
                     modules={[Navigation, Pagination, Autoplay]}
                     className="category-swiper"
                     autoplay={{
@@ -116,20 +126,25 @@ const HomeCat = () => {
                     }}
                     pagination={{
                         dynamicBullets: true,
-                        clickable: true
+                        clickable: true,
+                        enabled: windowWidth < 640
                     }}
                     breakpoints={{
                         320: {
                             slidesPerView: 3.5,
+                            spaceBetween: 8
+                        },
+                        480: {
+                            slidesPerView: 4.5,
                             spaceBetween: 10
                         },
-                        576: {
+                        640: {
                             slidesPerView: 5.5,
                             spaceBetween: 12
                         },
                         768: {
                             slidesPerView: 7.5,
-                            spaceBetween: 15
+                            spaceBetween: 12
                         },
                         992: {
                             slidesPerView: 10,
@@ -139,18 +154,23 @@ const HomeCat = () => {
                 >
                     {categories.map((category, index) => (
                         <SwiperSlide key={index}>
-                            <div 
-                                className="flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-transform duration-300 hover:scale-105"
+                            <button
+                                onClick={() => handleCategoryClick(category.name)}
+                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-lg w-full 
+                                    transition-all duration-300 hover:scale-105 focus:outline-none 
+                                    focus:ring-2 focus:ring-offset-2 focus:ring-yumrun-primary
+                                    ${activeCategory === category.name ? 'ring-2 ring-yumrun-primary ring-offset-2' : ''}`}
                                 style={{ 
                                     background: category.bg,
                                     color: category.color
                                 }}
+                                aria-label={`Browse ${category.name} category`}
                             >
                                 <div className="flex items-center justify-center w-12 h-12 mb-2">
                                     {category.icon}
                                 </div>
-                                <h3 className="text-sm font-medium text-center">{category.name}</h3>
-                            </div>
+                                <h3 className="text-xs sm:text-sm font-medium text-center">{category.name}</h3>
+                            </button>
                         </SwiperSlide>
                     ))}
                 </Swiper>
