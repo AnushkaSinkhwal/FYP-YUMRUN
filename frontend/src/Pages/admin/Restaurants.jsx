@@ -15,6 +15,28 @@ const Restaurants = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [restaurantToDelete, setRestaurantToDelete] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Add Restaurant Modal States
+  const [showAddRestaurantModal, setShowAddRestaurantModal] = useState(false);
+  const [newRestaurant, setNewRestaurant] = useState({
+    // Restaurant owner details
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phone: '',
+    
+    // Restaurant details
+    restaurantName: '',
+    restaurantAddress: '',
+    restaurantDescription: '',
+    cuisine: ['General'],
+    isApproved: true,
+    isActive: true,
+    priceRange: '$$'
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  
   const itemsPerPage = 8;
 
   // Fetch restaurants from API
@@ -319,15 +341,130 @@ const Restaurants = () => {
     }
   };
 
+  // Handle showing the add restaurant modal
+  const openAddRestaurantModal = () => {
+    setNewRestaurant({
+      // Restaurant owner details
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      phone: '',
+      
+      // Restaurant details
+      restaurantName: '',
+      restaurantAddress: '',
+      restaurantDescription: '',
+      cuisine: ['General'],
+      isApproved: true,
+      isActive: true,
+      priceRange: '$$'
+    });
+    setShowAddRestaurantModal(true);
+  };
+  
+  // Handle input changes for new restaurant form
+  const handleNewRestaurantChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'cuisine') {
+      // Handle cuisine as an array
+      const cuisineArray = value.split(',').map(item => item.trim());
+      setNewRestaurant({
+        ...newRestaurant,
+        cuisine: cuisineArray
+      });
+    } else {
+      setNewRestaurant({
+        ...newRestaurant,
+        [name]: type === 'checkbox' ? checked : value
+      });
+    }
+  };
+  
+  // Handle restaurant creation
+  const handleCreateRestaurant = async () => {
+    try {
+      setIsCreating(true);
+      setError(null);
+      
+      // Basic validation
+      const requiredFields = [
+        'firstName', 'lastName', 'email', 'password', 'phone',
+        'restaurantName', 'restaurantAddress'
+      ];
+      const missingFields = requiredFields.filter(field => !newRestaurant[field]);
+      
+      if (missingFields.length > 0) {
+        setError(`Please provide ${missingFields.join(', ')}`);
+        setIsCreating(false);
+        return;
+      }
+      
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newRestaurant.email)) {
+        setError('Please enter a valid email address');
+        setIsCreating(false);
+        return;
+      }
+      
+      // Phone validation
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(newRestaurant.phone)) {
+        setError('Phone must be exactly 10 digits');
+        setIsCreating(false);
+        return;
+      }
+      
+      const response = await adminAPI.createRestaurant(newRestaurant);
+      
+      if (response.data && response.data.success) {
+        // Add the new restaurant to the state
+        const createdRestaurant = response.data.data.restaurant;
+        const createdOwner = response.data.data.owner;
+        
+        setRestaurants([...restaurants, {
+          id: createdRestaurant.id,
+          name: createdRestaurant.name,
+          owner: createdOwner.fullName,
+          ownerId: createdOwner.id,
+          email: createdOwner.email,
+          address: createdRestaurant.address.full || createdRestaurant.address,
+          phone: createdOwner.phone,
+          status: createdRestaurant.isApproved ? 'Approved' : 'Pending',
+          isApproved: createdRestaurant.isApproved,
+          createdAt: new Date().toISOString(),
+          category: newRestaurant.cuisine.join(', ')
+        }]);
+        
+        setSuccess('Restaurant created successfully');
+        setShowAddRestaurantModal(false);
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to create restaurant');
+      }
+    } catch (error) {
+      console.error("Error creating restaurant:", error);
+      setError("Failed to create restaurant: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+        <h1 className="mb-2 text-2xl font-bold text-gray-800 sm:text-3xl dark:text-gray-100">
           Restaurant Management
         </h1>
         <p className="text-gray-600 dark:text-gray-300">
-          View and manage restaurant listings
+          View and manage restaurant accounts and details
         </p>
       </div>
 
@@ -338,7 +475,7 @@ const Restaurants = () => {
       )}
       
       {success && (
-        <Alert variant="success" className="mb-6 bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
+        <Alert variant="success" className="mb-6 text-green-700 border border-green-200 bg-green-50 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
           {success}
         </Alert>
       )}
@@ -354,16 +491,16 @@ const Restaurants = () => {
       </Tabs>
 
       {/* Action bar */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col justify-between gap-4 mb-6 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaSearch className="text-gray-400" />
             </div>
             <input
               type="text"
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
               placeholder="Search restaurants..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -372,11 +509,11 @@ const Restaurants = () => {
 
           {/* Status filter */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaFilter className="text-gray-400" />
             </div>
             <select
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
@@ -384,15 +521,14 @@ const Restaurants = () => {
               <option value="Approved">Approved</option>
               <option value="Pending">Pending</option>
               <option value="Rejected">Rejected</option>
-              <option value="Suspended">Suspended</option>
             </select>
           </div>
         </div>
 
         {/* Add restaurant button */}
-        <Button className="flex items-center">
+        <Button className="flex items-center" onClick={openAddRestaurantModal}>
           <FaPlus className="mr-2" />
-          Add Restaurant
+          Add New Restaurant
         </Button>
       </div>
 
@@ -541,24 +677,244 @@ const Restaurants = () => {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <Card className="max-w-md mx-auto dark:bg-gray-800 p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete the restaurant &ldquo;{restaurantToDelete?.name}&rdquo;? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
+      {/* Add Restaurant Modal */}
+      {showAddRestaurantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+          <div className="w-full max-w-3xl p-6 mx-4 my-8 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Add New Restaurant</h2>
+            
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                {error}
+              </Alert>
+            )}
+            
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Restaurant Owner Details */}
+              <div className="p-4 border rounded-lg dark:border-gray-700">
+                <h3 className="mb-3 text-lg font-medium text-gray-900 dark:text-white">Owner Information</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      First Name*
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={newRestaurant.firstName}
+                      onChange={handleNewRestaurantChange}
+                      className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Last Name*
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={newRestaurant.lastName}
+                      onChange={handleNewRestaurantChange}
+                      className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email*
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={newRestaurant.email}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Password*
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={newRestaurant.password}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Phone* (10 digits)
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={newRestaurant.phone}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                    maxLength="10"
+                  />
+                </div>
+              </div>
+              
+              {/* Restaurant Details */}
+              <div className="p-4 border rounded-lg dark:border-gray-700">
+                <h3 className="mb-3 text-lg font-medium text-gray-900 dark:text-white">Restaurant Information</h3>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Restaurant Name*
+                  </label>
+                  <input
+                    type="text"
+                    name="restaurantName"
+                    value={newRestaurant.restaurantName}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Address*
+                  </label>
+                  <input
+                    type="text"
+                    name="restaurantAddress"
+                    value={newRestaurant.restaurantAddress}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Description
+                  </label>
+                  <textarea
+                    name="restaurantDescription"
+                    value={newRestaurant.restaurantDescription}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    rows="3"
+                  ></textarea>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Cuisine Categories (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    name="cuisine"
+                    value={newRestaurant.cuisine.join(', ')}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    placeholder="Italian, Pizza, Fast Food"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Price Range
+                    </label>
+                    <select
+                      name="priceRange"
+                      value={newRestaurant.priceRange}
+                      onChange={handleNewRestaurantChange}
+                      className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="$">$ (Budget)</option>
+                      <option value="$$">$$ (Moderate)</option>
+                      <option value="$$$">$$$ (Expensive)</option>
+                      <option value="$$$$">$$$$ (Very Expensive)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isApproved"
+                      checked={newRestaurant.isApproved}
+                      onChange={handleNewRestaurantChange}
+                      className="w-4 h-4 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Approve Restaurant Immediately
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      checked={newRestaurant.isActive}
+                      onChange={handleNewRestaurantChange}
+                      className="w-4 h-4 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Active Account
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
               <Button 
                 variant="outline" 
+                onClick={() => setShowAddRestaurantModal(false)}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateRestaurant}
+                disabled={isCreating}
+              >
+                {isCreating ? <Spinner size="sm" className="mr-2" /> : null}
+                Create Restaurant
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
+              Delete Restaurant
+            </h3>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete the restaurant {restaurantToDelete?.name}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isProcessing}
               >
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={handleDeleteRestaurant}
                 disabled={isProcessing}
               >
@@ -566,7 +922,7 @@ const Restaurants = () => {
                 Delete
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>

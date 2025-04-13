@@ -5,7 +5,8 @@ const User = require('../models/user');
 const Notification = require('../models/notification');
 const { auth, isAdmin, emailVerified } = require('../middleware/auth');
 const RestaurantApproval = require('../models/restaurantApproval');
-const { Restaurant } = require('../models/restaurant');
+const Restaurant = require('../models/restaurant');
+const mongoose = require('mongoose');
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -1331,6 +1332,217 @@ router.post('/approval/:requestId', auth, isAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error processing approval request'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/users
+ * @desc    Create a new user
+ * @access  Private/Admin
+ */
+router.post('/users', auth, isAdmin, async (req, res) => {
+  try {
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      role = 'customer',
+      isActive = true,
+      address = {}
+    } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided: firstName, lastName, email, password, phone'
+      });
+    }
+    
+    // Check if email is already in use
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already in use'
+      });
+    }
+    
+    // Create new user object
+    const newUser = new User({
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`,
+      email,
+      password, // Will be hashed by pre-save hook in User model
+      phone,
+      role,
+      isActive,
+      address,
+      isEmailVerified: true // Auto-verify email for admin-created users
+    });
+    
+    // Save user to database
+    const savedUser = await newUser.save();
+    
+    // Log the action
+    console.log(`New user created by admin. User ID: ${savedUser._id}, Role: ${role}`);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: {
+        id: savedUser._id,
+        firstName: savedUser.firstName,
+        lastName: savedUser.lastName,
+        fullName: savedUser.fullName,
+        email: savedUser.email,
+        phone: savedUser.phone,
+        role: savedUser.role,
+        isActive: savedUser.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating user: ' + error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/restaurants
+ * @desc    Create a new restaurant and restaurant owner account
+ * @access  Private/Admin
+ */
+router.post('/restaurants', auth, isAdmin, async (req, res) => {
+  try {
+    const { 
+      // Restaurant owner (user) details
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone,
+      
+      // Restaurant details
+      restaurantName,
+      restaurantAddress,
+      restaurantDescription,
+      cuisine = ['General'],
+      isApproved = true,
+      isActive = true,
+      location,
+      priceRange = '$$'
+    } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password || !phone || !restaurantName || !restaurantAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided: firstName, lastName, email, password, phone, restaurantName, restaurantAddress'
+      });
+    }
+    
+    // Check if email is already in use
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already in use'
+      });
+    }
+    
+    // Start a transaction session
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      // 1. Create the restaurant owner (user) with role 'restaurant'
+      const restaurantOwner = new User({
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`,
+        email,
+        password, // Will be hashed by pre-save hook in User model
+        phone,
+        role: 'restaurant',
+        isActive,
+        isEmailVerified: true, // Auto-verify email for admin-created users
+        restaurantDetails: {
+          name: restaurantName,
+          address: restaurantAddress,
+          description: restaurantDescription || `${restaurantName} restaurant`,
+          approved: isApproved
+        }
+      });
+      
+      // Save user to database
+      const savedUser = await restaurantOwner.save({ session });
+      
+      // 2. Create the restaurant record
+      const restaurant = new Restaurant({
+        name: restaurantName,
+        location: location || restaurantAddress,
+        address: {
+          full: restaurantAddress,
+          formatted: restaurantAddress
+        },
+        description: restaurantDescription || `${restaurantName} restaurant`,
+        owner: savedUser._id,
+        isApproved,
+        isActive,
+        cuisine,
+        priceRange,
+        phone,
+        email
+      });
+      
+      // Save restaurant to database
+      const savedRestaurant = await restaurant.save({ session });
+      
+      // Commit the transaction
+      await session.commitTransaction();
+      session.endSession();
+      
+      // Log the action
+      console.log(`New restaurant created by admin. Restaurant ID: ${savedRestaurant._id}, Owner ID: ${savedUser._id}`);
+      
+      return res.status(201).json({
+        success: true,
+        message: 'Restaurant and owner account created successfully',
+        data: {
+          restaurant: {
+            id: savedRestaurant._id,
+            name: savedRestaurant.name,
+            address: savedRestaurant.address,
+            isApproved: savedRestaurant.isApproved,
+            isActive: savedRestaurant.isActive
+          },
+          owner: {
+            id: savedUser._id,
+            fullName: savedUser.fullName,
+            email: savedUser.email,
+            phone: savedUser.phone,
+            role: savedUser.role
+          }
+        }
+      });
+    } catch (error) {
+      // Abort the transaction in case of an error
+      await session.abortTransaction();
+      session.endSession();
+      throw error; // Re-throw to be caught by the outer try-catch
+    }
+  } catch (error) {
+    console.error('Create restaurant error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating restaurant: ' + error.message
     });
   }
 });
