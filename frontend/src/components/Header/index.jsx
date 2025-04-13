@@ -252,7 +252,7 @@ const Header = () => {
                         )}
 
                         {/* Conditional Delivery Dashboard Link */}
-                        {(currentUser.role === 'deliveryRider' || currentUser.isDeliveryRider) && (
+                        {(currentUser.role === 'delivery_rider' || currentUser.isDeliveryRider) && (
                           <Link 
                             to="/delivery/dashboard" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 

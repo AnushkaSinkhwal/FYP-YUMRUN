@@ -526,7 +526,7 @@ router.get('/restaurant/:restaurantId', auth, async (req, res) => {
         
         // Check if the user is the owner of this restaurant
         const user = await User.findById(req.user.id);
-        const isOwner = user.role === 'restaurant_owner' && 
+        const isOwner = user.role === 'restaurant' && 
                        user.restaurantDetails && 
                        user.restaurantDetails._id.toString() === restaurantId;
         
@@ -594,7 +594,7 @@ router.get('/:id', auth, async (req, res) => {
         }
 
         // Only allow the user who placed the order, the restaurant owner, or admin to view
-        const isOwner = req.user.role === 'restaurant_owner' && 
+        const isOwner = req.user.role === 'restaurant' && 
                        req.user.restaurantDetails && 
                        req.user.restaurantDetails._id.toString() === order.restaurantId._id.toString();
         
@@ -747,7 +747,7 @@ router.patch('/:id/status', auth, async (req, res) => {
         }
 
         // Check if user has permission to update this order
-        const isRestaurantOwner = req.user.role === 'restaurant_owner' && 
+        const isRestaurantOwner = req.user.role === 'restaurant' && 
                               req.user.restaurantDetails && 
                               req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
         
@@ -818,7 +818,7 @@ router.patch('/:id/assign-rider', auth, async (req, res) => {
         }
 
         // Check if user has permission to assign riders
-        const isRestaurantOwner = req.user.role === 'restaurant_owner' && 
+        const isRestaurantOwner = req.user.role === 'restaurant' && 
                               req.user.restaurantDetails && 
                               req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
         
@@ -888,7 +888,7 @@ router.patch('/:id/cancel', auth, async (req, res) => {
 
         // Check if user has permission to cancel this order
         const isUser = order.userId.toString() === req.user.id;
-        const isRestaurantOwner = req.user.role === 'restaurant_owner' && 
+        const isRestaurantOwner = req.user.role === 'restaurant' && 
                               req.user.restaurantDetails && 
                               req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
         

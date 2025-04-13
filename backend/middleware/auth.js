@@ -118,7 +118,7 @@ const isRestaurantOwner = (req, res, next) => {
  * Checks if the authenticated user is delivery staff
  */
 const isDeliveryRider = (req, res, next) => {
-  if (!req.user.role || req.user.role !== 'deliveryRider') {
+  if (!req.user.role || req.user.role !== 'delivery_rider') {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Delivery rider permissions required.'

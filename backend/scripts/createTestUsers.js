@@ -14,7 +14,8 @@ console.log('Using connection string:', connectionString);
 const testUsers = [
   // Admin user
   {
-    name: 'Admin User',
+    firstName: 'Admin',
+    lastName: 'User',
     username: 'admin',
     phone: '1234567890',
     email: 'admin@yumrun.com',
@@ -26,7 +27,8 @@ const testUsers = [
   },
   // Restaurant owner
   {
-    name: 'Restaurant Owner',
+    firstName: 'Restaurant',
+    lastName: 'Owner',
     username: 'restaurant',
     phone: '9876543210',
     email: 'owner@yumrun.com',
@@ -46,7 +48,8 @@ const testUsers = [
   },
   // Regular user
   {
-    name: 'Regular User',
+    firstName: 'Regular',
+    lastName: 'User',
     username: 'user',
     phone: '5555555555',
     email: 'user@yumrun.com',
@@ -56,21 +59,29 @@ const testUsers = [
     createdAt: new Date(),
     updatedAt: new Date()
   },
-  // Delivery staff
+  // Delivery Rider
   {
-    name: 'Delivery Staff',
+    firstName: 'Delivery',
+    lastName: 'Rider',
     username: 'delivery',
     phone: '8888888888',
     email: 'delivery@yumrun.com',
     password: 'Secret@123',
-    role: 'deliveryRider',
-    healthCondition: 'Healthy',
+    role: 'delivery_rider',
+    deliveryRiderDetails: {
+      vehicleType: 'motorcycle',
+      licenseNumber: 'DL1234567890',
+      vehicleRegistrationNumber: 'BA1PA5678',
+      isAvailable: true,
+      approved: true
+    },
     createdAt: new Date(),
     updatedAt: new Date()
   },
   // User with health condition
   {
-    name: 'Diabetic User',
+    firstName: 'Diabetic',
+    lastName: 'User',
     username: 'diabetic',
     phone: '7777777777',
     email: 'diabetic@yumrun.com',
@@ -82,7 +93,8 @@ const testUsers = [
   },
   // Additional users with different health conditions
   {
-    name: 'Heart Patient',
+    firstName: 'Heart',
+    lastName: 'Patient',
     username: 'heart',
     phone: '6666666666',
     email: 'heart@yumrun.com',
@@ -93,7 +105,8 @@ const testUsers = [
     updatedAt: new Date()
   },
   {
-    name: 'Hypertension User',
+    firstName: 'Hypertension',
+    lastName: 'User',
     username: 'hypertension',
     phone: '4444444444',
     email: 'hypertension@yumrun.com',
@@ -122,7 +135,8 @@ async function createTestUsers() {
       const hashedPassword = await bcrypt.hash('password123', 10);
       
       const customer = new User({
-        name: 'Test Customer',
+        firstName: 'Test',
+        lastName: 'Customer',
         email: 'customer@test.com',
         password: hashedPassword,
         phone: '9876543210',
@@ -155,11 +169,12 @@ async function createTestUsers() {
       const hashedPassword = await bcrypt.hash('password123', 10);
       
       owner = new User({
-        name: 'Test Restaurant Owner',
+        firstName: 'Test',
+        lastName: 'Restaurant Owner',
         email: 'owner@test.com',
         password: hashedPassword,
         phone: '9876543211',
-        role: 'restaurant_owner',
+        role: 'restaurant',
         address: {
           fullAddress: '456 Restaurant Road, Kathmandu, Nepal',
           street: '456 Restaurant Road',
@@ -257,7 +272,8 @@ async function createTestUsers() {
       const hashedPassword = await bcrypt.hash('admin123', 10);
       
       const admin = new User({
-        name: 'Test Admin',
+        firstName: 'Test',
+        lastName: 'Admin',
         email: 'admin@test.com',
         password: hashedPassword,
         phone: '9876543212',
@@ -294,4 +310,4 @@ async function createTestUsers() {
   }
 }
 
-createTestUsers(); 
+createTestUsers();

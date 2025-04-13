@@ -137,7 +137,7 @@ exports.register = async (req, res) => {
                     }
                 });
             }
-        } else if (role === 'deliveryRider') {
+        } else if (role === 'delivery_rider') {
             isDeliveryStaff = true;
         } else if (role === 'admin') {
             isAdmin = true;

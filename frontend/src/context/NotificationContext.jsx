@@ -55,7 +55,7 @@ export const NotificationProvider = ({ children }) => {
         case 'restaurant':
           response = await restaurantAPI.getNotifications();
           break;
-        case 'deliveryRider':
+        case 'delivery_rider':
           // Temp placeholder until delivery API is implemented
           response = { data: { success: true, notifications: [] } };
           break;
@@ -99,7 +99,7 @@ export const NotificationProvider = ({ children }) => {
         case 'restaurant':
           response = await restaurantAPI.markNotificationAsRead(notificationId);
           break;
-        case 'deliveryRider':
+        case 'delivery_rider':
           response = { data: { success: true } };
           break;
         default:
@@ -139,7 +139,7 @@ export const NotificationProvider = ({ children }) => {
         case 'restaurant':
           response = await restaurantAPI.markAllNotificationsAsRead();
           break;
-        case 'deliveryRider':
+        case 'delivery_rider':
           response = { data: { success: true } };
           break;
         default:

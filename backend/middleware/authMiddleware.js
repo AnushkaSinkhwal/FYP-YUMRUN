@@ -145,7 +145,7 @@ exports.restaurant = (req, res, next) => {
  * Middleware to restrict access to delivery staff only
  */
 exports.deliveryStaff = (req, res, next) => {
-  if (req.user && req.user.role === 'deliveryRider') {
+  if (req.user && req.user.role === 'delivery_rider') {
     next();
   } else {
     return res.status(403).json({

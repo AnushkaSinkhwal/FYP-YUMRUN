@@ -38,7 +38,7 @@ const normalizeUserData = (userData) => {
     role = 'restaurant';
     console.log('User is restaurant owner based on isRestaurantOwner flag');
   } else if (userData.isDeliveryStaff || userData.isDeliveryRider) {
-    role = 'deliveryRider';
+    role = 'delivery_rider';
     console.log('User is delivery rider based on isDeliveryStaff/isDeliveryRider flag');
   } else {
     console.log('User has no special role flags, defaulting to customer');
@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }) => {
           roleDashboardPath = '/admin/dashboard';
         } else if (userRole === 'restaurant') {
           roleDashboardPath = '/restaurant/dashboard';
-        } else if (userRole === 'deliveryRider') {
+        } else if (userRole === 'delivery_rider') {
           roleDashboardPath = '/delivery/dashboard';
         } else {
           roleDashboardPath = '/user/dashboard';
@@ -258,17 +258,16 @@ export const AuthProvider = ({ children }) => {
   
   // Role check helpers
   const isCustomer = () => currentUser?.role === 'customer' || 
-    (!currentUser?.role && !currentUser?.isAdmin && !currentUser?.isRestaurantOwner && !currentUser?.isDeliveryRider);
+    (currentUser && !currentUser.role);
     
   const isRestaurantOwner = () => currentUser?.role === 'restaurant' || 
-    currentUser?.isRestaurantOwner === true;
+    (currentUser && currentUser.isRestaurantOwner);
     
-  const isDeliveryRider = () => currentUser?.role === 'deliveryRider' || 
-    currentUser?.isDeliveryRider === true || 
-    currentUser?.isDeliveryStaff === true;
+  const isDeliveryRider = () => currentUser?.role === 'delivery_rider' || 
+    (currentUser && (currentUser.isDeliveryRider || currentUser.isDeliveryStaff));
     
   const isAdmin = () => currentUser?.role === 'admin' || 
-    currentUser?.isAdmin === true;
+    (currentUser && currentUser.isAdmin);
   
   // Context value
   const value = {

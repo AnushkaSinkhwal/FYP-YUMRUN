@@ -82,7 +82,7 @@ exports.getUserProfile = async (req, res) => {
     // Add role-specific data
     if (user.role === 'restaurant') {
       userProfile.restaurantDetails = user.restaurantDetails;
-    } else if (user.role === 'deliveryRider') {
+    } else if (user.role === 'delivery_rider') {
       userProfile.deliveryRiderDetails = user.deliveryRiderDetails;
     }
 

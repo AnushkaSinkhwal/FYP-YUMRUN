@@ -53,20 +53,13 @@ const Users = () => {
   const getUserRole = (user) => {
     // First check the new 'role' field
     if (user.role) {
-      switch (user.role) {
-        case 'admin': return 'Admin';
-        case 'restaurant': return 'Restaurant Owner';
-        case 'deliveryRider': return 'Delivery Driver';
-        case 'customer': return 'Customer';
-        default: return user.role.charAt(0).toUpperCase() + user.role.slice(1);
-      }
+      return user.role;
     }
-    
-    // Fallback to old way if role field is not present
-    if (user.isAdmin) return 'Admin';
-    if (user.isRestaurantOwner) return 'Restaurant Owner';
-    if (user.isDeliveryDriver) return 'Delivery Driver';
-    return 'Customer';
+    // Legacy fallback for old records
+    if (user.isAdmin) return 'admin';
+    if (user.isRestaurantOwner) return 'restaurant';
+    if (user.isDeliveryRider) return 'delivery_rider';
+    return 'customer';
   };
 
   const getUserStatus = (user) => {
@@ -235,10 +228,9 @@ const Users = () => {
                     <td className="hidden px-4 py-3 md:table-cell">{user.email}</td>
                     <td className="px-4 py-3">
                       <Badge variant={
-                        user.role === 'admin' ? "primary" : 
-                        user.role === 'restaurant' ? "success" : 
-                        user.role === 'deliveryRider' ? "info" : 
-                        "default"
+                        user.role === 'admin' ? "primary" :
+                        user.role === 'restaurant' ? "success" :
+                        user.role === 'delivery_rider' ? "warning" : "info"
                       }>
                         {getUserRole(user)}
                       </Badge>

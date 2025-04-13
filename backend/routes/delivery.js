@@ -9,7 +9,7 @@ const { sendEmail, emailTemplates } = require('../utils/emailService');
 // GET all delivery staff (Admin only)
 router.get('/staff', auth, isAdmin, async (req, res) => {
     try {
-        const deliveryStaff = await User.find({ role: 'deliveryRider' })
+        const deliveryStaff = await User.find({ role: 'delivery_rider' })
             .select('-password')
             .sort({ fullName: 1 });
             
@@ -31,7 +31,7 @@ router.get('/staff/:id', auth, isAdmin, async (req, res) => {
     try {
         const staff = await User.findOne({ 
             _id: req.params.id, 
-            role: 'deliveryRider' 
+            role: 'delivery_rider' 
         }).select('-password');
         
         if (!staff) {
@@ -404,7 +404,7 @@ router.post('/assign/:orderId/:staffId', auth, isAdmin, async (req, res) => {
         }
         
         // Verify staff exists and is a delivery rider
-        const staff = await User.findOne({ _id: staffId, role: 'deliveryRider' });
+        const staff = await User.findOne({ _id: staffId, role: 'delivery_rider' });
         if (!staff) {
             return res.status(404).json({ 
                 success: false, 

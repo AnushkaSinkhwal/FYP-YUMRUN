@@ -781,7 +781,7 @@ router.get('/statistics', auth, isAdmin, async (req, res) => {
     try {
         const userCount = await User.countDocuments({ role: 'customer' });
         const ownerCount = await User.countDocuments({ role: 'restaurant' });
-        const staffCount = await User.countDocuments({ role: 'deliveryRider' });
+        const staffCount = await User.countDocuments({ role: 'delivery_rider' });
         
         res.status(200).json({ 
             success: true,

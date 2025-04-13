@@ -144,7 +144,7 @@ const SignUp = () => {
                 setError("Please enter a valid 9-digit PAN number");
                 return;
             }
-        } else if (role === "deliveryRider") {
+        } else if (role === "delivery_rider") {
             if (!formData.licenseNumber.trim()) {
                 setError("License number is required");
                 return;
@@ -184,7 +184,7 @@ const SignUp = () => {
             userData.restaurantAddress = formData.restaurantAddress;
             userData.restaurantDescription = formData.restaurantDescription;
             userData.panNumber = formData.panNumber;
-        } else if (role === "deliveryRider") {
+        } else if (role === "delivery_rider") {
             userData.vehicleType = formData.vehicleType;
             userData.licenseNumber = formData.licenseNumber;
             userData.vehicleRegistrationNumber = formData.vehicleRegistrationNumber;
@@ -243,8 +243,8 @@ const SignUp = () => {
                                     <Label htmlFor="restaurant">Restaurant Owner</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="deliveryRider" id="deliveryRider" />
-                                    <Label htmlFor="deliveryRider">Delivery Rider</Label>
+                                    <RadioGroupItem value="delivery_rider" id="delivery_rider" />
+                                    <Label htmlFor="delivery_rider">Delivery Rider</Label>
                                 </div>
                             </RadioGroup>
                         </div>
@@ -396,7 +396,7 @@ const SignUp = () => {
                             </div>
                         )}
 
-                        {role === "deliveryRider" && (
+                        {role === "delivery_rider" && (
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-gray-700">Vehicle Information</h3>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

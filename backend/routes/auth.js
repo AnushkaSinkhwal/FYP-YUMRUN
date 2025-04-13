@@ -68,8 +68,8 @@ router.post('/login', async (req, res) => {
         user.role = 'admin';
         await user.save({ validateBeforeSave: false }); // Skip validation for test accounts
       } else if (email === 'delivery@yumrun.com') {
-        console.log('Test delivery account detected, forcing role update to deliveryRider');
-        user.role = 'deliveryRider';
+        console.log('Test delivery account detected, forcing role update to delivery_rider');
+        user.role = 'delivery_rider';
         await user.save({ validateBeforeSave: false }); // Skip validation for test accounts
       } else if (email === 'user@yumrun.com') {
         console.log('Test customer account detected, forcing role update to customer');
@@ -90,8 +90,8 @@ router.post('/login', async (req, res) => {
       else if (user.isAdmin && user.role !== 'admin') {
         user.role = 'admin';
         await user.save({ validateBeforeSave: false }); // Skip validation
-      } else if (user.isDeliveryRider && user.role !== 'deliveryRider') {
-        user.role = 'deliveryRider';
+      } else if (user.isDeliveryRider && user.role !== 'delivery_rider') {
+        user.role = 'delivery_rider';
         await user.save({ validateBeforeSave: false }); // Skip validation
       }
 
@@ -127,7 +127,7 @@ router.post('/login', async (req, res) => {
       // Add legacy role flags for backward compatibility
       isAdmin: user.role === 'admin',
       isRestaurantOwner: user.role === 'restaurant',
-      isDeliveryRider: user.role === 'deliveryRider'
+      isDeliveryRider: user.role === 'delivery_rider'
     };
 
     // Determine dashboard redirect based on user role
@@ -136,7 +136,7 @@ router.post('/login', async (req, res) => {
       dashboardPath = '/admin/dashboard'; // Admin dashboard
     } else if (user.role === 'restaurant') {
       dashboardPath = '/restaurant/dashboard'; // Restaurant dashboard
-    } else if (user.role === 'deliveryRider') {
+    } else if (user.role === 'delivery_rider') {
       dashboardPath = '/delivery/dashboard'; // Delivery dashboard
     }
 
@@ -213,7 +213,7 @@ router.post('/register', async (req, res) => {
         panNumber,
         approved: false // Requires admin approval
       };
-    } else if (role === 'deliveryRider') {
+    } else if (role === 'delivery_rider') {
       userFields.deliveryRiderDetails = {
         vehicleType,
         licenseNumber,
@@ -512,7 +512,7 @@ router.get('/debug', async (req, res) => {
           } else if (user.isRestaurantOwner) {
             detectedRole = 'restaurant';
           } else if (user.isDeliveryRider || user.isDeliveryStaff) {
-            detectedRole = 'deliveryRider';
+            detectedRole = 'delivery_rider';
           }
           
           return detectedRole;

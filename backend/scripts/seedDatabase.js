@@ -1048,11 +1048,12 @@ const seedDatabase = async () => {
       
       // Create the restaurant owner
       const owner = new User({
-        fullName: `Owner of ${sampleRestaurants[i].name}`,
+        firstName: `Owner`,
+        lastName: `of ${sampleRestaurants[i].name}`,
         email: `owner${i + 1}@example.com`,
         password: hashedPassword,
         phone: `9876543${String(i + 1).padStart(3, '0')}`, // 10-digit format phone number
-        role: 'restaurant_owner',
+        role: 'restaurant',
         address: {
           fullAddress: sampleRestaurants[i].location,
           street: sampleRestaurants[i].location.split(',')[0],
@@ -1069,7 +1070,7 @@ const seedDatabase = async () => {
       
       const savedOwner = await owner.save();
       restaurants.push(savedOwner);
-      console.log(`Created restaurant owner: ${savedOwner.fullName}`);
+      console.log(`Created restaurant owner: ${savedOwner.firstName} ${savedOwner.lastName}`);
     }
 
     // Create restaurants
@@ -1160,19 +1161,22 @@ const seedDatabase = async () => {
       if (!existingUser) {
         const hashedPassword = await bcrypt.hash('password123', 10);
         const customer = new User({
-          fullName: `Customer ${i + 1}`,
+          firstName: `Customer`,
+          lastName: `${i + 1}`,
           email: `customer${i + 1}@example.com`,
           password: hashedPassword,
           phone: `1234567${String(i + 1).padStart(3, '0')}`,
-          address: `${100 + i} Customer Street, Cityville`,
+          address: {
+            fullAddress: `${100 + i} Customer Street, Cityville`
+          },
           role: 'customer'
         });
         const savedCustomer = await customer.save();
         sampleCustomers.push(savedCustomer);
-        console.log(`Created customer: ${savedCustomer.fullName}`);
+        console.log(`Created customer: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
       } else {
         sampleCustomers.push(existingUser);
-        console.log(`Using existing customer: ${existingUser.fullName}`);
+        console.log(`Using existing customer: ${existingUser.firstName} ${existingUser.lastName}`);
       }
     }
 

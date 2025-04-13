@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   } else if (currentUser.isRestaurantOwner || (currentUser.restaurantDetails && Object.keys(currentUser.restaurantDetails).length > 0)) {
     userRole = 'restaurant';
   } else if (currentUser.isDeliveryRider || currentUser.isDeliveryStaff) {
-    userRole = 'deliveryRider';
+    userRole = 'delivery_rider';
   }
   
   console.log('ProtectedRoute - Current user role:', userRole);
@@ -53,7 +53,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         return <Navigate to="/admin/dashboard" replace />;
       case 'restaurant':
         return <Navigate to="/restaurant/dashboard" replace />;
-      case 'deliveryRider':
+      case 'delivery_rider':
         return <Navigate to="/delivery/dashboard" replace />;
       case 'customer':
         return <Navigate to="/user/dashboard" replace />;
@@ -70,7 +70,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 // PropTypes validation
 ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
-  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['admin', 'restaurant', 'deliveryRider', 'customer']))
+  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['admin', 'restaurant', 'delivery_rider', 'customer']))
 };
 
 ProtectedRoute.defaultProps = {
