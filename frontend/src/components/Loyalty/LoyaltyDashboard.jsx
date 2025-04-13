@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Progress } from '../ui';
+import { Card, Button, Progress, Alert, Spinner } from '../ui';
 import { userAPI } from '../../utils/api';
 import { formatDate } from '../../utils/helpers';
 
@@ -10,12 +10,13 @@ const LoyaltyDashboard = () => {
     history: []
   });
   const [rewards, setRewards] = useState([
-    { id: 1, name: 'Rs. 50 off your order', pointsRequired: 500, value: 50 },
-    { id: 2, name: 'Rs. 100 off your order', pointsRequired: 1000, value: 100 },
-    { id: 3, name: 'Rs. 200 off your order', pointsRequired: 2000, value: 200 },
+    { id: 1, name: '₹50 off your order', pointsRequired: 500, value: 50 },
+    { id: 2, name: '₹100 off your order', pointsRequired: 1000, value: 100 },
+    { id: 3, name: '₹200 off your order', pointsRequired: 2000, value: 200 },
     { id: 4, name: 'Free delivery', pointsRequired: 300, value: 'free_delivery' }
   ]);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     fetchLoyaltyData();
@@ -25,12 +26,36 @@ const LoyaltyDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await userAPI.getLoyaltyDetails();
       
-      if (response.data.success) {
-        setLoyaltyData(response.data.data);
-      } else {
-        setError('Failed to fetch loyalty data');
+      // Call the updated endpoint for getting loyalty points
+      const pointsResponse = await userAPI.getLoyaltyPoints();
+      
+      // Call the endpoint for loyalty history
+      const historyResponse = await userAPI.getLoyaltyHistory();
+      
+      if (pointsResponse.data.success) {
+        setLoyaltyData(prevData => ({
+          ...prevData,
+          currentPoints: pointsResponse.data.data.points || 0
+        }));
+      }
+      
+      if (historyResponse.data.success) {
+        setLoyaltyData(prevData => ({
+          ...prevData,
+          history: historyResponse.data.data || []
+        }));
+      }
+      
+      // Fetch available rewards if endpoint is available
+      try {
+        const rewardsResponse = await userAPI.getLoyaltyRewards();
+        if (rewardsResponse.data.success) {
+          setRewards(rewardsResponse.data.data);
+        }
+      } catch {
+        // If rewards API fails, we'll use the default rewards defined in state
+        console.log('Using default rewards as rewards API failed or is not available');
       }
     } catch (err) {
       console.error('Error fetching loyalty data:', err);
@@ -71,46 +96,67 @@ const LoyaltyDashboard = () => {
 
   const handleRedeemPoints = async (reward) => {
     try {
-      // In a real implementation, this would redirect to order selection or integrate with current order
-      alert(`Redeem ${reward.pointsRequired} points for ${reward.name}`);
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
       
-      // Example of how redemption might work
-      // const response = await userAPI.redeemLoyaltyPoints(reward.pointsRequired, orderId);
-      // if (response.data.success) {
-      //   // Update loyalty data after redemption
-      //   fetchLoyaltyData();
-      // } else {
-      //   setError('Failed to redeem points');
-      // }
+      // Check if user has enough points
+      if (loyaltyData.currentPoints < reward.pointsRequired) {
+        setError(`You need ${reward.pointsRequired - loyaltyData.currentPoints} more points to redeem this reward.`);
+        setLoading(false);
+        return;
+      }
+      
+      // Call the API to redeem points
+      const response = await userAPI.redeemLoyaltyPoints(reward.pointsRequired, reward.id);
+      
+      if (response.data.success) {
+        setSuccess(`Successfully redeemed ${reward.name} for ${reward.pointsRequired} points!`);
+        
+        // Update current points
+        setLoyaltyData(prevData => ({
+          ...prevData,
+          currentPoints: prevData.currentPoints - reward.pointsRequired
+        }));
+        
+        // Refresh loyalty data to get updated history
+        fetchLoyaltyData();
+      } else {
+        setError(response.data.message || 'Failed to redeem points');
+      }
     } catch (err) {
       console.error('Error redeeming points:', err);
-      setError('An error occurred while redeeming your points');
+      setError('An error occurred while redeeming your points. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
+  if (loading && !loyaltyData.currentPoints && !loyaltyData.history.length) {
     return (
-      <div className="p-4 text-center">
-        <p>Loading your loyalty points...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-red-500">{error}</p>
-        <Button onClick={fetchLoyaltyData} className="mt-2">
-          Try Again
-        </Button>
+      <div className="flex flex-col items-center justify-center p-10">
+        <Spinner size="lg" />
+        <p className="mt-4 text-gray-500">Loading your loyalty points...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          {error}
+        </Alert>
+      )}
+      
+      {success && (
+        <Alert className="mb-4 bg-green-50 text-green-800 border-green-200">
+          {success}
+        </Alert>
+      )}
+      
       {/* Points Summary */}
-      <Card className="p-6">
+      <Card className="p-6 overflow-hidden">
         <div className="text-center">
           <h3 className="text-3xl font-bold text-primary">
             {loyaltyData.currentPoints}
@@ -120,7 +166,7 @@ const LoyaltyDashboard = () => {
           </p>
           
           {nextRewardInfo && (
-            <div className="mt-4">
+            <div className="mt-6">
               <p className="mb-2 text-sm text-gray-500">
                 {nextRewardInfo.pointsNeeded} more points until your next reward
               </p>
@@ -138,19 +184,19 @@ const LoyaltyDashboard = () => {
         <h3 className="mb-4 text-xl font-semibold">Available Rewards</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {rewards.map(reward => (
-            <Card key={reward.id} className="p-4">
+            <Card key={reward.id} className="p-5 transition-all hover:shadow-md">
               <div className="flex justify-between">
                 <div>
                   <h4 className="text-lg font-medium">{reward.name}</h4>
                   <p className="text-sm text-gray-500">{reward.pointsRequired} points</p>
                 </div>
                 <Button
-                  disabled={loyaltyData.currentPoints < reward.pointsRequired}
+                  disabled={loyaltyData.currentPoints < reward.pointsRequired || loading}
                   onClick={() => handleRedeemPoints(reward)}
                   variant={loyaltyData.currentPoints >= reward.pointsRequired ? "default" : "outline"}
                   size="sm"
                 >
-                  Redeem
+                  {loading ? <Spinner size="sm" /> : 'Redeem'}
                 </Button>
               </div>
             </Card>
@@ -176,12 +222,12 @@ const LoyaltyDashboard = () => {
                 {loyaltyData.history.length > 0 ? (
                   loyaltyData.history.map((record, index) => (
                     <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-4 py-3">{formatDate(record.date)}</td>
-                      <td className={`px-4 py-3 font-medium ${record.type === 'earned' ? 'text-green-600' : 'text-red-600'}`}>
-                        {record.type === 'earned' ? '+' : '-'}{Math.abs(record.points)}
+                      <td className="px-4 py-3">{formatDate(record.date || record.createdAt)}</td>
+                      <td className={`px-4 py-3 font-medium ${record.type === 'earned' || record.action === 'earned' ? 'text-green-600' : 'text-red-600'}`}>
+                        {record.type === 'earned' || record.action === 'earned' ? '+' : '-'}{Math.abs(record.points)}
                       </td>
-                      <td className="px-4 py-3 capitalize">{record.type}</td>
-                      <td className="px-4 py-3">{record.description}</td>
+                      <td className="px-4 py-3 capitalize">{record.type || record.action}</td>
+                      <td className="px-4 py-3">{record.description || record.reason || 'N/A'}</td>
                     </tr>
                   ))
                 ) : (
@@ -201,7 +247,7 @@ const LoyaltyDashboard = () => {
       <Card className="p-6">
         <h3 className="mb-2 text-xl font-semibold">How Points Work</h3>
         <ul className="ml-6 space-y-2 list-disc text-gray-600 dark:text-gray-300">
-          <li>Earn 10 points for every Rs. 100 spent on orders</li>
+          <li>Earn 10 points for every ₹100 spent on orders</li>
           <li>Redeem points for discounts on future orders</li>
           <li>Points expire after 12 months from the date earned</li>
           <li>Points can only be redeemed on orders above the minimum order value</li>

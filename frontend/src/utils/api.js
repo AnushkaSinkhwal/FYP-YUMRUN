@@ -55,7 +55,31 @@ export const authAPI = {
       const response = await api.post('/auth/login', { email, password });
       console.log('Server response:', response.data);
       
-      // Ensure we're returning the data property from the response
+      // Check if the data structure is what we expect
+      if (response.data && response.data.success === true) {
+        // Make sure we have data within the response
+        if (!response.data.data) {
+          console.error('Response success but data field is missing:', response.data);
+          return { 
+            success: false, 
+            error: 'Invalid response structure: missing data field' 
+          };
+        }
+        
+        // Make sure user data is present
+        if (!response.data.data.user) {
+          console.error('Response success but user field is missing:', response.data.data);
+          return { 
+            success: false, 
+            error: 'Invalid response structure: missing user data' 
+          };
+        }
+        
+        // Log user role (or lack thereof)
+        console.log('User role in response:', response.data.data.user.role);
+      }
+      
+      // Ensure we're returning the correct response structure
       return response;
     } catch (error) {
       console.error('Login request error:', error.response || error);
@@ -408,7 +432,19 @@ export const userAPI = {
   
   // Get user notifications
   getNotifications: async () => {
-    return api.get('/user/notifications');
+    try {
+      const response = await api.get('/user/notifications');
+      return response;
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // Return a fallback response with empty data
+      return { 
+        data: { 
+          success: true, 
+          data: [] 
+        } 
+      };
+    }
   },
   
   // Get unread notification count
@@ -446,14 +482,14 @@ export const userAPI = {
     return api.get('/loyalty/history/me');
   },
   
-  // Create a new order
-  createOrder: async (orderData) => {
-    return api.post('/orders', orderData);
+  // Get available loyalty rewards
+  getLoyaltyRewards: async () => {
+    return api.get('/loyalty/rewards');
   },
   
   // Redeem loyalty points
-  redeemLoyaltyPoints: async (points, orderId) => {
-    return api.post('/loyalty/redeem', { points, orderId });
+  redeemLoyaltyPoints: async (points, rewardId) => {
+    return api.post('/loyalty/redeem', { points, rewardId });
   },
   
   // Get personalized recommendations

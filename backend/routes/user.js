@@ -621,13 +621,13 @@ router.get('/notifications', protect, async (req, res) => {
         
         return res.status(200).json({
             success: true,
-            notifications: notifications.map(notification => ({
+            data: notifications.map(notification => ({
                 _id: notification._id,
                 type: notification.type,
                 title: notification.title,
                 message: notification.message,
                 status: notification.status,
-                isRead: notification.isRead || false,
+                read: notification.isRead || false,
                 createdAt: notification.createdAt,
                 data: notification.data
             }))
@@ -787,17 +787,41 @@ router.get('/dashboard', protect, async (req, res) => {
     }
     
     // Calculate amount saved from offers or use placeholder value
-    // In a real app, this would be calculated from actual order data
-    const savedAmount = Math.floor(Math.random() * 100);
-    console.log(`[Dashboard API] Calculated saved amount: $${savedAmount}`);
+    console.log(`[Dashboard API] Calculating amount saved from offers`);
+    let savedAmount = 0;
+    try {
+      // Get completed orders
+      const completedOrders = await Order.find({ 
+        userId, 
+        status: 'DELIVERED',
+        'discount.amount': { $gt: 0 }
+      });
+      
+      // Calculate total discount amount
+      savedAmount = completedOrders.reduce((total, order) => {
+        return total + (order.discount?.amount || 0);
+      }, 0);
+      
+      console.log(`[Dashboard API] Calculated saved amount: Rs ${savedAmount}`);
+    } catch (error) {
+      console.error('[Dashboard API] Error calculating saved amount:', error);
+      // In development, use a placeholder value if calculation fails
+      if (process.env.NODE_ENV === 'development') {
+        savedAmount = Math.floor(Math.random() * 100);
+      }
+    }
     
     // Get recent orders for activity feed
     console.log(`[Dashboard API] Fetching recent orders for activity feed`);
     let recentOrders = [];
     try {
       recentOrders = await Order.find({ userId })
+        .populate({
+          path: 'restaurantId',
+          select: 'restaurantDetails.name'
+        })
         .sort({ createdAt: -1 })
-        .limit(3)
+        .limit(5)
         .lean();
         
       console.log(`[Dashboard API] Found ${recentOrders.length} recent orders`);
@@ -812,25 +836,52 @@ router.get('/dashboard', protect, async (req, res) => {
     try {
       notifications = await Notification.find({ userId })
         .sort({ createdAt: -1 })
-        .limit(5);
+        .limit(5)
+        .lean();
         
       console.log(`[Dashboard API] Found ${notifications.length} notifications`);
     } catch (error) {
       console.error('[Dashboard API] Error fetching notifications:', error);
     }
     
+    // Get loyalty points
+    console.log(`[Dashboard API] Fetching loyalty points`);
+    let loyaltyPoints = 0;
+    try {
+      const LoyaltyPoint = require('../models/loyaltyPoint');
+      const loyaltyData = await LoyaltyPoint.findOne({ userId });
+      if (loyaltyData) {
+        loyaltyPoints = loyaltyData.points;
+      } else {
+        // If no loyalty data exists, create it
+        const newLoyaltyData = new LoyaltyPoint({
+          userId,
+          points: 0
+        });
+        await newLoyaltyData.save();
+      }
+      console.log(`[Dashboard API] User has ${loyaltyPoints} loyalty points`);
+    } catch (error) {
+      console.error('[Dashboard API] Error fetching loyalty points:', error);
+    }
+    
     // Combine orders and notifications for activity feed
     let recentActivity = [];
     
     // Map orders to activity items
-    const orderActivities = recentOrders.map(order => ({
-      id: order._id,
-      title: `Order ${order.status === 'DELIVERED' ? 'Delivered' : 'Placed'}`,
-      description: `Your order #${order.orderNumber || order._id.toString().substring(0, 6)} ${order.status === 'DELIVERED' ? 'from' : 'with'} ${order.restaurantId?.name || 'Restaurant'} ${order.status === 'DELIVERED' ? 'has been delivered' : 'has been ' + order.status.toLowerCase()}`,
-      time: order.status === 'DELIVERED' ? order.updatedAt : order.createdAt,
-      status: order.status.toLowerCase(),
-      link: `/user/orders`
-    }));
+    const orderActivities = recentOrders.map(order => {
+      const restaurantName = order.restaurantId?.restaurantDetails?.name || 'Restaurant';
+      
+      return {
+        id: order._id,
+        title: `Order ${order.status === 'DELIVERED' ? 'Delivered' : 'Placed'}`,
+        description: `Your order #${order.orderNumber || order._id.toString().substring(0, 6)} ${order.status === 'DELIVERED' ? 'from' : 'with'} ${restaurantName} ${order.status === 'DELIVERED' ? 'has been delivered' : 'has been ' + order.status.toLowerCase()}`,
+        time: order.status === 'DELIVERED' ? order.updatedAt : order.createdAt,
+        status: order.status.toLowerCase(),
+        type: 'order',
+        link: `/orders/${order._id}`
+      };
+    });
     
     // Map notifications to activity items
     const notificationActivities = notifications.map(notification => ({
@@ -838,7 +889,8 @@ router.get('/dashboard', protect, async (req, res) => {
       title: notification.title || 'Notification',
       description: notification.message,
       time: notification.createdAt,
-      status: notification.status === 'READ' ? 'completed' : 'pending',
+      status: notification.read ? 'completed' : 'pending',
+      type: 'notification',
       link: `/user/notifications/${notification._id}`
     }));
     
@@ -847,36 +899,7 @@ router.get('/dashboard', protect, async (req, res) => {
       .sort((a, b) => new Date(b.time) - new Date(a.time))
       .slice(0, 5);  // Take only the 5 most recent
     
-    // If no real activity, use placeholder data in development
-    if (recentActivity.length === 0 && process.env.NODE_ENV === 'development') {
-      console.log('[Dashboard API] No activity found, generating placeholder data');
-      recentActivity = [
-        {
-          id: '1234567890',
-          title: 'Order Delivered',
-          description: 'Your order #ORD-123456-789 from Delicious Bites has been delivered.',
-          time: new Date(Date.now() - 86400000),
-          status: 'completed',
-          link: '/user/orders'
-        },
-        {
-          id: '0987654321',
-          title: 'New Offer',
-          description: 'You got 20% off on your next order from Spice Garden!',
-          time: new Date(Date.now() - 86400000 * 2),
-          status: 'active',
-          link: '/offers'
-        },
-        {
-          id: '1122334455',
-          title: 'Order Placed',
-          description: 'Your order #ORD-234567-789 from Spice Garden has been confirmed.',
-          time: new Date(Date.now() - 86400000 * 3),
-          status: 'completed',
-          link: '/user/orders'
-        }
-      ];
-    }
+    // Removed placeholder data to ensure only real data is displayed
     
     console.log(`[Dashboard API] Returning dashboard data with ${recentActivity.length} activity items`);
     
@@ -887,6 +910,7 @@ router.get('/dashboard', protect, async (req, res) => {
         favoriteRestaurants,
         savedAmount,
         pendingOrders,
+        loyaltyPoints,
         recentActivity
       }
     });

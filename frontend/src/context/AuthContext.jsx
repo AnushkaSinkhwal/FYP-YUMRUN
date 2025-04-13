@@ -257,11 +257,15 @@ export const AuthProvider = ({ children }) => {
     delete api.defaults.headers.common['Authorization'];
     
     try {
+      console.log('Attempting login with credentials:', { email: credentials.email });
       const response = await authAPI.login(credentials);
+      console.log('Raw login response:', response);
       
       // Check if response is from the error handler or actual API
       if (response.success === false) {
-        setError(response.error || 'Login failed');
+        const errorMsg = response.error || 'Login failed';
+        console.error('Login failed:', errorMsg);
+        setError(errorMsg);
         setIsLoading(false);
         return response;
       }
@@ -279,8 +283,39 @@ export const AuthProvider = ({ children }) => {
       
       // This is a successful API response
       if (response.data && response.data.success) {
-        const { token, user } = response.data;
-        const normalizedUser = normalizeUserData(user);
+        console.log('Login response data:', response.data);
+        
+        // Check if data.data exists (for nested data structure)
+        let userData, token;
+        if (response.data.data) {
+          // Nested data structure
+          userData = response.data.data.user;
+          token = response.data.data.token;
+        } else {
+          // Direct data structure
+          userData = response.data.user;
+          token = response.data.token;
+        }
+        
+        console.log('Extracted user data:', userData);
+        
+        if (!userData) {
+          console.error('User data is missing in the response');
+          setError('Invalid response format: missing user data');
+          setIsLoading(false);
+          return { success: false, error: 'Login failed: Invalid response format' };
+        }
+        
+        // Normalize user data to ensure role property
+        const normalizedUser = normalizeUserData(userData);
+        console.log('Normalized user data:', normalizedUser);
+        
+        if (!normalizedUser || !normalizedUser.role) {
+          console.error('Failed to determine user role after normalization');
+          setError('Failed to determine user role');
+          setIsLoading(false);
+          return { success: false, error: 'Login failed: Unable to determine user role' };
+        }
         
         // Save to localStorage
         localStorage.setItem('authToken', token);
@@ -318,6 +353,7 @@ export const AuthProvider = ({ children }) => {
         };
       } else {
         const errorMessage = response.data?.message || 'Login failed: Invalid response format';
+        console.error('Login failed:', errorMessage);
         setError(errorMessage);
         setIsLoading(false);
         return { success: false, error: errorMessage };
