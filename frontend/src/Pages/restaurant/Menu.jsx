@@ -87,7 +87,7 @@ const RestaurantMenu = () => {
       }
 
       console.log('Fetching menu items from API...');
-      const response = await axios.get('/api/menu/restaurant', {
+      const response = await axios.get(`${API_URL}/menu/restaurant`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -252,7 +252,7 @@ const RestaurantMenu = () => {
         hasImage: !!formData.image
       });
       
-      const response = await axios.post('/api/menu', data, {
+      const response = await axios.post(`${API_URL}/menu`, data, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -315,7 +315,7 @@ const RestaurantMenu = () => {
         data.append('image', formData.image);
       }
       
-      const response = await axios.put(`/api/menu/${currentItem.id}`, data, {
+      const response = await axios.put(`${API_URL}/menu/${currentItem.id}`, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'multipart/form-data'
@@ -340,7 +340,7 @@ const RestaurantMenu = () => {
     setError(null);
     
     try {
-      const response = await axios.delete(`/api/menu/${currentItem.id}`, {
+      const response = await axios.delete(`${API_URL}/menu/${currentItem.id}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`
         }

@@ -2,7 +2,8 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') }
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../models/user');
-const { Restaurant } = require('../models/restaurant');
+const Restaurant = require('../models/restaurant');
+const MenuItem = require('../models/menuItem');
 
 // Connection string from .env or default
 const connectionString = process.env.CONNECTION_STRING;
@@ -78,6 +79,29 @@ const testUsers = [
     healthCondition: 'Diabetes',
     createdAt: new Date(),
     updatedAt: new Date()
+  },
+  // Additional users with different health conditions
+  {
+    name: 'Heart Patient',
+    username: 'heart',
+    phone: '6666666666',
+    email: 'heart@yumrun.com',
+    password: 'Secret@123',
+    role: 'customer',
+    healthCondition: 'Heart Condition',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: 'Hypertension User',
+    username: 'hypertension',
+    phone: '4444444444',
+    email: 'hypertension@yumrun.com',
+    password: 'Secret@123',
+    role: 'customer',
+    healthCondition: 'Hypertension',
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ];
 
@@ -91,147 +115,182 @@ async function createTestUsers() {
     
     console.log('Connected to database');
     
-    for (const userData of testUsers) {
-      // Check if user already exists
-      const existingUser = await User.findOne({ 
-        $or: [
-          { username: userData.username },
-          { email: userData.email }
-        ]
+    // Create test customer user if not exists
+    const customerExists = await User.findOne({ email: 'customer@test.com' });
+
+    if (!customerExists) {
+      const hashedPassword = await bcrypt.hash('password123', 10);
+      
+      const customer = new User({
+        name: 'Test Customer',
+        email: 'customer@test.com',
+        password: hashedPassword,
+        phone: '9876543210',
+        role: 'customer',
+        address: {
+          fullAddress: '123 Test Street, Kathmandu, Nepal',
+          street: '123 Test Street',
+          city: 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172,
+            lng: 85.3240
+          }
+        }
+      });
+
+      await customer.save();
+      console.log('Test customer created');
+    } else {
+      console.log('Test customer already exists');
+    }
+
+    // Create test restaurant owner user if not exists
+    const ownerExists = await User.findOne({ email: 'owner@test.com' });
+    let owner;
+
+    if (!ownerExists) {
+      const hashedPassword = await bcrypt.hash('password123', 10);
+      
+      owner = new User({
+        name: 'Test Restaurant Owner',
+        email: 'owner@test.com',
+        password: hashedPassword,
+        phone: '9876543211',
+        role: 'restaurant_owner',
+        address: {
+          fullAddress: '456 Restaurant Road, Kathmandu, Nepal',
+          street: '456 Restaurant Road',
+          city: 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172,
+            lng: 85.3240
+          }
+        }
+      });
+
+      await owner.save();
+      console.log('Test restaurant owner created');
+    } else {
+      owner = ownerExists;
+      console.log('Test restaurant owner already exists');
+    }
+
+    // Create test restaurant if not exists
+    const restaurantExists = await Restaurant.findOne({ name: 'Test Restaurant' });
+    let testRestaurant;
+    
+    if (!restaurantExists) {
+      testRestaurant = new Restaurant({
+        name: 'Test Restaurant',
+        description: 'A test restaurant for development',
+        cuisine: ['Nepali', 'Indian'],
+        priceRange: '$$',
+        address: {
+          fullAddress: '456 Restaurant Road, Kathmandu, Nepal',
+          street: '456 Restaurant Road',
+          city: 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172,
+            lng: 85.3240
+          }
+        },
+        phone: '9876543211',
+        email: 'test@restaurant.com',
+        openingHours: {
+          monday: { open: '09:00', close: '21:00' },
+          tuesday: { open: '09:00', close: '21:00' },
+          wednesday: { open: '09:00', close: '21:00' },
+          thursday: { open: '09:00', close: '21:00' },
+          friday: { open: '09:00', close: '22:00' },
+          saturday: { open: '10:00', close: '22:00' },
+          sunday: { open: '10:00', close: '20:00' }
+        },
+        owner: owner._id,
+        logo: '/uploads/restaurants/default-restaurant.jpg',
+        coverImage: '/uploads/restaurants/default-cover.jpg',
+        rating: 4.5,
+        reviewCount: 1,
+        featuredItems: [],
+        isActive: true
+      });
+
+      await testRestaurant.save();
+      console.log('Test restaurant created');
+      
+      // Create a test menu item
+      const testMenuItem = new MenuItem({
+        item_name: 'Test Momo',
+        item_price: 500,
+        description: 'Delicious test momos for ordering',
+        image: '/uploads/menu/default-menu.jpg',
+        category: 'Main Course',
+        calories: 450,
+        protein: 15,
+        carbs: 30,
+        fat: 12,
+        sodium: 600,
+        isVegetarian: false,
+        isPopular: true,
+        restaurant: testRestaurant._id
       });
       
-      if (existingUser) {
-        console.log(`User ${userData.username} (${userData.email}) already exists`);
-        
-        // Check if this is a restaurant owner but doesn't have a restaurant document
-        if (existingUser.role === 'restaurant') {
-          const existingRestaurant = await Restaurant.findOne({ owner: existingUser._id });
-          if (!existingRestaurant && existingUser.restaurantDetails) {
-            // Create restaurant document for existing restaurant owner
-            console.log(`Creating restaurant document for existing owner: ${existingUser.name}`);
-            const restaurant = new Restaurant({
-              name: existingUser.restaurantDetails.name,
-              location: existingUser.restaurantDetails.address,
-              description: existingUser.restaurantDetails.description,
-              logo: existingUser.restaurantDetails.logo || '',
-              owner: existingUser._id,
-              isApproved: existingUser.restaurantDetails.approved || true,
-              cuisine: existingUser.restaurantDetails.cuisineType?.split(',') || ['Healthy', 'Vegetarian'],
-              priceRange: '$$',
-              openingTime: '09:00',
-              closingTime: '22:00',
-              deliveryRadius: 5,
-              minimumOrder: 10,
-              deliveryFee: 2.5,
-              isOpen: true
-            });
-            
-            try {
-              const savedRestaurant = await restaurant.save();
-              console.log(`Restaurant document created for ${existingUser.username}: ${savedRestaurant.name}`);
-            } catch (error) {
-              console.error(`Error creating restaurant document for ${existingUser.username}: ${error.message}`);
-              if (error.errors) {
-                // Show validation errors
-                for (let field in error.errors) {
-                  console.error(`- ${field}: ${error.errors[field].message}`);
-                }
-              }
-            }
-          }
-        }
-        
-        continue;
-      }
+      await testMenuItem.save();
+      console.log('Test menu item created');
       
-      // Hash the password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(userData.password, salt);
-      userData.password = hashedPassword;
-      
-      // Insert directly into collection to bypass validation (especially when we are executing scripts)
-      const result = await mongoose.connection.collection('users').insertOne(userData);
-      
-      if (result.acknowledged) {
-        console.log(`User ${userData.username} created successfully`);
-        console.log('Role:', userData.role);
-        console.log('Email:', userData.email);
-        console.log('Password:', userData.password === hashedPassword ? 'Hashed' : userData.password);
-        console.log('----------------------------');
-        
-        // Create restaurant document if this is a restaurant owner
-        if (userData.role === 'restaurant' && userData.restaurantDetails) {
-          // Check if restaurant already exists for this owner
-          const existingRestaurant = await Restaurant.findOne({ owner: result.insertedId });
-          
-          if (!existingRestaurant) {
-            // Create restaurant document
-            const restaurant = new Restaurant({
-              name: userData.restaurantDetails.name,
-              location: userData.restaurantDetails.address,
-              description: userData.restaurantDetails.description,
-              logo: userData.restaurantDetails.logo || '',
-              owner: result.insertedId,
-              isApproved: userData.restaurantDetails.approved || true,
-              cuisine: userData.restaurantDetails.cuisineType?.split(',') || ['Healthy', 'Vegetarian'],
-              priceRange: '$$',
-              openingTime: '09:00',
-              closingTime: '22:00',
-              deliveryRadius: 5,
-              minimumOrder: 10,
-              deliveryFee: 2.5,
-              isOpen: true
-            });
-            
-            try {
-              const savedRestaurant = await restaurant.save();
-              console.log(`Restaurant document created: ${savedRestaurant.name}`);
-            } catch (error) {
-              console.error(`Error creating restaurant document: ${error.message}`);
-              if (error.errors) {
-                // Show validation errors
-                for (let field in error.errors) {
-                  console.error(`- ${field}: ${error.errors[field].message}`);
-                }
-              }
-            }
-          } else {
-            console.log(`Restaurant already exists for owner: ${userData.username}`);
-          }
-        }
-      } else {
-        console.error(`Failed to create user ${userData.username}`);
-      }
+    } else {
+      console.log('Test restaurant already exists');
     }
+
+    // Create test admin user if not exists
+    const adminExists = await User.findOne({ email: 'admin@test.com' });
+
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      const admin = new User({
+        name: 'Test Admin',
+        email: 'admin@test.com',
+        password: hashedPassword,
+        phone: '9876543212',
+        role: 'admin',
+        address: {
+          fullAddress: '789 Admin Avenue, Kathmandu, Nepal',
+          street: '789 Admin Avenue',
+          city: 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172,
+            lng: 85.3240
+          }
+        }
+      });
+
+      await admin.save();
+      console.log('Test admin created');
+    } else {
+      console.log('Test admin already exists');
+    }
+
+    console.log('All test users created successfully');
     
-    console.log('===== USER CREDENTIALS SUMMARY =====');
-    console.log('ADMIN:');
-    console.log('  Email: admin@yumrun.com');
-    console.log('  Password: Secret@123');
-    console.log('RESTAURANT OWNER:');
-    console.log('  Email: owner@yumrun.com');
-    console.log('  Password: Secret@123');
-    console.log('REGULAR USER:');
-    console.log('  Email: user@yumrun.com');
-    console.log('  Password: Secret@123');
-    console.log('DELIVERY STAFF:');
-    console.log('  Email: delivery@yumrun.com');
-    console.log('  Password: Secret@123');
-    console.log('DIABETIC USER:');
-    console.log('  Email: diabetic@yumrun.com');
-    console.log('  Password: Secret@123');
-    console.log('====================================');
+    // Disconnect from MongoDB
+    await mongoose.disconnect();
+    console.log('MongoDB disconnected');
     
-    return process.exit(0);
   } catch (error) {
-    console.error('Error creating test users:', error.message);
-    if (error.errors) {
-      // Show validation errors
-      for (let field in error.errors) {
-        console.error(`- ${field}: ${error.errors[field].message}`);
-      }
-    }
-    return process.exit(1);
+    console.error('Error creating test users:', error);
+    process.exit(1);
   }
 }
 

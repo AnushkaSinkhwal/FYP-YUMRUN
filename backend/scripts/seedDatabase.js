@@ -11,9 +11,9 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Import models
 const User = require('../models/user');
-const { Restaurant } = require('../models/restaurant');
-const { MenuItem } = require('../models/menuItem');
-const { Review } = require('../models/review');
+const Restaurant = require('../models/restaurant');
+const MenuItem = require('../models/menuItem');
+const Review = require('../models/review');
 const Order = require('../models/order');
 
 // Create uploads directory structure if it doesn't exist
@@ -39,6 +39,23 @@ async function downloadImage(url, filepath) {
     // Check if file already exists
     if (fs.existsSync(filepath)) {
       console.log(`Image already exists: ${filepath}`);
+      
+      // Copy to frontend public directory as well
+      const frontendPath = path.resolve(__dirname, '../../frontend/public', filepath.replace(path.resolve(__dirname, '..'), ''));
+      const frontendDir = path.dirname(frontendPath);
+      
+      // Create frontend directory if it doesn't exist
+      if (!fs.existsSync(frontendDir)) {
+        fs.mkdirSync(frontendDir, { recursive: true });
+        console.log(`Created frontend directory: ${frontendDir}`);
+      }
+      
+      // Copy file to frontend
+      if (!fs.existsSync(frontendPath)) {
+        fs.copyFileSync(filepath, frontendPath);
+        console.log(`Copied existing image to frontend: ${frontendPath}`);
+      }
+      
       return filepath;
     }
 
@@ -58,15 +75,34 @@ async function downloadImage(url, filepath) {
     });
 
     const writer = fs.createWriteStream(filepath);
+    
+    // Also create a frontend path
+    const frontendPath = path.resolve(__dirname, '../../frontend/public', filepath.replace(path.resolve(__dirname, '..'), ''));
+    const frontendDir = path.dirname(frontendPath);
+    
+    // Create frontend directory if it doesn't exist
+    if (!fs.existsSync(frontendDir)) {
+      fs.mkdirSync(frontendDir, { recursive: true });
+      console.log(`Created frontend directory: ${frontendDir}`);
+    }
+    
+    // Write to both backend and frontend
     response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
+    
+    // Wait for backend write to complete
+    await new Promise((resolve, reject) => {
       writer.on('finish', () => {
         console.log(`Downloaded image: ${filepath}`);
         resolve(filepath);
       });
       writer.on('error', reject);
     });
+    
+    // Copy to frontend
+    fs.copyFileSync(filepath, frontendPath);
+    console.log(`Copied image to frontend: ${frontendPath}`);
+    
+    return filepath;
   } catch (error) {
     console.error(`Error downloading image ${url}:`, error.message);
     
@@ -84,13 +120,30 @@ async function downloadImage(url, filepath) {
       const writer = fs.createWriteStream(filepath);
       fallbackResponse.data.pipe(writer);
       
-      return new Promise((resolve, reject) => {
+      // Also create a frontend path
+      const frontendPath = path.resolve(__dirname, '../../frontend/public', filepath.replace(path.resolve(__dirname, '..'), ''));
+      const frontendDir = path.dirname(frontendPath);
+      
+      // Create frontend directory if it doesn't exist
+      if (!fs.existsSync(frontendDir)) {
+        fs.mkdirSync(frontendDir, { recursive: true });
+        console.log(`Created frontend directory: ${frontendDir}`);
+      }
+      
+      // Wait for backend write to complete
+      await new Promise((resolve, reject) => {
         writer.on('finish', () => {
           console.log(`Downloaded fallback image: ${filepath}`);
           resolve(filepath);
         });
         writer.on('error', reject);
       });
+      
+      // Copy to frontend
+      fs.copyFileSync(filepath, frontendPath);
+      console.log(`Copied fallback image to frontend: ${frontendPath}`);
+      
+      return filepath;
     } catch (fallbackError) {
       console.error(`Fallback image download failed for ${filepath}:`, fallbackError.message);
       return null;
@@ -780,6 +833,20 @@ const generateOrder = (userId, restaurantId, menuItems) => {
   const deliveryFee = 2.5;
   const tax = totalPrice * 0.13; // 13% tax rate
   
+  // Support both formats of delivery address for flexibility
+  const deliveryAddress = {
+    fullAddress: '123 Customer Street, Cityville, Country',
+    street: '123 Customer Street',
+    city: 'Cityville',
+    state: 'State',
+    postalCode: '12345',
+    country: 'Country',
+    coordinates: {
+      lat: 27.7172 + (Math.random() - 0.5) * 0.1,
+      lng: 85.3240 + (Math.random() - 0.5) * 0.1
+    }
+  };
+  
   return {
     orderNumber: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     userId: userId,
@@ -790,17 +857,11 @@ const generateOrder = (userId, restaurantId, menuItems) => {
     tax: tax,
     grandTotal: totalPrice + deliveryFee + tax,
     status: 'DELIVERED',
-    paymentMethod: 'CREDIT_CARD',
+    paymentMethod: Math.random() > 0.5 ? 'CASH' : 'KHALTI',
     paymentStatus: 'PAID',
     isPaid: true,
     paidAt: new Date(Date.now() - Math.floor(Math.random() * 14) * 24 * 60 * 60 * 1000), // Random date within last 14 days
-    deliveryAddress: {
-      street: '123 Customer Street',
-      city: 'Cityville',
-      state: 'State',
-      zipCode: '12345',
-      country: 'Country'
-    },
+    deliveryAddress: deliveryAddress,
     createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000) // Random date within last 30 days
   };
 };
@@ -868,16 +929,105 @@ const seedDatabase = async () => {
       await Restaurant.deleteMany({});
     }
     
-    await MenuItem.deleteMany({});
-    
-    // Only clear reviews created by this script
-    // This is safer than deleting all reviews
-    if (mongoose.models.Review) {
-      await mongoose.models.Review.deleteMany({});
-      console.log('Cleared existing reviews');
+    // Delete menu items except for the preserved restaurant if it exists
+    if (preservedRestaurant) {
+      await MenuItem.deleteMany({ restaurant: { $ne: preservedRestaurant._id } });
+    } else {
+      await MenuItem.deleteMany({});
     }
     
+    // Clear existing reviews
+    await Review.deleteMany({});
+    console.log('Cleared existing reviews');
+    
     console.log('Cleared existing restaurant data while preserving test users');
+    
+    // Preserve test restaurant
+    let testRestaurantId = null;
+    if (preservedRestaurant) {
+      testRestaurantId = preservedRestaurant._id;
+      console.log(`Test restaurant ID for reference: ${testRestaurantId}`);
+      
+      // Create guaranteed menu items for the test restaurant
+      const demoMenuItems = [
+        {
+          item_name: "Momo",
+          item_price: 350,
+          description: "Delicious Nepali dumplings with special chutney",
+          image: "/uploads/menu/momo.jpg",
+          category: "Main Course",
+          calories: 450,
+          protein: 15,
+          carbs: 30,
+          fat: 12,
+          sodium: 600,
+          isVegetarian: false,
+          isPopular: true,
+          restaurant: preservedRestaurant._id
+        },
+        {
+          item_name: "Chowmein",
+          item_price: 250,
+          description: "Stir-fried noodles with vegetables and spices",
+          image: "/uploads/menu/chowmein.jpg",
+          category: "Main Course",
+          calories: 420,
+          protein: 12,
+          carbs: 60,
+          fat: 8,
+          sodium: 550,
+          isVegetarian: true,
+          isPopular: true,
+          restaurant: preservedRestaurant._id
+        },
+        {
+          item_name: "Thukpa",
+          item_price: 300,
+          description: "Hot and spicy Himalayan noodle soup",
+          image: "/uploads/menu/thukpa.jpg",
+          category: "Appetizers",
+          calories: 380,
+          protein: 18,
+          carbs: 40,
+          fat: 5,
+          sodium: 700,
+          isVegetarian: false,
+          isPopular: false,
+          restaurant: preservedRestaurant._id
+        }
+      ];
+      
+      // Download images for demo menu items
+      for (const item of demoMenuItems) {
+        const imageFilename = path.basename(item.image);
+        const imageDir = path.dirname(item.image).substring(1); // Remove leading slash
+        
+        // Ensure directory exists
+        const fullDirPath = path.join(process.cwd(), imageDir);
+        if (!fs.existsSync(fullDirPath)) {
+          fs.mkdirSync(fullDirPath, { recursive: true });
+        }
+        
+        // Download a real image for the menu item
+        const fullImagePath = path.join(process.cwd(), item.image.substring(1));
+        if (!fs.existsSync(fullImagePath)) {
+          // Use the item name as keyword for more relevant images
+          const keyword = item.item_name.replace(/\s+/g, '-').toLowerCase();
+          await downloadImage(keyword, fullImagePath);
+          console.log(`Downloaded image for ${item.item_name} at ${fullImagePath}`);
+        }
+      }
+      
+      // Clear existing menu items for this restaurant and create new ones
+      await MenuItem.deleteMany({ restaurant: preservedRestaurant.owner });
+      for (const item of demoMenuItems) {
+        const menuItem = new MenuItem(item);
+        await menuItem.save();
+        console.log(`Created demo menu item: ${item.item_name} for test restaurant`);
+      }
+    }
+    
+    // Continue with the rest of the seed function...
 
     // Create restaurant owner users
     const restaurants = [];
@@ -902,20 +1052,18 @@ const seedDatabase = async () => {
         email: `owner${i + 1}@example.com`,
         password: hashedPassword,
         phone: `9876543${String(i + 1).padStart(3, '0')}`, // 10-digit format phone number
-        address: sampleRestaurants[i].location, // Using restaurant location as owner address
-        role: 'restaurant',
-        restaurantDetails: {
-          name: sampleRestaurants[i].name,
-          address: sampleRestaurants[i].location,
-          description: sampleRestaurants[i].description,
-          panNumber: Math.floor(100000000 + Math.random() * 900000000).toString(),
-          cuisine: sampleRestaurants[i].cuisine,
-          approved: true,
-          isOpen: sampleRestaurants[i].isOpen,
-          deliveryRadius: sampleRestaurants[i].deliveryRadius,
-          minimumOrder: sampleRestaurants[i].minimumOrder,
-          deliveryFee: sampleRestaurants[i].deliveryFee,
-          logo: sampleRestaurants[i].logo
+        role: 'restaurant_owner',
+        address: {
+          fullAddress: sampleRestaurants[i].location,
+          street: sampleRestaurants[i].location.split(',')[0],
+          city: sampleRestaurants[i].location.split(',')[1]?.trim() || 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172 + (Math.random() * 0.01),
+            lng: 85.3240 + (Math.random() * 0.01)
+          }
         }
       });
       
@@ -929,12 +1077,39 @@ const seedDatabase = async () => {
     for (let i = 0; i < sampleRestaurants.length; i++) {
       const restaurant = new Restaurant({
         name: sampleRestaurants[i].name,
-        location: sampleRestaurants[i].location,
         description: sampleRestaurants[i].description,
-        logo: sampleRestaurants[i].logo,
+        cuisine: sampleRestaurants[i].cuisine,
+        priceRange: sampleRestaurants[i].priceRange || "$$",
+        address: {
+          fullAddress: sampleRestaurants[i].location,
+          street: sampleRestaurants[i].location.split(',')[0],
+          city: sampleRestaurants[i].location.split(',')[1]?.trim() || 'Kathmandu',
+          state: 'Bagmati',
+          postalCode: '44600',
+          country: 'Nepal',
+          coordinates: {
+            lat: 27.7172 + (Math.random() * 0.01),
+            lng: 85.3240 + (Math.random() * 0.01)
+          }
+        },
+        phone: sampleRestaurants[i].phone || '9876543210',
+        email: `contact@${sampleRestaurants[i].name.toLowerCase().replace(/\s+/g, '')}.com`,
+        openingHours: {
+          monday: { open: '10:00', close: '22:00' },
+          tuesday: { open: '10:00', close: '22:00' },
+          wednesday: { open: '10:00', close: '22:00' },
+          thursday: { open: '10:00', close: '22:00' },
+          friday: { open: '10:00', close: '23:00' },
+          saturday: { open: '11:00', close: '23:00' },
+          sunday: { open: '11:00', close: '22:00' }
+        },
         owner: restaurants[i]._id,
+        logo: sampleRestaurants[i].logo,
+        coverImage: '/uploads/restaurants/default-cover.jpg',
+        rating: 4.5 + (Math.random() * 0.5),
+        reviewCount: Math.floor(Math.random() * 100) + 50,
         isApproved: true,
-        cuisine: sampleRestaurants[i].cuisine
+        isActive: sampleRestaurants[i].isOpen
       });
       const savedRestaurant = await restaurant.save();
       createdRestaurants.push(savedRestaurant);
@@ -1028,51 +1203,41 @@ const seedDatabase = async () => {
           
           const orderData = generateOrder(randomCustomer._id, restaurantId, menuItems);
           
-          if (mongoose.models.Order) {
-            const order = new mongoose.models.Order(orderData);
-            const savedOrder = await order.save();
-            createdOrders.push(savedOrder);
-          }
+          const order = new Order(orderData);
+          const savedOrder = await order.save();
+          createdOrders.push(savedOrder);
         }
       }
     }
     console.log(`Created ${createdOrders.length} sample orders`);
 
     // Create reviews for menu items
-    if (mongoose.models.Review) {
-      let reviewCount = 0;
-      
-      for (const order of createdOrders) {
-        // Create reviews for some (not all) items in the order
-        for (const orderItem of order.items) {
-          if (Math.random() > 0.3) { // 70% chance to review an item
-            const menuItem = createdMenuItems.find(item => item._id.toString() === orderItem.productId.toString());
+    let reviewCount = 0;
+    
+    for (const order of createdOrders) {
+      // Create reviews for some (not all) items in the order
+      for (const orderItem of order.items) {
+        if (Math.random() > 0.3) { // 70% chance to review an item
+          const menuItem = createdMenuItems.find(item => item._id.toString() === orderItem.productId.toString());
+          
+          if (menuItem) {
+            const reviews = generateReviews(
+              menuItem._id, 
+              order.userId, 
+              order.restaurantId,
+              order._id
+            );
             
-            if (menuItem) {
-              const reviews = generateReviews(
-                menuItem._id, 
-                order.userId, 
-                order.restaurantId,
-                order._id
-              );
-              
-              for (const reviewData of reviews) {
-                const review = new mongoose.models.Review(reviewData);
-                await review.save();
-                reviewCount++;
-                
-                // Update menu item with average rating
-                menuItem.averageRating = ((menuItem.averageRating * menuItem.numberOfRatings) + reviewData.rating) / (menuItem.numberOfRatings + 1);
-                menuItem.numberOfRatings += 1;
-                await menuItem.save();
-              }
+            for (const reviewData of reviews) {
+              const review = new Review(reviewData);
+              const savedReview = await review.save();
+              reviewCount++;
             }
           }
         }
       }
-      
-      console.log(`Created ${reviewCount} reviews`);
     }
+    console.log(`Created ${reviewCount} reviews`);
 
     console.log('Database seeding completed successfully');
     mongoose.connection.close();

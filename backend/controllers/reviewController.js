@@ -173,18 +173,21 @@ exports.getMenuItemReviews = async (req, res) => {
         
         const averageRating = avgRating.length > 0 ? avgRating[0].avgRating : 0;
         
-        // Transform reviews for client
+        // Transform reviews for client - handle case where user might be undefined
         const formattedReviews = reviews.map(review => ({
             id: review._id,
             rating: review.rating,
             comment: review.comment,
             date: review.createdAt,
-            user: {
+            user: review.user ? {
                 id: review.user._id,
-                name: review.user.fullName
+                name: review.user.fullName || 'Anonymous User'
+            } : {
+                id: null,
+                name: 'Anonymous User'
             },
-            helpful: review.helpful,
-            isVerified: review.isVerified
+            helpful: review.helpful || 0,
+            isVerified: review.isVerified || false
         }));
         
         return res.status(200).json({

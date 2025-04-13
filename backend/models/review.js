@@ -63,5 +63,6 @@ reviewSchema.index({ menuItem: 1 });
 reviewSchema.index({ user: 1 });
 reviewSchema.index({ restaurant: 1 });
 
-exports.Review = mongoose.model('Review', reviewSchema);
-exports.reviewSchema = reviewSchema; 
+const Review = mongoose.model('Review', reviewSchema);
+module.exports = Review;
+module.exports.reviewSchema = reviewSchema; 

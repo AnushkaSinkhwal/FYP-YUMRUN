@@ -178,23 +178,18 @@ const orderSchema = new mongoose.Schema({
     type: Date
   },
   deliveryAddress: {
-    street: {
-      type: String,
-      required: true
-    },
-    city: {
-      type: String,
-      required: true
-    },
-    state: String,
-    zipCode: String,
-    country: {
-      type: String,
-      default: 'Nepal'
-    },
-    coordinates: {
-      lat: Number,
-      lng: Number
+    type: mongoose.Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: function(value) {
+        if (typeof value === 'string') {
+          return value.length > 0;
+        } else if (typeof value === 'object') {
+          return value.street || value.city || true;
+        }
+        return false;
+      },
+      message: 'Delivery address must be provided either as a string or an object with address details'
     }
   },
   deliveryPersonId: {

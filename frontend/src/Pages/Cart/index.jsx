@@ -14,28 +14,35 @@ import {
 } from "../../components/ui";
 
 const CartItem = ({ item, updateQuantity, removeFromCart }) => {
+  // Extract restaurant name safely
+  const restaurantName = typeof item.restaurant === 'object' ? 
+    item.restaurant.name : 
+    typeof item.restaurant === 'string' ? 
+      item.restaurant : 
+      'Restaurant';
+
   return (
-    <div className="flex flex-col sm:flex-row p-4 border-b border-gray-100 gap-4">
-      <div className="w-full sm:w-32 h-32 flex-shrink-0">
+    <div className="flex flex-col gap-4 p-4 border-b border-gray-100 sm:flex-row">
+      <div className="flex-shrink-0 w-full h-32 sm:w-32">
         <Link to={`/product/${item.id}`}>
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-cover rounded-md"
+            className="object-cover w-full h-full rounded-md"
           />
         </Link>
       </div>
       <div className="flex-1">
         <div className="flex flex-wrap justify-between">
           <div>
-            <Link to={`/product/${item.id}`} className="font-medium text-lg hover:text-yumrun-primary transition-colors">
+            <Link to={`/product/${item.id}`} className="text-lg font-medium transition-colors hover:text-yumrun-primary">
               {item.name}
             </Link>
             <div className="text-sm text-gray-500">
               {item.restaurant && (
                 <div className="flex items-center">
                   <IoStorefrontOutline className="mr-1 text-yumrun-secondary h-3.5 w-3.5" />
-                  <span>{item.restaurant}</span>
+                  <span>{restaurantName}</span>
                 </div>
               )}
             </div>
@@ -45,7 +52,7 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
               </div>
             )}
             {item.cookingMethod && (
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="mt-1 text-xs text-gray-500">
                 <span>Method: {item.cookingMethod}</span>
                 {item.servingSize && <span> • Size: {item.servingSize} person</span>}
               </div>
@@ -57,7 +64,7 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
           </div>
         </div>
         
-        <div className="flex justify-between items-center mt-4">
+        <div className="flex items-center justify-between mt-4">
           <QuantityBox
             initialValue={item.quantity}
             onChange={(newQuantity) => updateQuantity(item.id, newQuantity)}
@@ -71,10 +78,10 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
             
             <button
               onClick={() => removeFromCart(item.id)}
-              className="text-red-500 hover:text-red-700 transition-colors"
+              className="text-red-500 transition-colors hover:text-red-700"
               aria-label="Remove item"
             >
-              <FiTrash2 className="h-5 w-5" />
+              <FiTrash2 className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -103,10 +110,10 @@ const EmptyCart = () => {
   return (
     <Card className="p-8 text-center">
       <div className="flex justify-center mb-4">
-        <FiShoppingCart className="h-16 w-16 text-gray-300" />
+        <FiShoppingCart className="w-16 h-16 text-gray-300" />
       </div>
-      <h3 className="text-xl font-medium mb-2">Your cart is empty</h3>
-      <p className="text-gray-500 mb-6">Looks like you haven't added anything to your cart yet.</p>
+      <h3 className="mb-2 text-xl font-medium">Your cart is empty</h3>
+      <p className="mb-6 text-gray-500">Looks like you haven't added anything to your cart yet.</p>
       <Button asChild>
         <Link to="/">Browse Food</Link>
       </Button>
@@ -121,7 +128,7 @@ const Cart = () => {
     <section className="py-10">
       <Container>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold">Shopping Cart</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Shopping Cart</h1>
           {cartItems.length > 0 && (
             <div className="text-gray-600">
               {cartStats.totalItems} {cartStats.totalItems === 1 ? 'item' : 'items'}
@@ -132,7 +139,7 @@ const Cart = () => {
         {cartItems.length === 0 ? (
           <EmptyCart />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Cart Items */}
             <div className="lg:col-span-2">
               <Card className="overflow-hidden">
@@ -154,7 +161,7 @@ const Cart = () => {
                 <div className="p-4 border-t border-gray-100 bg-gray-50">
                   <Link 
                     to="/" 
-                    className="inline-flex items-center text-yumrun-primary hover:text-yumrun-secondary transition-colors"
+                    className="inline-flex items-center transition-colors text-yumrun-primary hover:text-yumrun-secondary"
                   >
                     <FiArrowLeft className="mr-2" />
                     Continue Shopping
@@ -172,38 +179,38 @@ const Cart = () => {
                   </div>
                   
                   <div className="p-4 space-y-3">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium">Rs.{cartStats.subTotal.toFixed(2)}</span>
                     </div>
                     
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Delivery Fee</span>
                       <span className="font-medium">
                         {cartStats.shipping === 0 ? 'Free' : `Rs.${cartStats.shipping.toFixed(2)}`}
                       </span>
                     </div>
                     
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Estimated for</span>
                       <span className="font-medium">Bhaktapur</span>
                     </div>
                     
-                    <div className="h-px bg-gray-100 my-3"></div>
+                    <div className="h-px my-3 bg-gray-100"></div>
                     
-                    <div className="flex justify-between items-center font-medium">
+                    <div className="flex items-center justify-between font-medium">
                       <span>Total</span>
                       <span className="text-lg text-yumrun-accent">Rs.{cartStats.total.toFixed(2)}</span>
                     </div>
                     
-                    <div className="mt-4 pt-4">
+                    <div className="pt-4 mt-4">
                       <Button 
                         className="w-full py-3" 
                         size="lg"
                         asChild
                       >
                         <Link to="/checkout" className="flex items-center justify-center">
-                          <RiSecurePaymentLine className="mr-2 h-5 w-5" />
+                          <RiSecurePaymentLine className="w-5 h-5 mr-2" />
                           Proceed to Checkout
                         </Link>
                       </Button>
@@ -215,7 +222,7 @@ const Cart = () => {
                   </div>
                 </Card>
                 
-                <Card className="mt-4 p-4">
+                <Card className="p-4 mt-4">
                   <Alert variant="info" className="mb-0">
                     <p className="text-sm">Free delivery on orders above Rs.1000</p>
                   </Alert>

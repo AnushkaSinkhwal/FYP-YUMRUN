@@ -33,27 +33,36 @@ const Menu = () => {
       setError(null);
       
       try {
+        // Get API_URL from environment variables
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+        
         // Fetch menu items from the API
-        const response = await axios.get('/api/menu');
+        const response = await axios.get(`${API_URL}/menu`);
         console.log('Menu API response:', response.data);
         
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform the API data to match our frontend format
-          const formattedItems = response.data.data.map(item => ({
-            id: item._id || item.id,
-            name: item.name || item.item_name,
-            description: item.description,
-            price: item.price || item.item_price,
-            rating: item.averageRating || 0,
-            totalReviews: item.numberOfRatings || 0,
-            category: item.category ? item.category.toLowerCase() : 'main course',
-            restaurant: {
-              id: item.restaurant && (item.restaurant._id || item.restaurant.id || item.restaurant),
-              name: item.restaurant && item.restaurant.name ? item.restaurant.name : 'Restaurant'
-            },
-            image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
-            isPopular: item.isPopular || false
-          }));
+          const formattedItems = response.data.data.map(item => {
+            // Extract restaurant info safely
+            const restaurantId = item.restaurant?.id || item.restaurant?._id || 
+              (typeof item.restaurant === 'string' ? item.restaurant : null);
+            
+            return {
+              id: item._id || item.id || `item-${Math.random().toString(36).substring(2, 9)}`,
+              name: item.name || item.item_name || 'Unnamed Item',
+              description: item.description || 'No description available',
+              price: parseFloat(item.price || item.item_price || 0),
+              rating: parseFloat(item.averageRating || 0),
+              totalReviews: parseInt(item.numberOfRatings || 0, 10),
+              category: (item.category || 'main course').toLowerCase(),
+              restaurant: {
+                id: restaurantId,
+                name: item.restaurant?.name || 'Restaurant'
+              },
+              image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
+              isPopular: !!item.isPopular || item.numberOfRatings > 2 || item.averageRating > 4
+            };
+          });
           
           console.log('Formatted menu items:', formattedItems);
           setMenuItems(formattedItems);

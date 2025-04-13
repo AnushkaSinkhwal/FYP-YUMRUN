@@ -5,8 +5,8 @@ const User = require('../models/user');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Restaurant } = require('../models/restaurant');
-const { MenuItem } = require('../models/menuItem');
+const Restaurant = require('../models/restaurant');
+const MenuItem = require('../models/menuItem');
 const mongoose = require('mongoose');
 
 // Configure multer for file uploads

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');  // For password hashing
 const validator = require('validator');
+const restaurantDetailsSchema = require('./restaurantDetailsSchema');
 
 // Restaurant details schema
 const restaurantDetailsSchema = new mongoose.Schema({
@@ -146,134 +147,121 @@ const healthProfileSchema = new mongoose.Schema({
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
-    fullName: {
+    firstName: {
         type: String,
-        required: [true, 'Please provide your full name'],
-        trim: true,
-        minlength: [3, 'Name must be at least 3 characters']
+        required: [true, 'First name is required'],
+        trim: true
+    },
+    lastName: {
+        type: String,
+        required: [true, 'Last name is required'],
+        trim: true
     },
     email: {
         type: String,
-        required: [true, 'Please provide your email'],
+        required: [true, 'Email is required'],
         unique: true,
-        lowercase: true,
         trim: true,
-        validate: [validator.isEmail, 'Please provide a valid email']
+        lowercase: true,
+        validate: {
+            validator: function(v) {
+                return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(v);
+            },
+            message: props => `${props.value} is not a valid email!`
+        }
+    },
+    password: {
+        type: String,
+        required: [true, 'Password is required'],
+        minlength: [6, 'Password must be at least 6 characters']
+    },
+    role: {
+        type: String,
+        enum: ['user', 'admin', 'delivery_rider', 'restaurant_owner'],
+        default: 'user'
+    },
+    address: {
+        type: Object,
+        default: {}
     },
     phone: {
         type: String,
-        required: [true, 'Please provide your phone number'],
+        required: [true, 'Phone number is required'],
         validate: {
             validator: function(v) {
-                return /^\d{10}$/.test(v);
+                return /^[0-9]{10}$/.test(v);
             },
             message: props => `${props.value} is not a valid phone number! Must be 10 digits.`
         }
     },
-    address: {
+    profilePic: {
         type: String,
-        required: [true, 'Please provide your home address'],
-        trim: true
+        default: ''
     },
-    password: {
-        type: String,
-        required: [true, 'Please provide a password'],
-        minlength: [6, 'Password must be at least 6 characters'],
-        select: false
-    },
-    role: {
-        type: String,
-        enum: ['customer', 'restaurant', 'deliveryRider', 'admin'],
-        default: 'customer'
-    },
-    healthCondition: {
-        type: String,
-        enum: ['Healthy', 'Diabetes', 'Heart Condition', 'Hypertension', 'Other'],
-        default: 'Healthy'
-    },
+    // Health profile for diet and health recommendations
     healthProfile: {
-        type: healthProfileSchema,
-        default: () => ({})
+        height: { type: Number, default: 0 }, // in cm
+        weight: { type: Number, default: 0 }, // in kg
+        allergies: [String],
+        healthConditions: [String], // like diabetes, hypertension
+        dietaryPreferences: [String], // like vegetarian, vegan, keto
+        fitnessGoals: [String], // like weight loss, muscle gain
+        activityLevel: {
+            type: String,
+            enum: ['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extremely_active'],
+            default: 'moderately_active'
+        },
+        // Daily targets
+        dailyTargets: {
+            calories: { type: Number, default: 2000 },
+            protein: { type: Number, default: 50 }, // in grams
+            carbs: { type: Number, default: 250 }, // in grams
+            fat: { type: Number, default: 70 }, // in grams
+            fiber: { type: Number, default: 25 } // in grams
+        },
+        // Food preferences for recommendations
+        favouriteFoods: [String],
+        dislikedFoods: [String]
     },
-    favorites: {
-        type: [{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'MenuItem'
-        }],
-        default: []
-    },
-    settings: {
-        type: Object,
-        default: {
-            notifications: {
-                orderUpdates: true,
-                promotions: false,
-                newsletters: false,
-                deliveryUpdates: true
+    // If the user is a restaurant owner
+    restaurantDetails: restaurantDetailsSchema,
+    // If user is a delivery rider
+    deliveryRiderDetails: {
+        vehicleType: {
+            type: String,
+            enum: ['bicycle', 'motorcycle', 'car'],
+            default: 'motorcycle'
+        },
+        licenseNumber: String,
+        isAvailable: {
+            type: Boolean,
+            default: false
+        },
+        currentLocation: {
+            type: {
+                type: String,
+                enum: ['Point'],
+                default: 'Point'
             },
-            preferences: {
-                darkMode: false,
-                language: 'en'
-            },
-            privacy: {
-                shareOrderHistory: false,
-                allowLocationTracking: true
+            coordinates: {
+                type: [Number],
+                default: [85.3240, 27.7172] // Default to Kathmandu coordinates
             }
+        },
+        ratings: {
+            average: { type: Number, default: 5 },
+            count: { type: Number, default: 0 }
+        },
+        completedDeliveries: {
+            type: Number,
+            default: 0
         }
     },
-    loyaltyPoints: {
-        type: Number,
-        default: 0
-    },
-    loyaltyTier: {
-        type: String,
-        enum: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'],
-        default: 'BRONZE'
-    },
-    // Track accumulated lifetime points (never decreases)
-    lifetimeLoyaltyPoints: {
-        type: Number,
-        default: 0
-    },
-    // Track when loyalty tier was last updated
-    tierUpdateDate: {
+    createdAt: {
         type: Date,
         default: Date.now
     },
-    // Reference to loyalty transactions
-    loyaltyTransactions: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'LoyaltyTransaction'
-    }],
-    orderHistory: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order'
-    }],
-    restaurantDetails: {
-        type: restaurantDetailsSchema,
-        required: function() {
-            return this.role === 'restaurant';
-        }
-    },
-    deliveryRiderDetails: {
-        type: deliveryRiderDetailsSchema,
-        required: function() {
-            return this.role === 'deliveryRider';
-        }
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
-    resetPasswordToken: {
-        type: String,
-        select: false
-    },
-    resetPasswordExpire: {
-        type: Date,
-        select: false
-    },
-    createdAt: {
+    updatedAt: {
         type: Date,
         default: Date.now
     }
@@ -290,8 +278,9 @@ userSchema.virtual('id').get(function () {
 
 // Pre-save hook to hash password
 userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    
+    if (!this.isModified('password')) {
+        return next();
+    }
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
@@ -302,13 +291,18 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    try {
-        return await bcrypt.compare(candidatePassword, this.password);
-    } catch (error) {
-        throw new Error(error);
-    }
+userSchema.methods.comparePassword = async function(enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// Update timestamps on save
+userSchema.pre('save', function(next) {
+    this.updatedAt = Date.now();
+    next();
+});
+
+// Index for geospatial queries on rider location
+userSchema.index({ 'deliveryRiderDetails.currentLocation': '2dsphere' });
 
 const User = mongoose.model('User', userSchema);
 

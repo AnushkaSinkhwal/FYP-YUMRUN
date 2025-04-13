@@ -25,9 +25,16 @@ const auth = (req, res, next) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('[Auth Middleware] Token verified, user:', decoded.userId, 'role:', decoded.role);
+      console.log('[Auth Middleware] Full token payload:', JSON.stringify(decoded));
       
       // Add user data to request
       req.user = decoded;
+      
+      // Fix for older tokens that might use id instead of userId
+      if (!req.user.userId && req.user.id) {
+        req.user.userId = req.user.id;
+        console.log('[Auth Middleware] Set userId from id:', req.user.userId);
+      }
       
       next();
     } catch (jwtError) {
@@ -65,6 +72,8 @@ const isAdmin = (req, res, next) => {
  * Checks if the authenticated user is a restaurant owner
  */
 const isRestaurantOwner = (req, res, next) => {
+  console.log('[Auth Middleware] Checking restaurant owner access, req.user:', JSON.stringify(req.user));
+  
   if (!req.user.role || req.user.role !== 'restaurant') {
     console.log('[Auth Middleware] Access denied - Not a restaurant owner. User role:', req.user.role);
     return res.status(403).json({
@@ -73,10 +82,34 @@ const isRestaurantOwner = (req, res, next) => {
     });
   }
   
-  // Add the user's ID as the restaurantId for convenience in routes
-  req.user.restaurantId = req.user.userId;
+  // Find some ID value to use as restaurantId
+  let idToUse = null;
   
-  console.log('[Auth Middleware] Restaurant owner access granted for role:', req.user.role);
+  // Try different possible sources in order of preference
+  if (req.user.userId) {
+    idToUse = req.user.userId;
+    console.log('[Auth Middleware] Using userId for restaurantId:', idToUse);
+  } else if (req.user.id) {
+    idToUse = req.user.id;
+    console.log('[Auth Middleware] Using id for restaurantId:', idToUse);
+  } else if (req.user._id) {
+    idToUse = req.user._id;
+    console.log('[Auth Middleware] Using _id for restaurantId:', idToUse);
+  }
+  
+  if (!idToUse) {
+    console.log('[Auth Middleware] Error: No valid ID found in token payload', req.user);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: User identification issue'
+    });
+  }
+  
+  // Set the restaurantId and ensure userId is also set
+  req.user.restaurantId = idToUse;
+  req.user.userId = idToUse; // Ensure userId is set for consistency
+  
+  console.log('[Auth Middleware] Restaurant owner access granted for role:', req.user.role, 'restaurantId set to:', req.user.restaurantId);
   next();
 };
 

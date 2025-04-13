@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input } from '../../../components/ui';
 import axios from 'axios';
+import { FaUtensils, FaStore } from 'react-icons/fa';
 
 const SearchBox = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -15,8 +16,8 @@ const SearchBox = () => {
     const inputRef = useRef(null);
     const searchDebounceRef = useRef(null);
 
-    // Use the actual server URL
-    const API_URL = 'http://localhost:8000/api';
+    // Use the actual server URL from environment variables or default
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
     // Extract search query from URL on component mount
     useEffect(() => {
@@ -62,34 +63,55 @@ const SearchBox = () => {
         // Debounce search to avoid too many requests
         searchDebounceRef.current = setTimeout(async () => {
             try {
-                // Search for menu items
-                const menuResponse = await axios.get(`${API_URL}/search/menu-items?query=${encodeURIComponent(searchTerm)}`);
+                console.log(`Searching for: "${searchTerm}" using ${API_URL}`);
                 
-                // Search for restaurants - we'll use the general restaurants endpoint and filter client-side
+                // Search for menu items
+                const menuResponse = await axios.get(`${API_URL}/menu`);
+                
+                // Filter menu items client-side
+                const menuItems = menuResponse.data.data || [];
+                const filteredMenuItems = menuItems.filter(item => {
+                    const itemName = (item.name || item.item_name || "").toLowerCase();
+                    const itemDesc = (item.description || "").toLowerCase();
+                    const searchTermLower = searchTerm.toLowerCase();
+                    return itemName.includes(searchTermLower) || itemDesc.includes(searchTermLower);
+                });
+                
+                // Search for restaurants
                 const restaurantsResponse = await axios.get(`${API_URL}/restaurants`);
                 
+                // Filter restaurants client-side
+                const restaurants = restaurantsResponse.data.data || [];
+                const filteredRestaurants = restaurants.filter(restaurant => {
+                    const restaurantName = (restaurant.name || "").toLowerCase();
+                    const restaurantDesc = (restaurant.description || "").toLowerCase();
+                    const searchTermLower = searchTerm.toLowerCase();
+                    return restaurantName.includes(searchTermLower) || restaurantDesc.includes(searchTermLower);
+                });
+                
                 // Process menu items and convert to suggestion format
-                const foodSuggestions = menuResponse.data.data.slice(0, 3).map(item => ({
-                    id: item._id,
-                    name: item.item_name || item.name,
-                    type: 'food'
+                const foodSuggestions = filteredMenuItems.slice(0, 3).map(item => ({
+                    id: item._id || item.id || `food-${Math.random().toString(36).substr(2, 9)}`,
+                    name: item.item_name || item.name || "Unnamed Food Item",
+                    type: 'food',
+                    image: item.image || null,
+                    description: item.description?.substring(0, 50) || null
                 }));
                 
-                // Filter and process restaurants
-                const restaurantSuggestions = restaurantsResponse.data.data
-                    .filter(restaurant => 
-                        restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .slice(0, 2)
-                    .map(restaurant => ({
-                        id: restaurant._id,
-                        name: restaurant.name,
-                        type: 'restaurant'
-                    }));
+                // Process restaurants
+                const restaurantSuggestions = filteredRestaurants.slice(0, 2).map(restaurant => ({
+                    id: restaurant._id || restaurant.id || `restaurant-${Math.random().toString(36).substr(2, 9)}`,
+                    name: restaurant.name || "Unnamed Restaurant",
+                    type: 'restaurant',
+                    image: restaurant.logo || restaurant.image || null,
+                    description: restaurant.description?.substring(0, 50) || null
+                }));
                 
                 // Combine suggestions
                 const combinedSuggestions = [...foodSuggestions, ...restaurantSuggestions];
                 
                 if (combinedSuggestions.length > 0) {
+                    console.log('Found suggestions:', combinedSuggestions.length);
                     setSuggestions(combinedSuggestions);
                     setShowSuggestions(true);
                 } else {
@@ -97,13 +119,16 @@ const SearchBox = () => {
                     const categories = [
                         { id: 'pizza', name: 'Pizza', type: 'category' },
                         { id: 'burger', name: 'Burger', type: 'category' },
-                        { id: 'momo', name: 'Momo', type: 'category' }
+                        { id: 'momo', name: 'Momo', type: 'category' },
+                        { id: 'dessert', name: 'Dessert', type: 'category' },
+                        { id: 'drinks', name: 'Drinks', type: 'category' }
                     ];
                     
                     const filteredCategories = categories.filter(cat => 
                         cat.name.toLowerCase().includes(searchTerm.toLowerCase())
                     );
                     
+                    console.log('No direct matches, showing categories:', filteredCategories.length);
                     setSuggestions(filteredCategories);
                     setShowSuggestions(filteredCategories.length > 0);
                 }
@@ -211,9 +236,36 @@ const SearchBox = () => {
                                     className="flex items-center w-full px-4 py-2 text-left hover:bg-gray-100"
                                     onClick={() => handleSuggestionClick(suggestion)}
                                 >
-                                    <IoSearchSharp className="mr-2 text-gray-400" />
-                                    <span className="font-medium">{suggestion.name}</span>
-                                    <span className="ml-auto text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500">
+                                    {suggestion.image ? (
+                                        <div className="w-8 h-8 mr-2 overflow-hidden bg-gray-100 rounded-full flex-shrink-0">
+                                            <img 
+                                                src={suggestion.image} 
+                                                alt={suggestion.name}
+                                                className="object-cover w-full h-full"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = "https://via.placeholder.com/40";
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-center w-8 h-8 mr-2 overflow-hidden text-gray-500 bg-gray-100 rounded-full flex-shrink-0">
+                                            {suggestion.type === 'food' ? (
+                                                <FaUtensils className="text-xs" />
+                                            ) : suggestion.type === 'restaurant' ? (
+                                                <FaStore className="text-xs" />
+                                            ) : (
+                                                <IoSearchSharp className="text-xs" />
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 overflow-hidden">
+                                        <span className="block font-medium text-sm truncate">{suggestion.name}</span>
+                                        {suggestion.description && (
+                                            <span className="block text-xs text-gray-500 truncate">{suggestion.description}</span>
+                                        )}
+                                    </div>
+                                    <span className="ml-auto text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500 flex-shrink-0">
                                         {suggestion.type.charAt(0).toUpperCase() + suggestion.type.slice(1)}
                                     </span>
                                 </button>

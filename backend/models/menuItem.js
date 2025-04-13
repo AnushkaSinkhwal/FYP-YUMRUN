@@ -64,7 +64,7 @@ const menuItemSchema = mongoose.Schema({
     },
     restaurant: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Restaurant',
         required: true,
     },
     category: {
@@ -230,5 +230,6 @@ menuItemSchema.methods.calculateNutrition = function() {
     return totalNutrition;
 };
 
-exports.MenuItem = mongoose.model('MenuItem', menuItemSchema);
-exports.menuItemSchema = menuItemSchema; 
+const MenuItem = mongoose.model('MenuItem', menuItemSchema);
+module.exports = MenuItem;
+module.exports.menuItemSchema = menuItemSchema; 

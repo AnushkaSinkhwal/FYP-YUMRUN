@@ -8,6 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const Notification = require('../models/notification');
 const mongoose = require('mongoose');
+const MenuItem = require('../models/menuItem');
+const Order = require('../models/order');
+const Offer = require('../models/offer');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -804,7 +807,6 @@ router.post('/test-order', auth, isRestaurantOwner, async (req, res) => {
 router.post('/test-menu-item', auth, isRestaurantOwner, async (req, res) => {
     try {
         const restaurantId = req.user.userId;
-        const { MenuItem } = require('../models/menuItem');
         
         // Create a sample menu item
         const testMenuItem = new MenuItem({
@@ -843,7 +845,6 @@ router.post('/test-menu-item', auth, isRestaurantOwner, async (req, res) => {
 router.post('/test-offer', auth, isRestaurantOwner, async (req, res) => {
     try {
         const restaurantId = req.user.userId;
-        const { Offer } = require('../models/offer');
         
         // Create a sample offer
         const testOffer = new Offer({
@@ -883,10 +884,6 @@ router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
     try {
         const restaurantId = req.user.userId;
         const period = req.query.period || 'week';
-        
-        // Import models
-        const Order = require('../models/order');
-        const { MenuItem } = require('../models/menuItem');
         
         // Define the date range based on period
         let startDate;

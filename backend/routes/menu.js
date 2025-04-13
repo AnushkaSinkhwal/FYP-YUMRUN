@@ -1,10 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { MenuItem } = require('../models/menuItem');
+let MenuItem;
+
+try {
+    MenuItem = require('../models/menuItem');
+    console.log('MenuItem model loaded successfully');
+} catch (error) {
+    console.error('Error loading MenuItem model:', error);
+}
+
 const { auth, isRestaurantOwner } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -55,6 +64,66 @@ const handleMulterError = (err, req, res, next) => {
     next();
 };
 
+// GET related menu items for a specific menu item
+router.get('/related/:id', async (req, res) => {
+    try {
+        const menuItem = await MenuItem.findById(req.params.id);
+        
+        if (!menuItem) {
+            return res.status(404).json({
+                success: false,
+                message: 'Menu item not found'
+            });
+        }
+        
+        // Find related menu items based on the category and restaurant
+        // Exclude the current item and limit to 8 items
+        const relatedItems = await MenuItem.find({
+            _id: { $ne: menuItem._id },
+            $or: [
+                { category: menuItem.category },
+                { restaurant: menuItem.restaurant }
+            ]
+        })
+        .limit(8)
+        .populate('restaurant', 'restaurantDetails.name');
+        
+        // Format the response
+        const formattedItems = relatedItems.map(item => ({
+            id: item._id,
+            name: item.item_name,
+            description: item.description,
+            price: item.item_price,
+            image: item.image,
+            restaurant: item.restaurant ? {
+                id: item.restaurant._id,
+                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+            } : {
+                id: null,
+                name: 'Unknown Restaurant'
+            },
+            category: item.category || 'Main Course',
+            isVegetarian: item.isVegetarian,
+            isVegan: item.isVegan,
+            isGlutenFree: item.isGlutenFree,
+            averageRating: item.averageRating || 0,
+            numberOfRatings: item.numberOfRatings || 0,
+            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
+        }));
+        
+        res.status(200).json({
+            success: true,
+            data: formattedItems
+        });
+    } catch (error) {
+        console.error('Error fetching related menu items:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error. Please try again.' 
+        });
+    }
+});
+
 // GET all menu items (publicly accessible)
 router.get('/', async (req, res) => {
     try {
@@ -67,9 +136,12 @@ router.get('/', async (req, res) => {
             description: item.description,
             price: item.item_price,
             image: item.image,
-            restaurant: {
+            restaurant: item.restaurant ? {
                 id: item.restaurant._id,
-                name: item.restaurant.restaurantDetails.name
+                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+            } : {
+                id: null,
+                name: 'Unknown Restaurant'
             },
             category: item.category || 'Main Course',
             calories: item.calories,
@@ -110,6 +182,13 @@ router.get('/restaurant/:id', async (req, res) => {
             description: item.description,
             price: item.item_price,
             image: item.image,
+            restaurant: item.restaurant ? {
+                id: item.restaurant._id,
+                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+            } : {
+                id: null,
+                name: 'Unknown Restaurant'
+            },
             category: item.category || 'Main Course',
             calories: item.calories,
             protein: item.protein,
@@ -140,15 +219,52 @@ router.get('/restaurant/:id', async (req, res) => {
 // GET menu items for the current restaurant owner (authenticated)
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        const menuItems = await MenuItem.find({ restaurant: req.user.userId });
+        console.log('Retrieving menu items for restaurant owner. req.user:', JSON.stringify(req.user));
+        
+        if (!req.user || !req.user.restaurantId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Restaurant ID not found. Please contact support.'
+            });
+        }
+        
+        console.log('Looking for items with restaurant ID:', req.user.restaurantId);
+        
+        if (!MenuItem) {
+            console.error('MenuItem model is undefined');
+            return res.status(500).json({
+                success: false,
+                message: 'Server configuration error. Please contact support.'
+            });
+        }
+        
+        // Check if the collection exists by examining the model
+        if (!mongoose.connection.collections['menuitems']) {
+            console.log('The menuitems collection does not exist yet');
+            // Return empty array since there are no menu items yet
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+        
+        const menuItems = await MenuItem.find({ restaurant: req.user.restaurantId });
+        console.log('Found menu items:', menuItems ? menuItems.length : 'none');
         
         // Format the response
-        const formattedItems = menuItems.map(item => ({
+        const formattedItems = menuItems ? menuItems.map(item => ({
             id: item._id,
             name: item.item_name,
             description: item.description,
             price: item.item_price,
             image: item.image,
+            restaurant: item.restaurant ? {
+                id: item.restaurant._id,
+                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+            } : {
+                id: null,
+                name: 'Unknown Restaurant'
+            },
             category: item.category || 'Main Course',
             calories: item.calories,
             protein: item.protein,
@@ -161,7 +277,7 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
             averageRating: item.averageRating || 0,
             numberOfRatings: item.numberOfRatings || 0,
             isPopular: item.numberOfRatings > 2 || item.averageRating > 4
-        }));
+        })) : [];
         
         res.status(200).json({
             success: true,
@@ -195,9 +311,12 @@ router.get('/:id', async (req, res) => {
             description: menuItem.description,
             price: menuItem.item_price,
             image: menuItem.image,
-            restaurant: {
+            restaurant: menuItem.restaurant ? {
                 id: menuItem.restaurant._id,
-                name: menuItem.restaurant.restaurantDetails.name
+                name: menuItem.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+            } : {
+                id: null,
+                name: 'Unknown Restaurant'
             },
             category: menuItem.category || 'Main Course',
             calories: menuItem.calories,
@@ -269,7 +388,7 @@ router.post('/', [
             item_price: parseFloat(price),
             description,
             image: req.file ? '/' + req.file.path : '',
-            restaurant: req.user.userId,
+            restaurant: req.user.restaurantId,
             category: category || 'Main Course',
             calories: calories ? parseFloat(calories) : 0,
             protein: protein ? parseFloat(protein) : 0,
@@ -336,7 +455,7 @@ router.put('/:id', [
         // Find menu item and ensure it belongs to the restaurant owner
         const menuItem = await MenuItem.findOne({ 
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: req.user.restaurantId
         });
         
         if (!menuItem) {
@@ -439,7 +558,7 @@ router.delete('/:id', auth, isRestaurantOwner, async (req, res) => {
         // Find menu item and ensure it belongs to the restaurant owner
         const menuItem = await MenuItem.findOne({ 
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: req.user.restaurantId
         });
         
         if (!menuItem) {

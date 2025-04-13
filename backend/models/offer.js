@@ -71,5 +71,6 @@ offerSchema.pre('validate', function(next) {
     next();
 });
 
-exports.Offer = mongoose.model('Offer', offerSchema);
-exports.offerSchema = offerSchema; 
+const Offer = mongoose.model('Offer', offerSchema);
+module.exports = Offer;
+module.exports.offerSchema = offerSchema; 

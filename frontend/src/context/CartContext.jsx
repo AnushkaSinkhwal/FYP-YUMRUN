@@ -89,15 +89,22 @@ export const CartProvider = ({ children }) => {
       }
     }
 
+    // Get restaurant name
+    let restaurantName = 'Restaurant';
+    if (typeof item.restaurant === 'object' && item.restaurant?.name) {
+      restaurantName = item.restaurant.name;
+    } else if (typeof item.restaurant === 'string') {
+      restaurantName = item.restaurant;
+    }
+
     // Ensure the item has the restaurantId and restaurant info
     const itemWithRestaurant = {
       ...item,
       restaurantId,
-      restaurant: {
-        id: restaurantId,
-        _id: restaurantId,
-        name: item.restaurant?.name || 'Restaurant'
-      }
+      // Store restaurant as a string if it's just the name, otherwise normalize the object
+      restaurant: typeof item.restaurant === 'string' 
+        ? item.restaurant 
+        : restaurantName
     };
     
     setCartItems(prevItems => {
