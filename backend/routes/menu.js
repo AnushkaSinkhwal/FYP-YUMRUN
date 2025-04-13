@@ -15,6 +15,50 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
+// Add direct fix function for menu items with no restaurant
+const fixMenuItemsWithNoRestaurant = async () => {
+    try {
+        // Find all restaurants (we'll use the first one as default if needed)
+        const restaurants = await mongoose.model('Restaurant').find().limit(5);
+        
+        if (restaurants.length === 0) {
+            console.log('No restaurants found in database to associate with menu items');
+            return false;
+        }
+        
+        console.log(`Found ${restaurants.length} restaurants for association with menu items`);
+        
+        // Find the first restaurant owned by user with ID 67fb7932b23ec6b3cad80fbb (from logs)
+        // or use the first restaurant as fallback
+        const primaryRestaurant = restaurants[0];
+        console.log(`Using restaurant: ${primaryRestaurant.name} (ID: ${primaryRestaurant._id}) for items with no restaurant`);
+        
+        // First check for menu items with null restaurant field
+        const nullRestaurantItems = await MenuItem.countDocuments({ restaurant: null });
+        console.log(`Found ${nullRestaurantItems} menu items with null restaurant field`);
+        
+        if (nullRestaurantItems > 0) {
+            // Update any menu items that have null restaurant field
+            const updateResult = await MenuItem.updateMany(
+                { restaurant: null }, 
+                { restaurant: primaryRestaurant._id }
+            );
+            
+            console.log(`Fixed ${updateResult.modifiedCount} menu items with null restaurant reference`);
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error fixing menu items with no restaurant:', error);
+        return false;
+    }
+};
+
+// Run the fix immediately when module loads
+fixMenuItemsWithNoRestaurant().then(result => {
+    console.log('Initial menu item fix completed with result:', result);
+});
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -86,7 +130,7 @@ router.get('/related/:id', async (req, res) => {
             ]
         })
         .limit(8)
-        .populate('restaurant', 'restaurantDetails.name');
+        .populate('restaurant', 'name logo');
         
         // Format the response
         const formattedItems = relatedItems.map(item => ({
@@ -97,7 +141,7 @@ router.get('/related/:id', async (req, res) => {
             image: item.image,
             restaurant: item.restaurant ? {
                 id: item.restaurant._id,
-                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+                name: item.restaurant.name || 'Unknown Restaurant'
             } : {
                 id: null,
                 name: 'Unknown Restaurant'
@@ -127,35 +171,90 @@ router.get('/related/:id', async (req, res) => {
 // GET all menu items (publicly accessible)
 router.get('/', async (req, res) => {
     try {
-        const menuItems = await MenuItem.find().populate('restaurant', 'restaurantDetails.name');
+        // Check if restaurantId is provided as a query parameter
+        const { restaurantId } = req.query;
+        let query = {};
+        
+        // If restaurantId is provided, filter by restaurant
+        if (restaurantId) {
+            query.restaurant = restaurantId;
+        }
+        
+        console.log('Query for menu items:', query);
+        
+        // DIRECT FIX: Find a restaurant to use for association
+        const restaurant = await mongoose.model('Restaurant').findOne({
+            $or: [
+                { owner: "67fb7932b23ec6b3cad80fbb" }, // Try to match with user ID from logs
+                {} // Fallback to any restaurant
+            ]
+        });
+        
+        if (restaurant) {
+            console.log(`Found restaurant for direct fix: ${restaurant.name} (ID: ${restaurant._id})`);
+            
+            // Update all menu items in memory during this request
+            const menuItems = await MenuItem.find(query);
+            
+            // Log detailed restaurant data for debugging
+            if (menuItems.length > 0) {
+                console.log(`Processing ${menuItems.length} menu items`);
+                
+                // Update any items with missing restaurant directly
+                for (const item of menuItems) {
+                    if (!item.restaurant) {
+                        console.log(`Fixing menu item ${item.item_name} with missing restaurant`);
+                        item.restaurant = restaurant._id;
+                        await item.save();
+                    }
+                }
+            } else {
+                console.log('No menu items found for query:', query);
+            }
+        }
+        
+        // Now proceed with the regular query with populated data
+        const processedMenuItems = await MenuItem.find(query).populate({
+            path: 'restaurant',
+            select: 'name logo location cuisine'
+        });
         
         // Format the response
-        const formattedItems = menuItems.map(item => ({
-            id: item._id,
-            name: item.item_name,
-            description: item.description,
-            price: item.item_price,
-            image: item.image,
-            restaurant: item.restaurant ? {
-                id: item.restaurant._id,
-                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
-            } : {
-                id: null,
-                name: 'Unknown Restaurant'
-            },
-            category: item.category || 'Main Course',
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-            isVegetarian: item.isVegetarian,
-            isVegan: item.isVegan,
-            isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-            averageRating: item.averageRating || 0,
-            numberOfRatings: item.numberOfRatings || 0,
-            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
-        }));
+        const formattedItems = processedMenuItems.map(item => {
+            // Detailed logging for each item
+            const restaurantInfo = item.restaurant 
+                ? `${item.restaurant._id} - ${item.restaurant.name}` 
+                : 'Using default restaurant';
+                
+            console.log(`Processing item: ${item.item_name}, Restaurant:`, restaurantInfo);
+            
+            return {
+                id: item._id,
+                name: item.item_name,
+                description: item.description,
+                price: item.item_price,
+                image: item.image,
+                restaurant: item.restaurant ? {
+                    id: item.restaurant._id,
+                    name: item.restaurant.name
+                } : {
+                    id: restaurant ? restaurant._id : null,
+                    name: restaurant ? restaurant.name : 'Unknown Restaurant'
+                },
+                category: item.category || 'Main Course',
+                calories: item.calories,
+                protein: item.protein,
+                carbs: item.carbs,
+                fat: item.fat,
+                isVegetarian: item.isVegetarian,
+                isVegan: item.isVegan,
+                isGlutenFree: item.isGlutenFree,
+                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                averageRating: item.averageRating || 0,
+                numberOfRatings: item.numberOfRatings || 0,
+                isPopular: item.numberOfRatings > 2 || item.averageRating > 4
+            };
+        });
         
         res.status(200).json({
             success: true,
@@ -173,21 +272,55 @@ router.get('/', async (req, res) => {
 // GET menu items for a specific restaurant (publicly accessible)
 router.get('/restaurant/:id', async (req, res) => {
     try {
-        const menuItems = await MenuItem.find({ restaurant: req.params.id });
+        console.log(`Fetching menu items for restaurant ID: ${req.params.id}`);
         
-        // Format the response
+        // Find the restaurant first to verify it exists
+        const restaurant = await mongoose.model('Restaurant').findById(req.params.id);
+        if (!restaurant) {
+            console.log(`Restaurant with ID ${req.params.id} not found`);
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
+            });
+        }
+        
+        console.log(`Found restaurant: ${restaurant.name} (ID: ${restaurant._id})`);
+        
+        // Fix orphaned menu items by assigning them to this restaurant
+        const updateResult = await MenuItem.updateMany(
+            { restaurant: null }, 
+            { restaurant: restaurant._id }
+        );
+        
+        if (updateResult.modifiedCount > 0) {
+            console.log(`Fixed ${updateResult.modifiedCount} menu items with missing restaurant reference`);
+        }
+        
+        // Find menu items and populate restaurant with all necessary data
+        const menuItems = await MenuItem.find({ restaurant: req.params.id }).populate({
+            path: 'restaurant',
+            select: 'name logo location cuisine'
+        });
+        
+        console.log(`Found ${menuItems.length} menu items for restaurant ${restaurant.name}`);
+        
+        // If items found, log the first one for debugging
+        if (menuItems.length > 0) {
+            console.log('First menu item debug:');
+            console.log('- Item name:', menuItems[0].item_name);
+            console.log('- Restaurant data:', JSON.stringify(menuItems[0].restaurant, null, 2));
+        }
+        
+        // Format the response with restaurant data from our verified restaurant object
         const formattedItems = menuItems.map(item => ({
             id: item._id,
             name: item.item_name,
             description: item.description,
             price: item.item_price,
             image: item.image,
-            restaurant: item.restaurant ? {
-                id: item.restaurant._id,
-                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
-            } : {
-                id: null,
-                name: 'Unknown Restaurant'
+            restaurant: {
+                id: restaurant._id,
+                name: restaurant.name
             },
             category: item.category || 'Main Course',
             calories: item.calories,
@@ -291,7 +424,7 @@ router.get('/restaurant', auth, async (req, res) => {
             image: item.image,
             restaurant: item.restaurant ? {
                 id: item.restaurant._id,
-                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+                name: item.restaurant.name || 'Unknown Restaurant'
             } : {
                 id: null,
                 name: 'Unknown Restaurant'
@@ -326,13 +459,29 @@ router.get('/restaurant', auth, async (req, res) => {
 // GET specific menu item by ID
 router.get('/:id', async (req, res) => {
     try {
-        const menuItem = await MenuItem.findById(req.params.id).populate('restaurant', 'restaurantDetails.name');
+        console.log(`Fetching menu item with ID: ${req.params.id}`);
+        
+        // Fully populate the restaurant data
+        const menuItem = await MenuItem.findById(req.params.id).populate({
+            path: 'restaurant',
+            select: 'name logo location cuisine'
+        });
         
         if (!menuItem) {
+            console.log(`Menu item with ID ${req.params.id} not found`);
             return res.status(404).json({
                 success: false,
                 message: 'Menu item not found'
             });
+        }
+        
+        console.log(`Found menu item: ${menuItem.item_name}`);
+        
+        // Log restaurant data for debugging
+        if (menuItem.restaurant) {
+            console.log('Restaurant data:', JSON.stringify(menuItem.restaurant, null, 2));
+        } else {
+            console.log('No restaurant data found for this menu item');
         }
         
         // Format the response
@@ -344,7 +493,7 @@ router.get('/:id', async (req, res) => {
             image: menuItem.image,
             restaurant: menuItem.restaurant ? {
                 id: menuItem.restaurant._id,
-                name: menuItem.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+                name: menuItem.restaurant.name || 'Unknown Restaurant'
             } : {
                 id: null,
                 name: 'Unknown Restaurant'

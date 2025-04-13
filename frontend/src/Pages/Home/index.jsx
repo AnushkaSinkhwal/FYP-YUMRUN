@@ -199,6 +199,25 @@ const Home = () => {
                             // Skip items without essential data
                             if (!item || !item.name || !item.price) return null;
                             
+                            // Add console log for debugging restaurant data
+                            console.log(`Processing item ${item.name} with raw data:`, { 
+                                id: item.id,
+                                restaurantRaw: item.restaurant,
+                                restaurantName: item.restaurant?.name,
+                                hasRestaurant: !!item.restaurant
+                            });
+                            
+                            // Force check if we need to find a restaurant name
+                            let restaurantName = "Unknown Restaurant";
+                            let restaurantId = null;
+                            
+                            if (item.restaurant && typeof item.restaurant === 'object') {
+                                restaurantId = item.restaurant.id || item.restaurant._id || null;
+                                if (item.restaurant.name && item.restaurant.name !== 'Unknown Restaurant') {
+                                    restaurantName = item.restaurant.name;
+                                }
+                            }
+                            
                             return {
                                 ...item,
                                 // Use only the image from the database
@@ -210,7 +229,14 @@ const Home = () => {
                                 // If there's a discount, calculate the new price
                                 price: item.discount && parseFloat(item.discount) > 0 
                                     ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
-                                    : item.price
+                                    : item.price,
+                                // Ensure rating is a valid number or null
+                                rating: item.averageRating && item.averageRating > 0 ? item.averageRating : 0,
+                                // Override restaurant data with our validated version
+                                restaurant: { 
+                                    id: restaurantId, 
+                                    name: restaurantName 
+                                }
                             };
                         }).filter(item => item !== null); // Remove null items
                         
@@ -502,7 +528,7 @@ const Home = () => {
                                                         id={product.id}
                                                         name={product.name} 
                                                         location={product.restaurant?.name || ''} 
-                                                        rating={product.rating || 4.0}
+                                                        rating={product.rating || 0}
                                                         oldPrice={product.oldPrice?.toString() || ''}
                                                         newPrice={product.price.toString()}
                                                         imgSrc={product.image}
@@ -551,7 +577,7 @@ const Home = () => {
                                                     id={product.id}
                                                     name={product.name} 
                                                     location={product.restaurant?.name || ''} 
-                                                    rating={product.rating || 4.0}
+                                                    rating={product.rating || 0}
                                                     oldPrice={product.oldPrice?.toString() || ''}
                                                     newPrice={product.price.toString()}
                                                     imgSrc={product.image}

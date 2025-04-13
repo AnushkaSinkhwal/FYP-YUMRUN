@@ -82,7 +82,7 @@ const deliveryRiderDetailsSchema = new mongoose.Schema(
   {
     vehicleType: {
       type: String,
-      enum: ["motorcycle", "scooter", "bicycle"],
+      enum: ["motorcycle", "scooter", "bicycle", "car"],
       required: [true, "Vehicle type is required"],
     },
     licenseNumber: {
@@ -285,7 +285,7 @@ const userSchema = new mongoose.Schema(
     deliveryRiderDetails: {
       vehicleType: {
         type: String,
-        enum: ["bicycle", "motorcycle", "car"],
+        enum: ["bicycle", "motorcycle", "car", "scooter"],
         default: "motorcycle",
       },
       licenseNumber: String,
