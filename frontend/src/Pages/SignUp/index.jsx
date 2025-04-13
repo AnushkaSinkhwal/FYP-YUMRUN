@@ -193,10 +193,17 @@ const SignUp = () => {
         try {
             const result = await register(userData);
             if (result && result.success) {
-                navigate("/signin", { 
-                    replace: true,
-                    state: { message: "Registration successful! Please login to continue." }
-                });
+                // Check if email verification is required
+                if (result.requiresOTP) {
+                    // Redirect to email verification page
+                    navigate(`/verify-email?email=${encodeURIComponent(result.email)}`, { replace: true });
+                } else {
+                    // Legacy behavior - redirect to signin page
+                    navigate("/signin", { 
+                        replace: true,
+                        state: { message: "Registration successful! Please login to continue." }
+                    });
+                }
             } else {
                 setError(result?.message || "Registration failed. Please try again.");
             }

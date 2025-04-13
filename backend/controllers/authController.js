@@ -1,6 +1,8 @@
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendVerificationOTP } = require('../utils/emailService');
+const { generateOTP, isOTPExpired, generateOTPExpiry } = require('../utils/otpUtils');
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -57,6 +59,35 @@ exports.login = async (req, res) => {
                     message: 'Invalid credentials',
                     code: 'UNAUTHORIZED'
                 }
+            });
+        }
+
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            // Generate a new OTP for verification
+            const otp = generateOTP();
+            const otpExpiry = generateOTPExpiry();
+            
+            // Update user with new OTP
+            user.emailVerificationOTP = otp;
+            user.emailVerificationOTPExpires = otpExpiry;
+            await user.save();
+            
+            // Send verification email
+            await sendVerificationOTP({
+                email: user.email,
+                otp,
+                name: user.fullName || `${user.firstName} ${user.lastName}`
+            });
+            
+            return res.status(403).json({
+                success: false,
+                error: {
+                    message: 'Email not verified. A new verification code has been sent to your email.',
+                    code: 'EMAIL_NOT_VERIFIED'
+                },
+                requiresOTP: true,
+                email: user.email
             });
         }
         
@@ -143,6 +174,10 @@ exports.register = async (req, res) => {
             isAdmin = true;
         }
         
+        // Generate verification OTP
+        const otp = generateOTP();
+        const otpExpiry = generateOTPExpiry();
+        
         // Create new user
         const user = new User({
             name,
@@ -152,7 +187,11 @@ exports.register = async (req, res) => {
             healthCondition: healthCondition || 'Healthy',
             isAdmin,
             isRestaurantOwner,
-            isDeliveryStaff
+            isDeliveryStaff,
+            // Add email verification fields
+            isEmailVerified: false,
+            emailVerificationOTP: otp,
+            emailVerificationOTPExpires: otpExpiry
         });
         
         await user.save();
@@ -178,24 +217,19 @@ exports.register = async (req, res) => {
             }
         }
         
-        // Generate JWT token
-        const token = generateToken(user);
+        // Send verification email with OTP
+        await sendVerificationOTP({
+            email: user.email,
+            otp,
+            name: user.name
+        });
         
-        // Return response with user details and token
+        // Return response (without token to enforce verification)
         return res.status(201).json({
             success: true,
-            message: 'User registered successfully',
-            data: {
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    isAdmin: user.isAdmin,
-                    isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff
-                },
-                token
-            }
+            message: 'Registration successful! Please verify your email to continue.',
+            requiresOTP: true,
+            email: user.email
         });
     } catch (error) {
         console.error('Registration error:', error);
@@ -212,6 +246,155 @@ exports.register = async (req, res) => {
             });
         }
         
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: 'Server error. Please try again.',
+                code: 'SERVER_ERROR'
+            }
+        });
+    }
+};
+
+// Verify email with OTP
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        
+        // Validate input
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Please provide email and OTP',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
+        
+        // Find user by email
+        const user = await User.findOne({ email });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: 'User not found',
+                    code: 'NOT_FOUND'
+                }
+            });
+        }
+        
+        // Check if OTP matches and is not expired
+        if (user.emailVerificationOTP !== otp || isOTPExpired(user.emailVerificationOTPExpires)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Invalid or expired OTP',
+                    code: 'INVALID_OTP'
+                }
+            });
+        }
+        
+        // Mark email as verified and clear OTP
+        user.isEmailVerified = true;
+        user.emailVerificationOTP = null;
+        user.emailVerificationOTPExpires = null;
+        await user.save();
+        
+        // Generate token for auto-login after verification
+        const token = generateToken(user);
+        
+        // Return success with user details and token
+        return res.status(200).json({
+            success: true,
+            message: 'Email verified successfully',
+            data: {
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    isAdmin: user.isAdmin,
+                    isRestaurantOwner: user.isRestaurantOwner,
+                    isDeliveryStaff: user.isDeliveryStaff
+                },
+                token
+            }
+        });
+    } catch (error) {
+        console.error('Email verification error:', error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: 'Server error. Please try again.',
+                code: 'SERVER_ERROR'
+            }
+        });
+    }
+};
+
+// Resend verification OTP
+exports.resendOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        // Validate input
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Please provide email',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
+        
+        // Find user by email
+        const user = await User.findOne({ email });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: 'User not found',
+                    code: 'NOT_FOUND'
+                }
+            });
+        }
+        
+        // Check if email is already verified
+        if (user.isEmailVerified) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Email is already verified',
+                    code: 'ALREADY_VERIFIED'
+                }
+            });
+        }
+        
+        // Generate new OTP
+        const otp = generateOTP();
+        const otpExpiry = generateOTPExpiry();
+        
+        // Update user with new OTP
+        user.emailVerificationOTP = otp;
+        user.emailVerificationOTPExpires = otpExpiry;
+        await user.save();
+        
+        // Send verification email
+        await sendVerificationOTP({
+            email: user.email,
+            otp,
+            name: user.name
+        });
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Verification OTP sent successfully',
+        });
+    } catch (error) {
+        console.error('Resend OTP error:', error);
         return res.status(500).json({
             success: false,
             error: {

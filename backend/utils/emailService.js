@@ -690,10 +690,125 @@ const emailTemplates = {
       </body>
       </html>
     `;
+  },
+
+  /**
+   * Email Verification OTP Template
+   * @param {Object} options - Options object
+   * @param {string} options.otp - Verification OTP code
+   * @param {string} options.name - User's name
+   * @returns {string} - HTML email content
+   */
+  emailVerificationOTP: (options) => {
+    const { otp, name } = options;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Email Verification - YumRun</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            background-color: #FF5722;
+            padding: 20px;
+            text-align: center;
+          }
+          .header h1 {
+            color: white;
+            margin: 0;
+            font-size: 24px;
+          }
+          .content {
+            padding: 20px;
+            background-color: #fff;
+          }
+          .footer {
+            background-color: #f4f4f4;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
+          .otp-code {
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            text-align: center;
+            margin: 30px 0;
+            color: #FF5722;
+          }
+          .note {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-left: 4px solid #FF5722;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Verify Your Email</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${name || 'there'},</h2>
+            <p>Thank you for registering with YumRun! Please use the following OTP (One-Time Password) to verify your email address:</p>
+            <div class="otp-code">${otp}</div>
+            <div class="note">
+              <p>This OTP will expire in 10 minutes for security reasons.</p>
+              <p>If you didn't request this OTP, please ignore this email.</p>
+            </div>
+            <p>If you have any questions or need assistance, please contact our support team.</p>
+            <p>Best regards,<br>The YumRun Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} YumRun. All rights reserved.</p>
+            <p>123 YumRun Street, Foodie District, Kathmandu, Nepal</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
   }
+};
+
+/**
+ * Send email verification OTP
+ * @param {Object} options - Options object
+ * @param {string} options.email - User's email
+ * @param {string} options.otp - Verification OTP code
+ * @param {string} options.name - User's name
+ * @returns {Promise<Object>} - Email sending result
+ */
+const sendVerificationOTP = async (options) => {
+  const { email, otp, name } = options;
+  
+  const html = emailTemplates.emailVerificationOTP({ otp, name });
+  
+  return sendEmail({
+    to: email,
+    subject: 'Email Verification - YumRun',
+    html
+  });
 };
 
 module.exports = {
   sendEmail,
+  sendVerificationOTP,
   emailTemplates
 }; 

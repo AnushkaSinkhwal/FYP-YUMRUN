@@ -110,6 +110,16 @@ export const authAPI = {
     return api.post('/auth/register', userData);
   },
   
+  // Verify email with OTP
+  verifyEmail: async (verificationData) => {
+    return api.post('/auth/verify-email', verificationData);
+  },
+  
+  // Resend verification OTP
+  resendOTP: async (data) => {
+    return api.post('/auth/resend-otp', data);
+  },
+  
   // Get current user profile
   getCurrentUser: async () => {
     return api.get('/auth/me');

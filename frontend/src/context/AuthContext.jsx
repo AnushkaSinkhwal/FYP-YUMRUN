@@ -86,6 +86,161 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
   
+  // Register new user
+  const register = async (userData) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authAPI.register(userData);
+      
+      // Check if the response indicates an error
+      if (!response.data.success) {
+        setError(response.data.error?.message || 'Registration failed');
+        setIsLoading(false);
+        return { success: false, error: response.data.error?.message || 'Registration failed' };
+      }
+      
+      // Successful registration, check if email verification is required
+      if (response.data.requiresOTP) {
+        setIsLoading(false);
+        return { 
+          success: true, 
+          requiresOTP: true,
+          email: response.data.email,
+          message: response.data.message || 'Please verify your email to continue'
+        };
+      }
+      
+      // Standard success response
+      if (response.data.success && response.data.data) {
+        const { user /*, token */ } = response.data.data; // Assuming data is nested under 'data'
+        
+        // Normalize user data to ensure role property
+        const normalizedUser = normalizeUserData(user);
+        
+        // Not auto-logging in after registration
+        
+        setIsLoading(false);
+        
+        return { 
+          success: true, 
+          user: normalizedUser,
+          // We don't necessarily need dashboard path here if not auto-logging in
+          // dashboardPath: getDashboardPath(normalizedUser.role)
+        };
+      } else {
+        // Handle unexpected success response format
+        const errMsg = response.data.error?.message || 'Registration failed: Unexpected response format';
+        setError(errMsg);
+        setIsLoading(false);
+        return { success: false, error: errMsg };
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      // Extract specific error message from backend response if available
+      const backendErrorMessage = error.response?.data?.message;
+      const errorMessage = backendErrorMessage || 'Registration failed. Please try again.';
+      
+      setError(errorMessage);
+      setIsLoading(false);
+      // Return the specific error message
+      return { success: false, error: errorMessage };
+    }
+  };
+  
+  // Verify email with OTP
+  const verifyEmail = async (verificationData) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authAPI.verifyEmail(verificationData);
+      
+      // Check if response indicates error
+      if (!response.data.success) {
+        const errorMessage = response.data.error?.message || 'Email verification failed';
+        setError(errorMessage);
+        setIsLoading(false);
+        return { success: false, error: errorMessage };
+      }
+      
+      // Successful verification
+      if (response.data.success && response.data.data) {
+        const { token, user } = response.data.data;
+        const normalizedUser = normalizeUserData(user);
+        
+        // Save to localStorage for auto-login
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('userData', JSON.stringify(normalizedUser));
+        
+        // Set default header for subsequent requests
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Update state
+        setCurrentUser(normalizedUser);
+        
+        // Determine dashboard path
+        let dashboardPath;
+        if (normalizedUser.role === 'admin') {
+          dashboardPath = '/admin/dashboard';
+        } else if (normalizedUser.role === 'restaurant') {
+          dashboardPath = '/restaurant/dashboard';
+        } else if (normalizedUser.role === 'delivery_rider') {
+          dashboardPath = '/delivery/dashboard';
+        } else {
+          dashboardPath = '/user/dashboard';
+        }
+        
+        setIsLoading(false);
+        
+        return { 
+          success: true, 
+          user: normalizedUser,
+          dashboardPath
+        };
+      } else {
+        // Handle unexpected success response format
+        const errMsg = response.data.error?.message || 'Email verification failed: Unexpected response format';
+        setError(errMsg);
+        setIsLoading(false);
+        return { success: false, error: errMsg };
+      }
+    } catch (error) {
+      console.error('Email verification error:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Email verification failed. Please try again.';
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+  
+  // Resend OTP
+  const resendOTP = async (data) => {
+    setError(null);
+    
+    try {
+      const response = await authAPI.resendOTP(data);
+      
+      // Check if response indicates error
+      if (!response.data.success) {
+        const errorMessage = response.data.error?.message || 'Failed to resend verification code';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+      
+      return { 
+        success: true, 
+        message: response.data.message || 'Verification code sent successfully'
+      };
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Failed to resend verification code. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+  
   // Unified login for all user types
   const login = async (credentials) => {
     setIsLoading(true);
@@ -101,6 +256,17 @@ export const AuthProvider = ({ children }) => {
         setError(response.error || 'Login failed');
         setIsLoading(false);
         return response;
+      }
+      
+      // Check if email verification is required
+      if (response.data && response.data.requiresOTP) {
+        setIsLoading(false);
+        return { 
+          success: false, 
+          requiresOTP: true,
+          email: response.data.email,
+          error: response.data.error?.message || 'Email verification required'
+        };
       }
       
       // This is a successful API response
@@ -153,58 +319,6 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Login failed. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
-      return { success: false, error: errorMessage };
-    }
-  };
-  
-  // Register new user
-  const register = async (userData) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await authAPI.register(userData);
-      
-      // Check if the response indicates an error
-      if (!response.data.success) {
-        setError(response.data.error?.message || 'Registration failed');
-        setIsLoading(false);
-        return { success: false, error: response.data.error?.message || 'Registration failed' };
-      }
-      
-      // Successful registration, data should be in response.data.data
-      if (response.data.success && response.data.data) {
-        const { user /*, token */ } = response.data.data; // Assuming data is nested under 'data'
-        
-        // Normalize user data to ensure role property
-        const normalizedUser = normalizeUserData(user);
-        
-        // Not auto-logging in after registration
-        
-        setIsLoading(false);
-        
-        return { 
-          success: true, 
-          user: normalizedUser,
-          // We don't necessarily need dashboard path here if not auto-logging in
-          // dashboardPath: getDashboardPath(normalizedUser.role)
-        };
-      } else {
-        // Handle unexpected success response format
-        const errMsg = response.data.error?.message || 'Registration failed: Unexpected response format';
-        setError(errMsg);
-        setIsLoading(false);
-        return { success: false, error: errMsg };
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      // Extract specific error message from backend response if available
-      const backendErrorMessage = error.response?.data?.message;
-      const errorMessage = backendErrorMessage || 'Registration failed. Please try again.';
-      
-      setError(errorMessage);
-      setIsLoading(false);
-      // Return the specific error message
       return { success: false, error: errorMessage };
     }
   };
@@ -279,6 +393,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
+    verifyEmail,
+    resendOTP,
     isCustomer,
     isAdmin,
     isRestaurantOwner,

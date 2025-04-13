@@ -99,6 +99,9 @@ const SignIn = () => {
                 
                 // Force navigation to the specific dashboard
                 navigate(response.dashboardPath, { replace: true });
+            } else if (response.requiresOTP) {
+                // Redirect to email verification page
+                navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
             } else {
                 // Display the specific error message from the backend
                 const errorMessage = response.error || "Login failed. Please try again.";
@@ -250,11 +253,53 @@ const SignIn = () => {
                                 <p className="text-sm text-gray-600">
                                     Don&apos;t have an account?{" "}
                                     <Link to="/signup" className="font-medium text-yumrun-orange hover:text-yumrun-orange-dark hover:underline">
-                                        Sign up
+                                        Sign up now
                                     </Link>
                                 </p>
                             </div>
                         </form>
+                        
+                        {/* Demo Accounts Section */}
+                        <div className="p-4 mt-6 rounded-md bg-gray-50">
+                            <h3 className="mb-2 text-sm font-medium text-gray-700">Demo Accounts</h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => fillTestCredentials('user')}
+                                    className="text-xs"
+                                >
+                                    Customer
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => fillTestCredentials('restaurant')}
+                                    className="text-xs"
+                                >
+                                    Restaurant
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => fillTestCredentials('delivery')}
+                                    className="text-xs"
+                                >
+                                    Delivery
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => fillTestCredentials('admin')}
+                                    className="text-xs"
+                                >
+                                    Admin
+                                </Button>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-500">
+                                Click any button to fill credentials (password: Secret@123)
+                            </p>
+                        </div>
                     </div>
                     
                     {/* Right side - User Role Information */}

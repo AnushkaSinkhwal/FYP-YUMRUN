@@ -26,6 +26,7 @@ import Menu from './Pages/Menu';
 import Shop from "./Pages/Shop";
 import PaymentVerificationPage from './Pages/payment/Verify';
 import OrderDetail from './Pages/order/OrderDetail';
+import EmailVerification from './Pages/EmailVerification';
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -424,6 +425,15 @@ function App() {
                         <SignUp />
                       </main>
                       {isOpenProductModel && <ProductModel productId={productId} />}
+                      <BackToTop />
+                    </>
+                  } />
+
+                  <Route path="/verify-email" element={
+                    <>
+                      <main id="main-content">
+                        <EmailVerification />
+                      </main>
                       <BackToTop />
                     </>
                   } />

@@ -5,7 +5,18 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { auth } = require('../middleware/auth');
 const crypto = require('crypto');
-const { sendEmail, emailTemplates } = require('../utils/emailService');
+const { sendEmail, emailTemplates, sendVerificationOTP } = require('../utils/emailService');
+const { generateOTP, isOTPExpired, generateOTPExpiry } = require('../utils/otpUtils');
+const authController = require('../controllers/authController');
+
+// Use the controller methods for new routes
+router.post('/verify-email', authController.verifyEmail);
+router.post('/resend-otp', authController.resendOTP);
+
+// Use existing controller methods for the existing routes if available
+router.post('/login', authController.login);
+router.post('/register', authController.register);
+router.get('/me', auth, authController.getCurrentUser);
 
 /**
  * @route   POST /api/auth/login
@@ -46,9 +57,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Debug authentication issues with test accounts
+    console.log('Login attempt:', {
+      email,
+      userExists: !!user,
+      hashedPassword: user.password.substring(0, 10) + '...',
+      userRole: user.role,
+      userId: user._id.toString()
+    });
+
     // Verify password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('Password verification failed for:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'

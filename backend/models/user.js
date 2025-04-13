@@ -203,6 +203,18 @@ const userSchema = new mongoose.Schema(
         message: (props) => `${props.value} is not a valid email!`,
       },
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOTP: {
+      type: String,
+      default: null,
+    },
+    emailVerificationOTPExpires: {
+      type: Date,
+      default: null,
+    },
     password: {
       type: String,
       required: [true, "Password is required"],
@@ -334,7 +346,21 @@ userSchema.pre("save", async function (next) {
 
 // Method to compare password
 userSchema.methods.comparePassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  try {
+    console.log('comparePassword:', {
+      userId: this._id.toString(),
+      email: this.email,
+      storedPasswordLength: this.password.length,
+      enteredPasswordLength: enteredPassword.length,
+    });
+    
+    const isMatch = await bcrypt.compare(enteredPassword, this.password);
+    console.log('Password match result:', isMatch);
+    return isMatch;
+  } catch (error) {
+    console.error('Error in comparePassword:', error);
+    return false;
+  }
 };
 
 // Update timestamps on save
