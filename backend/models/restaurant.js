@@ -10,21 +10,23 @@ const restaurantSchema = new mongoose.Schema({
         required: false,
     },
     address: {
-        type: Object,
-        required: false,
-        default: {}
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
     },
     description: {
         type: String,
-        required: true,
+        default: '',
     },
     logo: {
         type: String,
-        default: '',
+        default: 'uploads/placeholders/restaurant-placeholder.jpg',
     },
     coverImage: {
         type: String,
-        default: '',
+        default: 'uploads/placeholders/restaurant-placeholder.jpg',
     },
     owner: {
         type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +43,7 @@ const restaurantSchema = new mongoose.Schema({
     },
     cuisine: {
         type: [String],
-        default: ['General'],
+        default: [],
     },
     priceRange: {
         type: String,
@@ -51,17 +53,18 @@ const restaurantSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+    totalRatings: {
+        type: Number,
+        default: 0,
+    },
     reviewCount: {
         type: Number,
         default: 0,
     },
-    phone: {
-        type: String,
-        default: '',
-    },
-    email: {
-        type: String,
-        default: '',
+    contactInfo: {
+        phone: String,
+        email: String,
+        website: String
     },
     panNumber: {
         type: String,
@@ -74,26 +77,29 @@ const restaurantSchema = new mongoose.Schema({
         }
     },
     openingHours: {
-        type: Object,
-        default: {
-            monday: { open: '09:00', close: '22:00' },
-            tuesday: { open: '09:00', close: '22:00' },
-            wednesday: { open: '09:00', close: '22:00' },
-            thursday: { open: '09:00', close: '22:00' },
-            friday: { open: '09:00', close: '22:00' },
-            saturday: { open: '10:00', close: '23:00' },
-            sunday: { open: '10:00', close: '22:00' }
-        }
+        monday: { open: String, close: String },
+        tuesday: { open: String, close: String },
+        wednesday: { open: String, close: String },
+        thursday: { open: String, close: String },
+        friday: { open: String, close: String },
+        saturday: { open: String, close: String },
+        sunday: { open: String, close: String }
     },
     featuredItems: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: 'MenuItem',
         default: []
     },
-    dateCreated: {
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    updatedAt: {
         type: Date,
         default: Date.now,
     }
+}, {
+    timestamps: true
 });
 
 restaurantSchema.virtual('id').get(function () {

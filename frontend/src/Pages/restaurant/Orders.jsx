@@ -26,8 +26,10 @@ import {
   FaUser,
   FaDollarSign,
   FaSync,
+  FaShoppingCart,
 } from "react-icons/fa";
 import { format } from "date-fns";
+import ErrorBoundary from "../../components/shared/ErrorBoundary";
 
 // Status colors for display
 const STATUS_COLORS = {
@@ -62,7 +64,7 @@ const STATUS_FLOW = {
   CANCELLED: null,
 };
 
-const RestaurantOrders = () => {
+const RestaurantOrdersContent = () => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -93,21 +95,20 @@ const RestaurantOrders = () => {
       // Try to fetch real orders from the API
       const response = await restaurantAPI.getOrders();
       console.log("Orders API response:", response?.data);
-
+      
+      // Check for successful response
       if (response?.data?.success) {
         const ordersData = response.data.data || [];
         console.log("Successfully fetched restaurant orders:", ordersData);
 
-        if (ordersData.length === 0) {
-          // Handle the case when there are no orders nicely
-          setOrders([]);
-        } else {
-          setOrders(ordersData);
-        }
+        // Set orders data, empty array is fine if no orders found
+        setOrders(ordersData);
+        
+        // Clear any existing error since the request was successful
+        setError(null);
       } else {
         // If API response indicates failure but returns a message
         if (response?.data?.message) {
-          setError(response.data.message);
           console.error("API Error Message:", response.data.message);
 
           // If there's an authentication issue, show a more specific error
@@ -116,6 +117,8 @@ const RestaurantOrders = () => {
             response.data.message.includes("token")
           ) {
             setError("Authentication error. Please log in again to continue.");
+          } else {
+            setError(response.data.message);
           }
         } else {
           setError("Failed to fetch orders. Please try again.");
@@ -126,15 +129,11 @@ const RestaurantOrders = () => {
       }
     } catch (err) {
       console.error("Error fetching orders:", err);
-      console.error("Error details:", {
-        message: err.message,
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
-      });
-
-      // Check for network or server errors
-      if (err.message?.includes("Network Error")) {
+      
+      // Handle specific error types
+      if (!navigator.onLine) {
+        setError("You appear to be offline. Please check your internet connection.");
+      } else if (err.message?.includes("Network Error")) {
         setError("Network error. Please check your internet connection.");
       } else if (err.response?.status === 401 || err.response?.status === 403) {
         setError("Authentication error. Please log in again to continue.");
@@ -332,11 +331,22 @@ const RestaurantOrders = () => {
       )}
 
       {orders.length === 0 ? (
-        <div className="p-6 text-center border rounded-md">
-          <p className="mb-4">No orders found.</p>
-          <p className="mb-4 text-sm text-gray-500">
-            Orders will appear here when customers place them.
-          </p>
+        <div className="p-8 text-center bg-white border rounded-md shadow-sm dark:bg-gray-800">
+          <div className="flex flex-col items-center justify-center mb-4">
+            <FaShoppingCart className="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No orders found.</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Orders will appear here when customers place them.
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={() => fetchOrders(true)}
+          >
+            <FaSync className="mr-2" /> Refresh
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -614,6 +624,19 @@ const RestaurantOrders = () => {
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+// Main component with error boundary
+const RestaurantOrders = () => {
+  return (
+    <ErrorBoundary 
+      title="Orders Error" 
+      errorMessage="We encountered an issue loading your orders. Please try again or contact support if the problem persists."
+      onRetry={() => window.location.reload()}
+    >
+      <RestaurantOrdersContent />
+    </ErrorBoundary>
   );
 };
 

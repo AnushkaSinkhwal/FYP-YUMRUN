@@ -28,7 +28,18 @@ api.interceptors.request.use(
       try {
         // Parse the token payload (without verification)
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('Token payload:', payload);
+        console.log('Token payload:', {
+          userId: payload.userId || payload.id || payload._id,
+          role: payload.role,
+          exp: new Date(payload.exp * 1000).toLocaleString()
+        });
+        
+        // Check if token is expired
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) {
+          console.warn('Token has expired! Expiration:', new Date(payload.exp * 1000).toLocaleString());
+          // Don't clear it here - let the response interceptor handle that when it gets a 401
+        }
       } catch (err) {
         console.error('Error parsing token payload:', err);
       }
@@ -445,14 +456,24 @@ export const restaurantAPI = {
     return api.delete(`/offers/${offerId}`);
   },
   
-  // Get orders for the restaurant
+  // Get orders for the restaurant - with improved error handling
   getOrders: async () => {
-    return api.get('/orders/restaurant');
+    try {
+      return await api.get('/orders/restaurant');
+    } catch (error) {
+      console.error('Error in getOrders API call:', error);
+      // Re-throw to let component handle the error
+      throw error;
+    }
   },
   
   // Update order status
-  updateOrderStatus: async (orderId, status) => {
-    return api.post(`/orders/${orderId}/status`, { status });
+  updateOrderStatus: async (orderId, status, reason) => {
+    const payload = { status };
+    if (reason) {
+      payload.reason = reason;
+    }
+    return api.post(`/orders/${orderId}/status`, payload);
   },
   
   // Get analytics data

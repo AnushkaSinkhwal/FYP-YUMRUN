@@ -168,6 +168,7 @@ async function createTestUsers() {
             },
             phone: userData.phone,
             email: userData.email,
+            panNumber: userData.restaurantDetails.panNumber,
             openingHours: {
               monday: { open: '09:00', close: '21:00' },
               tuesday: { open: '09:00', close: '21:00' },

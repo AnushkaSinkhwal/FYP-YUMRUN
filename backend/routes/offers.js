@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { Offer } = require('../models/offer');
-const { MenuItem } = require('../models/menuItem');
+const Offer = require('../models/offer');
+const MenuItem = require('../models/menuItem');
 const { auth, isRestaurantOwner } = require('../middleware/auth');
 
 // Get all offers for the authenticated restaurant owner
