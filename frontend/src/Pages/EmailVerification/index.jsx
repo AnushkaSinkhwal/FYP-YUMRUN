@@ -50,11 +50,23 @@ const EmailVerification = () => {
             const result = await verifyEmail({ email, otp });
             
             if (result.success) {
-                setMessage("Email verified successfully! Redirecting to dashboard...");
-                // Auto redirect after 2 seconds
-                setTimeout(() => {
-                    navigate(result.dashboardPath || "/", { replace: true });
-                }, 2000);
+                if (result.redirectToSignIn) {
+                    setMessage("Email verified successfully! Redirecting to sign-in page...");
+                    // Auto redirect to sign-in after 2 seconds
+                    setTimeout(() => {
+                        navigate("/signin", { 
+                            replace: true,
+                            state: { message: "Email verified successfully! Please sign in to continue." }
+                        });
+                    }, 2000);
+                } else {
+                    // Legacy behavior for backward compatibility
+                    setMessage("Email verified successfully! Redirecting to dashboard...");
+                    // Auto redirect after 2 seconds
+                    setTimeout(() => {
+                        navigate(result.dashboardPath || "/", { replace: true });
+                    }, 2000);
+                }
             } else {
                 setError(result.error || "Verification failed. Please check your OTP and try again.");
             }
@@ -129,7 +141,7 @@ const EmailVerification = () => {
                                 value={otp}
                                 onChange={(e) => setOtp(e.target.value)}
                                 maxLength={6}
-                                className="w-full text-center text-xl tracking-widest"
+                                className="w-full text-xl tracking-widest text-center"
                                 required
                             />
                             <p className="text-xs text-gray-500">
@@ -170,8 +182,8 @@ const EmailVerification = () => {
                             </p>
                         </div>
 
-                        <div className="border-t pt-4 mt-6">
-                            <p className="text-sm text-gray-500 text-center">
+                        <div className="pt-4 mt-6 border-t">
+                            <p className="text-sm text-center text-gray-500">
                                 <Link to="/signin" className="text-yumrun-orange hover:underline">
                                     Return to Sign In
                                 </Link>

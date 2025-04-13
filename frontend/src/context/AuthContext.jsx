@@ -173,7 +173,16 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: errorMessage };
       }
       
-      // Successful verification
+      // Check if we should redirect to sign-in
+      if (response.data.redirectToSignIn) {
+        setIsLoading(false);
+        return { 
+          success: true, 
+          redirectToSignIn: true
+        };
+      }
+      
+      // Legacy response handling for backward compatibility
       if (response.data.success && response.data.data) {
         const { token, user } = response.data.data;
         const normalizedUser = normalizeUserData(user);
@@ -208,11 +217,9 @@ export const AuthProvider = ({ children }) => {
           dashboardPath
         };
       } else {
-        // Handle unexpected success response format
-        const errMsg = response.data.error?.message || 'Email verification failed: Unexpected response format';
-        setError(errMsg);
+        // Just success with no data, basic success
         setIsLoading(false);
-        return { success: false, error: errMsg };
+        return { success: true };
       }
     } catch (error) {
       console.error('Email verification error:', error);

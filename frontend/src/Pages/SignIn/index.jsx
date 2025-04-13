@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MyContext } from "../../App";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
-import { Button, Input, Label, Checkbox, Alert, Card, Container } from "../../components/ui";
+import { Button, Input, Label, Checkbox, Alert, Container } from "../../components/ui";
 
 const SignIn = () => {
     const context = useContext(MyContext);
@@ -119,35 +119,11 @@ const SignIn = () => {
         }
     };
 
-    // Fill in test credentials based on selected user type
-    const fillTestCredentials = (userType) => {
-        switch(userType) {
-            case 'admin':
-                setEmail('admin@yumrun.com');
-                setPassword('Secret@123');
-                break;
-            case 'restaurant':
-                setEmail('owner@yumrun.com');
-                setPassword('Secret@123');
-                break;
-            case 'user':
-                setEmail('user@yumrun.com');
-                setPassword('Secret@123');
-                break;
-            case 'delivery':
-                setEmail('delivery@yumrun.com');
-                setPassword('Secret@123');
-                break;
-            default:
-                break;
-        }
-    };
-
     return (
         <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-white to-[#ffe9e2] p-5">
             <Container className="max-w-5xl">
-                <div className="grid grid-cols-1 gap-8 overflow-hidden bg-white rounded-lg shadow-xl md:grid-cols-2">
-                    {/* Left side - Sign In Form */}
+                <div className="grid grid-cols-1 gap-8 overflow-hidden bg-white rounded-lg shadow-xl md:grid-cols-1">
+                    {/* Sign In Form */}
                     <div className="flex flex-col justify-center p-8">
                         <div className="flex justify-center mb-6">
                             <Link to="/">
@@ -258,86 +234,6 @@ const SignIn = () => {
                                 </p>
                             </div>
                         </form>
-                        
-                        {/* Demo Accounts Section */}
-                        <div className="p-4 mt-6 rounded-md bg-gray-50">
-                            <h3 className="mb-2 text-sm font-medium text-gray-700">Demo Accounts</h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => fillTestCredentials('user')}
-                                    className="text-xs"
-                                >
-                                    Customer
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => fillTestCredentials('restaurant')}
-                                    className="text-xs"
-                                >
-                                    Restaurant
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => fillTestCredentials('delivery')}
-                                    className="text-xs"
-                                >
-                                    Delivery
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => fillTestCredentials('admin')}
-                                    className="text-xs"
-                                >
-                                    Admin
-                                </Button>
-                            </div>
-                            <p className="mt-2 text-xs text-gray-500">
-                                Click any button to fill credentials (password: Secret@123)
-                            </p>
-                        </div>
-                    </div>
-                    
-                    {/* Right side - User Role Information */}
-                    <div className="flex-col justify-center hidden p-8 md:flex bg-gradient-to-br from-orange-50 to-orange-100">
-                        <h2 className="mb-4 text-xl font-bold text-gray-800">Test Accounts</h2>
-                        <p className="mb-6 text-gray-600">
-                            YumRun supports multiple user roles. Choose an account type to test:
-                        </p>
-                        
-                        <div className="space-y-4">
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('admin')}>
-                                <h3 className="font-medium text-gray-800">Admin</h3>
-                                <p className="text-sm text-gray-600">Manage users, restaurants, and system settings</p>
-                                <div className="mt-1 text-xs text-gray-500">Email: admin@yumrun.com</div>
-                            </Card>
-                            
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('restaurant')}>
-                                <h3 className="font-medium text-gray-800">Restaurant Owner</h3>
-                                <p className="text-sm text-gray-600">Manage your restaurant menu and orders</p>
-                                <div className="mt-1 text-xs text-gray-500">Email: owner@yumrun.com</div>
-                            </Card>
-                            
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('user')}>
-                                <h3 className="font-medium text-gray-800">Customer</h3>
-                                <p className="text-sm text-gray-600">Order food from restaurants</p>
-                                <div className="mt-1 text-xs text-gray-500">Email: user@yumrun.com</div>
-                            </Card>
-                            
-                            <Card className="p-4 transition cursor-pointer hover:bg-orange-50" onClick={() => fillTestCredentials('delivery')}>
-                                <h3 className="font-medium text-gray-800">Delivery Staff</h3>
-                                <p className="text-sm text-gray-600">Manage and deliver orders</p>
-                                <div className="mt-1 text-xs text-gray-500">Email: delivery@yumrun.com</div>
-                            </Card>
-                        </div>
-                        
-                        <div className="mt-4 text-xs text-gray-500">
-                            <p>Password for all test accounts: Secret@123</p>
-                        </div>
                     </div>
                 </div>
             </Container>
