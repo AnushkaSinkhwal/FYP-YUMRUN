@@ -19,11 +19,11 @@ import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 const ProductItem = ({ 
     itemView = "four", 
     id = "1", 
-    discount = "20", 
+    discount = "", 
     name = "Fire And Ice Pizzeria", 
-    location = "Bhaktapur", 
-    rating = 4.5, 
-    oldPrice = "650", 
+    location = "", 
+    rating = 0, 
+    oldPrice = "", 
     newPrice = "520", 
     imgSrc = "https://fmdadmin.foodmandu.com//Images/Vendor/269/Logo/web_240423103631_200624060757.listing-fire-and-ice.png",
     isRestaurant = false,
@@ -67,9 +67,9 @@ const ProductItem = ({
             setCartButtonClass('');
         }, 800);
 
-        // Extract restaurant ID from product ID
+        // Ensure we have proper restaurant info
         let restaurantId = '';
-        let restaurantName = '';
+        let restaurantName = typeof location === 'string' ? location : '';
         
         // First try to get restaurant ID from product ID
         if (id) {
@@ -82,12 +82,17 @@ const ProductItem = ({
         // If no restaurant ID from product ID, try location object
         if (!restaurantId && typeof location === 'object' && location !== null) {
             restaurantId = location._id || location.id || '';
-            restaurantName = location.name || '';
+            restaurantName = location.name || restaurantName;
         }
 
         // If still no restaurant ID, use a fallback from the product ID
         if (!restaurantId && id) {
             restaurantId = id.split('_')[0]; // Try underscore separator as fallback
+        }
+
+        // If no restaurant name found yet, use a default
+        if (!restaurantName) {
+            restaurantName = 'Restaurant';
         }
 
         // Add the item to cart using the CartContext
@@ -100,7 +105,7 @@ const ProductItem = ({
             restaurantId,
             restaurant: {
                 id: restaurantId,
-                name: restaurantName || location || 'Restaurant',
+                name: restaurantName,
                 _id: restaurantId // Add this as some parts of the code check for _id
             }
         }, 1);
@@ -130,6 +135,11 @@ const ProductItem = ({
 
     // Function to render the star rating
     const renderRating = (value) => {
+        // Don't display ratings if they're not provided or zero
+        if (!value || value <= 0) {
+            return null;
+        }
+        
         const fullStars = Math.floor(value);
         const hasHalfStar = value % 1 >= 0.5;
         
@@ -153,7 +163,7 @@ const ProductItem = ({
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                 ))}
-                <span className="ml-1 text-sm font-medium text-gray-600" aria-label={`${rating} out of 5 stars`}>{rating}</span>
+                <span className="ml-1 text-sm font-medium text-gray-600" aria-label={`${value} out of 5 stars`}>{value}</span>
             </div>
         );
     };

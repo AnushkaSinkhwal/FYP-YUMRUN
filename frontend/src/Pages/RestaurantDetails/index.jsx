@@ -52,32 +52,42 @@ const RestaurantDetails = () => {
       setMenuError(null);
       
       try {
+        console.log(`Fetching menu items for restaurant: ${id}`);
         const response = await axios.get(`/api/menu?restaurantId=${id}`);
         console.log('Menu API response:', response.data);
         
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform API data to match frontend format
-          const formattedMenuItems = response.data.data.map(item => ({
-            id: item._id || item.id,
-            name: item.name,
-            description: item.description || 'No description available',
-            price: item.price || 0,
-            category: item.category || 'Uncategorized',
-            image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-            isVegetarian: item.isVegetarian || false,
-            isVegan: item.isVegan || false,
-            isGlutenFree: item.isGlutenFree || false,
-            isPopular: item.isPopular || false,
-            rating: item.rating || 0,
-            totalReviews: item.totalReviews || 0,
-            calories: item.nutritionInfo?.calories || null,
-            allergens: item.allergens || []
-          }));
+          const formattedMenuItems = response.data.data.map(item => {
+            console.log(`Processing menu item: ${item.name}, Restaurant:`, item.restaurant);
+            
+            return {
+              id: item._id || item.id,
+              name: item.name,
+              description: item.description || 'No description available',
+              price: item.price || 0,
+              category: item.category || 'Uncategorized',
+              image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
+              isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+              isVegetarian: item.isVegetarian || false,
+              isVegan: item.isVegan || false,
+              isGlutenFree: item.isGlutenFree || false,
+              isPopular: item.isPopular || false,
+              rating: item.averageRating > 0 ? item.averageRating : 0,
+              totalReviews: item.numberOfRatings || 0,
+              calories: item.nutritionInfo?.calories || null,
+              allergens: item.allergens || [],
+              restaurant: {
+                id: restaurant.id || restaurant._id,
+                name: restaurant.name
+              }
+            };
+          });
           
           console.log('Formatted menu items:', formattedMenuItems);
           setMenuItems(formattedMenuItems);
         } else {
+          console.error('Failed to load menu items:', response.data.message);
           setMenuError(response.data.message || 'Failed to load menu items');
           setMenuItems([]);
         }
@@ -287,10 +297,16 @@ const RestaurantDetails = () => {
                         
                         <div className="flex items-center mb-3">
                           <div className="flex items-center">
-                            <FaStar className="mr-1 text-yellow-500" />
-                            <span className="text-sm font-medium">{item.rating}</span>
+                            {item.rating > 0 ? (
+                              <>
+                                <FaStar className="mr-1 text-yellow-500" />
+                                <span className="text-sm font-medium">{item.rating}</span>
+                                <span className="ml-1 text-sm text-gray-500">({item.totalReviews || 0} reviews)</span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">No ratings yet</span>
+                            )}
                           </div>
-                          <span className="ml-1 text-sm text-gray-500">({item.totalReviews} reviews)</span>
                         </div>
                         
                         <Button 
