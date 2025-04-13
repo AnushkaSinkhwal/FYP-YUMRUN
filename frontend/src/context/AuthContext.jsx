@@ -164,6 +164,7 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const response = await authAPI.verifyEmail(verificationData);
+      console.log('Email verification response:', response.data);
       
       // Check if response indicates error
       if (!response.data.success) {
@@ -173,8 +174,9 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: errorMessage };
       }
       
-      // Check if we should redirect to sign-in
+      // Check if we should redirect to sign-in (as flagged by backend)
       if (response.data.redirectToSignIn) {
+        console.log('Backend requested redirect to sign-in');
         setIsLoading(false);
         return { 
           success: true, 
@@ -183,7 +185,8 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Legacy response handling for backward compatibility
-      if (response.data.success && response.data.data) {
+      if (response.data.data) {
+        console.log('Deprecated: Auto-login after verification detected');
         const { token, user } = response.data.data;
         const normalizedUser = normalizeUserData(user);
         
@@ -217,9 +220,13 @@ export const AuthProvider = ({ children }) => {
           dashboardPath
         };
       } else {
-        // Just success with no data, basic success
+        // Simple success response, redirect to sign-in by default for safety
+        console.log('Simple success response, redirecting to sign-in by default');
         setIsLoading(false);
-        return { success: true };
+        return { 
+          success: true,
+          redirectToSignIn: true 
+        };
       }
     } catch (error) {
       console.error('Email verification error:', error);

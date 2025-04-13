@@ -4,10 +4,10 @@ const User = require('../models/user'); // Import the User model
 const router = express.Router();
 const { body, validationResult } = require('express-validator'); // For validation
 const jwt = require('jsonwebtoken');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, emailVerificationCheck } = require('../middleware/authMiddleware');
 const Notification = require('../models/notification');
 const RestaurantApproval = require('../models/restaurantApproval');
-const { auth } = require('../middleware/auth');
+const { auth, emailVerified } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const userController = require('../controllers/userController');
 
@@ -171,28 +171,28 @@ router.post('/login', async (req, res) => {
  * @desc    Get the current user's profile
  * @access  Private
  */
-router.get('/profile', protect, userController.getUserProfile);
+router.get('/profile', protect, emailVerificationCheck, userController.getUserProfile);
 
 /**
  * @route   PUT /api/user/profile
  * @desc    Update the current user's profile
  * @access  Private
  */
-router.put('/profile', protect, userController.updateUserProfile);
+router.put('/profile', protect, emailVerificationCheck, userController.updateUserProfile);
 
 /**
  * @route   PUT /api/user/health-profile
  * @desc    Update the current user's health profile
  * @access  Private
  */
-router.put('/health-profile', protect, userController.updateHealthProfile);
+router.put('/health-profile', protect, emailVerificationCheck, userController.updateHealthProfile);
 
 /**
  * @route   GET /api/user/order-history
  * @desc    Get the user's order history with nutritional information
  * @access  Private
  */
-router.get('/order-history', protect, userController.getOrderHistory);
+router.get('/order-history', protect, emailVerificationCheck, userController.getOrderHistory);
 
 /**
  * @route   GET /api/user/loyalty

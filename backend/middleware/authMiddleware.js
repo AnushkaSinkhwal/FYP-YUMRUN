@@ -156,4 +156,48 @@ exports.deliveryStaff = (req, res, next) => {
       }
     });
   }
+};
+
+/**
+ * Middleware to verify email status
+ * Restricts access to routes for users who haven't verified their email
+ */
+exports.emailVerificationCheck = async (req, res, next) => {
+  try {
+    // Ensure user is authenticated first
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Authentication required',
+          code: 'AUTH_ERROR'
+        }
+      });
+    }
+    
+    // Check if email is verified
+    if (!req.user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          message: 'Email verification required',
+          code: 'EMAIL_NOT_VERIFIED',
+          requiresOTP: true,
+          email: req.user.email
+        }
+      });
+    }
+    
+    // Email is verified, proceed
+    next();
+  } catch (error) {
+    console.error('[Email Verification Middleware] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Server error while checking email verification',
+        code: 'SERVER_ERROR'
+      }
+    });
+  }
 }; 

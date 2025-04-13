@@ -322,11 +322,12 @@ exports.verifyEmail = async (req, res) => {
         user.emailVerificationOTPExpires = null;
         await user.save();
         
-        // Return success with redirect to sign in instead of token
+        // Simple success response - always redirect to sign-in
         return res.status(200).json({
             success: true,
             message: 'Email verified successfully',
-            redirectToSignIn: true
+            redirectToSignIn: true,
+            // No token, no user data to prevent auto-login
         });
     } catch (error) {
         console.error('Email verification error:', error);

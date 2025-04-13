@@ -127,9 +127,57 @@ const isDeliveryRider = (req, res, next) => {
   next();
 };
 
+/**
+ * Email verification check middleware
+ * Ensures the user's email is verified before allowing access to protected routes
+ */
+const emailVerified = async (req, res, next) => {
+  try {
+    // Ensure we have a user in the request
+    if (!req.user || !req.user.userId) {
+      console.log('[Email Verification Middleware] No user in request');
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+    
+    // Find the user in the database to check verification status
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      console.log('[Email Verification Middleware] User not found in database:', req.user.userId);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Check verification status
+    if (!user.isEmailVerified) {
+      console.log('[Email Verification Middleware] Email not verified for user:', req.user.userId);
+      return res.status(403).json({
+        success: false,
+        message: 'Email verification required. Please verify your email before accessing this resource.',
+        requiresVerification: true
+      });
+    }
+    
+    console.log('[Email Verification Middleware] Email verified for user:', req.user.userId);
+    next();
+  } catch (error) {
+    console.error('[Email Verification Middleware] Error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while checking email verification'
+    });
+  }
+};
+
 module.exports = {
   auth,
   isAdmin,
   isRestaurantOwner,
-  isDeliveryRider
+  isDeliveryRider,
+  emailVerified
 }; 
