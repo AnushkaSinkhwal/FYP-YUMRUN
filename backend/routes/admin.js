@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Notification = require('../models/notification');
-const { auth, isAdmin } = require('../middleware/auth');
+const { auth, isAdmin, emailVerified } = require('../middleware/auth');
 const RestaurantApproval = require('../models/restaurantApproval');
 const { Restaurant } = require('../models/restaurant');
 

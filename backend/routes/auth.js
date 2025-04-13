@@ -3,7 +3,7 @@ const router = express.Router();
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { auth } = require('../middleware/auth');
+const { auth, emailVerified } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendEmail, emailTemplates, sendVerificationOTP } = require('../utils/emailService');
 const { generateOTP, isOTPExpired, generateOTPExpiry } = require('../utils/otpUtils');
@@ -14,7 +14,8 @@ router.post('/verify-email', authController.verifyEmail);
 router.post('/resend-otp', authController.resendOTP);
 router.post('/login', authController.login);
 router.post('/register', authController.register);
-router.get('/me', auth, authController.getCurrentUser);
+// Require both auth and email verification for protected routes
+router.get('/me', auth, emailVerified, authController.getCurrentUser);
 
 /**
  * @route   GET /api/auth/me

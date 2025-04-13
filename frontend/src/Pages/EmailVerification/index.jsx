@@ -47,26 +47,26 @@ const EmailVerification = () => {
         }
 
         try {
+            console.log("Submitting OTP verification for email:", email);
             const result = await verifyEmail({ email, otp });
+            console.log("OTP verification result:", result);
             
             if (result.success) {
-                if (result.redirectToSignIn) {
-                    setMessage("Email verified successfully! Redirecting to sign-in page...");
-                    // Auto redirect to sign-in after 2 seconds
-                    setTimeout(() => {
-                        navigate("/signin", { 
-                            replace: true,
-                            state: { message: "Email verified successfully! Please sign in to continue." }
-                        });
-                    }, 2000);
-                } else {
-                    // Legacy behavior for backward compatibility
-                    setMessage("Email verified successfully! Redirecting to dashboard...");
-                    // Auto redirect after 2 seconds
-                    setTimeout(() => {
-                        navigate(result.dashboardPath || "/", { replace: true });
-                    }, 2000);
-                }
+                // Always redirect to sign-in after successful verification
+                setMessage("Email verified successfully! Redirecting to sign-in page...");
+                console.log("Verification successful, redirecting to sign-in in 2 seconds");
+                
+                // Auto redirect to sign-in after 2 seconds
+                setTimeout(() => {
+                    // Clear any existing auth data to prevent auto-login
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('userData');
+                    
+                    navigate("/signin", { 
+                        replace: true,
+                        state: { message: "Email verified successfully! Please sign in to continue." }
+                    });
+                }, 2000);
             } else {
                 setError(result.error || "Verification failed. Please check your OTP and try again.");
             }
