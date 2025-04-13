@@ -14,6 +14,20 @@ const Users = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [success, setSuccess] = useState(null);
+  
+  // Add User Modal States
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phone: '',
+    role: 'customer',
+    isActive: true
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  
   const itemsPerPage = 10;
 
   // Fetch users from API
@@ -129,6 +143,96 @@ const Users = () => {
     }
   };
 
+  // Handle showing the add user modal
+  const openAddUserModal = () => {
+    setNewUser({
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      phone: '',
+      role: 'customer',
+      isActive: true
+    });
+    setShowAddUserModal(true);
+  };
+
+  // Handle input changes for new user form
+  const handleNewUserChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewUser({
+      ...newUser,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  // Handle user creation
+  const handleCreateUser = async () => {
+    try {
+      setIsCreating(true);
+      setError(null);
+      
+      // Basic validation
+      const requiredFields = ['firstName', 'lastName', 'email', 'password', 'phone'];
+      const missingFields = requiredFields.filter(field => !newUser[field]);
+      
+      if (missingFields.length > 0) {
+        setError(`Please provide ${missingFields.join(', ')}`);
+        setIsCreating(false);
+        return;
+      }
+      
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newUser.email)) {
+        setError('Please enter a valid email address');
+        setIsCreating(false);
+        return;
+      }
+      
+      // Phone validation
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(newUser.phone)) {
+        setError('Phone must be exactly 10 digits');
+        setIsCreating(false);
+        return;
+      }
+      
+      const response = await adminAPI.createUser(newUser);
+      
+      if (response.data && response.data.success) {
+        // Add the new user to the state
+        const createdUser = response.data.user;
+        setUsers([...users, {
+          _id: createdUser.id,
+          firstName: createdUser.firstName,
+          lastName: createdUser.lastName,
+          fullName: createdUser.fullName,
+          email: createdUser.email,
+          phone: createdUser.phone,
+          role: createdUser.role,
+          isActive: createdUser.isActive,
+          createdAt: new Date().toISOString()
+        }]);
+        
+        setSuccess('User created successfully');
+        setShowAddUserModal(false);
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to create user');
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      setError("Failed to create user: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
       {/* Page header */}
@@ -190,7 +294,7 @@ const Users = () => {
         </div>
 
         {/* Add user button */}
-        <Button className="flex items-center">
+        <Button className="flex items-center" onClick={openAddUserModal}>
           <FaUserPlus className="mr-2" />
           Add New User
         </Button>
@@ -292,32 +396,170 @@ const Users = () => {
         )}
       </Card>
 
-      {/* Delete confirmation modal */}
-      {showDeleteModal && (
+      {/* Add User Modal */}
+      {showAddUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <Card className="max-w-md p-6 mx-auto dark:bg-gray-800">
-            <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Confirm Delete</h3>
-            <p className="mb-6 text-gray-600 dark:text-gray-300">
-              Are you sure you want to delete the user {userToDelete?.name || userToDelete?.username}? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Add New User</h2>
+            
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                {error}
+              </Alert>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  First Name*
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={newUser.firstName}
+                  onChange={handleNewUserChange}
+                  className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Last Name*
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={newUser.lastName}
+                  onChange={handleNewUserChange}
+                  className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email*
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={newUser.email}
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password*
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={newUser.password}
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Phone* (10 digits)
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={newUser.phone}
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                required
+                maxLength="10"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Role
+              </label>
+              <select
+                name="role"
+                value={newUser.role}
+                onChange={handleNewUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="customer">Customer</option>
+                <option value="admin">Admin</option>
+                <option value="delivery_rider">Delivery Rider</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Note: To create a restaurant account, use the Restaurant Management page
+              </p>
+            </div>
+            
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={newUser.isActive}
+                onChange={handleNewUserChange}
+                className="w-4 h-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Active Account
+              </label>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
               <Button 
                 variant="outline" 
+                onClick={() => setShowAddUserModal(false)}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateUser}
+                disabled={isCreating}
+              >
+                {isCreating ? <Spinner size="sm" className="mr-2" /> : null}
+                Create User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete User Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
+              Delete User
+            </h3>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete the user {userToDelete?.name || userToDelete?.email}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isDeleting}
               >
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={handleDeleteUser}
                 disabled={isDeleting}
               >
-                {isDeleting ? <Spinner size="sm" className="mr-2" /> : <FaTrashAlt className="mr-2" />}
+                {isDeleting ? <Spinner size="sm" className="mr-2" /> : null}
                 Delete
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>

@@ -36,6 +36,20 @@ const auth = (req, res, next) => {
         console.log('[Auth Middleware] Set userId from id:', req.user.userId);
       }
       
+      // Ensure role is set correctly
+      if (!req.user.role) {
+        if (req.user.isAdmin) {
+          req.user.role = 'admin';
+        } else if (req.user.isRestaurantOwner) {
+          req.user.role = 'restaurant';
+        } else if (req.user.isDeliveryStaff) {
+          req.user.role = 'delivery_rider';
+        } else {
+          req.user.role = 'customer';
+        }
+        console.log('[Auth Middleware] Set role from legacy properties:', req.user.role);
+      }
+      
       next();
     } catch (jwtError) {
       console.log('[Auth Middleware] Token verification failed:', jwtError.message);

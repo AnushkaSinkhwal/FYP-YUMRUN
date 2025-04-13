@@ -353,12 +353,44 @@ router.get('/pending-changes', auth, async (req, res) => {
  * @desc    Get unread notification count for a restaurant
  * @access  Private/RestaurantOwner
  */
-router.get('/notifications/unread-count', auth, isRestaurantOwner, async (req, res) => {
+router.get('/notifications/unread-count', auth, async (req, res) => {
     try {
+        console.log('[Notifications] Getting unread count, req.user:', JSON.stringify(req.user));
+        
+        // Determine role and check if user is a restaurant owner
+        const role = req.user.role || 'unknown';
+        const isRestaurantByRole = role === 'restaurant';
+        const isRestaurantByFlag = !!req.user.isRestaurantOwner;
+        
+        console.log(`[Notifications] User role: ${role}, isRestaurantByRole: ${isRestaurantByRole}, isRestaurantByFlag: ${isRestaurantByFlag}`);
+        
+        if (!isRestaurantByRole && !isRestaurantByFlag) {
+            console.log('[Notifications] Access denied - User is not a restaurant owner');
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Restaurant owner permissions required.'
+            });
+        }
+        
+        // Get user ID
+        const userId = req.user.userId || req.user.id || req.user._id;
+        
+        if (!userId) {
+            console.log('[Notifications] No valid user ID found');
+            return res.status(400).json({
+                success: false,
+                message: 'User ID not found. Please contact support.'
+            });
+        }
+        
+        console.log('[Notifications] Looking for notifications for user ID:', userId);
+        
         const count = await Notification.countDocuments({ 
-            userId: req.user.userId,
+            userId: userId,
             isRead: false
         });
+        
+        console.log('[Notifications] Found unread count:', count);
         
         return res.status(200).json({
             success: true,
@@ -378,11 +410,43 @@ router.get('/notifications/unread-count', auth, isRestaurantOwner, async (req, r
  * @desc    Get notifications for a restaurant
  * @access  Private/RestaurantOwner
  */
-router.get('/notifications', auth, isRestaurantOwner, async (req, res) => {
+router.get('/notifications', auth, async (req, res) => {
     try {
+        console.log('[Notifications] Getting notifications list, req.user:', JSON.stringify(req.user));
+        
+        // Determine role and check if user is a restaurant owner
+        const role = req.user.role || 'unknown';
+        const isRestaurantByRole = role === 'restaurant';
+        const isRestaurantByFlag = !!req.user.isRestaurantOwner;
+        
+        console.log(`[Notifications] User role: ${role}, isRestaurantByRole: ${isRestaurantByRole}, isRestaurantByFlag: ${isRestaurantByFlag}`);
+        
+        if (!isRestaurantByRole && !isRestaurantByFlag) {
+            console.log('[Notifications] Access denied - User is not a restaurant owner');
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Restaurant owner permissions required.'
+            });
+        }
+        
+        // Get user ID
+        const userId = req.user.userId || req.user.id || req.user._id;
+        
+        if (!userId) {
+            console.log('[Notifications] No valid user ID found');
+            return res.status(400).json({
+                success: false,
+                message: 'User ID not found. Please contact support.'
+            });
+        }
+        
+        console.log('[Notifications] Looking for notifications for user ID:', userId);
+        
         const notifications = await Notification.find({ 
-            userId: req.user.userId 
+            userId: userId 
         }).sort({ createdAt: -1 });
+        
+        console.log('[Notifications] Found notifications:', notifications ? notifications.length : 'none');
         
         return res.status(200).json({
             success: true,

@@ -217,18 +217,49 @@ router.get('/restaurant/:id', async (req, res) => {
 });
 
 // GET menu items for the current restaurant owner (authenticated)
-router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
+router.get('/restaurant', auth, async (req, res) => {
     try {
         console.log('Retrieving menu items for restaurant owner. req.user:', JSON.stringify(req.user));
         
-        if (!req.user || !req.user.restaurantId) {
+        // Determine role and check if user is a restaurant owner
+        const role = req.user.role || 'unknown';
+        const isRestaurantByRole = role === 'restaurant';
+        const isRestaurantByFlag = !!req.user.isRestaurantOwner;
+        
+        console.log(`User role: ${role}, isRestaurantByRole: ${isRestaurantByRole}, isRestaurantByFlag: ${isRestaurantByFlag}`);
+        
+        if (!isRestaurantByRole && !isRestaurantByFlag) {
+            console.log('Access denied - User is not a restaurant owner');
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Restaurant owner permissions required.'
+            });
+        }
+        
+        // Find some ID value to use as restaurantId
+        let restaurantId = null;
+        
+        // Try different possible sources in order of preference
+        if (req.user.userId) {
+            restaurantId = req.user.userId;
+            console.log('Using userId for restaurantId:', restaurantId);
+        } else if (req.user.id) {
+            restaurantId = req.user.id;
+            console.log('Using id for restaurantId:', restaurantId);
+        } else if (req.user._id) {
+            restaurantId = req.user._id;
+            console.log('Using _id for restaurantId:', restaurantId);
+        }
+        
+        if (!restaurantId) {
+            console.log('Error: No valid ID found in token payload', req.user);
             return res.status(400).json({
                 success: false,
                 message: 'Restaurant ID not found. Please contact support.'
             });
         }
         
-        console.log('Looking for items with restaurant ID:', req.user.restaurantId);
+        console.log('Looking for items with restaurant ID:', restaurantId);
         
         if (!MenuItem) {
             console.error('MenuItem model is undefined');
@@ -248,7 +279,7 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
             });
         }
         
-        const menuItems = await MenuItem.find({ restaurant: req.user.restaurantId });
+        const menuItems = await MenuItem.find({ restaurant: restaurantId });
         console.log('Found menu items:', menuItems ? menuItems.length : 'none');
         
         // Format the response

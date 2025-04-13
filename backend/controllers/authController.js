@@ -13,7 +13,8 @@ const generateToken = (user) => {
             email: user.email,
             isAdmin: user.isAdmin,
             isRestaurantOwner: user.isRestaurantOwner,
-            isDeliveryStaff: user.isDeliveryStaff
+            isDeliveryStaff: user.isDeliveryStaff,
+            role: user.role || (user.isAdmin ? 'admin' : user.isRestaurantOwner ? 'restaurant' : user.isDeliveryStaff ? 'delivery_rider' : 'customer')
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRY || '7d' }
@@ -91,8 +92,32 @@ exports.login = async (req, res) => {
             });
         }
         
+        // Determine role based on user properties
+        let role = user.role || 'customer';
+        
+        // Override with legacy properties if needed
+        if (!role || role === 'customer') {
+            if (user.isAdmin) {
+                role = 'admin';
+            } else if (user.isRestaurantOwner || (user.restaurantDetails && Object.keys(user.restaurantDetails).length > 0)) {
+                role = 'restaurant';
+            } else if (user.isDeliveryStaff) {
+                role = 'delivery_rider';
+            }
+        }
+        
+        // Update user's role if it's not set
+        if (!user.role && role !== 'customer') {
+            user.role = role;
+            await user.save();
+            console.log(`Updated user ${user._id} with role: ${role}`);
+        }
+        
         // Generate JWT token
-        const token = generateToken(user);
+        const token = generateToken({
+            ...user.toObject(),
+            role // Ensure the role is explicitly passed to token generator
+        });
         
         // Return response with user details and token
         return res.status(200).json({ 
@@ -106,7 +131,7 @@ exports.login = async (req, res) => {
                     isAdmin: user.isAdmin,
                     isRestaurantOwner: user.isRestaurantOwner,
                     isDeliveryStaff: user.isDeliveryStaff,
-                    role: user.role
+                    role
                 },
                 token
             }

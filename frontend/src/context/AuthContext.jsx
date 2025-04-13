@@ -10,44 +10,48 @@ const normalizeUserData = (userData) => {
   if (!userData) return null;
   
   console.log('Normalizing user data:', userData);
+
+  // Create a copy to avoid mutating the original
+  const normalizedUser = { ...userData };
   
-  // First check for restaurant details to determine if user is a restaurant owner
-  // This takes priority over explicit role to ensure restaurant owners are correctly identified
-  if (userData.restaurantDetails && Object.keys(userData.restaurantDetails).length > 0) {
-    console.log('User has restaurant details, setting role to restaurant');
-    return { ...userData, role: 'restaurant' };
+  // Explicitly determine the role with multiple fallbacks
+  // First check if a role is already defined
+  if (normalizedUser.role) {
+    console.log('User has explicit role:', normalizedUser.role);
+  } 
+  // Then check for restaurant details
+  else if (normalizedUser.restaurantDetails && Object.keys(normalizedUser.restaurantDetails).length > 0) {
+    normalizedUser.role = 'restaurant';
+    console.log('Setting role to restaurant based on restaurantDetails');
   }
-  
-  // If role is already defined, use it
-  if (userData.role) {
-    console.log('User has explicit role:', userData.role);
-    // Convert 'restaurant' to 'restaurant' for consistency
-    if (userData.role === 'restaurant') {
-      return { ...userData, role: 'restaurant' };
+  // Finally, fall back to legacy role flags
+  else {
+    if (normalizedUser.isAdmin) {
+      normalizedUser.role = 'admin';
+      console.log('Setting role to admin based on isAdmin flag');
+    } else if (normalizedUser.isRestaurantOwner) {
+      normalizedUser.role = 'restaurant';
+      console.log('Setting role to restaurant based on isRestaurantOwner flag');
+    } else if (normalizedUser.isDeliveryStaff || normalizedUser.isDeliveryRider) {
+      normalizedUser.role = 'delivery_rider';
+      console.log('Setting role to delivery_rider based on isDeliveryStaff/isDeliveryRider flag');
+    } else {
+      normalizedUser.role = 'customer';
+      console.log('Setting role to customer (default)');
     }
-    return userData;
   }
   
-  // Otherwise, determine role from legacy isRole properties
-  let role = 'customer'; // default role
-  
-  if (userData.isAdmin) {
-    role = 'admin';
-    console.log('User is admin based on isAdmin flag');
-  } else if (userData.isRestaurantOwner) {
-    role = 'restaurant';
-    console.log('User is restaurant owner based on isRestaurantOwner flag');
-  } else if (userData.isDeliveryStaff || userData.isDeliveryRider) {
-    role = 'delivery_rider';
-    console.log('User is delivery rider based on isDeliveryStaff/isDeliveryRider flag');
-  } else {
-    console.log('User has no special role flags, defaulting to customer');
+  // Always set these flags for backward compatibility
+  if (normalizedUser.role === 'admin' && !normalizedUser.isAdmin) {
+    normalizedUser.isAdmin = true;
+  } else if (normalizedUser.role === 'restaurant' && !normalizedUser.isRestaurantOwner) {
+    normalizedUser.isRestaurantOwner = true;
+  } else if (normalizedUser.role === 'delivery_rider' && !normalizedUser.isDeliveryStaff) {
+    normalizedUser.isDeliveryStaff = true;
   }
   
-  console.log('Final normalized role:', role);
-  
-  // Return a new object with the role property added
-  return { ...userData, role };
+  console.log('Normalized user data:', normalizedUser);
+  return normalizedUser;
 };
 
 // Auth provider component

@@ -8,37 +8,95 @@ const api = axios.create({
   },
 });
 
-// Add a request interceptor to add auth token to requests
+// Add request interceptor for JWT token
 api.interceptors.request.use(
   (config) => {
-    // Check for token in localStorage
+    // Get token from localStorage
     const token = localStorage.getItem('authToken');
+    
+    console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
+    
+    // If token exists, add to headers
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('Auth token added to request headers');
+      
+      // For debugging, log a truncated version of the token
+      const truncatedToken = token.substring(0, 15) + '...';
+      console.log(`Token: ${truncatedToken}`);
+      
+      try {
+        // Parse the token payload (without verification)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('Token payload:', payload);
+      } catch (err) {
+        console.error('Error parsing token payload:', err);
+      }
+    } else {
+      console.log('No auth token found');
     }
+    
     return config;
   },
   (error) => {
+    console.error('API request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add a response interceptor to handle common errors
+// Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
+    console.log(`API Response: ${response.status} ${response.config.method.toUpperCase()} ${response.config.url}`);
     return response;
   },
-  (error) => {
-    console.log('API Error:', error);
+  async (error) => {
+    console.error('API Error:', error);
     
-    // Handle unauthorized errors (token expired, etc.)
-    if (error.response && error.response.status === 401) {
-      // Clear auth data
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+    if (error.response) {
+      const { status, data, config } = error.response;
       
-      // Redirect to login page
-      window.location.href = '/signin';
+      // Handle 401 (Unauthorized) - Token expired or invalid
+      if (status === 401) {
+        console.log('Unauthorized request - clearing auth state');
+        // Clear auth data
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        
+        // Redirect to login if not already there
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login?session=expired';
+        }
+      }
+      
+      // Handle 403 (Forbidden) - Permission issues
+      if (status === 403) {
+        console.log('Forbidden request - permissions issue:', config.url);
+        console.log('Response data:', data);
+        
+        // Check user data
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            console.log('Current user data in localStorage:', user);
+            
+            // Check if we need to fix user role
+            if (config.url.includes('/restaurant/') && user.role !== 'restaurant') {
+              console.log('Detected restaurant endpoint with non-restaurant role. Fixing user data.');
+              user.role = 'restaurant';
+              user.isRestaurantOwner = true;
+              localStorage.setItem('userData', JSON.stringify(user));
+              
+              // Reload page to apply changes
+              window.location.reload();
+              return Promise.reject(error);
+            }
+          } catch (parseError) {
+            console.error('Error parsing user data:', parseError);
+          }
+        }
+      }
     }
     
     return Promise.reject(error);
@@ -189,6 +247,11 @@ export const adminAPI = {
     return api.get(`/admin/users/${userId}`);
   },
   
+  // Create a new user (admin only)
+  createUser: async (userData) => {
+    return api.post('/admin/users', userData);
+  },
+  
   // Update user (admin only)
   updateUser: async (userId, userData) => {
     return api.put(`/admin/users/${userId}`, userData);
@@ -197,6 +260,16 @@ export const adminAPI = {
   // Delete user (admin only)
   deleteUser: async (userId) => {
     return api.delete(`/admin/users/${userId}`);
+  },
+  
+  // Get all restaurants (admin only)
+  getRestaurants: async () => {
+    return api.get('/admin/restaurants');
+  },
+  
+  // Create a new restaurant with owner account (admin only)
+  createRestaurant: async (restaurantData) => {
+    return api.post('/admin/restaurants', restaurantData);
   },
   
   // Update admin's own profile
@@ -257,11 +330,6 @@ export const adminAPI = {
   // Get pending restaurant profile approvals
   getRestaurantApprovals: async () => {
     return api.get('/admin/restaurant-approvals');
-  },
-  
-  // Get all restaurants
-  getRestaurants: async () => {
-    return api.get('/admin/restaurants');
   },
   
   // Get count of pending restaurant profile approvals
