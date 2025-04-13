@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendVerificationOTP } = require('../utils/emailService');
 const { generateOTP, isOTPExpired, generateOTPExpiry } = require('../utils/otpUtils');
+const Restaurant = require('../models/restaurant');
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -257,24 +258,58 @@ exports.register = async (req, res) => {
             };
         }
         
-        // Create new user
-        const user = new User(userData);
+        // Create user
+        const newUser = new User(userData);
+        await newUser.save();
         
-        await user.save();
+        // If this is a restaurant user, create a restaurant record as well
+        if (role === 'restaurant' && restaurantName) {
+            // Create a restaurant entry
+            const restaurant = new Restaurant({
+                name: restaurantName,
+                address: restaurantAddress ? { formatted: restaurantAddress } : {},
+                description: restaurantDescription,
+                owner: newUser._id,
+                isApproved: false,  // Default to not approved
+                isActive: true,
+                cuisine: userData.restaurantDetails.cuisine || ['General'],
+                email: email,
+                phone: phone
+            });
+            
+            try {
+                await restaurant.save();
+                console.log(`Created restaurant record for user ${newUser._id}`);
+            } catch (restaurantError) {
+                console.error('Error creating restaurant record:', restaurantError);
+                // Continue with user creation even if restaurant creation fails
+            }
+        }
         
-        // Send verification email with OTP
+        // Send verification email
         await sendVerificationOTP({
-            email: user.email,
+            email: newUser.email,
             otp,
-            name: user.fullName
+            name: newUser.fullName || `${newUser.firstName} ${newUser.lastName}`
         });
         
-        // Return response (without token to enforce verification)
-        return res.status(201).json({
+        // Generate token for auto-login
+        const token = generateToken(newUser);
+        
+        res.status(201).json({
             success: true,
-            message: 'Registration successful! Please verify your email to continue.',
-            requiresOTP: true,
-            email: user.email
+            message: 'User registered successfully. Please verify your email with the OTP sent.',
+            data: {
+                user: {
+                    id: newUser._id,
+                    firstName: newUser.firstName,
+                    lastName: newUser.lastName,
+                    fullName: newUser.fullName || `${newUser.firstName} ${newUser.lastName}`,
+                    email: newUser.email,
+                    role: newUser.role
+                },
+                token
+            }
         });
     } catch (error) {
         console.error('Registration error:', error);

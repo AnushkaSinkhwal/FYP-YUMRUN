@@ -272,6 +272,21 @@ export const adminAPI = {
     return api.post('/admin/restaurants', restaurantData);
   },
   
+  // Approve a restaurant
+  approveRestaurant: async (restaurantId) => {
+    return api.patch(`/admin/restaurants/${restaurantId}/approve`);
+  },
+  
+  // Reject a restaurant
+  rejectRestaurant: async (restaurantId, reason) => {
+    return api.patch(`/admin/restaurants/${restaurantId}/reject`, { reason });
+  },
+  
+  // Delete a restaurant
+  deleteRestaurant: async (restaurantId) => {
+    return api.delete(`/admin/restaurants/${restaurantId}`);
+  },
+  
   // Update admin's own profile
   updateProfile: async (profileData) => {
     return api.put('/admin/profile', profileData);

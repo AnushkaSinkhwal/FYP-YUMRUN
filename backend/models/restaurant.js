@@ -63,6 +63,16 @@ const restaurantSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    panNumber: {
+        type: String,
+        required: true,
+        validate: {
+            validator: function(v) {
+                return /^[0-9]{9}$/.test(v);
+            },
+            message: props => `${props.value} is not a valid PAN number! Must be 9 digits.`
+        }
+    },
     openingHours: {
         type: Object,
         default: {
