@@ -33,7 +33,8 @@ const Restaurants = () => {
     cuisine: ['General'],
     isApproved: true,
     isActive: true,
-    priceRange: '$$'
+    priceRange: '$$',
+    panNumber: ''
   });
   const [isCreating, setIsCreating] = useState(false);
   
@@ -234,14 +235,12 @@ const Restaurants = () => {
       setIsProcessing(true);
       setError(null);
       
-      // Delete the restaurant by updating the user and removing restaurant owner status
-      const response = await adminAPI.updateUser(restaurantToDelete.id, {
-        isRestaurantOwner: false
-      });
+      // Delete the restaurant using the dedicated endpoint
+      const response = await adminAPI.deleteRestaurant(restaurantToDelete.id);
       
       if (response.data && response.data.success) {
         // Remove from local state
-      setRestaurants(restaurants.filter(r => r.id !== restaurantToDelete.id));
+        setRestaurants(restaurants.filter(r => r.id !== restaurantToDelete.id));
         setSuccess("Restaurant removed successfully");
         
         // Hide success message after 3 seconds
@@ -266,19 +265,16 @@ const Restaurants = () => {
       setIsProcessing(true);
       setError(null);
       
-      // Approve restaurant by updating user status
-      const response = await adminAPI.updateUser(restaurant.id, {
-        isActive: true,
-        status: 'Approved'
-      });
+      // Approve restaurant using the dedicated endpoint
+      const response = await adminAPI.approveRestaurant(restaurant.id);
       
       if (response.data && response.data.success) {
         // Update local state
-      setRestaurants(
-        restaurants.map(r => 
-          r.id === restaurant.id ? { ...r, status: 'Approved' } : r
-        )
-      );
+        setRestaurants(
+          restaurants.map(r => 
+            r.id === restaurant.id ? { ...r, status: 'Approved' } : r
+          )
+        );
         setSuccess("Restaurant approved successfully");
         
         // Hide success message after 3 seconds
@@ -301,19 +297,16 @@ const Restaurants = () => {
       setIsProcessing(true);
       setError(null);
       
-      // Reject restaurant by updating user status
-      const response = await adminAPI.updateUser(restaurant.id, {
-        isActive: false,
-        status: 'Rejected'
-      });
+      // Reject restaurant using the dedicated endpoint
+      const response = await adminAPI.rejectRestaurant(restaurant.id);
       
       if (response.data && response.data.success) {
         // Update local state
-      setRestaurants(
-        restaurants.map(r => 
-          r.id === restaurant.id ? { ...r, status: 'Rejected' } : r
-        )
-      );
+        setRestaurants(
+          restaurants.map(r => 
+            r.id === restaurant.id ? { ...r, status: 'Rejected' } : r
+          )
+        );
         setSuccess("Restaurant rejected successfully");
         
         // Hide success message after 3 seconds
@@ -358,7 +351,8 @@ const Restaurants = () => {
       cuisine: ['General'],
       isApproved: true,
       isActive: true,
-      priceRange: '$$'
+      priceRange: '$$',
+      panNumber: ''
     });
     setShowAddRestaurantModal(true);
   };
@@ -391,7 +385,7 @@ const Restaurants = () => {
       // Basic validation
       const requiredFields = [
         'firstName', 'lastName', 'email', 'password', 'phone',
-        'restaurantName', 'restaurantAddress'
+        'restaurantName', 'restaurantAddress', 'panNumber'
       ];
       const missingFields = requiredFields.filter(field => !newRestaurant[field]);
       
@@ -417,6 +411,17 @@ const Restaurants = () => {
         return;
       }
       
+      // PAN Number validation - must be 9 digits
+      const panNumberRegex = /^\d{9}$/;
+      if (!panNumberRegex.test(newRestaurant.panNumber)) {
+        setError('PAN Number must be exactly 9 digits');
+        setIsCreating(false);
+        return;
+      }
+
+      // Log the data being sent to the API
+      console.log('Creating restaurant with data:', newRestaurant);
+      
       const response = await adminAPI.createRestaurant(newRestaurant);
       
       if (response.data && response.data.success) {
@@ -435,7 +440,8 @@ const Restaurants = () => {
           status: createdRestaurant.isApproved ? 'Approved' : 'Pending',
           isApproved: createdRestaurant.isApproved,
           createdAt: new Date().toISOString(),
-          category: newRestaurant.cuisine.join(', ')
+          category: newRestaurant.cuisine.join(', '),
+          panNumber: createdRestaurant.panNumber
         }]);
         
         setSuccess('Restaurant created successfully');
@@ -535,44 +541,44 @@ const Restaurants = () => {
       {/* Restaurants list */}
       <div>
         {isLoading ? (
-          <div className="flex justify-center items-center py-16">
+          <div className="flex items-center justify-center py-16">
             <Spinner size="lg" color="primary" />
           </div>
         ) : paginatedRestaurants.length === 0 ? (
-          <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+          <div className="py-16 text-center text-gray-500 dark:text-gray-400">
             No restaurants found matching your search criteria
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {paginatedRestaurants.map((restaurant) => (
-              <Card key={restaurant.id} className="overflow-hidden dark:bg-gray-800 h-full flex flex-col">
-                <div className="p-4 flex-grow">
-                  <div className="flex justify-between items-start mb-3">
+              <Card key={restaurant.id} className="flex flex-col h-full overflow-hidden dark:bg-gray-800">
+                <div className="flex-grow p-4">
+                  <div className="flex items-start justify-between mb-3">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{restaurant.name}</h3>
                     <Badge variant={getBadgeVariant(restaurant.status)}>
                       {restaurant.status}
                     </Badge>
                   </div>
                   
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">
                     <strong>Owner:</strong> {restaurant.owner}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">
                     <strong>Email:</strong> {restaurant.email}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">
                     <strong>Phone:</strong> {restaurant.phone}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">
                     <strong>Category:</strong> {restaurant.category}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">
                     <strong>Added:</strong> {new Date(restaurant.createdAt).toLocaleDateString()}
                   </p>
                   
                   {restaurant.rating > 0 && (
-                    <div className="mt-2 flex items-center">
-                      <div className="text-amber-400 flex items-center">
+                    <div className="flex items-center mt-2">
+                      <div className="flex items-center text-amber-400">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <svg 
                             key={i} 
@@ -589,8 +595,8 @@ const Restaurants = () => {
                   )}
                 </div>
                 
-                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center">
+                <div className="p-4 border-t border-gray-200 bg-gray-50 dark:bg-gray-700/50 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm" className="text-blue-600" asChild>
                         <a href={`/admin/restaurant/${restaurant.id}`} target="_blank" rel="noopener noreferrer">
@@ -648,7 +654,7 @@ const Restaurants = () => {
 
       {/* Pagination */}
       {!isLoading && totalPages > 1 && (
-        <div className="flex justify-between items-center mt-8">
+        <div className="flex items-center justify-between mt-8">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
             <span className="font-medium">
@@ -826,6 +832,22 @@ const Restaurants = () => {
                   />
                 </div>
                 
+                <div className="mb-4">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    PAN Number* (9 digits)
+                  </label>
+                  <input
+                    type="text"
+                    name="panNumber"
+                    value={newRestaurant.panNumber}
+                    onChange={handleNewRestaurantChange}
+                    className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
+                    maxLength="9"
+                    placeholder="123456789"
+                  />
+                </div>
+                
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -852,7 +874,7 @@ const Restaurants = () => {
                       name="isApproved"
                       checked={newRestaurant.isApproved}
                       onChange={handleNewRestaurantChange}
-                      className="w-4 h-4 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Approve Restaurant Immediately
@@ -865,7 +887,7 @@ const Restaurants = () => {
                       name="isActive"
                       checked={newRestaurant.isActive}
                       onChange={handleNewRestaurantChange}
-                      className="w-4 h-4 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Active Account

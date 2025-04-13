@@ -262,7 +262,7 @@ router.put('/profile/email', protect, async (req, res) => {
       title: 'Email Change Request',
       message: `User ${user.fullName} has requested to change their email from ${user.email} to ${email}.`,
       type: 'APPROVAL_REQUEST',
-      status: 'UNREAD',
+      status: 'PENDING',
       metadata: {
         approvalId: approvalRequest._id
       }

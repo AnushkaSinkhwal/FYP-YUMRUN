@@ -206,7 +206,7 @@ const SignUp = () => {
                 // Check if email verification is required
                 if (result.requiresOTP) {
                     // Redirect to email verification page
-                    navigate(`/verify-email?email=${encodeURIComponent(result.email)}`, { replace: true });
+                    navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`, { replace: true });
                 } else {
                     // Legacy behavior - redirect to signin page
                     navigate("/signin", { 

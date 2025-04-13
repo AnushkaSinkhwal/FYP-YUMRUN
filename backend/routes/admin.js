@@ -176,7 +176,7 @@ router.get('/users/:userId', auth, isAdmin, async (req, res) => {
  */
 router.put('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
-    const { fullName, email, phone, role, isActive, healthCondition } = req.body;
+    const { firstName, lastName, fullName, email, phone, role, isActive, healthCondition } = req.body;
     
     // Find the user
     const user = await User.findById(req.params.userId);
@@ -192,6 +192,16 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
     const changes = {};
     
     // Update user fields with validation
+    if (firstName && firstName !== user.firstName) {
+      changes.firstName = { from: user.firstName, to: firstName };
+      user.firstName = firstName;
+    }
+
+    if (lastName && lastName !== user.lastName) {
+      changes.lastName = { from: user.lastName, to: lastName };
+      user.lastName = lastName;
+    }
+
     if (fullName && fullName !== user.fullName) {
       changes.fullName = { from: user.fullName, to: fullName };
       user.fullName = fullName;
@@ -224,6 +234,13 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
     }
     
     if (role !== undefined && role !== user.role) {
+      // Prevent changing a user to admin role
+      if (role === 'admin' && user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Changing a user role to admin is not allowed'
+        });
+      }
       changes.role = { from: user.role, to: role };
       user.role = role;
     }
@@ -250,7 +267,7 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
       title: 'Profile Updated',
       message: `Your profile information was updated by an administrator.`,
       type: 'PROFILE_UPDATE',
-      status: 'UNREAD',
+      status: 'PENDING',
       data: changes
     });
     
@@ -343,14 +360,15 @@ router.put('/profile', auth, isAdmin, async (req, res) => {
 router.delete('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
     // Cannot delete yourself
-    if (req.params.userId === req.user._id.toString()) {
+    if (req.params.userId === req.user.userId.toString()) {
       return res.status(400).json({
         success: false,
         message: 'You cannot delete your own account'
       });
     }
     
-    const user = await User.findByIdAndDelete(req.params.userId);
+    // Find the user first to check if they are an admin
+    const user = await User.findById(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -358,6 +376,17 @@ router.delete('/users/:userId', auth, isAdmin, async (req, res) => {
         message: 'User not found'
       });
     }
+    
+    // Cannot delete admin users
+    if (user.role === 'admin' || user.isAdmin === true) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin users cannot be deleted'
+      });
+    }
+    
+    // Delete the user
+    await User.findByIdAndDelete(req.params.userId);
     
     return res.status(200).json({
       success: true,
@@ -825,8 +854,8 @@ router.get('/restaurants', auth, isAdmin, async (req, res) => {
                 owner: owner?.name || owner?.fullName || owner?.username || 'Unknown Owner',
                 ownerId: owner?._id,
                 email: owner?.email || 'No email',
-                address: restaurant.location || 'No address provided',
-                phone: owner?.phone || 'No phone provided',
+                address: restaurant.location || (restaurant.address?.formatted || JSON.stringify(restaurant.address || {})),
+                phone: owner?.phone || restaurant.phone || 'No phone provided',
                 status: restaurant.isApproved ? 'Approved' : 'Pending',
                 isApproved: restaurant.isApproved,
                 createdAt: restaurant.dateCreated || restaurant.createdAt,
@@ -1317,7 +1346,7 @@ router.post('/approval/:requestId', auth, isAdmin, async (req, res) => {
         ? 'Your request has been approved by the administrator.' 
         : `Your request has been rejected. Reason: ${feedback || 'No specific reason provided.'}`,
       type: 'APPROVAL_UPDATE',
-      status: 'UNREAD'
+      status: 'PENDING'
     });
     
     await notification.save();
@@ -1343,6 +1372,8 @@ router.post('/approval/:requestId', auth, isAdmin, async (req, res) => {
  */
 router.post('/users', auth, isAdmin, async (req, res) => {
   try {
+    console.log('POST /admin/users - Request received:', req.body);
+    
     const { 
       firstName, 
       lastName, 
@@ -1356,6 +1387,7 @@ router.post('/users', auth, isAdmin, async (req, res) => {
     
     // Validate required fields
     if (!firstName || !lastName || !email || !password || !phone) {
+      console.log('POST /admin/users - Validation failed, missing required fields');
       return res.status(400).json({
         success: false,
         message: 'All required fields must be provided: firstName, lastName, email, password, phone'
@@ -1365,13 +1397,24 @@ router.post('/users', auth, isAdmin, async (req, res) => {
     // Check if email is already in use
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log(`POST /admin/users - Email ${email} already in use`);
       return res.status(400).json({
         success: false,
         message: 'Email is already in use'
       });
     }
     
+    // Prevent creating admin users
+    if (role === 'admin') {
+      console.log('POST /admin/users - Attempt to create admin user rejected');
+      return res.status(403).json({
+        success: false,
+        message: 'Creating users with admin role is not allowed'
+      });
+    }
+    
     // Create new user object
+    console.log('POST /admin/users - Creating new user with data:', { firstName, lastName, email, phone, role });
     const newUser = new User({
       firstName,
       lastName,
@@ -1387,9 +1430,95 @@ router.post('/users', auth, isAdmin, async (req, res) => {
     
     // Save user to database
     const savedUser = await newUser.save();
+    console.log(`POST /admin/users - User created successfully with ID: ${savedUser._id}`);
     
     // Log the action
     console.log(`New user created by admin. User ID: ${savedUser._id}, Role: ${role}`);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: {
+        id: savedUser._id,
+        firstName: savedUser.firstName,
+        lastName: savedUser.lastName,
+        fullName: savedUser.fullName,
+        email: savedUser.email,
+        phone: savedUser.phone,
+        role: savedUser.role,
+        isActive: savedUser.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating user: ' + error.message
+    });
+  }
+});
+
+// Temporary route for testing without auth middleware
+/**
+ * @route   POST /api/admin/create-user
+ * @desc    Create a new user (TEST ROUTE)
+ * @access  Public (temporary)
+ */
+router.post('/create-user', async (req, res) => {
+  try {
+    console.log('POST /admin/create-user - Request received:', req.body);
+    
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      role = 'customer',
+      isActive = true,
+      address = {}
+    } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password || !phone) {
+      console.log('POST /admin/create-user - Validation failed, missing required fields');
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided: firstName, lastName, email, password, phone'
+      });
+    }
+    
+    // Check if email is already in use
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      console.log(`POST /admin/create-user - Email ${email} already in use`);
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already in use'
+      });
+    }
+    
+    // Create new user object
+    console.log('POST /admin/create-user - Creating new user with data:', { firstName, lastName, email, phone, role });
+    const newUser = new User({
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`,
+      email,
+      password, // Will be hashed by pre-save hook in User model
+      phone,
+      role,
+      isActive,
+      address,
+      isEmailVerified: true // Auto-verify email for admin-created users
+    });
+    
+    // Save user to database
+    const savedUser = await newUser.save();
+    console.log(`POST /admin/create-user - User created successfully with ID: ${savedUser._id}`);
+    
+    // Log the action
+    console.log(`New user created through test route. User ID: ${savedUser._id}, Role: ${role}`);
     
     return res.status(201).json({
       success: true,
@@ -1421,6 +1550,8 @@ router.post('/users', auth, isAdmin, async (req, res) => {
  */
 router.post('/restaurants', auth, isAdmin, async (req, res) => {
   try {
+    console.log('POST /admin/restaurants - Request received:', req.body);
+    
     const { 
       // Restaurant owner (user) details
       firstName, 
@@ -1437,25 +1568,39 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
       isApproved = true,
       isActive = true,
       location,
-      priceRange = '$$'
+      priceRange = '$$',
+      panNumber // Extract PAN Number
     } = req.body;
     
     // Validate required fields
-    if (!firstName || !lastName || !email || !password || !phone || !restaurantName || !restaurantAddress) {
+    if (!firstName || !lastName || !email || !password || !phone || !restaurantName || !restaurantAddress || !panNumber) {
+      console.log('POST /admin/restaurants - Validation failed, missing required fields');
       return res.status(400).json({
         success: false,
-        message: 'All required fields must be provided: firstName, lastName, email, password, phone, restaurantName, restaurantAddress'
+        message: 'All required fields must be provided: firstName, lastName, email, password, phone, restaurantName, restaurantAddress, panNumber'
+      });
+    }
+    
+    // Validate PAN Number format (9 digits)
+    if (!/^\d{9}$/.test(panNumber)) {
+      console.log(`POST /admin/restaurants - PAN Number validation failed: ${panNumber}`);
+      return res.status(400).json({
+        success: false,
+        message: 'PAN Number must be exactly 9 digits'
       });
     }
     
     // Check if email is already in use
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log(`POST /admin/restaurants - Email ${email} already in use`);
       return res.status(400).json({
         success: false,
         message: 'Email is already in use'
       });
     }
+    
+    console.log('POST /admin/restaurants - Creating restaurant and owner with transaction');
     
     // Start a transaction session
     const session = await mongoose.startSession();
@@ -1463,6 +1608,7 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
     
     try {
       // 1. Create the restaurant owner (user) with role 'restaurant'
+      console.log('POST /admin/restaurants - Creating restaurant owner user');
       const restaurantOwner = new User({
         firstName,
         lastName,
@@ -1477,14 +1623,27 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
           name: restaurantName,
           address: restaurantAddress,
           description: restaurantDescription || `${restaurantName} restaurant`,
-          approved: isApproved
+          approved: isApproved,
+          panNumber
+        }
+      });
+      
+      console.log('RestaurantOwner data before save:', {
+        email,
+        role: 'restaurant',
+        restaurantDetails: {
+          name: restaurantName,
+          panNumber
         }
       });
       
       // Save user to database
       const savedUser = await restaurantOwner.save({ session });
+      console.log(`POST /admin/restaurants - Owner user created with ID: ${savedUser._id}`);
+      console.log('Saved user restaurantDetails:', savedUser.restaurantDetails);
       
       // 2. Create the restaurant record
+      console.log('POST /admin/restaurants - Creating restaurant record');
       const restaurant = new Restaurant({
         name: restaurantName,
         location: location || restaurantAddress,
@@ -1499,14 +1658,17 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
         cuisine,
         priceRange,
         phone,
-        email
+        email,
+        panNumber // Add PAN Number to restaurant record
       });
       
       // Save restaurant to database
       const savedRestaurant = await restaurant.save({ session });
+      console.log(`POST /admin/restaurants - Restaurant created with ID: ${savedRestaurant._id}`);
       
       // Commit the transaction
       await session.commitTransaction();
+      console.log('POST /admin/restaurants - Transaction committed successfully');
       session.endSession();
       
       // Log the action
@@ -1521,7 +1683,8 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
             name: savedRestaurant.name,
             address: savedRestaurant.address,
             isApproved: savedRestaurant.isApproved,
-            isActive: savedRestaurant.isActive
+            isActive: savedRestaurant.isActive,
+            panNumber: savedRestaurant.panNumber
           },
           owner: {
             id: savedUser._id,
@@ -1534,7 +1697,9 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
       });
     } catch (error) {
       // Abort the transaction in case of an error
+      console.error('POST /admin/restaurants - Transaction error:', error);
       await session.abortTransaction();
+      console.log('POST /admin/restaurants - Transaction aborted');
       session.endSession();
       throw error; // Re-throw to be caught by the outer try-catch
     }
@@ -1545,6 +1710,191 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
       message: 'Error creating restaurant: ' + error.message
     });
   }
+});
+
+// PATCH approve a restaurant
+router.patch('/restaurants/:restaurantId/approve', auth, isAdmin, async (req, res) => {
+    try {
+        const restaurantId = req.params.restaurantId;
+        
+        // Find the restaurant
+        const restaurant = await Restaurant.findById(restaurantId);
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
+            });
+        }
+        
+        // Update approval status
+        restaurant.isApproved = true;
+        await restaurant.save();
+        
+        // Update the owner's restaurant details approval status as well
+        const owner = await User.findById(restaurant.owner);
+        if (owner) {
+            if (!owner.restaurantDetails) {
+                owner.restaurantDetails = {};
+            }
+            owner.restaurantDetails.approved = true;
+            await owner.save();
+            
+            // Create notification for owner
+            const notification = new Notification({
+                userId: owner._id,
+                title: 'Restaurant Approved',
+                message: 'Your restaurant has been approved by the administrator.',
+                type: 'RESTAURANT_APPROVAL',
+                status: 'PENDING',
+                data: {
+                    restaurantId: restaurant._id,
+                    restaurantName: restaurant.name
+                }
+            });
+            
+            await notification.save();
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Restaurant approved successfully',
+            data: {
+                restaurantId: restaurant._id,
+                name: restaurant.name,
+                isApproved: restaurant.isApproved
+            }
+        });
+    } catch (error) {
+        console.error('Approve restaurant error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error approving restaurant: ' + error.message
+        });
+    }
+});
+
+// PATCH reject a restaurant
+router.patch('/restaurants/:restaurantId/reject', auth, isAdmin, async (req, res) => {
+    try {
+        const restaurantId = req.params.restaurantId;
+        const { reason } = req.body;
+        
+        // Find the restaurant
+        const restaurant = await Restaurant.findById(restaurantId);
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
+            });
+        }
+        
+        // Update approval status
+        restaurant.isApproved = false;
+        await restaurant.save();
+        
+        // Update the owner's restaurant details approval status as well
+        const owner = await User.findById(restaurant.owner);
+        if (owner) {
+            if (!owner.restaurantDetails) {
+                owner.restaurantDetails = {};
+            }
+            owner.restaurantDetails.approved = false;
+            await owner.save();
+            
+            // Create notification for owner
+            const notification = new Notification({
+                userId: owner._id,
+                title: 'Restaurant Approval Rejected',
+                message: reason || 'Your restaurant approval has been rejected by the administrator.',
+                type: 'RESTAURANT_REJECTION',
+                status: 'PENDING',
+                data: {
+                    restaurantId: restaurant._id,
+                    restaurantName: restaurant.name,
+                    reason: reason || 'No reason provided'
+                }
+            });
+            
+            await notification.save();
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Restaurant rejected successfully',
+            data: {
+                restaurantId: restaurant._id,
+                name: restaurant.name,
+                isApproved: restaurant.isApproved
+            }
+        });
+    } catch (error) {
+        console.error('Reject restaurant error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error rejecting restaurant: ' + error.message
+        });
+    }
+});
+
+// DELETE a restaurant
+router.delete('/restaurants/:restaurantId', auth, isAdmin, async (req, res) => {
+    try {
+        const restaurantId = req.params.restaurantId;
+        
+        // Find the restaurant
+        const restaurant = await Restaurant.findById(restaurantId);
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
+            });
+        }
+        
+        // Delete the restaurant
+        await Restaurant.findByIdAndDelete(restaurantId);
+        
+        // Optional: Update the owner to remove restaurant role or mark as inactive
+        if (restaurant.owner) {
+            const owner = await User.findById(restaurant.owner);
+            if (owner) {
+                // Option 1: Remove restaurant role
+                // owner.role = 'customer';
+                
+                // Option 2: Mark as inactive
+                owner.isActive = false;
+                
+                await owner.save();
+                
+                // Create notification for owner
+                const notification = new Notification({
+                    userId: owner._id,
+                    title: 'Restaurant Deleted',
+                    message: 'Your restaurant has been deleted by the administrator.',
+                    type: 'RESTAURANT_DELETION',
+                    status: 'PENDING',
+                    data: {
+                        restaurantName: restaurant.name
+                    }
+                });
+                
+                await notification.save();
+            }
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Restaurant deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete restaurant error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error deleting restaurant: ' + error.message
+        });
+    }
 });
 
 module.exports = router; 

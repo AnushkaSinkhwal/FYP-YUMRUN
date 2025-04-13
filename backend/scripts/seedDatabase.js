@@ -163,6 +163,7 @@ const sampleRestaurants = [
     minimumOrder: 10,
     deliveryFee: 2.5,
     logo: '/uploads/restaurants/burger_kingdom_logo.jpg',
+    panNumber: '123456789',
     owner: null // Will be set later
   },
   {
@@ -175,6 +176,7 @@ const sampleRestaurants = [
     minimumOrder: 15,
     deliveryFee: 3,
     logo: '/uploads/restaurants/pizza_paradise_logo.jpg',
+    panNumber: '234567890',
     owner: null // Will be set later
   },
   {
@@ -187,6 +189,7 @@ const sampleRestaurants = [
     minimumOrder: 20,
     deliveryFee: 4,
     logo: '/uploads/restaurants/sushi_sensation_logo.jpg',
+    panNumber: '345678901',
     owner: null // Will be set later
   },
   {
@@ -199,6 +202,7 @@ const sampleRestaurants = [
     minimumOrder: 12,
     deliveryFee: 2,
     logo: '/uploads/restaurants/taco_temple_logo.jpg',
+    panNumber: '456789012',
     owner: null // Will be set later
   },
   {
@@ -211,6 +215,7 @@ const sampleRestaurants = [
     minimumOrder: 18,
     deliveryFee: 3.5,
     logo: '/uploads/restaurants/curry_corner_logo.jpg',
+    panNumber: '567890123',
     owner: null // Will be set later
   },
   {
@@ -223,6 +228,7 @@ const sampleRestaurants = [
     minimumOrder: 15,
     deliveryFee: 3,
     logo: '/uploads/restaurants/noodle_nook_logo.jpg',
+    panNumber: '678901234',
     owner: null // Will be set later
   }
 ];
@@ -1065,6 +1071,13 @@ const seedDatabase = async () => {
             lat: 27.7172 + (Math.random() * 0.01),
             lng: 85.3240 + (Math.random() * 0.01)
           }
+        },
+        restaurantDetails: {
+          name: sampleRestaurants[i].name,
+          address: sampleRestaurants[i].location,
+          description: sampleRestaurants[i].description,
+          panNumber: sampleRestaurants[i].panNumber,
+          approved: true
         }
       });
       
@@ -1095,6 +1108,7 @@ const seedDatabase = async () => {
         },
         phone: sampleRestaurants[i].phone || '9876543210',
         email: `contact@${sampleRestaurants[i].name.toLowerCase().replace(/\s+/g, '')}.com`,
+        panNumber: sampleRestaurants[i].panNumber,
         openingHours: {
           monday: { open: '10:00', close: '22:00' },
           tuesday: { open: '10:00', close: '22:00' },

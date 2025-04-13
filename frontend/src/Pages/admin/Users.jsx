@@ -28,6 +28,11 @@ const Users = () => {
   });
   const [isCreating, setIsCreating] = useState(false);
   
+  // Edit User Modal States
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
   const itemsPerPage = 10;
 
   // Fetch users from API
@@ -77,14 +82,25 @@ const Users = () => {
   };
 
   const getUserStatus = (user) => {
-    return user.isActive ? 'Active' : 'Inactive';
+    // Check isActive and isEmailVerified to determine the correct status
+    if (user.isActive === false) {
+      return 'Inactive';
+    }
+    
+    if (user.isEmailVerified === false) {
+      return 'Pending';
+    }
+    
+    return 'Active';
   };
 
   // Handle search and filter
   const filteredUsers = users.filter(user => {
+    const userName = user.fullName || `${user.firstName || ''} ${user.lastName || ''}` || user.name || user.username || '';
     const matchesSearch = 
-      (user.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+      userName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.phone || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const userRole = getUserRole(user);
     
@@ -102,12 +118,123 @@ const Users = () => {
 
   // Handle user actions
   const handleEditUser = (user) => {
-    // Navigate to edit user page or open modal
-    console.log('Edit user:', user);
-    // Implement edit functionality using adminAPI.updateUser(user.id, userData)
+    // Set the user to edit and open the edit modal
+    setUserToEdit({
+      _id: user._id,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role || getUserRole(user),
+      isActive: user.isActive !== undefined ? user.isActive : true
+    });
+    setShowEditUserModal(true);
+  };
+
+  // Handle input changes for edit user form
+  const handleEditUserChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setUserToEdit({
+      ...userToEdit,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  // Handle user update
+  const handleUpdateUser = async () => {
+    try {
+      setIsUpdating(true);
+      setError(null);
+      
+      // Basic validation
+      const requiredFields = ['firstName', 'lastName', 'email', 'phone'];
+      const missingFields = requiredFields.filter(field => !userToEdit[field]);
+      
+      if (missingFields.length > 0) {
+        setError(`Please provide ${missingFields.join(', ')}`);
+        setIsUpdating(false);
+        return;
+      }
+      
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userToEdit.email)) {
+        setError('Please enter a valid email address');
+        setIsUpdating(false);
+        return;
+      }
+      
+      // Phone validation
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(userToEdit.phone)) {
+        setError('Phone must be exactly 10 digits');
+        setIsUpdating(false);
+        return;
+      }
+
+      // Don't allow changing role to admin
+      if (userToEdit.role === 'admin' && users.find(u => u._id === userToEdit._id)?.role !== 'admin') {
+        setError('Cannot change user role to admin');
+        setIsUpdating(false);
+        return;
+      }
+      
+      const response = await adminAPI.updateUser(userToEdit._id, {
+        firstName: userToEdit.firstName,
+        lastName: userToEdit.lastName,
+        fullName: `${userToEdit.firstName} ${userToEdit.lastName}`,
+        email: userToEdit.email,
+        phone: userToEdit.phone,
+        role: userToEdit.role,
+        isActive: userToEdit.isActive
+      });
+      
+      if (response.data && response.data.success) {
+        // Update the user in the state
+        setUsers(users.map(user => 
+          user._id === userToEdit._id 
+            ? { 
+                ...user, 
+                firstName: userToEdit.firstName,
+                lastName: userToEdit.lastName,
+                fullName: `${userToEdit.firstName} ${userToEdit.lastName}`,
+                email: userToEdit.email,
+                phone: userToEdit.phone,
+                role: userToEdit.role,
+                isActive: userToEdit.isActive
+              } 
+            : user
+        ));
+        
+        setSuccess('User updated successfully');
+        setShowEditUserModal(false);
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      setError("Failed to update user: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const confirmDeleteUser = (user) => {
+    // Don't allow deleting admin users
+    if (user.role === 'admin' || getUserRole(user) === 'admin') {
+      setError("Admin users cannot be deleted");
+      // Hide error message after 3 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
+      return;
+    }
+    
     setUserToDelete(user);
     setShowDeleteModal(true);
   };
@@ -151,7 +278,7 @@ const Users = () => {
       email: '',
       password: '',
       phone: '',
-      role: 'customer',
+      role: 'customer', // Always default to customer
       isActive: true
     });
     setShowAddUserModal(true);
@@ -194,6 +321,13 @@ const Users = () => {
       const phoneRegex = /^\d{10}$/;
       if (!phoneRegex.test(newUser.phone)) {
         setError('Phone must be exactly 10 digits');
+        setIsCreating(false);
+        return;
+      }
+      
+      // Don't allow creating admin users
+      if (newUser.role === 'admin') {
+        setError('Cannot create users with admin role');
         setIsCreating(false);
         return;
       }
@@ -318,6 +452,7 @@ const Users = () => {
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="hidden px-4 py-3 md:table-cell">Email</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Phone</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="hidden px-4 py-3 md:table-cell">Joined</th>
@@ -328,8 +463,11 @@ const Users = () => {
                 {paginatedUsers.map((user) => (
                   <tr key={user._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 font-medium">#{user._id.substring(0, 6)}</td>
-                    <td className="px-4 py-3 font-medium">{user.name || user.username}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.username || 'No Name'}
+                    </td>
                     <td className="hidden px-4 py-3 md:table-cell">{user.email}</td>
+                    <td className="hidden px-4 py-3 md:table-cell">{user.phone || 'No Phone'}</td>
                     <td className="px-4 py-3">
                       <Badge variant={
                         user.role === 'admin' ? "primary" :
@@ -345,7 +483,7 @@ const Users = () => {
                       </Badge>
                     </td>
                     <td className="hidden px-4 py-3 md:table-cell">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
@@ -491,7 +629,6 @@ const Users = () => {
                 className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
                 <option value="customer">Customer</option>
-                <option value="admin">Admin</option>
                 <option value="delivery_rider">Delivery Rider</option>
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -526,6 +663,132 @@ const Users = () => {
               >
                 {isCreating ? <Spinner size="sm" className="mr-2" /> : null}
                 Create User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit User Modal */}
+      {showEditUserModal && userToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Edit User</h2>
+            
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                {error}
+              </Alert>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  First Name*
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={userToEdit.firstName}
+                  onChange={handleEditUserChange}
+                  className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Last Name*
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={userToEdit.lastName}
+                  onChange={handleEditUserChange}
+                  className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email*
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={userToEdit.email}
+                onChange={handleEditUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Phone* (10 digits)
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={userToEdit.phone}
+                onChange={handleEditUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                required
+                maxLength="10"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Role
+              </label>
+              <select
+                name="role"
+                value={userToEdit.role}
+                onChange={handleEditUserChange}
+                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                disabled={userToEdit.role === 'admin'}
+              >
+                <option value="customer">Customer</option>
+                <option value="delivery_rider">Delivery Rider</option>
+                <option value="restaurant">Restaurant Owner</option>
+                {userToEdit.role === 'admin' && <option value="admin">Admin</option>}
+              </select>
+              {userToEdit.role === 'admin' && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Admin role cannot be changed
+                </p>
+              )}
+            </div>
+            
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={userToEdit.isActive}
+                onChange={handleEditUserChange}
+                className="w-4 h-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Active Account
+              </label>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEditUserModal(false)}
+                disabled={isUpdating}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateUser}
+                disabled={isUpdating}
+              >
+                {isUpdating ? <Spinner size="sm" className="mr-2" /> : null}
+                Update User
               </Button>
             </div>
           </div>

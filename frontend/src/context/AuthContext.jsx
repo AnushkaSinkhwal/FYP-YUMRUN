@@ -107,13 +107,16 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: errorMessage };
       }
       
-      // Successful registration, check if email verification is required
-      if (response.data.requiresOTP) {
+      // Successful registration - OTP is always required after registration
+      // Either check for explicit requiresOTP flag or infer from the message
+      if (response.data.requiresOTP || 
+          (response.data.message && response.data.message.includes('verify your email')) ||
+          (!response.data.user?.isEmailVerified)) {
         setIsLoading(false);
         return { 
           success: true, 
           requiresOTP: true,
-          email: response.data.email,
+          email: userData.email, // Use the email from the registration data
           message: response.data.message || 'Please verify your email to continue'
         };
       }

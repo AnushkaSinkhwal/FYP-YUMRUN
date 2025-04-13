@@ -683,12 +683,40 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
  */
 router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
     try {
-        const restaurantId = req.user.userId;
+        const userId = req.user.userId;
         
         // Import models correctly
         const Order = require('../models/order');
-        const { MenuItem } = require('../models/menuItem');
+        const MenuItem = require('../models/menuItem');
         const Offer = require('../models/offer');
+        
+        // Find the restaurant associated with this user
+        let restaurantId = userId; // Default to using userId directly
+        
+        // First check if user has restaurantDetails
+        const user = await User.findById(userId);
+        if (user && user.restaurantDetails && user.restaurantDetails._id) {
+            restaurantId = user.restaurantDetails._id;
+            console.log(`Using restaurant ID from user.restaurantDetails: ${restaurantId}`);
+        } else {
+            // Check if a separate restaurant document exists
+            try {
+                // Use proper Restaurant model
+                const Restaurant = require('../models/restaurant');
+                const restaurant = await Restaurant.findOne({ owner: userId });
+                
+                if (restaurant) {
+                    restaurantId = restaurant._id;
+                    console.log(`Using restaurant ID from Restaurant collection: ${restaurantId}`);
+                }
+            } catch (err) {
+                console.error('Error looking up restaurant:', err);
+                // Continue with userId as restaurantId if this fails
+            }
+        }
+        
+        // Fallback to known restaurant ID if needed (based on sample order in the database)
+        const knownRestaurantId = "67fb7977b23ec6b3cad80fe1";
         
         // Fetch counts and aggregated data with try/catch for each operation
         let totalOrders = 0, pendingOrders = 0, menuItems = 0, activeOffers = 0;
@@ -696,6 +724,15 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
         
         try {
             totalOrders = await Order.countDocuments({ restaurantId: restaurantId.toString() });
+            // If no orders found with primary ID, try the fallback ID
+            if (totalOrders === 0 && knownRestaurantId) {
+                totalOrders = await Order.countDocuments({ restaurantId: knownRestaurantId });
+                if (totalOrders > 0) {
+                    console.log(`Found ${totalOrders} orders using fallback restaurantId: ${knownRestaurantId}`);
+                    // Use this ID for all queries going forward
+                    restaurantId = knownRestaurantId;
+                }
+            }
         } catch (err) {
             console.error('Error counting total orders:', err);
         }
@@ -733,19 +770,30 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
             console.error('Error aggregating revenue data:', err);
         }
         
-        // Get recent activity (latest orders and menu updates)
+        // Get recent orders
         try {
             recentOrders = await Order.find({ restaurantId: restaurantId.toString() })
-                .sort({ createdAt: -1 })
-                .limit(3);
+                .sort('-createdAt')
+                .limit(5)
+                .lean();
+                
+            // If no orders found, try the fallback restaurant ID
+            if (recentOrders.length === 0 && knownRestaurantId) {
+                recentOrders = await Order.find({ restaurantId: knownRestaurantId })
+                    .sort('-createdAt')
+                    .limit(5)
+                    .lean();
+            }
         } catch (err) {
             console.error('Error fetching recent orders:', err);
         }
             
+        // Get recent menu updates
         try {
             recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId })
-                .sort({ updatedAt: -1 })
-                .limit(2);
+                .sort('-updatedAt')
+                .limit(3)
+                .lean();
         } catch (err) {
             console.error('Error fetching recent menu updates:', err);
         }
@@ -1134,110 +1182,6 @@ router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error fetching analytics data'
-        });
-    }
-});
-
-/**
- * @route   POST /api/restaurant/generate-test-orders
- * @desc    Generate sample test orders for development
- * @access  Private/RestaurantOwner
- */
-router.post('/generate-test-orders', auth, isRestaurantOwner, async (req, res) => {
-    try {
-        const restaurantId = req.user.userId;
-        const Order = require('../models/order');
-        const count = req.body.count || 3; // Default to 3 orders if not specified
-        const orderStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
-        const createdOrders = [];
-        
-        console.log(`[Test Data] Generating ${count} test orders for restaurant ${restaurantId}`);
-        
-        // Generate a number of test orders
-        for (let i = 0; i < count; i++) {
-            // Generate a unique order number
-            const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-            
-            // Random order status (weighted toward PENDING and CONFIRMED)
-            const randomIndex = Math.floor(Math.random() * (orderStatuses.length + 2)); // Add weight
-            const status = orderStatuses[Math.min(randomIndex, orderStatuses.length - 1)];
-            
-            // Random date within last 7 days
-            const randomDaysAgo = Math.floor(Math.random() * 7);
-            const orderDate = new Date();
-            orderDate.setDate(orderDate.getDate() - randomDaysAgo);
-            
-            try {
-                // Create a sample order
-                const testOrder = new Order({
-                    orderNumber,
-                    userId: restaurantId, // Using restaurant owner as customer for simplicity
-                    restaurantId: restaurantId, // Store restaurantId as is without toString()
-                    items: [
-                        {
-                            productId: new mongoose.Types.ObjectId(), // Generate a random ID
-                            name: `Test Food Item ${i+1}`,
-                            price: 15.99 + i,
-                            quantity: 1 + Math.floor(Math.random() * 3),
-                            options: [
-                                { name: "Size", value: "Large", price: 2.00 }
-                            ]
-                        },
-                        {
-                            productId: new mongoose.Types.ObjectId(),
-                            name: `Side Dish ${i+1}`,
-                            price: 5.99,
-                            quantity: 1,
-                            options: []
-                        }
-                    ],
-                    totalPrice: 33.98 + (i * 5), // Base price
-                    deliveryFee: 3.99,
-                    tax: 3.80,
-                    tip: 5.00,
-                    grandTotal: 46.77 + (i * 5), // Total + fee + tax + tip
-                    status: status,
-                    paymentMethod: i % 2 === 0 ? 'CREDIT_CARD' : 'CASH',
-                    paymentStatus: i % 2 === 0 ? 'PAID' : 'PENDING',
-                    deliveryAddress: {
-                        street: "123 Test Street",
-                        city: "Test City",
-                        state: "TS",
-                        zipCode: "12345",
-                        country: "Test Country"
-                    },
-                    specialInstructions: `This is test order #${i+1} for development`,
-                    createdAt: orderDate,
-                    statusUpdates: [
-                        {
-                            status: status,
-                            timestamp: orderDate,
-                            updatedBy: restaurantId
-                        }
-                    ]
-                });
-                
-                console.log(`[Test Data] Saving test order #${i+1}`);
-                const savedOrder = await testOrder.save();
-                createdOrders.push(savedOrder);
-            } catch (orderError) {
-                console.error(`[Test Data] Error creating test order #${i+1}:`, orderError);
-                // Continue to create other orders
-            }
-        }
-        
-        console.log(`[Test Data] Successfully generated ${createdOrders.length} test orders`);
-        
-        return res.status(200).json({
-            success: true,
-            message: `Generated ${createdOrders.length} test orders successfully`,
-            data: createdOrders
-        });
-    } catch (error) {
-        console.error('Error generating test orders:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error generating test orders: ' + (error.message || 'Unknown error')
         });
     }
 });

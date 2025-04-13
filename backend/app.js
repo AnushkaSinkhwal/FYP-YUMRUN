@@ -10,6 +10,16 @@ const path = require('path');
 // Load environment variables
 dotenv.config();
 
+// Register all models at startup
+console.log('Pre-loading all models to prevent registration conflicts...');
+require('./models/user');
+require('./models/restaurant');
+require('./models/menuItem');
+require('./models/order');
+require('./models/offer');
+require('./models/notification');
+console.log('All models loaded successfully');
+
 // Create Express app
 const app = express();
 
