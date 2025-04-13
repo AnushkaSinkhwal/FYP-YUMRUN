@@ -105,7 +105,8 @@ exports.login = async (req, res) => {
                     email: user.email,
                     isAdmin: user.isAdmin,
                     isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff
+                    isDeliveryStaff: user.isDeliveryStaff,
+                    role: user.role
                 },
                 token
             }
@@ -335,7 +336,8 @@ exports.verifyEmail = async (req, res) => {
                     email: user.email,
                     isAdmin: user.isAdmin,
                     isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff
+                    isDeliveryStaff: user.isDeliveryStaff,
+                    role: user.role
                 },
                 token
             }
@@ -450,7 +452,8 @@ exports.getCurrentUser = async (req, res) => {
                     healthCondition: user.healthCondition,
                     isAdmin: user.isAdmin,
                     isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff
+                    isDeliveryStaff: user.isDeliveryStaff,
+                    role: user.role
                 }
             }
         });

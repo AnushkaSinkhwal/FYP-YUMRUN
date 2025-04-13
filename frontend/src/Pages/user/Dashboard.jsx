@@ -1,23 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Card, Button } from '../../components/ui';
+import { Card, Button, Badge, Spinner, Tabs, TabsList, TabsTrigger, TabsContent, Alert } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { userAPI } from '../../utils/api';
 import LoyaltyDashboard from '../../components/Loyalty/LoyaltyDashboard';
 import HealthProfile from '../../components/Profile/HealthProfile';
 import { formatDate } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
+import { FaShoppingCart, FaHeart, FaMoneyBillWave, FaClipboardList, FaUser, FaBell } from 'react-icons/fa';
 
 const UserDashboard = () => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTab] = useState('overview');
   const [profile, setProfile] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    totalOrders: 0,
+    favoriteRestaurants: 0,
+    savedAmount: 0,
+    pendingOrders: 0,
+    recentActivity: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchUserData();
+    fetchNotifications();
   }, []);
 
   const fetchUserData = async () => {
@@ -25,16 +36,28 @@ const UserDashboard = () => {
       setLoading(true);
       setError(null);
       
+      // Fetch dashboard data
+      const dashboardResponse = await userAPI.getDashboard();
+      if (dashboardResponse.data?.success) {
+        setDashboardData(dashboardResponse.data.data || {
+          totalOrders: 0,
+          favoriteRestaurants: 0,
+          savedAmount: 0,
+          pendingOrders: 0,
+          recentActivity: []
+        });
+      }
+      
       // Fetch user profile
       const profileResponse = await userAPI.getProfile();
-      if (profileResponse.data.success) {
+      if (profileResponse.data?.success) {
         setProfile(profileResponse.data.data);
       }
       
       // Fetch order history
       const orderResponse = await userAPI.getOrders();
-      if (orderResponse.data.success) {
-        setOrderHistory(orderResponse.data.data);
+      if (orderResponse.data?.success) {
+        setOrderHistory(orderResponse.data.data || []);
       }
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -44,11 +67,99 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchNotifications = async () => {
+    try {
+      const response = await userAPI.getNotifications();
+      if (response?.data?.success && Array.isArray(response.data.data)) {
+        setNotifications(response.data.data);
+        // Count unread notifications
+        setUnreadNotifications(
+          response.data.data.filter(notification => !notification.read).length
+        );
+      } else {
+        // If no proper data, set empty array
+        setNotifications([]);
+        setUnreadNotifications(0);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      // Set empty array on error
+      setNotifications([]);
+      setUnreadNotifications(0);
+    }
+  };
+
+  const handleMarkNotificationAsRead = async (notificationId) => {
+    try {
+      await userAPI.markNotificationAsRead(notificationId);
+      // Update notifications list
+      setNotifications(prevNotifications => 
+        prevNotifications.map(notification => 
+          notification._id === notificationId 
+            ? { ...notification, read: true } 
+            : notification
+        )
+      );
+      // Update unread count
+      setUnreadNotifications(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    try {
+      await userAPI.markAllNotificationsAsRead();
+      // Update all notifications to read
+      setNotifications(prevNotifications => 
+        prevNotifications.map(notification => ({ ...notification, read: true }))
+      );
+      setUnreadNotifications(0);
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
+  const stats = [
+    {
+      title: 'Total Orders',
+      count: dashboardData.totalOrders || 0,
+      icon: <FaShoppingCart className="w-5 h-5 text-white" />,
+      color: 'bg-blue-500',
+      link: '#',
+      onClick: () => setActiveTab('orders')
+    },
+    {
+      title: 'Pending Orders',
+      count: dashboardData.pendingOrders || 0,
+      icon: <FaClipboardList className="w-5 h-5 text-white" />,
+      color: 'bg-yellow-500',
+      link: '#',
+      onClick: () => setActiveTab('orders')
+    },
+    {
+      title: 'Favorite Restaurants',
+      count: dashboardData.favoriteRestaurants || 0,
+      icon: <FaHeart className="w-5 h-5 text-white" />,
+      color: 'bg-red-500',
+      link: '/favorites'
+    },
+    {
+      title: 'Amount Saved',
+      count: `Rs ${dashboardData.savedAmount || 0}`,
+      icon: <FaMoneyBillWave className="w-5 h-5 text-white" />,
+      color: 'bg-green-500',
+      link: '#',
+      onClick: () => setActiveTab('loyalty')
+    }
+  ];
+
   if (loading) {
     return (
       <div className="container p-6 mx-auto">
-        <div className="text-center">
-          <p>Loading your dashboard...</p>
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -57,172 +168,220 @@ const UserDashboard = () => {
   if (error) {
     return (
       <div className="container p-6 mx-auto">
-        <div className="p-6 text-center bg-red-100 rounded-lg">
-          <p className="text-red-600">{error}</p>
-          <Button onClick={fetchUserData} className="mt-2">
-            Try Again
-          </Button>
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <p>{error}</p>
+        </Alert>
+        <Button onClick={fetchUserData} className="mt-2">
+          Try Again
+        </Button>
       </div>
     );
   }
 
+  // Ensure dashboardData.recentActivity is not undefined
+  const recentActivity = dashboardData.recentActivity || [];
+
   return (
     <div className="container p-6 mx-auto">
-      <div className="flex flex-col gap-6 md:flex-row">
-        {/* Sidebar */}
-        <div className="w-full md:w-1/4">
-          <Card className="p-6">
-            <div className="mb-6 text-center">
-              <div className="flex items-center justify-center w-20 h-20 mx-auto mb-2 text-2xl font-bold text-center text-white rounded-full bg-primary">
-                {currentUser?.fullName?.charAt(0) || 'U'}
-              </div>
-              <h2 className="text-xl font-bold">{currentUser?.fullName || 'User'}</h2>
+      <div className="flex flex-col space-y-6">
+        {/* User Profile Header */}
+        <div className="flex flex-col items-center justify-between w-full gap-4 p-6 bg-white rounded-lg shadow-sm md:flex-row dark:bg-gray-800">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-16 h-16 text-xl font-bold text-white rounded-full bg-primary">
+              {currentUser?.fullName?.charAt(0) || 'U'}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">{currentUser?.fullName || 'User'}</h1>
               <p className="text-gray-500">{currentUser?.email}</p>
               
               {profile?.healthCondition && (
-                <div className="inline-block px-3 py-1 mt-2 text-xs text-white bg-blue-500 rounded-full">
+                <Badge variant="outline" className="mt-1">
                   {profile.healthCondition}
-                </div>
+                </Badge>
               )}
             </div>
-            
-            <nav className="space-y-2">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`w-full text-left p-2 rounded-md ${activeTab === 'orders' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-              >
-                Order History
-              </button>
-              <button
-                onClick={() => setActiveTab('health')}
-                className={`w-full text-left p-2 rounded-md ${activeTab === 'health' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-              >
-                Health Profile
-              </button>
-              <button
-                onClick={() => setActiveTab('loyalty')}
-                className={`w-full text-left p-2 rounded-md ${activeTab === 'loyalty' ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-              >
-                Loyalty Points
-              </button>
-            </nav>
-            
-            <div className="pt-4 mt-6 border-t">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('/profile')}
-              >
-                Edit Profile
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full mt-2"
-                onClick={() => navigate('/')}
-              >
-                Return to Home
-              </Button>
-            </div>
-          </Card>
+          </div>
           
-          {/* Health Summary */}
-          {profile?.healthProfile && activeTab !== 'health' && (
-            <Card className="p-4 mt-4">
-              <h3 className="mb-2 text-sm font-medium">Health Summary</h3>
-              {profile.healthProfile.dietaryPreferences?.length > 0 && (
-                <p className="text-xs text-gray-500">Dietary: {profile.healthProfile.dietaryPreferences.join(', ')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/user/profile')}
+              className="flex items-center gap-2"
+            >
+              <FaUser className="w-4 h-4" />
+              Edit Profile
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/user/notifications')}
+              className="relative flex items-center gap-2"
+            >
+              <FaBell className="w-4 h-4" />
+              Notifications
+              {unreadNotifications > 0 && (
+                <Badge variant="destructive" className="absolute flex items-center justify-center w-5 h-5 p-0 text-xs -top-2 -right-2">
+                  {unreadNotifications}
+                </Badge>
               )}
-              {profile.healthProfile.healthConditions?.length > 0 && (
-                <p className="text-xs text-gray-500">Conditions: {profile.healthProfile.healthConditions.join(', ')}</p>
-              )}
-              {profile.healthProfile.allergies?.length > 0 && (
-                <p className="text-xs text-gray-500">Allergies: {profile.healthProfile.allergies.join(', ')}</p>
-              )}
-            </Card>
-          )}
+            </Button>
+          </div>
         </div>
         
-        {/* Main Content */}
-        <div className="flex-1">          
-          {/* Health Profile Tab */}
-          {activeTab === 'health' && (
-            <div>
-              <h2 className="mb-6 text-2xl font-bold">Health Profile</h2>
-              <HealthProfile />
-            </div>
-          )}
-          
-          {/* Loyalty Tab */}
-          {activeTab === 'loyalty' && (
-            <div>
-              <h2 className="mb-6 text-2xl font-bold">Loyalty Points</h2>
-              <LoyaltyDashboard />
-            </div>
-          )}
-          
-          {/* Orders Tab */}
-          {activeTab === 'orders' && (
-            <div>
-              <h2 className="mb-6 text-2xl font-bold">Order History</h2>
-              
-              {orderHistory.length > 0 ? (
-                <Card className="overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Order ID</th>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Date</th>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Total</th>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Restaurant</th>
-                          <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {orderHistory.map((order) => (
-                          <tr key={order._id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{order.orderNumber}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">Rs. {order.grandTotal}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
-                                order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 
-                                order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : 
-                                order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-                                'bg-gray-100 text-gray-800'}`}
-                              >
-                                {order.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{order.restaurantId?.restaurantDetails?.name || 'Unknown'}</div>
-                            </td>
-                            <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
-                              <Button 
-                                variant="link" 
-                                onClick={() => navigate(`/orders/${order._id}`)}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                View Details
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+        {/* Dashboard Stats */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, index) => (
+            <Card 
+              key={index} 
+              className="overflow-hidden transition-all shadow-sm cursor-pointer hover:shadow-md"
+              onClick={stat.onClick || (() => navigate(stat.link))}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                    <h3 className="mt-1 text-2xl font-bold">{stat.count}</h3>
                   </div>
-                </Card>
+                  <div className={`rounded-full p-3 ${stat.color}`}>
+                    {stat.icon}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+        
+        {/* Dashboard Tabs */}
+        <Card className="overflow-hidden">
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full border-b">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="orders">Orders</TabsTrigger>
+              <TabsTrigger value="health">Health Profile</TabsTrigger>
+              <TabsTrigger value="loyalty">Loyalty Points</TabsTrigger>
+              <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            </TabsList>
+            
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="p-6">
+              <h2 className="mb-6 text-xl font-bold">Recent Activity</h2>
+              {recentActivity.length > 0 ? (
+                <div className="space-y-4">
+                  {recentActivity.map((activity, index) => (
+                    <Card key={index} className="p-4 transition-all hover:shadow-md">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-medium">{activity.title}</h3>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatDate(activity.time)}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            activity.status === 'completed' ? 'success' :
+                            activity.status === 'pending' ? 'warning' :
+                            activity.status === 'active' ? 'info' : 'default'
+                          }
+                        >
+                          {activity.status}
+                        </Badge>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               ) : (
-                <Card className="p-6 text-center">
+                <div className="p-6 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-gray-500">No recent activity to show.</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => navigate('/restaurants')}
+                  >
+                    Browse Restaurants
+                  </Button>
+                </div>
+              )}
+              
+              {/* Quick Actions */}
+              <h2 className="mt-8 mb-4 text-xl font-bold">Quick Actions</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Card className="p-5 text-white transition-all cursor-pointer hover:shadow-md bg-gradient-to-br from-blue-400 to-blue-600" onClick={() => navigate('/restaurants')}>
+                  <h3 className="text-lg font-semibold">Order Food</h3>
+                  <p className="mt-1 text-sm opacity-90">Explore restaurants and place an order</p>
+                </Card>
+                
+                <Card className="p-5 text-white transition-all cursor-pointer hover:shadow-md bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => setActiveTab('health')}>
+                  <h3 className="text-lg font-semibold">Update Health Profile</h3>
+                  <p className="mt-1 text-sm opacity-90">Customize your dietary preferences</p>
+                </Card>
+                
+                <Card className="p-5 text-white transition-all cursor-pointer hover:shadow-md bg-gradient-to-br from-green-400 to-green-600" onClick={() => setActiveTab('loyalty')}>
+                  <h3 className="text-lg font-semibold">Check Loyalty Points</h3>
+                  <p className="mt-1 text-sm opacity-90">Redeem points for rewards</p>
+                </Card>
+              </div>
+            </TabsContent>
+            
+            {/* Orders Tab */}
+            <TabsContent value="orders" className="p-6">
+              <h2 className="mb-6 text-xl font-bold">Order History</h2>
+              
+              {orderHistory && orderHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Order ID</th>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Date</th>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Total</th>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Restaurant</th>
+                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orderHistory.map((order) => (
+                        <tr key={order._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{order.orderNumber}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">Rs {order.grandTotal}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Badge variant={
+                              order.status === 'DELIVERED' ? 'success' : 
+                              order.status === 'PENDING' ? 'warning' : 
+                              order.status === 'CONFIRMED' ? 'info' : 
+                              order.status === 'CANCELLED' ? 'destructive' : 
+                              'default'
+                            }>
+                              {order.status}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{order.restaurantId?.restaurantDetails?.name || 'Unknown'}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/orders/${order._id}`)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              View Details
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-6 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
                   <h3 className="mb-2 text-lg font-semibold">No Order History</h3>
                   <p className="mb-4 text-gray-500">
                     You haven&apos;t placed any orders yet.
@@ -230,11 +389,73 @@ const UserDashboard = () => {
                   <Button onClick={() => navigate('/restaurants')}>
                     Browse Restaurants
                   </Button>
-                </Card>
+                </div>
               )}
-            </div>
-          )}
-        </div>
+            </TabsContent>
+            
+            {/* Health Profile Tab */}
+            <TabsContent value="health" className="p-6">
+              <h2 className="mb-6 text-xl font-bold">Health Profile</h2>
+              <HealthProfile />
+            </TabsContent>
+            
+            {/* Loyalty Tab */}
+            <TabsContent value="loyalty" className="p-6">
+              <h2 className="mb-6 text-xl font-bold">Loyalty Points</h2>
+              <LoyaltyDashboard />
+            </TabsContent>
+            
+            {/* Notifications Tab */}
+            <TabsContent value="notifications" className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Notifications</h2>
+                {notifications && notifications.length > 0 && unreadNotifications > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleMarkAllNotificationsAsRead}
+                  >
+                    Mark All as Read
+                  </Button>
+                )}
+              </div>
+              
+              {notifications && notifications.length > 0 ? (
+                <div className="space-y-4">
+                  {notifications.map((notification) => (
+                    <Card 
+                      key={notification._id} 
+                      className={`p-4 transition-all ${!notification.read ? 'border-l-4 border-primary' : ''}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-medium">{notification.title}</h3>
+                          <p className="text-sm text-gray-500">{notification.message}</p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatDate(notification.createdAt)}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleMarkNotificationAsRead(notification._id)}
+                          >
+                            Mark as Read
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-gray-500">No notifications to show.</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
     </div>
   );
