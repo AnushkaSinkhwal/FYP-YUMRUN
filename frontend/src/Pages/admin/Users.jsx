@@ -181,10 +181,10 @@ const Users = () => {
               onChange={(e) => setFilterRole(e.target.value)}
             >
               <option value="all">All Roles</option>
-              <option value="Customer">Customer</option>
-              <option value="Restaurant Owner">Restaurant Owner</option>
-              <option value="Delivery Driver">Delivery Driver</option>
-              <option value="Admin">Admin</option>
+              <option value="customer">Customer</option>
+              <option value="restaurant">Restaurant Owner</option>
+              <option value="delivery_rider">Delivery Rider</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
         </div>

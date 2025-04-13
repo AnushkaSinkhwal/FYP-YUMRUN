@@ -128,7 +128,7 @@ exports.admin = (req, res, next) => {
  * Middleware to restrict access to restaurant owners only
  */
 exports.restaurant = (req, res, next) => {
-  if (req.user && (req.user.role === 'restaurant' || req.user.role === 'restaurant')) {
+  if (req.user && req.user.role === 'restaurant') {
     next();
   } else {
     return res.status(403).json({
