@@ -62,7 +62,7 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Check if email is verified
+        // Check if email is verified - strict enforcement
         if (!user.isEmailVerified) {
             // Generate a new OTP for verification
             const otp = generateOTP();
@@ -322,25 +322,11 @@ exports.verifyEmail = async (req, res) => {
         user.emailVerificationOTPExpires = null;
         await user.save();
         
-        // Generate token for auto-login after verification
-        const token = generateToken(user);
-        
-        // Return success with user details and token
+        // Return success with redirect to sign in instead of token
         return res.status(200).json({
             success: true,
             message: 'Email verified successfully',
-            data: {
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    isAdmin: user.isAdmin,
-                    isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff,
-                    role: user.role
-                },
-                token
-            }
+            redirectToSignIn: true
         });
     } catch (error) {
         console.error('Email verification error:', error);
