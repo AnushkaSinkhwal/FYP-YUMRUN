@@ -125,14 +125,35 @@ exports.login = async (req, res) => {
 // Register new user
 exports.register = async (req, res) => {
     try {
-        const { name, email, phone, password, healthCondition, role, restaurantName, restaurantAddress, restaurantDescription, panNumber } = req.body;
+        const { 
+            firstName, lastName, fullName,
+            email, phone, password, address,
+            role, healthCondition, 
+            restaurantName, restaurantAddress, restaurantDescription, panNumber,
+            vehicleType, licenseNumber, vehicleRegistrationNumber
+        } = req.body;
         
         // Validate input
-        if (!name || !email || !phone || !password) {
+        if (!email || !password) {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'Please provide all required fields',
+                    message: 'Please provide email and password',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
+        
+        // Validate name fields
+        if (!firstName || !lastName) {
+            const missingFields = [];
+            if (!firstName) missingFields.push('First name is required');
+            if (!lastName) missingFields.push('Last name is required');
+            
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: missingFields.join(', '),
                     code: 'VALIDATION_ERROR'
                 }
             });
@@ -151,15 +172,31 @@ exports.register = async (req, res) => {
             });
         }
         
-        // Set user roles based on role parameter
-        let isAdmin = false;
-        let isRestaurantOwner = false;
-        let isDeliveryStaff = false;
+        // Generate verification OTP
+        const otp = generateOTP();
+        const otpExpiry = generateOTPExpiry();
         
-        if (role === 'restaurant') {
-            isRestaurantOwner = true;
+        // Create user data object
+        const userData = {
+            firstName,
+            lastName,
+            fullName: fullName || `${firstName} ${lastName}`,
+            email,
+            phone,
+            password,
+            address,
+            role: role || 'customer',
+            isEmailVerified: false,
+            emailVerificationOTP: otp,
+            emailVerificationOTPExpires: otpExpiry
+        };
+        
+        // Add role-specific fields
+        if (role === 'customer') {
+            userData.healthCondition = healthCondition || 'Healthy';
+        } else if (role === 'restaurant') {
             // Additional validation for restaurant owner
-            if (!restaurantName || !restaurantAddress || !restaurantDescription) {
+            if (!restaurantName || !restaurantAddress || !restaurantDescription || !panNumber) {
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -168,60 +205,42 @@ exports.register = async (req, res) => {
                     }
                 });
             }
+            userData.restaurantDetails = {
+                name: restaurantName,
+                address: restaurantAddress,
+                description: restaurantDescription,
+                panNumber,
+                approved: false // Requires admin approval
+            };
         } else if (role === 'delivery_rider') {
-            isDeliveryStaff = true;
-        } else if (role === 'admin') {
-            isAdmin = true;
+            // Additional validation for delivery rider
+            if (!vehicleType || !licenseNumber || !vehicleRegistrationNumber) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Delivery rider details are required',
+                        code: 'VALIDATION_ERROR'
+                    }
+                });
+            }
+            userData.deliveryRiderDetails = {
+                vehicleType,
+                licenseNumber,
+                vehicleRegistrationNumber,
+                approved: false // Requires admin approval
+            };
         }
-        
-        // Generate verification OTP
-        const otp = generateOTP();
-        const otpExpiry = generateOTPExpiry();
         
         // Create new user
-        const user = new User({
-            name,
-            email,
-            phone,
-            password,
-            healthCondition: healthCondition || 'Healthy',
-            isAdmin,
-            isRestaurantOwner,
-            isDeliveryStaff,
-            // Add email verification fields
-            isEmailVerified: false,
-            emailVerificationOTP: otp,
-            emailVerificationOTPExpires: otpExpiry
-        });
+        const user = new User(userData);
         
         await user.save();
-        
-        // If registering as restaurant owner, create restaurant entry (not approved by default)
-        if (isRestaurantOwner) {
-            try {
-                const Restaurant = require('../models/restaurant').Restaurant;
-                const newRestaurant = new Restaurant({
-                    name: restaurantName,
-                    location: restaurantAddress,
-                    description: restaurantDescription,
-                    owner: user._id,
-                    isApproved: false, // Not approved by default
-                });
-                
-                await newRestaurant.save();
-                console.log(`Restaurant created for user ${user._id} (awaiting approval)`);
-            } catch (restaurantError) {
-                console.error('Error creating restaurant:', restaurantError);
-                // Continue with registration even if restaurant creation fails
-                // We'll handle this case separately
-            }
-        }
         
         // Send verification email with OTP
         await sendVerificationOTP({
             email: user.email,
             otp,
-            name: user.name
+            name: user.fullName
         });
         
         // Return response (without token to enforce verification)

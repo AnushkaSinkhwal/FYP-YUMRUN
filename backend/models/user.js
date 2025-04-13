@@ -190,6 +190,10 @@ const userSchema = new mongoose.Schema(
       required: [true, "Last name is required"],
       trim: true,
     },
+    fullName: {
+      type: String,
+      trim: true,
+    },
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -371,6 +375,15 @@ userSchema.pre("save", function (next) {
 
 // Index for geospatial queries on rider location
 userSchema.index({ "deliveryRiderDetails.currentLocation": "2dsphere" });
+
+// Pre-save middleware to set fullName based on firstName and lastName if not provided
+userSchema.pre('save', function (next) {
+  // Only set fullName if it's not already set or if firstName/lastName have changed
+  if (!this.fullName || this.isModified('firstName') || this.isModified('lastName')) {
+    this.fullName = `${this.firstName} ${this.lastName}`.trim();
+  }
+  next();
+});
 
 const User = mongoose.model("User", userSchema);
 

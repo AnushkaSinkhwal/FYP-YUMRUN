@@ -166,32 +166,42 @@ const SignUp = () => {
             return;
         }
         
-        // Prepare user data
-        const userData = {
-            fullName: formData.fullName,
-            email: formData.email,
-            phone: formData.phone,
-            address: formData.address,
-            password: formData.password,
-            role: role
-        };
-        
-        // Add role-specific data
-        if (role === "customer") {
-            userData.healthCondition = formData.healthCondition;
-        } else if (role === "restaurant") {
-            userData.restaurantName = formData.restaurantName;
-            userData.restaurantAddress = formData.restaurantAddress;
-            userData.restaurantDescription = formData.restaurantDescription;
-            userData.panNumber = formData.panNumber;
-        } else if (role === "delivery_rider") {
-            userData.vehicleType = formData.vehicleType;
-            userData.licenseNumber = formData.licenseNumber;
-            userData.vehicleRegistrationNumber = formData.vehicleRegistrationNumber;
-        }
-        
         try {
+            // Extract first name and last name from full name
+            const nameParts = formData.fullName.trim().split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            // Prepare user data
+            const userData = {
+                firstName,
+                lastName,
+                fullName: formData.fullName,
+                email: formData.email,
+                phone: formData.phone,
+                address: formData.address,
+                password: formData.password,
+                role: role
+            };
+            
+            // Add role-specific data
+            if (role === "customer") {
+                userData.healthCondition = formData.healthCondition;
+            } else if (role === "restaurant") {
+                userData.restaurantName = formData.restaurantName;
+                userData.restaurantAddress = formData.restaurantAddress;
+                userData.restaurantDescription = formData.restaurantDescription;
+                userData.panNumber = formData.panNumber;
+            } else if (role === "delivery_rider") {
+                userData.vehicleType = formData.vehicleType;
+                userData.licenseNumber = formData.licenseNumber;
+                userData.vehicleRegistrationNumber = formData.vehicleRegistrationNumber;
+            }
+            
+            console.log("Sending registration data:", userData);
             const result = await register(userData);
+            console.log("Registration result:", result);
+            
             if (result && result.success) {
                 // Check if email verification is required
                 if (result.requiresOTP) {
@@ -205,10 +215,11 @@ const SignUp = () => {
                     });
                 }
             } else {
-                setError(result?.message || "Registration failed. Please try again.");
+                setError(result?.error || "Registration failed. Please try again.");
             }
         } catch (err) {
-            setError("An unexpected error occurred: " + (err.response?.data?.message || err.message || "Please check your connection and try again."));
+            console.error("Registration error:", err);
+            setError("An unexpected error occurred: " + (err.response?.data?.error?.message || err.message || "Please check your connection and try again."));
         }
     };
 

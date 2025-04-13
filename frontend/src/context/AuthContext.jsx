@@ -92,13 +92,15 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      console.log('Registration data:', userData);
       const response = await authAPI.register(userData);
       
       // Check if the response indicates an error
       if (!response.data.success) {
-        setError(response.data.error?.message || 'Registration failed');
+        const errorMessage = response.data.error?.message || 'Registration failed';
+        setError(errorMessage);
         setIsLoading(false);
-        return { success: false, error: response.data.error?.message || 'Registration failed' };
+        return { success: false, error: errorMessage };
       }
       
       // Successful registration, check if email verification is required
@@ -114,7 +116,7 @@ export const AuthProvider = ({ children }) => {
       
       // Standard success response
       if (response.data.success && response.data.data) {
-        const { user /*, token */ } = response.data.data; // Assuming data is nested under 'data'
+        const { user } = response.data.data; // Assuming data is nested under 'data'
         
         // Normalize user data to ensure role property
         const normalizedUser = normalizeUserData(user);
@@ -125,22 +127,28 @@ export const AuthProvider = ({ children }) => {
         
         return { 
           success: true, 
-          user: normalizedUser,
-          // We don't necessarily need dashboard path here if not auto-logging in
-          // dashboardPath: getDashboardPath(normalizedUser.role)
+          user: normalizedUser
         };
       } else {
-        // Handle unexpected success response format
-        const errMsg = response.data.error?.message || 'Registration failed: Unexpected response format';
-        setError(errMsg);
+        // Success without data - simple success case
         setIsLoading(false);
-        return { success: false, error: errMsg };
+        return {
+          success: true,
+          message: response.data.message || 'Registration successful'
+        };
       }
     } catch (error) {
       console.error('Registration error:', error);
       // Extract specific error message from backend response if available
-      const backendErrorMessage = error.response?.data?.message;
-      const errorMessage = backendErrorMessage || 'Registration failed. Please try again.';
+      let errorMessage = error.response?.data?.error?.message;
+      
+      if (!errorMessage && error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      if (!errorMessage) {
+        errorMessage = 'Registration failed. Please try again.';
+      }
       
       setError(errorMessage);
       setIsLoading(false);
