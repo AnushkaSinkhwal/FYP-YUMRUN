@@ -420,7 +420,10 @@ const RestaurantOrdersContent = () => {
                   <h4 className="mb-1 font-semibold">Customer Information</h4>
                   <p>
                     <strong>Name:</strong>{" "}
-                    {selectedOrder.userId?.fullName || "N/A"}
+                    {selectedOrder.userId?.fullName || 
+                     (selectedOrder.userId?.firstName && selectedOrder.userId?.lastName 
+                      ? `${selectedOrder.userId.firstName} ${selectedOrder.userId.lastName}` 
+                      : "N/A")}
                   </p>
                   <p>
                     <strong>Email:</strong>{" "}
@@ -433,19 +436,25 @@ const RestaurantOrdersContent = () => {
                 </div>
                 <div>
                   <h4 className="mb-1 font-semibold">Delivery Address</h4>
-                  <p>{selectedOrder.deliveryAddress?.street || "N/A"}</p>
-                  {selectedOrder.deliveryAddress?.city && (
-                    <p>
-                      {selectedOrder.deliveryAddress.city}
-                      {selectedOrder.deliveryAddress.state
-                        ? `, ${selectedOrder.deliveryAddress.state}`
-                        : ""}
-                      {selectedOrder.deliveryAddress.zipCode
-                        ? ` ${selectedOrder.deliveryAddress.zipCode}`
-                        : ""}
-                    </p>
+                  {typeof selectedOrder.deliveryAddress === "string" ? (
+                    <p>{selectedOrder.deliveryAddress || "N/A"}</p>
+                  ) : (
+                    <>
+                      <p>{selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}</p>
+                      {selectedOrder.deliveryAddress?.city && (
+                        <p>
+                          {selectedOrder.deliveryAddress.city}
+                          {selectedOrder.deliveryAddress.state
+                            ? `, ${selectedOrder.deliveryAddress.state}`
+                            : ""}
+                          {selectedOrder.deliveryAddress.zipCode
+                            ? ` ${selectedOrder.deliveryAddress.zipCode}`
+                            : ""}
+                        </p>
+                      )}
+                      <p>{selectedOrder.deliveryAddress?.country || ""}</p>
+                    </>
                   )}
-                  <p>{selectedOrder.deliveryAddress?.country || ""}</p>
                 </div>
               </div>
 

@@ -1,28 +1,47 @@
-// Unregisters any existing service workers and clears caches
-if ('serviceWorker' in navigator) {
-  // Unregister all service workers
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    for (const registration of registrations) {
-      registration.unregister();
-      console.log('Service worker unregistered');
-    }
-  });
-  
-  // Clear all caches to prevent stale data issues
-  if ('caches' in window) {
-    caches.keys().then(cacheNames => {
-      cacheNames.forEach(cacheName => {
-        caches.delete(cacheName);
-        console.log(`Cache ${cacheName} deleted`);
+// Enhanced service worker unregistration script
+(function() {
+  // Function to unregister service workers
+  function unregisterServiceWorkers() {
+    if ('serviceWorker' in navigator) {
+      // Unregister all service workers
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        const unregisterPromises = registrations.map(registration => {
+          return registration.unregister()
+            .then(() => console.log('Service worker unregistered'))
+            .catch(error => console.error('Failed to unregister service worker:', error));
+        });
+        
+        return Promise.all(unregisterPromises);
+      }).catch(error => {
+        console.error('Error getting service worker registrations:', error);
       });
-    });
+    }
   }
   
-  // If there are any fetch event listeners that are causing problems,
-  // this will replace them with a no-op handler that immediately resolves
-  if (navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: 'CLEAR_FETCH_HANDLERS'
-    });
+  // Function to clear caches
+  function clearCaches() {
+    if ('caches' in window) {
+      caches.keys().then(cacheNames => {
+        const deletePromises = cacheNames.map(cacheName => {
+          return caches.delete(cacheName)
+            .then(() => console.log(`Cache ${cacheName} deleted`))
+            .catch(error => console.error(`Failed to delete cache ${cacheName}:`, error));
+        });
+        
+        return Promise.all(deletePromises);
+      }).then(() => {
+        console.log('Cache runtime deleted');
+      }).catch(error => {
+        console.error('Error clearing caches:', error);
+      });
+    }
   }
-} 
+  
+  // Handle potential errors with service worker and cache operations
+  try {
+    unregisterServiceWorkers();
+    clearCaches();
+  } catch (e) {
+    console.error('Error in service worker cleanup:', e);
+  }
+})(); 

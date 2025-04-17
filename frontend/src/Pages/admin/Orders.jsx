@@ -366,12 +366,23 @@ const Orders = () => {
                     <td className="px-4 py-3 font-medium">{order.id}</td>
                     <td className="px-4 py-3">
                       <div>
-                        <div className="font-medium">{order.customer}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{order.email}</div>
+                        <div className="font-medium">
+                          {order.userId?.fullName || 
+                           (order.userId?.firstName && order.userId?.lastName 
+                            ? `${order.userId.firstName} ${order.userId.lastName}` 
+                            : order.customer || "N/A")}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {order.userId?.email || order.email || "N/A"}
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">{order.restaurant}</td>
-                    <td className="px-4 py-3 font-medium">${order.total.toFixed(2)}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {typeof order.restaurantId === 'object' 
+                        ? order.restaurantId?.restaurantDetails?.name || order.restaurant || "N/A"
+                        : order.restaurant || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 font-medium">${parseFloat(order.grandTotal || order.total || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={getStatusBadgeVariant(order.status)}>
                         {order.status}
@@ -451,20 +462,51 @@ const Orders = () => {
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Customer Information</h4>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  <span className="font-medium">Name:</span> {selectedOrder.customer}
+                  <span className="font-medium">Name:</span>{" "}
+                  {selectedOrder.userId?.fullName || 
+                   (selectedOrder.userId?.firstName && selectedOrder.userId?.lastName 
+                    ? `${selectedOrder.userId.firstName} ${selectedOrder.userId.lastName}` 
+                    : selectedOrder.customer || "N/A")}
                 </p>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  <span className="font-medium">Email:</span> {selectedOrder.email}
+                  <span className="font-medium">Email:</span>{" "}
+                  {selectedOrder.userId?.email || selectedOrder.email || "N/A"}
+                </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                  <span className="font-medium">Phone:</span>{" "}
+                  {selectedOrder.userId?.phone || selectedOrder.phone || "N/A"}
                 </p>
               </div>
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Delivery Address</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  {selectedOrder.deliveryAddress}
-                </p>
-                {selectedOrder.notes && (
+                {typeof selectedOrder.deliveryAddress === "string" ? (
                   <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                    <span className="font-medium">Notes:</span> {selectedOrder.notes}
+                    {selectedOrder.deliveryAddress || "N/A"}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                      {selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}
+                    </p>
+                    {selectedOrder.deliveryAddress?.city && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                        {selectedOrder.deliveryAddress.city}
+                        {selectedOrder.deliveryAddress.state
+                          ? `, ${selectedOrder.deliveryAddress.state}`
+                          : ""}
+                        {selectedOrder.deliveryAddress.zipCode
+                          ? ` ${selectedOrder.deliveryAddress.zipCode}`
+                          : ""}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                      {selectedOrder.deliveryAddress?.country || ""}
+                    </p>
+                  </>
+                )}
+                {selectedOrder.specialInstructions && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                    <span className="font-medium">Notes:</span> {selectedOrder.specialInstructions}
                   </p>
                 )}
               </div>
@@ -513,19 +555,31 @@ const Orders = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOrder.items.map((item, index) => (
+                  {selectedOrder.items && selectedOrder.items.map((item, index) => (
                     <tr key={index} className="border-b dark:border-gray-600">
                       <td className="px-4 py-3">{item.name}</td>
-                      <td className="px-4 py-3 text-right">${item.price.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right">${parseFloat(item.price).toFixed(2)}</td>
                       <td className="px-4 py-3 text-right">{item.quantity}</td>
-                      <td className="px-4 py-3 text-right">${(item.price * item.quantity).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right">${(parseFloat(item.price) * parseInt(item.quantity, 10)).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="font-medium">
                   <tr className="border-t-2 dark:border-gray-600">
-                    <td colSpan="3" className="px-4 py-3 text-right">Total:</td>
-                    <td className="px-4 py-3 text-right">${selectedOrder.total.toFixed(2)}</td>
+                    <td colSpan="3" className="px-4 py-3 text-right">Subtotal:</td>
+                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.totalPrice || 0).toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="3" className="px-4 py-3 text-right">Delivery Fee:</td>
+                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.deliveryFee || 0).toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="3" className="px-4 py-3 text-right">Tax:</td>
+                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.tax || 0).toFixed(2)}</td>
+                  </tr>
+                  <tr className="font-bold">
+                    <td colSpan="3" className="px-4 py-3 text-right">Grand Total:</td>
+                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)}</td>
                   </tr>
                 </tfoot>
               </table>

@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, Alert, Badge } from '../../components/ui';
-import { FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync } from 'react-icons/fa';
+import { 
+  Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, Alert, Badge,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose 
+} from '../../components/ui';
+import { 
+  FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync,
+  FaReceipt, FaTimes, FaCalendarAlt
+} from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { userAPI } from '../../utils/api';
 import { toast } from 'react-toastify';
 
@@ -15,6 +21,13 @@ const UserOrders = () => {
   const [error, setError] = useState(null);
   const [tempRatings, setTempRatings] = useState({});
   const [ratingInProgress, setRatingInProgress] = useState(null);
+  
+  // State for order detail modal
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
+  
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -34,12 +47,20 @@ const UserOrders = () => {
       
       console.log('Fetching orders...');
       const response = await userAPI.getOrders();
-      console.log('Orders response:', response.data);
+      console.log('Orders response:', response);
       
       if (response.data && response.data.success) {
         if (Array.isArray(response.data.data)) {
-          setOrders(response.data.data);
-          console.log('Orders set:', response.data.data);
+          console.log('Orders data:', response.data.data);
+          
+          // Check if we actually have any orders
+          if (response.data.data.length === 0) {
+            console.log('No orders found for this user');
+            setOrders([]);
+          } else {
+            setOrders(response.data.data);
+            console.log('Orders set:', response.data.data);
+          }
         } else {
           console.error('Invalid data format, expected array:', response.data);
           setOrders([]);
@@ -163,14 +184,46 @@ const UserOrders = () => {
   };
 
   const getRestaurantName = (order) => {
-    if (order.restaurantId && typeof order.restaurantId === 'object') {
-      return order.restaurantId.name || order.restaurantId.restaurantDetails?.name || 'Restaurant';
+    // Check nested structure first
+    if (order?.restaurantId?.restaurantDetails?.name) {
+      return order.restaurantId.restaurantDetails.name;
     }
-    return order.restaurant || 'Restaurant';
+    // Check direct property on restaurantId object
+    if (order?.restaurantId?.name) {
+      return order.restaurantId.name;
+    }
+    // Fallback to potential direct restaurant name string or default
+    return order?.restaurant || 'Restaurant';
   };
 
   const getId = (order) => {
     return order.id || order._id;
+  };
+
+  // Function to handle viewing order details
+  const handleViewDetails = async (orderId) => {
+    console.log('Viewing details for order ID:', orderId);
+    setIsDetailModalOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setSelectedOrderDetails(null); // Clear previous details
+
+    try {
+      const response = await userAPI.getOrder(orderId);
+      console.log('Order detail response:', response);
+
+      if (response.data && response.data.success && response.data.data) {
+        setSelectedOrderDetails(response.data.data);
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch order details');
+      }
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      setDetailError('Unable to load order details. Please try again later.');
+      toast.error('Unable to load order details. Please try again later.');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const filteredOrders = orders.filter(order => {
@@ -179,10 +232,12 @@ const UserOrders = () => {
     // Handle search
     const orderNumber = order.orderNumber || '';
     const restaurant = getRestaurantName(order);
+    const itemsText = order.items?.map(item => item.name || item.productName || '').join(' ') || '';
     
-    const matchesSearch = 
+    const matchesSearch = searchQuery === '' || 
       orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      restaurant.toLowerCase().includes(searchQuery.toLowerCase());
+      restaurant.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      itemsText.toLowerCase().includes(searchQuery.toLowerCase());
     
     // Handle status filter
     let orderStatus = order.status || '';
@@ -190,24 +245,37 @@ const UserOrders = () => {
       orderStatus = orderStatus.toLowerCase();
     }
     
-    const matchesStatus = filterStatus === 'all' || orderStatus === filterStatus.toLowerCase();
+    // Normalize both status strings to match
+    const normalizedOrderStatus = orderStatus.replace(/_/g, '').toLowerCase();
+    const normalizedFilterStatus = filterStatus.replace(/_/g, '').toLowerCase();
+    
+    const matchesStatus = filterStatus === 'all' || normalizedOrderStatus === normalizedFilterStatus;
     
     return matchesSearch && matchesStatus;
   });
 
   const sortedOrders = [...filteredOrders].sort((a, b) => {
-    const dateA = a.createdAt || a.date || 0;
-    const dateB = b.createdAt || b.date || 0;
-    
     switch (sortBy) {
-      case 'date':
-        return new Date(dateB) - new Date(dateA);
-      case 'amount':
-        return (b.grandTotal || b.totalAmount || 0) - (a.grandTotal || a.totalAmount || 0);
-      case 'rating':
-        return (b.rating || 0) - (a.rating || 0);
+      case 'date': {
+        const dateA = a.createdAt || a.date || '0';
+        const dateB = b.createdAt || b.date || '0';
+        // Handle invalid dates
+        const timeA = new Date(dateA).getTime() || 0;
+        const timeB = new Date(dateB).getTime() || 0;
+        return timeB - timeA;
+      }
+      case 'amount': {
+        const amountA = a.grandTotal || a.totalAmount || a.total || 0;
+        const amountB = b.grandTotal || b.totalAmount || b.total || 0;
+        return amountB - amountA;
+      }
+      case 'rating': {
+        const ratingA = a.rating || a.averageRating || 0;
+        const ratingB = b.rating || b.averageRating || 0;
+        return ratingB - ratingA;
+      }
       default:
-        return new Date(dateB) - new Date(dateA);
+        return 0;
     }
   });
 
@@ -226,10 +294,16 @@ const UserOrders = () => {
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Orders</h1>
-        <Button variant="outline" className="gap-2">
-          <FaFilter className="w-4 h-4" />
-          Export Orders
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={fetchOrders}>
+            <FaSync className={loading ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
+            Refresh Orders
+          </Button>
+          <Button variant="outline" className="gap-2">
+            <FaFilter className="w-4 h-4" />
+            Export Orders
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -373,10 +447,15 @@ const UserOrders = () => {
 
                 <div className="flex flex-wrap items-center justify-end gap-2 mt-4">
                   <Button 
-                    variant="link" 
-                    onClick={() => navigate(`/order/${orderId}`)}
-                    className="text-blue-600 hover:text-blue-900"
+                    variant="outline" 
+                    onClick={() => handleViewDetails(orderId)}
+                    className="flex items-center gap-1.5"
+                    disabled={detailLoading && selectedOrderDetails?._id === orderId}
                   >
+                    {detailLoading && selectedOrderDetails?._id === orderId ? 
+                      <Spinner size="sm" className="mr-1"/> : 
+                      <FaExternalLinkAlt className="w-3 h-3" />
+                    }
                     View Details
                   </Button>
                   
@@ -419,36 +498,30 @@ const UserOrders = () => {
             );
           })
         ) : (
-          <Card className="p-8 text-center">
-            {searchQuery || filterStatus !== 'all' ? (
-              <>
-                <p className="mb-4 text-gray-600 dark:text-gray-400">
-                  No orders match your search criteria
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilterStatus('all');
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </>
-            ) : (
-              <div className="py-8">
-                <FaShoppingBag className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                <h3 className="mb-2 text-xl font-semibold">No orders yet</h3>
-                <p className="max-w-md mx-auto mb-6 text-gray-600 dark:text-gray-400">
-                  It looks like you haven&apos;t placed any orders yet. Browse our restaurants and place your first order!
-                </p>
-                <Button asChild>
-                  <Link to="/">Browse Restaurants</Link>
-                </Button>
-              </div>
-            )}
-          </Card>
+          <div className="flex flex-col items-center justify-center p-8 mt-8 text-center bg-white rounded-lg shadow-sm dark:bg-gray-800">
+            <FaShoppingBag className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
+            <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">No orders yet</h3>
+            <p className="max-w-md mb-6 text-gray-500 dark:text-gray-400">
+              It looks like you haven&apos;t placed any orders yet. Browse our restaurants and place your first order!
+            </p>
+            <div className="flex gap-4">
+              <Button 
+                onClick={() => navigate('/restaurants')}
+                className="gap-2"
+              >
+                <FaUtensils className="w-4 h-4" />
+                Browse Restaurants
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={fetchOrders}
+                className="gap-2"
+              >
+                <FaSync className={loading ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
+                Refresh Orders
+              </Button>
+            </div>
+          </div>
         )}
       </div>
       
@@ -459,13 +532,105 @@ const UserOrders = () => {
           </Badge>
         </div>
       )}
-      
-      <div className="flex justify-center mt-4">
-        <Button variant="outline" onClick={fetchOrders} className="gap-2">
-          <FaSync className="w-4 h-4" />
-          Refresh Orders
-        </Button>
-      </div>
+
+      {/* Order Detail Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="absolute top-4 right-4">
+                <FaTimes className="w-4 h-4" />
+              </Button>
+            </DialogClose>
+          </DialogHeader>
+          
+          {detailLoading && (
+            <div className="flex justify-center items-center py-10">
+              <Spinner size="lg" />
+            </div>
+          )}
+          
+          {detailError && !detailLoading && (
+            <Alert variant="destructive">{detailError}</Alert>
+          )}
+
+          {selectedOrderDetails && !detailLoading && !detailError && (
+            <div className="py-4 space-y-4">
+              {/* Simplified Order Detail Content - Reuse structure from OrderDetail.jsx if needed */}
+              <div className="flex items-center justify-between pb-4 border-b">
+                <h3 className="font-semibold">Order #{selectedOrderDetails.orderNumber}</h3>
+                <Badge className={`px-3 py-1 text-sm ${getStatusColor(selectedOrderDetails.status)}`}>
+                  {formatStatus(selectedOrderDetails.status)}
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div className="flex items-center">
+                  <FaCalendarAlt className="mr-2 text-gray-500" />
+                  <span>Ordered: {formatDate(selectedOrderDetails.createdAt)}</span>
+                </div>
+                <div className="flex items-center">
+                  <FaReceipt className="mr-2 text-gray-500" />
+                  <span>Payment: {selectedOrderDetails.paymentMethod} ({selectedOrderDetails.paymentStatus})</span>
+                </div>
+                <div className="flex items-center col-span-1 sm:col-span-2">
+                  <FaUtensils className="mr-2 text-gray-500" />
+                  <span>Restaurant: {getRestaurantName(selectedOrderDetails)}</span>
+                </div>
+                <div className="flex items-start col-span-1 sm:col-span-2">
+                  <FaMapMarkerAlt className="flex-shrink-0 mr-2 text-gray-500 mt-0.5" />
+                  <span>Delivery: {selectedOrderDetails.deliveryAddress?.street || selectedOrderDetails.deliveryAddress || 'N/A'}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <h4 className="mb-2 font-medium">Items</h4>
+                <div className="space-y-1 text-sm">
+                  {selectedOrderDetails.items?.map((item, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{item.quantity}x {item.name}</span>
+                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 space-y-1 text-sm border-t">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>${selectedOrderDetails.totalPrice?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery Fee:</span>
+                  <span>${selectedOrderDetails.deliveryFee?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax:</span>
+                  <span>${selectedOrderDetails.tax?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>${selectedOrderDetails.grandTotal?.toFixed(2)}</span>
+                </div>
+              </div>
+              
+              {selectedOrderDetails.specialInstructions && (
+                <div className="pt-4 border-t">
+                  <h4 className="mb-1 font-medium">Special Instructions</h4>
+                  <p className="text-sm text-gray-600">{selectedOrderDetails.specialInstructions}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

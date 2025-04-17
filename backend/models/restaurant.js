@@ -16,6 +16,9 @@ const restaurantSchema = new mongoose.Schema({
         zipCode: String,
         country: String
     },
+    isFeatured: {
+        
+    },
     description: {
         type: String,
         default: '',

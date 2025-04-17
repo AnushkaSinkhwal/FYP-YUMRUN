@@ -149,6 +149,7 @@ const ProductDetails = () => {
         const body = { menuItemId: productId };
 
         try {
+            console.log(`Adding to favorites: ${product.name}`);
             const response = await axios({
                 method: method,
                 url: isFavorite ? `${url}/${productId}` : url,
@@ -157,6 +158,7 @@ const ProductDetails = () => {
 
             if (response.data.success) {
                 setIsFavorite(!isFavorite);
+                console.log(isFavorite ? 'Removed from favorites' : 'Added to favorites');
             }
         } catch (error) {
             console.error('Error toggling favorite status:', error);
@@ -178,15 +180,33 @@ const ProductDetails = () => {
             return;
         }
         
-        setReviewSubmitting(true);
-        setReviewSubmitError(null);
-        setReviewSubmitSuccess(false);
-        
+        // Check if user has any completed orders for this item
         try {
+            const ordersResponse = await axios.get('/api/orders/completed');
+            const completedOrders = ordersResponse.data.data?.orders || [];
+            
+            // Find orders that contain this menu item
+            const ordersWithItem = completedOrders.filter(order => 
+                order.items.some(item => item.menuItemId === productId)
+            );
+            
+            if (ordersWithItem.length === 0) {
+                setReviewSubmitError('You can only review items from completed orders.');
+                return;
+            }
+            
+            // Use the most recent order that contains this item
+            const orderId = ordersWithItem[0]._id;
+            
+            setReviewSubmitting(true);
+            setReviewSubmitError(null);
+            setReviewSubmitSuccess(false);
+            
             const response = await axios.post('/api/reviews', {
                 menuItemId: productId,
                 rating: newReviewRating,
                 comment: newReviewComment,
+                orderId: orderId
             });
             
             if (response.data.success) {

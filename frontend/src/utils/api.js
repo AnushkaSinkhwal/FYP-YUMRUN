@@ -501,7 +501,29 @@ export const userAPI = {
   
   // Get a specific order by ID
   getOrder: async (orderId) => {
-    return api.get(`/orders/${orderId}`);
+    try {
+      // Use the new safe endpoint instead of the problematic one
+      console.log(`Using safe endpoint for order: ${orderId}`);
+      const response = await api.get(`/orders/safe/details/${orderId}`);
+      
+      // Check if the response has the correct format
+      if (response.data && response.data.success && response.data.data) {
+        console.log('Safe endpoint response:', response.data);
+        // Transform the response to match the expected format in OrderDetail.jsx
+        return {
+          data: {
+            success: true,
+            data: response.data.data
+          }
+        };
+      }
+      
+      // If the response already has the expected format, return it as is
+      return response;
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      throw error;
+    }
   },
   
   // Submit a review

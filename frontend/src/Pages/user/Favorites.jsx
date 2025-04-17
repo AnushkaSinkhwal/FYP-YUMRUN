@@ -12,7 +12,7 @@ const UserFavorites = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(null);
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Fetch favorites from API
@@ -30,10 +30,13 @@ const UserFavorites = () => {
     setError(null);
     
     try {
+      console.log('Fetching favorites...');
       const response = await api.get('/favorites');
+      console.log('Favorites response:', response);
       
       if (response.data && response.data.success) {
         setFavorites(response.data.data?.favorites || []);
+        console.log('Favorites set:', response.data.data?.favorites);
       } else {
         throw new Error(response.data?.error?.message || 'Failed to fetch favorites');
       }

@@ -51,6 +51,7 @@ const UserReviews = () => {
     } catch (err) {
       console.error('Error fetching reviews:', err);
       setError('Unable to load reviews. Please try again later.');
+      setReviews([]);
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,7 @@ import { BsArrowsFullscreen } from "react-icons/bs";
 import { CiHeart } from "react-icons/ci";
 import { FiShoppingCart } from "react-icons/fi";
 import { FaMapMarkerAlt, FaHeart, FaStore } from "react-icons/fa";
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { MyContext } from '../../App';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
@@ -38,6 +38,34 @@ const ProductItem = ({
 
     // Determine the link based on whether it's a restaurant or a product
     const itemLink = linkTo || (isRestaurant ? `/restaurant/${id}` : `/product/${id}`);
+
+    // Check if item is in favorites on component mount
+    useEffect(() => {
+        // Don't check for restaurants, only menu items
+        if (isRestaurant) return;
+        
+        const checkFavoriteStatus = async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) return; // Not logged in
+            
+            try {
+                const response = await fetch(`/api/favorites/${id}/check`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    setFavoriteActive(data.data.isFavorite);
+                }
+            } catch (error) {
+                console.error('Error checking favorite status:', error);
+            }
+        };
+        
+        checkFavoriteStatus();
+    }, [id, isRestaurant]);
 
     const viewProductDetails = () => {
         if (isRestaurant) {
@@ -116,11 +144,45 @@ const ProductItem = ({
         }, 2000);
     };
     
-    const toggleFavorite = (e) => {
+    const toggleFavorite = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setFavoriteActive(!favoriteActive);
-        console.log(`${favoriteActive ? 'Removed from' : 'Added to'} favorites: ${name}`);
+        
+        // Check if user is authenticated - if not, just redirect to login
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/signin';
+            return;
+        }
+        
+        try {
+            const url = `/api/favorites`;
+            const method = favoriteActive ? 'DELETE' : 'POST';
+            const body = { menuItemId: id };
+            
+            const response = await fetch(
+                favoriteActive ? `${url}/${id}` : url, 
+                {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: method === 'POST' ? JSON.stringify(body) : undefined
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                setFavoriteActive(!favoriteActive);
+                console.log(`${favoriteActive ? 'Removed from' : 'Added to'} favorites: ${name}`);
+            } else {
+                console.error('Error toggling favorite:', data.error);
+            }
+        } catch (error) {
+            console.error('Error toggling favorite status:', error);
+        }
     };
 
     const handleImageLoad = () => {
