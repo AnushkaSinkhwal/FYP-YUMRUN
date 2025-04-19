@@ -25,7 +25,7 @@ const ProductItem = ({
     rating = 0, 
     oldPrice = "", 
     newPrice = "520", 
-    imgSrc = "https://fmdadmin.foodmandu.com//Images/Vendor/269/Logo/web_240423103631_200624060757.listing-fire-and-ice.png",
+    image = "", 
     isRestaurant = false,
     linkTo = ""
 }) => {
@@ -38,6 +38,11 @@ const ProductItem = ({
 
     // Determine the link based on whether it's a restaurant or a product
     const itemLink = linkTo || (isRestaurant ? `/restaurant/${id}` : `/product/${id}`);
+
+    // Process the image URL using getFullImageUrl and appropriate placeholder
+    const processedImageUrl = image 
+        ? getFullImageUrl(image) 
+        : isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
 
     // Check if item is in favorites on component mount
     useEffect(() => {
@@ -128,7 +133,7 @@ const ProductItem = ({
             id,
             name,
             price: parseFloat(newPrice),
-            image: imgSrc,
+            image: processedImageUrl,
             rating,
             restaurantId,
             restaurant: {
@@ -192,7 +197,7 @@ const ProductItem = ({
     const handleImageError = (e) => {
         // Use a proper placeholder image from the backend
         e.target.src = isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
-        setImgLoaded(true);
+        setImgLoaded(true); // Still consider it loaded even if it's a fallback
     };
 
     // Function to render the star rating
@@ -269,7 +274,7 @@ const ProductItem = ({
                     )}
                     <Link to={itemLink} aria-label={`View ${name} details`}>
                         <img 
-                            src={getFullImageUrl(imgSrc)} 
+                            src={processedImageUrl} 
                             className={cn(
                                 "absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                                 imgLoaded ? "opacity-100" : "opacity-0"
@@ -424,7 +429,7 @@ ProductItem.propTypes = {
     rating: PropTypes.number,
     oldPrice: PropTypes.string,
     newPrice: PropTypes.string,
-    imgSrc: PropTypes.string,
+    image: PropTypes.string,
     isRestaurant: PropTypes.bool,
     linkTo: PropTypes.string
 };

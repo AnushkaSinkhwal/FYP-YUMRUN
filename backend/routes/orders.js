@@ -64,133 +64,80 @@ router.get('/user', protect, async (req, res) => {
 // GET restaurant orders for the logged-in owner (Fixed route placement)
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        // Get user ID from auth middleware
-        const userId = req.user.userId;
+        // Get user ID from auth middleware (this is the owner's user ID)
+        const ownerUserId = req.user.userId;
         
-        console.log(`[Orders API] Finding orders for restaurant owner with ID: ${userId}`);
+        console.log(`[Orders API] Finding orders for restaurant owner with User ID: ${ownerUserId}`);
         
-        if (!userId) {
+        if (!ownerUserId) {
             return res.status(400).json({
                 success: false,
-                message: 'User ID is missing'
+                message: 'Owner User ID is missing from token'
             });
         }
         
-        // First, find the user to get restaurant details
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+        // Find the User document for the owner
+        const ownerUser = await User.findById(ownerUserId);
+        if (!ownerUser) {
+            console.log(`[Orders API] Owner user document not found for ID: ${ownerUserId}`);
+            // Allow proceeding, maybe a Restaurant doc exists separately
+        } else {
+             console.log(`[Orders API] Found owner user document:`, {
+                 id: ownerUser._id,
+                 email: ownerUser.email,
+                 role: ownerUser.role,
+                 hasRestaurantDetails: !!ownerUser.restaurantDetails
+             });
         }
 
-        console.log(`[Orders API] Restaurant owner details:`, {
-            id: user._id,
-            email: user.email,
-            role: user.role
+        // Initialize possible IDs with the owner's User ID (as a string)
+        const possibleRestaurantIds = [ownerUserId.toString()];
+        
+        // Although restaurantDetailsSchema doesn't have _id, log if it exists for debugging
+        if (ownerUser && ownerUser.restaurantDetails) {
+            console.log(`[Orders API] Owner user has restaurantDetails object.`);
+            // If in the future restaurantDetails gets an _id, it would be added here.
+            // if (ownerUser.restaurantDetails._id) {
+            //     possibleRestaurantIds.push(ownerUser.restaurantDetails._id.toString());
+            //     console.log(`[Orders API] Added restaurantDetails._id: ${ownerUser.restaurantDetails._id}`);
+            // }
+        }
+        
+        // Attempt to find a separate Restaurant document linked to the owner's User ID
+        const ownedRestaurant = await Restaurant.findOne({ owner: ownerUserId });
+        if (ownedRestaurant) {
+            console.log(`[Orders API] Found linked Restaurant document with ID: ${ownedRestaurant._id}`);
+            possibleRestaurantIds.push(ownedRestaurant._id.toString());
+        } else {
+            console.log(`[Orders API] No separate Restaurant document found linked to owner User ID: ${ownerUserId}`);
+        }
+        
+        // Ensure IDs are unique strings
+        const uniqueStringIds = [...new Set(possibleRestaurantIds)];
+        
+        console.log(`[Orders API] Final unique string IDs to search for orders:`, uniqueStringIds);
+        
+        // Find orders where restaurantId matches any of the collected IDs
+        const orders = await Order.find({
+            restaurantId: { $in: uniqueStringIds }
+        })
+            .sort({ createdAt: -1 })
+            .populate('userId', 'firstName lastName fullName email phone') // Populate customer details
+            .lean(); // Use lean for performance
+        
+        console.log(`[Orders API] Found ${orders.length} orders matching IDs: ${uniqueStringIds.join(', ')}`);
+        
+        // Return the found orders
+        return res.status(200).json({
+            success: true,
+            data: orders
         });
         
-        // Find orders for this restaurant - try different approaches
-        let orders = [];
-        try {
-            // First check if there are orders directly with restaurantId = userId (old method)
-            const directOrders = await Order.find({ restaurantId: userId })
-                .sort('-createdAt')
-                .lean();
-                
-            console.log(`[Orders API] Found ${directOrders.length} orders using userId directly`);
-            
-            if (directOrders.length > 0) {
-                orders = directOrders;
-            } else {
-                // If no direct orders, try to find the restaurant and then find orders
-                console.log('[Orders API] No direct orders found, looking for restaurant association');
-                
-                // If the user has a restaurant reference, use that
-                if (user.restaurantDetails && user.restaurantDetails._id) {
-                    console.log(`[Orders API] Using restaurant ID from user.restaurantDetails: ${user.restaurantDetails._id}`);
-                    
-                    const restaurantOrders = await Order.find({ restaurantId: user.restaurantDetails._id })
-                        .sort('-createdAt')
-                        .lean();
-                        
-                    console.log(`[Orders API] Found ${restaurantOrders.length} orders using restaurantDetails._id`);
-                    orders = restaurantOrders;
-                }
-
-                // If still no orders and user.restaurant exists (different from restaurantDetails)
-                if (orders.length === 0 && user.restaurant) {
-                    console.log(`[Orders API] Using restaurant ID from user.restaurant: ${user.restaurant}`);
-                    
-                    const restaurantOrders = await Order.find({ restaurantId: user.restaurant })
-                        .sort('-createdAt')
-                        .lean();
-                        
-                    console.log(`[Orders API] Found ${restaurantOrders.length} orders using user.restaurant`);
-                    orders = restaurantOrders;
-                }
-            }
-            
-            // If still no orders, check if the restaurant model exists separately
-            if (orders.length === 0) {
-                try {
-                    // Look up properly registered Restaurant model
-                    const Restaurant = require('../models/restaurant');
-                    
-                    // Query using registered model
-                    const restaurant = await Restaurant.findOne({ owner: userId });
-                    
-                    if (restaurant) {
-                        console.log(`[Orders API] Found restaurant with ID: ${restaurant._id}`);
-                        
-                        const restaurantOrders = await Order.find({ restaurantId: restaurant._id })
-                            .sort('-createdAt')
-                            .lean();
-                            
-                        console.log(`[Orders API] Found ${restaurantOrders.length} orders using restaurant._id`);
-                        orders = restaurantOrders;
-                    }
-                } catch (err) {
-                    console.error('[Orders API] Error looking up restaurant:', err);
-                    // Continue with empty orders array
-                }
-            }
-            
-            // LAST RESORT: Try direct specific ID lookup from your example JSON
-            if (orders.length === 0) {
-                console.log('[Orders API] Last resort: Checking specific restaurant ID from sample order');
-                
-                // Check for orders with specific restaurant ID from your example
-                const specificRestaurantId = "67fb7977b23ec6b3cad80fe1";
-                const specificOrders = await Order.find({ restaurantId: specificRestaurantId })
-                    .sort('-createdAt')
-                    .lean();
-                    
-                console.log(`[Orders API] Found ${specificOrders.length} orders using specific ID ${specificRestaurantId}`);
-                
-                if (specificOrders.length > 0) {
-                    orders = specificOrders;
-                }
-            }
-            
-            // Return orders with success
-            return res.status(200).json({
-                success: true,
-                data: orders
-            });
-        } catch (queryError) {
-            console.error('[Orders API] Database query error:', queryError);
-            return res.status(500).json({
-                success: false,
-                message: 'Error retrieving orders from database'
-            });
-        }
     } catch (error) {
-        console.error('[Orders API] Uncaught error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while processing your request'
+        console.error('[Orders API] Error fetching restaurant orders:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error while fetching restaurant orders. Please try again later.' 
         });
     }
 });
@@ -386,6 +333,16 @@ router.post('/', auth, async (req, res) => {
             });
         }
         
+        // Get the user ID from authentication middleware
+        const userId = req.user ? req.user.userId : null;
+        
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required'
+            });
+        }
+        
         // Ensure this is a valid restaurant ID (either a direct ID or a user ID for restaurant owner)
         let orderRestaurantId = providedRestaurantId;
         let isValidRestaurant = false;
@@ -397,6 +354,7 @@ router.post('/', auth, async (req, res) => {
             
             if (restaurant) {
                 console.log(`[Orders API] Found restaurant directly with ID: ${providedRestaurantId}`);
+                orderRestaurantId = restaurant._id.toString();
                 isValidRestaurant = true;
             } else {
                 // If not found directly, check if this is a user ID for a restaurant owner
@@ -407,7 +365,7 @@ router.post('/', auth, async (req, res) => {
                     
                     // Check if user has restaurantDetails
                     if (user.restaurantDetails && user.restaurantDetails._id) {
-                        orderRestaurantId = user.restaurantDetails._id;
+                        orderRestaurantId = user.restaurantDetails._id.toString();
                         console.log(`[Orders API] Using restaurant ID from user.restaurantDetails: ${orderRestaurantId}`);
                         isValidRestaurant = true;
                     } else {
@@ -415,7 +373,7 @@ router.post('/', auth, async (req, res) => {
                         const ownedRestaurant = await Restaurant.findOne({ owner: providedRestaurantId });
                         
                         if (ownedRestaurant) {
-                            orderRestaurantId = ownedRestaurant._id;
+                            orderRestaurantId = ownedRestaurant._id.toString();
                             console.log(`[Orders API] Using restaurant ID from owner lookup: ${orderRestaurantId}`);
                             isValidRestaurant = true;
                         } else {
@@ -440,72 +398,110 @@ router.post('/', auth, async (req, res) => {
             });
         }
 
-        // Get the user ID from authentication middleware (req.user.userId)
-        const userId = req.user ? req.user.userId : null;
+        // Generate the order number if not provided
+        const generatedOrderNumber = orderNumber || `ORD-${Date.now()}-${Math.floor(Math.random() * 100)}`;
         
-        // Create new order with the validated restaurant ID
-        const newOrder = new Order({
-            orderNumber: orderNumber || `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
-            userId: req.user ? req.user.userId : userId, // Ensure we have a userId
-            restaurantId: orderRestaurantId, // Use the validated restaurant ID
-            items: orderItems.map(item => ({
-                productId: item.productId,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                options: item.options || []
-            })),
-            totalPrice: totalPrice || orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            deliveryFee: deliveryFee || 0,
-            tax: tax || 0,
-            grandTotal: grandTotal || (totalPrice + (deliveryFee || 0) + (tax || 0)),
-            deliveryAddress: orderDeliveryAddress,
-            paymentMethod: orderPaymentMethod,
-            specialInstructions: specialInstructions || '',
-            status: 'PENDING',
-            paymentStatus: 'PENDING',
-            isPaid: false,
-            statusUpdates: [{
-                status: 'PENDING',
-                timestamp: new Date(),
-                updatedBy: req.user ? req.user.userId : null
-            }]
+        // Process the order items - ensure proper productId is set
+        const processedItems = orderItems.map(item => {
+            // Make sure to keep the original productId separate from restaurantId
+            // If the item doesn't have a proper productId, generate a new ObjectId
+            const itemProductId = item.productId || new mongoose.Types.ObjectId();
+            
+            return {
+                ...item,
+                productId: itemProductId
+            };
         });
+        
+        // Create the new order
+        const newOrder = new Order({
+            orderNumber: generatedOrderNumber,
+            userId,
+            restaurantId: orderRestaurantId, // Use the validated restaurant ID
+            items: processedItems,
+            totalPrice: parseFloat(totalPrice || 0),
+            deliveryFee: parseFloat(deliveryFee || 0),
+            tax: parseFloat(tax || 0),
+            grandTotal: parseFloat(grandTotal || 0),
+            status: 'PENDING',
+            paymentMethod: orderPaymentMethod,
+            paymentStatus: 'PENDING',
+            deliveryAddress: orderDeliveryAddress,
+            specialInstructions: specialInstructions || '',
+            statusUpdates: [
+                {
+                    status: 'PENDING',
+                    timestamp: new Date(),
+                    updatedBy: userId
+                }
+            ]
+        });
+        
+        console.log('[Orders API] Saving new order:', {
+            orderNumber: newOrder.orderNumber,
+            userId: newOrder.userId,
+            restaurantId: newOrder.restaurantId,
+            itemsCount: newOrder.items.length
+        });
+        
+        // Save the order
+        await newOrder.save();
+        
+        // Fetch the user details to include in the email
+        const customer = await User.findById(userId);
 
-        console.log('[Orders API] Saving new order to database...');
-        const savedOrder = await newOrder.save();
-        console.log(`[Orders API] Order saved successfully with ID: ${savedOrder._id}`);
-
-        // Send notifications (non-blocking)
+        // Send notifications and email
         try {
-            Promise.all([
-                createOrderNotification(savedOrder, req.user._id),
-                createRestaurantOrderNotification(savedOrder, orderRestaurantId),
-                // Send email if user has email
-                req.user.email ? sendEmail({
-                    to: req.user.email,
-                    subject: `YumRun Order Confirmation #${savedOrder.orderNumber}`,
-                    html: emailTemplates.orderConfirmationEmail(savedOrder, req.user)
-                }) : Promise.resolve()
-            ]).catch(err => {
-                console.error('[Orders API] Error in post-order operations:', err);
-                // Don't fail the request if notifications/email fail
-            });
-        } catch (notificationError) {
-            console.error('[Orders API] Error in notifications:', notificationError);
-            // Continue with response
-        }
+            // Create promises for notifications and email
+            const notificationPromises = [
+                createRestaurantOrderNotification(
+                    orderRestaurantId, 
+                    `New Order #${newOrder.orderNumber}`,
+                    `A new order has been placed for ${newOrder.grandTotal} with ${newOrder.items.length} items.`
+                ),
+                createOrderNotification(
+                    userId,
+                    `Order #${newOrder.orderNumber} Placed`,
+                    `Your order has been placed and is waiting for restaurant confirmation.`
+                )
+            ];
 
-        res.status(201).json({ 
-            success: true, 
-            message: 'Order created successfully', 
-            order: savedOrder 
+            // Add email promise if customer exists and has an email
+            if (customer && customer.email) {
+                notificationPromises.push(
+                    sendEmail({
+                        to: customer.email,
+                        subject: `YumRun Order Confirmation #${newOrder.orderNumber}`,
+                        // Pass both order and customer objects to the template
+                        html: emailTemplates.orderConfirmationEmail(newOrder, customer) 
+                    })
+                );
+            } else {
+                console.log(`[Orders API] Customer not found or no email for user ID: ${userId}. Skipping confirmation email.`);
+            }
+
+            // Execute all promises concurrently
+            await Promise.all(notificationPromises).catch(err => {
+                console.error('[Orders API] Error in post-order operations (notifications/email):', err);
+                // Don't fail the request if these secondary operations fail
+            });
+            
+        } catch (postOrderError) {
+            console.error('[Orders API] General error during post-order operations:', postOrderError);
+            // Continue with response even if notifications/email fail
+        }
+        
+        // Return success response with the created order
+        return res.status(201).json({
+            success: true,
+            message: 'Order created successfully',
+            data: newOrder
         });
     } catch (error) {
         console.error('[Orders API] Error creating order:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: error.message || 'Server error'
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while creating your order. Please try again.'
         });
     }
 });

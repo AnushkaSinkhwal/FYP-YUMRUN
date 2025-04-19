@@ -242,7 +242,8 @@ const emailTemplates = {
   orderConfirmationEmail: (order, user) => {
     // Format currency
     const formatCurrency = (amount) => {
-      return `Rs ${parseFloat(amount).toFixed(2)}`;
+      // Add safety check for null/undefined amount
+      return `Rs ${parseFloat(amount || 0).toFixed(2)}`;
     };
 
     // Generate order items HTML
@@ -255,13 +256,36 @@ const emailTemplates = {
       </tr>
     `).join('');
 
+    // Format delivery address
+    let formattedAddress = 'Address not provided';
+    if (order.deliveryAddress) {
+        if (typeof order.deliveryAddress === 'object') {
+            // Attempt to build from common fields
+            formattedAddress = [
+                order.deliveryAddress.fullAddress,
+                order.deliveryAddress.street,
+                order.deliveryAddress.city,
+                order.deliveryAddress.state,
+                order.deliveryAddress.zipCode,
+                order.deliveryAddress.country
+            ].filter(Boolean).join(', '); 
+            // If still empty (e.g., empty object), use a default
+            if (!formattedAddress) formattedAddress = 'Address details incomplete';
+        } else if (typeof order.deliveryAddress === 'string') {
+            formattedAddress = order.deliveryAddress; // Use the string directly
+        }
+    }
+
+    // Safely get user name
+    const customerName = user?.fullName || user?.name || 'Valued Customer';
+
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Order Confirmation - YumRun</title>
+        <title>Order Confirmation - YumRun #${order.orderNumber || order._id}</title>
         <style>
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -339,13 +363,14 @@ const emailTemplates = {
             <h1>Order Confirmation</h1>
           </div>
           <div class="content">
-            <h2>Thank you for your order, ${user.fullName || user.name || 'there'}!</h2>
+            <h2>Thank you for your order, ${customerName}!</h2>
             <p>Your order has been received and is being processed. Here's a summary of your order:</p>
             
             <div class="order-info">
               <p><strong>Order Number:</strong> ${order.orderNumber || order._id}</p>
               <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
-              <p><strong>Delivery Address:</strong> ${order.deliveryAddress}</p>
+              {/* Use formatted address */}
+              <p><strong>Delivery Address:</strong> ${formattedAddress}</p>
               <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
               <p><strong>Estimated Delivery:</strong> ${order.estimatedDeliveryTime || '30-45 minutes'}</p>
             </div>
@@ -368,25 +393,41 @@ const emailTemplates = {
             <div class="order-summary">
               <div class="summary-row">
                 <span>Subtotal:</span>
-                <span>${formatCurrency(order.subtotal)}</span>
+                 {/* Use totalPrice for Subtotal */}
+                <span>${formatCurrency(order.totalPrice)}</span>
               </div>
               <div class="summary-row">
                 <span>Delivery Fee:</span>
                 <span>${formatCurrency(order.deliveryFee)}</span>
               </div>
-              ${order.discount ? `
+              {/* Add Tax and Tip if they exist and are non-zero */}
+              ${order.tax && order.tax > 0 ? `
+              <div class="summary-row">
+                <span>Tax:</span>
+                <span>${formatCurrency(order.tax)}</span>
+              </div>
+              ` : ''}
+              ${order.tip && order.tip > 0 ? `
+              <div class="summary-row">
+                <span>Tip:</span>
+                <span>${formatCurrency(order.tip)}</span>
+              </div>
+              ` : ''}
+              ${order.discount && order.discount > 0 ? `
               <div class="summary-row">
                 <span>Discount:</span>
-                <span>-${formatCurrency(order.discount)}</span>
+                <span style="color: green;">-${formatCurrency(order.discount)}</span>
               </div>
               ` : ''}
               <div class="summary-row" style="font-weight: bold; margin-top: 10px; font-size: 18px;">
                 <span>Total:</span>
-                <span>${formatCurrency(order.totalAmount)}</span>
+                 {/* Use grandTotal for Total */}
+                <span>${formatCurrency(order.grandTotal)}</span>
               </div>
             </div>
 
-            <a href="${process.env.FRONTEND_URL}/order-confirmation/${order._id}" class="button">View Order Details</a>
+            {/* Ensure the link uses the correct base URL */}
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/user/orders/${order._id}" class="button">View Order Details</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>Enjoy your meal!</p>

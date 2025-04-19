@@ -213,15 +213,15 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
 router.get('/', async (req, res) => {
     try {
         // Query the Restaurant collection for approved restaurants
-        const approvedRestaurants = await Restaurant.find({ isApproved: true })
-            .select('name description location logo cuisine owner dateCreated') // Select relevant fields
-            .populate('owner', 'name') // Optionally populate owner name if needed
+        const approvedRestaurants = await Restaurant.find({ status: 'approved' })
+            .select('name description location logo cuisine owner dateCreated status isActive')
+            .populate('owner', 'name')
             .sort({ name: 1 });
 
         // Format data for the frontend (ensure it matches frontend expectations)
         const formattedRestaurants = await Promise.all(approvedRestaurants.map(async (restaurant) => {
-            // For each restaurant, calculate average rating from related menu items
-            const menuItems = await MenuItem.find({ restaurant: restaurant.owner });
+            let menuItemOwnerId = restaurant.owner?._id || restaurant.owner;
+            const menuItems = await MenuItem.find({ restaurant: menuItemOwnerId });
             
             let totalRating = 0;
             let reviewCount = 0;
@@ -236,17 +236,16 @@ router.get('/', async (req, res) => {
             const avgRating = reviewCount > 0 ? totalRating / reviewCount : 0;
             
             return {
-                _id: restaurant._id, // Use _id or id as expected by frontend
-                id: restaurant.id,   // Include virtual id if used
+                _id: restaurant._id,
+                id: restaurant.id,
                 name: restaurant.name,
                 description: restaurant.description || 'No description available.',
-                location: restaurant.location || 'Location not specified.',
-                logo: restaurant.logo || null, // Handle missing logo
-                cuisine: restaurant.cuisine || [], // Assuming cuisine might be added later
+                location: restaurant.location || (restaurant.address ? `${restaurant.address.city}, ${restaurant.address.state}` : 'Location not specified.'),
+                logo: restaurant.logo || null,
+                cuisine: restaurant.cuisine || [],
                 rating: parseFloat(avgRating.toFixed(1)),
                 totalReviews: reviewCount,
-                // Add other fields as needed by the frontend Shop component
-                isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true
+                isOpen: restaurant.isActive !== undefined ? restaurant.isActive : true
             };
         }));
 
@@ -255,7 +254,7 @@ router.get('/', async (req, res) => {
             data: formattedRestaurants
         });
     } catch (error) {
-        console.error('Error fetching approved restaurants:', error);
+        console.error('Error fetching restaurants:', error);
         return res.status(500).json({
             success: false,
             message: 'Server error. Please try again.'

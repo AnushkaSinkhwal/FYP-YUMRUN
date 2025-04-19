@@ -142,7 +142,7 @@ const UserDashboard = () => {
       count: dashboardData.favoriteRestaurants || 0,
       icon: <FaHeart className="w-5 h-5 text-white" />,
       color: 'bg-red-500',
-      link: '/favorites'
+      link: '/user/favorites?tab=restaurants'
     },
     {
       title: 'Amount Saved',
@@ -366,7 +366,7 @@ const UserDashboard = () => {
                     </thead>
                     <tbody>
                       {orderHistory.slice(0, 5).map((order) => (
-                        <tr key={order._id} className="bg-white dark:bg-gray-800 border-b">
+                        <tr key={order._id} className="bg-white border-b dark:bg-gray-800">
                           <td className="px-6 py-4">{order.orderNumber}</td>
                           <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
                           <td className="px-6 py-4">

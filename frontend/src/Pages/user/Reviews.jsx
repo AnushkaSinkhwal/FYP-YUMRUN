@@ -34,7 +34,7 @@ const UserReviews = () => {
     
     try {
       console.log('Fetching reviews...');
-      const response = await api.get('/reviews/user');
+      const response = await api.get('/api/reviews/user');
       console.log('Reviews response:', response);
       
       if (response.data && response.data.success) {
@@ -95,7 +95,7 @@ const UserReviews = () => {
     if (!editingReview) return;
     
     try {
-      const response = await api.put(`/reviews/${editingReview.id}`, {
+      const response = await api.put(`/api/reviews/${editingReview.id}`, {
         rating,
         comment: reviewText
       });
@@ -123,7 +123,7 @@ const UserReviews = () => {
     }
     
     try {
-      const response = await api.delete(`/reviews/${id}`);
+      const response = await api.delete(`/api/reviews/${id}`);
       
       if (response.data && response.data.success) {
         // Remove the deleted review from state

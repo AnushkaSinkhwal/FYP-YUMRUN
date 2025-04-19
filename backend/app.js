@@ -77,7 +77,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/reviews', reviewsRoutes);
-app.use('/api/favorites', favoritesRoutes);
+app.use('/api/user/favorites', favoritesRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/loyalty', loyaltyRoutes);

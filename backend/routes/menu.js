@@ -14,6 +14,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const Offer = require('../models/offer'); // Import Offer model
 
 // Add direct fix function for menu items with no restaurant
 const fixMenuItemsWithNoRestaurant = async () => {
@@ -178,10 +179,24 @@ router.get('/', async (req, res) => {
         // If restaurantId is provided, filter by restaurant
         if (restaurantId) {
             query.restaurant = restaurantId;
+        } else {
+             // If no specific restaurant, fetch all active offers for potentially multiple restaurants
+            // This might be inefficient if there are many restaurants/offers.
+            // Consider fetching offers per restaurant if performance becomes an issue.
         }
         
         console.log('Query for menu items:', query);
         
+        // Fetch all active offers
+        const now = new Date();
+        const activeOffers = await Offer.find({
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).lean(); // Use lean for performance
+
+        console.log(`Fetched ${activeOffers.length} active offers.`);
+
         // DIRECT FIX: Find a restaurant to use for association
         const restaurant = await mongoose.model('Restaurant').findOne({
             $or: [
@@ -217,28 +232,53 @@ router.get('/', async (req, res) => {
         const processedMenuItems = await MenuItem.find(query).populate({
             path: 'restaurant',
             select: 'name logo location cuisine'
-        });
+        }).lean(); // Use lean for performance
         
-        // Format the response
+        // Format the response including offer calculations
         const formattedItems = processedMenuItems.map(item => {
-            // Detailed logging for each item
-            const restaurantInfo = item.restaurant 
-                ? `${item.restaurant._id} - ${item.restaurant.name}` 
-                : 'Using default restaurant';
-                
-            console.log(`Processing item: ${item.item_name}, Restaurant:`, restaurantInfo);
-            
-            return {
+            const itemRestaurantId = item.restaurant?._id?.toString();
+            let bestOffer = null;
+            let discountedPrice = item.item_price; // Default to original price
+
+            if (itemRestaurantId) {
+                // Find offers applicable to this item
+                const applicableOffers = activeOffers.filter(offer => {
+                    const offerRestaurantId = offer.restaurant?.toString();
+                    // Check if offer is for the same restaurant
+                    if (offerRestaurantId !== itemRestaurantId) {
+                        return false;
+                    }
+                    // Check if offer applies to all items or this specific item
+                    if (offer.appliesTo === 'All Menu') {
+                        return true;
+                    } else if (offer.appliesTo === 'Selected Items') {
+                        // Ensure menuItems is an array and includes the current item's ID
+                        return Array.isArray(offer.menuItems) && offer.menuItems.some(offerItemId => offerItemId.toString() === item._id.toString());
+                    }
+                    return false;
+                });
+
+                // Find the best offer (highest discount percentage) among applicable ones
+                if (applicableOffers.length > 0) {
+                    bestOffer = applicableOffers.reduce((maxOffer, currentOffer) => 
+                        (currentOffer.discountPercentage > maxOffer.discountPercentage) ? currentOffer : maxOffer, 
+                        applicableOffers[0]
+                    );
+                }
+            }
+
+            // Prepare the final item object
+            const finalItem = {
                 id: item._id,
                 name: item.item_name,
                 description: item.description,
-                price: item.item_price,
+                price: item.item_price, // Keep original price accessible
                 image: item.image,
                 restaurant: item.restaurant ? {
                     id: item.restaurant._id,
                     name: item.restaurant.name
                 } : {
-                    id: restaurant ? restaurant._id : null,
+                    id: restaurant ? restaurant._id : null, // Fallback if item had no restaurant initially
                     name: restaurant ? restaurant.name : 'Unknown Restaurant'
                 },
                 category: item.category || 'Main Course',
@@ -254,6 +294,23 @@ router.get('/', async (req, res) => {
                 numberOfRatings: item.numberOfRatings || 0,
                 isPopular: item.numberOfRatings > 2 || item.averageRating > 4
             };
+
+            // If a best offer was found, add discount details
+            if (bestOffer && bestOffer.discountPercentage > 0) {
+                finalItem.originalPrice = item.item_price;
+                finalItem.discountedPrice = parseFloat((item.item_price * (1 - bestOffer.discountPercentage / 100)).toFixed(2));
+                finalItem.offerDetails = {
+                    percentage: bestOffer.discountPercentage,
+                    title: bestOffer.title,
+                    id: bestOffer._id
+                };
+                 console.log(`Applied offer '${bestOffer.title}' (${bestOffer.discountPercentage}%) to item '${item.item_name}'. Original: ${finalItem.originalPrice}, Discounted: ${finalItem.discountedPrice}`);
+            } else {
+                // If no offer, ensure price is set correctly (it defaults above, but explicit here)
+                finalItem.price = item.item_price; 
+            }
+
+            return finalItem;
         });
         
         res.status(200).json({
@@ -459,16 +516,22 @@ router.get('/restaurant', auth, async (req, res) => {
 // GET specific menu item by ID
 router.get('/:id', async (req, res) => {
     try {
-        console.log(`Fetching menu item with ID: ${req.params.id}`);
+        const productId = req.params.id;
+        console.log(`Fetching menu item with ID: ${productId}`);
         
-        // Fully populate the restaurant data
-        const menuItem = await MenuItem.findById(req.params.id).populate({
+        // Validate ID format
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ success: false, message: 'Invalid menu item ID format' });
+        }
+        
+        // Fetch the menu item and populate restaurant details
+        const menuItem = await MenuItem.findById(productId).populate({
             path: 'restaurant',
             select: 'name logo location cuisine'
-        });
+        }).lean(); // Use lean
         
         if (!menuItem) {
-            console.log(`Menu item with ID ${req.params.id} not found`);
+            console.log(`Menu item with ID ${productId} not found`);
             return res.status(404).json({
                 success: false,
                 message: 'Menu item not found'
@@ -477,11 +540,39 @@ router.get('/:id', async (req, res) => {
         
         console.log(`Found menu item: ${menuItem.item_name}`);
         
-        // Log restaurant data for debugging
-        if (menuItem.restaurant) {
-            console.log('Restaurant data:', JSON.stringify(menuItem.restaurant, null, 2));
-        } else {
-            console.log('No restaurant data found for this menu item');
+        // Fetch active offers relevant to this item's restaurant
+        let bestOffer = null;
+        const itemRestaurantId = menuItem.restaurant?._id?.toString();
+
+        if (itemRestaurantId) {
+            const now = new Date();
+            const activeOffers = await Offer.find({
+                restaurant: itemRestaurantId, // Filter by this item's restaurant
+                isActive: true,
+                startDate: { $lte: now },
+                endDate: { $gte: now }
+            }).lean();
+
+            console.log(`Found ${activeOffers.length} active offers for restaurant ${itemRestaurantId}`);
+
+            // Find applicable offers for this specific item
+            const applicableOffers = activeOffers.filter(offer => {
+                if (offer.appliesTo === 'All Menu') {
+                    return true;
+                } else if (offer.appliesTo === 'Selected Items') {
+                    return Array.isArray(offer.menuItems) && offer.menuItems.some(offerItemId => offerItemId.toString() === menuItem._id.toString());
+                }
+                return false;
+            });
+
+            // Find the best offer (highest discount percentage)
+            if (applicableOffers.length > 0) {
+                bestOffer = applicableOffers.reduce((maxOffer, currentOffer) => 
+                    (currentOffer.discountPercentage > maxOffer.discountPercentage) ? currentOffer : maxOffer, 
+                    applicableOffers[0]
+                );
+                console.log(`Best applicable offer: '${bestOffer.title}' (${bestOffer.discountPercentage}%)`);
+            }
         }
         
         // Format the response
@@ -489,7 +580,7 @@ router.get('/:id', async (req, res) => {
             id: menuItem._id,
             name: menuItem.item_name,
             description: menuItem.description,
-            price: menuItem.item_price,
+            price: menuItem.item_price, // Original price
             image: menuItem.image,
             restaurant: menuItem.restaurant ? {
                 id: menuItem.restaurant._id,
@@ -511,7 +602,21 @@ router.get('/:id', async (req, res) => {
             numberOfRatings: menuItem.numberOfRatings || 0,
             isPopular: menuItem.numberOfRatings > 2 || menuItem.averageRating > 4,
             dateCreated: menuItem.dateCreated
+            // Add ingredients and customization options if needed
+            // ingredients: menuItem.ingredients,
+            // customizationOptions: menuItem.customizationOptions
         };
+
+        // Add offer details if applicable
+        if (bestOffer && bestOffer.discountPercentage > 0) {
+            formattedItem.originalPrice = menuItem.item_price;
+            formattedItem.discountedPrice = parseFloat((menuItem.item_price * (1 - bestOffer.discountPercentage / 100)).toFixed(2));
+            formattedItem.offerDetails = {
+                percentage: bestOffer.discountPercentage,
+                title: bestOffer.title,
+                id: bestOffer._id
+            };
+        }
         
         res.status(200).json({
             success: true,

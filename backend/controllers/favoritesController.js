@@ -142,14 +142,10 @@ exports.getFavorites = async (req, res) => {
         const user = await User.findById(userId)
             .populate({
                 path: 'favorites',
-                select: 'name item_name price item_price description image category isVegetarian isVegan restaurant restaurantId',
+                select: 'name item_name price item_price description image category isVegetarian isVegan restaurant',
                 populate: [
                     {
                         path: 'restaurant',
-                        select: 'name restaurantDetails'
-                    },
-                    {
-                        path: 'restaurantId',
                         select: 'name restaurantDetails'
                     }
                 ]

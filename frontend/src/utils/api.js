@@ -371,6 +371,49 @@ export const adminAPI = {
   // Reject restaurant profile changes
   rejectRestaurantChanges: async (approvalId, reason) => {
     return api.post(`/admin/restaurant-approvals/${approvalId}/reject`, { reason });
+  },
+  
+  // Manage categories
+  getCategories: async () => {
+    return api.get('/admin/categories');
+  },
+  addCategory: async (categoryData) => {
+    return api.post('/admin/categories', categoryData);
+  },
+  updateCategory: async (categoryId, categoryData) => {
+    return api.put(`/admin/categories/${categoryId}`, categoryData);
+  },
+  deleteCategory: async (categoryId) => {
+    return api.delete(`/admin/categories/${categoryId}`);
+  },
+  
+  // Manage offers/promotions
+  getOffers: async () => {
+    return api.get('/admin/offers');
+  },
+  addOffer: async (offerData) => {
+    return api.post('/admin/offers', offerData);
+  },
+  updateOffer: async (offerId, offerData) => {
+    return api.put(`/admin/offers/${offerId}`, offerData);
+  },
+  deleteOffer: async (offerId) => {
+    return api.delete(`/admin/offers/${offerId}`);
+  },
+  
+  // Get general approval requests (e.g., user profile updates)
+  // getApprovalRequests: async () => {
+  //   return api.get('/admin/approval-requests'); // Assuming this endpoint exists
+  // },
+  
+  // Get pending restaurants for approval (NEW)
+  getPendingRestaurants: async () => {
+    return api.get('/admin/restaurants/pending');
+  },
+  
+  // Update restaurant status (approve/reject) (NEW)
+  updateRestaurantStatus: async (restaurantId, status) => {
+    return api.patch(`/admin/restaurants/${restaurantId}/status`, { status });
   }
 };
 
@@ -459,9 +502,43 @@ export const restaurantAPI = {
   // Get orders for the restaurant - with improved error handling
   getOrders: async () => {
     try {
+      console.log('Attempting to fetch restaurant orders from:', `${api.defaults.baseURL}/orders/restaurant`);
+      const token = localStorage.getItem('authToken');
+      console.log('Using auth token (first 20 chars):', token ? token.substring(0, 20) + '...' : 'No token found');
+      
+      // Check user data
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          console.log('User role:', user.role, 'isRestaurantOwner:', user.isRestaurantOwner);
+          // Ensure user has restaurant role
+          if (user.role !== 'restaurant') {
+            console.warn('User does not have restaurant role! Setting it...');
+            user.role = 'restaurant';
+            user.isRestaurantOwner = true;
+            localStorage.setItem('userData', JSON.stringify(user));
+          }
+        } catch (err) {
+          console.error('Error parsing userData:', err);
+        }
+      }
+      
+      // Make the actual request
       return await api.get('/orders/restaurant');
     } catch (error) {
       console.error('Error in getOrders API call:', error);
+      
+      // Log specific error details
+      if (error.response) {
+        console.error('Response error status:', error.response.status);
+        console.error('Response error data:', error.response.data);
+      } else if (error.request) {
+        console.error('Request error - no response received:', error.request);
+      } else {
+        console.error('Error message:', error.message);
+      }
+      
       // Re-throw to let component handle the error
       throw error;
     }

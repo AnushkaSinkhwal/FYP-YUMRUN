@@ -1,5 +1,5 @@
-const { Review } = require('../models/review');
-const { MenuItem } = require('../models/menuItem');
+const Review = require('../models/review');
+const MenuItem = require('../models/menuItem');
 const User = require('../models/user');
 const mongoose = require('mongoose');
 
@@ -388,7 +388,7 @@ exports.updateReview = async (req, res) => {
                     id: review._id,
                     rating: review.rating,
                     comment: review.comment,
-                    date: review.date
+                    date: review.createdAt
                 }
             }
         });
