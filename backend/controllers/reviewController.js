@@ -1,5 +1,5 @@
-const { Review } = require('../models/review');
-const { MenuItem } = require('../models/menuItem');
+const Review = require('../models/review');
+const MenuItem = require('../models/menuItem');
 const User = require('../models/user');
 const mongoose = require('mongoose');
 
@@ -34,6 +34,42 @@ exports.createReview = async (req, res) => {
             });
         }
 
+        // Verify order exists and is completed
+        const Order = require('../models/order');
+        const order = await Order.findById(orderId);
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: 'Order not found',
+                    code: 'NOT_FOUND'
+                }
+            });
+        }
+        
+        // Verify order belongs to the user
+        if (order.user.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                error: {
+                    message: 'Not authorized to review this order',
+                    code: 'FORBIDDEN'
+                }
+            });
+        }
+        
+        // Verify order is completed
+        if (order.status !== 'DELIVERED' && order.status !== 'COMPLETED') {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'You can only review completed orders',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
+
         let reviewData = {
             user: userId,
             rating,
@@ -52,6 +88,21 @@ exports.createReview = async (req, res) => {
                     error: {
                         message: 'Menu item not found',
                         code: 'NOT_FOUND'
+                    }
+                });
+            }
+
+            // Verify this menu item was part of the completed order
+            const orderContainsItem = order.items.some(item => 
+                item.menuItemId.toString() === menuItemId.toString()
+            );
+            
+            if (!orderContainsItem) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'You can only review items you have ordered',
+                        code: 'VALIDATION_ERROR'
                     }
                 });
             }
@@ -93,10 +144,7 @@ exports.createReview = async (req, res) => {
                 });
             }
 
-            // Try to get the restaurant ID from the order
-            const Order = require('../models/order');
-            const order = await Order.findById(orderId);
-            
+            // Use restaurant ID from the order
             if (order && order.restaurantId) {
                 reviewData.restaurant = order.restaurantId;
             }
@@ -232,59 +280,12 @@ exports.getUserReviews = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('menuItem', 'item_name image')
-            .populate('restaurant', 'restaurantDetails.name')
+            .populate('menuItem', 'name item_name image')
+            .populate('restaurant', 'name restaurantDetails')
             .lean();
         
         // Get total count
         const total = await Review.countDocuments({ user: userId });
-        
-        // If no reviews found, return dummy data for testing
-        if (reviews.length === 0) {
-            return res.status(200).json({
-                success: true,
-                data: {
-                    reviews: [
-                        {
-                            id: '60d21be9267d7acbc1230008',
-                            rating: 5,
-                            comment: 'Amazing food! Will definitely order again.',
-                            date: new Date(Date.now() - 86400000 * 3),
-                            menuItem: {
-                                id: '60d21be9267d7acbc1230005',
-                                name: 'Chicken Burger',
-                                image: '/uploads/placeholders/food-placeholder.jpg'
-                            },
-                            restaurant: {
-                                id: '60d21be9267d7acbc1230002',
-                                name: 'Delicious Bites'
-                            }
-                        },
-                        {
-                            id: '60d21be9267d7acbc1230009',
-                            rating: 4,
-                            comment: 'Good pizza but took a bit longer than expected for delivery.',
-                            date: new Date(Date.now() - 86400000 * 7),
-                            menuItem: {
-                                id: '60d21be9267d7acbc1230006',
-                                name: 'Vegetable Pizza',
-                                image: '/uploads/placeholders/food-placeholder.jpg'
-                            },
-                            restaurant: {
-                                id: '60d21be9267d7acbc1230007',
-                                name: 'Pizza Haven'
-                            }
-                        }
-                    ],
-                    meta: {
-                        total: 2,
-                        page: 1,
-                        limit: 10,
-                        pages: 1
-                    }
-                }
-            });
-        }
         
         // Transform reviews for client
         const formattedReviews = reviews.map(review => ({
@@ -294,12 +295,12 @@ exports.getUserReviews = async (req, res) => {
             date: review.createdAt,
             menuItem: {
                 id: review.menuItem?._id,
-                name: review.menuItem?.item_name,
+                name: review.menuItem?.name || review.menuItem?.item_name,
                 image: review.menuItem?.image
             },
             restaurant: {
                 id: review.restaurant?._id,
-                name: review.restaurant?.restaurantDetails?.name || 'Restaurant'
+                name: review.restaurant?.name || review.restaurant?.restaurantDetails?.name || 'Restaurant'
             }
         }));
         
@@ -387,7 +388,7 @@ exports.updateReview = async (req, res) => {
                     id: review._id,
                     rating: review.rating,
                     comment: review.comment,
-                    date: review.date
+                    date: review.createdAt
                 }
             }
         });

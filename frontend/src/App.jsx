@@ -517,12 +517,11 @@ function App() {
                     <>
                       {isHeaderFooterShow && <Header />}
                       <main id="main-content">
-                        <ProtectedRoute>
+                        <ProtectedRoute allowedRoles={['customer', 'admin', 'restaurant', 'delivery_rider']}>
                           <OrderDetail />
                         </ProtectedRoute>
                       </main>
                       {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel productId={productId} />}
                       <BackToTop />
                     </>
                   } />

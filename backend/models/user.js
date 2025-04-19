@@ -248,6 +248,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    favorites: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'MenuItem',
+      default: []
+    },
     // Health profile for diet and health recommendations
     healthProfile: {
       height: { type: Number, default: 0 }, // in cm

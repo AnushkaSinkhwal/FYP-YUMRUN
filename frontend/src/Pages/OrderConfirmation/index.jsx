@@ -32,14 +32,20 @@ const OrderConfirmation = () => {
         const response = await api.get(`/orders/${orderId}`);
         
         if (response.data && response.data.success) {
-          setOrderData(response.data.order);
-          
-          // Set order status based on data
-          setOrderStatus({
-            status: response.data.order.status.toLowerCase(),
-            paymentStatus: response.data.order.paymentStatus.toLowerCase(),
-            message: `Your order has been ${response.data.order.status.toLowerCase()} and is being processed.`,
-          });
+          // Handle both possible response formats
+          const orderData = response.data.order || response.data.data;
+          if (orderData) {
+            setOrderData(orderData);
+            
+            // Set order status based on data
+            setOrderStatus({
+              status: orderData.status.toLowerCase(),
+              paymentStatus: orderData.paymentStatus.toLowerCase(),
+              message: `Your order has been ${orderData.status.toLowerCase()} and is being processed.`,
+            });
+          } else {
+            throw new Error('Order data structure is invalid');
+          }
         } else {
           throw new Error(response.data?.message || 'Failed to fetch order details');
         }

@@ -16,6 +16,9 @@ const restaurantSchema = new mongoose.Schema({
         zipCode: String,
         country: String
     },
+    isFeatured: {
+        
+    },
     description: {
         type: String,
         default: '',
@@ -33,9 +36,11 @@ const restaurantSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
-    isApproved: {
-        type: Boolean,
-        default: false,
+    status: {
+        type: String,
+        enum: ['pending_approval', 'approved', 'rejected'],
+        default: 'pending_approval',
+        required: true,
     },
     isActive: {
         type: Boolean,

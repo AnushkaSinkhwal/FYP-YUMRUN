@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaStar, FaRegStar, FaStarHalfAlt, FaAllergies, FaInfoCircle, FaCommentDots, FaShoppingCart, FaPlus, FaMinus, FaArrowLeft } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaStar, FaRegStar, FaStarHalfAlt, FaShoppingCart, FaPlus, FaMinus, FaArrowLeft } from 'react-icons/fa';
 import ProductZoom from '../../components/ProductZoom';
 import ProductFeatures from '../../components/ProductFeatures';
 import RelatedProducts from './RelatedProducts';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { Button, Alert, Spinner, Badge, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
+import { Container, Button, Alert, Spinner, Badge, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const ProductDetails = () => {
     const { id: productId } = useParams();
@@ -45,11 +46,11 @@ const ProductDetails = () => {
                 if (response.data.success) {
                     setProduct(response.data.data);
                 } else {
-                    setError(response.data.error?.message || 'Failed to fetch product details.');
+                    setError(response.data.message || 'Failed to fetch product details.');
                 }
             } catch (err) {
                 console.error('Error fetching product details:', err);
-                setError(err.response?.data?.error?.message || 'An error occurred while loading product data.');
+                setError(err.response?.data?.message || 'An error occurred while loading product data.');
             } finally {
                 setLoading(false);
             }
@@ -111,29 +112,27 @@ const ProductDetails = () => {
         }
     };
 
+    // UPDATED: Use discounted price if available and process image URL
     const handleAddToCartClick = () => {
         if (!product) return;
         
-        // Create cart item with all necessary details
+        const priceToAdd = product.discountedPrice !== undefined ? product.discountedPrice : product.price;
+        const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+
         const cartItem = {
-            id: product._id || product.id,
+            id: product.id, // Use product.id which is already formatted
             name: product.name,
-            price: product.price,
-            image: product.image,
+            price: priceToAdd, // Use discounted or original price
+            image: imageUrlForCart, // Use processed image URL
             quantity: quantity,
             specialInstructions: specialInstructions.trim() || undefined,
-            restaurantId: product.restaurant?._id || product.restaurantId,
+            restaurantId: product.restaurant?.id,
             restaurantName: product.restaurant?.name || 'Restaurant'
         };
         
         addToCart(cartItem);
-        
+        console.log(`Added ${product.name} to cart at price ${priceToAdd}`);
         // Optional: Add toast notification
-    };
-
-    const handleOrderNowClick = () => {
-        handleAddToCartClick();
-        navigate('/cart');
     };
 
     // Function to toggle favorite status
@@ -149,6 +148,7 @@ const ProductDetails = () => {
         const body = { menuItemId: productId };
 
         try {
+            console.log(`Toggling favorite: ${product?.name}`);
             const response = await axios({
                 method: method,
                 url: isFavorite ? `${url}/${productId}` : url,
@@ -157,6 +157,7 @@ const ProductDetails = () => {
 
             if (response.data.success) {
                 setIsFavorite(!isFavorite);
+                console.log(isFavorite ? 'Removed from favorites' : 'Added to favorites');
             }
         } catch (error) {
             console.error('Error toggling favorite status:', error);
@@ -172,21 +173,22 @@ const ProductDetails = () => {
             return;
         }
         
-        // Basic validation
         if (newReviewRating === 0) {
             setReviewSubmitError('Please select a rating.');
             return;
         }
-        
+
         setReviewSubmitting(true);
         setReviewSubmitError(null);
         setReviewSubmitSuccess(false);
         
         try {
+            // No need to check orders, backend should handle this if necessary
             const response = await axios.post('/api/reviews', {
                 menuItemId: productId,
                 rating: newReviewRating,
                 comment: newReviewComment,
+                // orderId: orderId // Backend might associate automatically or not require it
             });
             
             if (response.data.success) {
@@ -195,11 +197,11 @@ const ProductDetails = () => {
                 setReviewSubmitSuccess(true);
                 fetchReviews(); // Refresh reviews list
             } else {
-                throw new Error(response.data.error?.message || 'Failed to submit review');
+                throw new Error(response.data.message || 'Failed to submit review');
             }
         } catch (error) {
             console.error('Error submitting review:', error);
-            setReviewSubmitError(error.response?.data?.error?.message || 'An error occurred.');
+            setReviewSubmitError(error.response?.data?.message || 'An error occurred while submitting your review.');
         } finally {
             setReviewSubmitting(false);
         }
@@ -220,397 +222,248 @@ const ProductDetails = () => {
             <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
                     i < fullStars ? (
-                        <FaStar key={i} className={`text-yellow-400 ${starClass}`} />
+                        <FaStar key={`full-${i}`} className={`text-yellow-400 ${starClass}`} />
                     ) : i === fullStars && hasHalfStar ? (
-                        <FaStarHalfAlt key={i} className={`text-yellow-400 ${starClass}`} />
+                        <FaStarHalfAlt key={`half-${i}`} className={`text-yellow-400 ${starClass}`} />
                     ) : (
-                        <FaRegStar key={i} className={`text-yellow-400 ${starClass}`} />
+                        <FaRegStar key={`empty-${i}`} className={`text-yellow-400 ${starClass}`} />
                     )
                 ))}
             </div>
         );
     };
 
-    // --- Loading and Error States ---
+    // --- Main Render ---
     if (loading) {
-        return (
-            <div className="container mx-auto px-4 py-16 flex justify-center items-center min-h-[60vh]">
-                <Spinner size="xl" />
-            </div>
-        );
+        return <div className="flex justify-center items-center h-screen"><Spinner size="large" /></div>;
     }
 
     if (error) {
-        return (
-            <div className="container px-4 py-8 mx-auto">
-                <Alert variant="error">Error loading product: {error}</Alert>
-            </div>
-        );
+        return <div className="container py-10"><Alert variant="destructive">Error loading product: {error}</Alert></div>;
     }
 
+    // Safety check: If loading is done but product is still null, show an error.
     if (!product) {
-        return (
-            <div className="container px-4 py-8 mx-auto">
-                <Alert variant="warning">Product not found.</Alert>
-            </div>
-        );
+        return <div className="container py-10"><Alert variant="warning">Product details could not be loaded or the product does not exist.</Alert></div>;
     }
 
-    // Calculate display price based on potential discounts
-    const displayPrice = product.discount > 0 
-        ? product.price * (1 - product.discount / 100) 
-        : product.price;
+    // Process image URL with fallback
+    const imageUrl = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
 
-    // --- Main Render ---
     return (
-        <div className="min-h-screen py-8 bg-gray-50">
-            <div className="container px-4 mx-auto">
-                {/* Back button and Breadcrumbs */}
-                <div className="mb-6">
-                    <button 
-                        onClick={() => navigate(-1)} 
-                        className="inline-flex items-center text-sm text-gray-600 transition-colors hover:text-gray-900"
-                    >
-                        <FaArrowLeft className="mr-2" /> Back
-                    </button>
-                    {product.restaurant && (
-                        <div className="mt-2 text-sm text-gray-500">
-                            <Link to="/" className="hover:underline">Home</Link>
-                            <span className="mx-2">›</span>
-                            <Link to={`/restaurant/${product.restaurant._id || product.restaurantId}`} className="hover:underline">
-                                {product.restaurant.name}
-                            </Link>
-                            <span className="mx-2">›</span>
-                            <span>{product.name}</span>
-                        </div>
-                    )}
-                </div>
+        <div className="py-10 bg-gray-50">
+            <Container>
+                 {/* Back Button */}
+                 <Button 
+                    variant="outline" 
+                    onClick={() => navigate(-1)} 
+                    className="mb-6"
+                 >
+                    <FaArrowLeft className="mr-2" /> Back
+                 </Button>
 
-                {/* Product Overview Section */}
-                <Card className="mb-8 overflow-hidden">
-                    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                        {/* Image Gallery */}
-                        <div className="p-4 md:p-8">
-                            <ProductZoom images={product.image ? [product.image] : []} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                    {/* Product Image Section */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        {/* Ensure ProductZoom gets the processed URL */}
+                        <ProductZoom imageUrl={imageUrl} altText={product.name || 'Product Image'} />
+                    </div>
+
+                    {/* Product Details Section */}
+                    <div className="flex flex-col">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">{product.name || 'Product Name'}</h1>
+                        {product.restaurant && product.restaurant.id && (
+                            <Link 
+                                to={`/restaurant/${product.restaurant.id}`}
+                                className="text-sm text-yumrun-primary hover:underline mb-3"
+                            >
+                                From: {product.restaurant.name || 'Restaurant'}
+                            </Link>
+                        )}
+                        
+                        {/* Rating */}
+                        <div className="flex items-center mb-4">
+                            {renderRatingStars(averageRating, 'lg')}
+                            <span className="ml-2 text-gray-600">({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})</span>
+                        </div>
+
+                        {/* Price - UPDATED */}
+                        <div className="mb-4">
+                            {product.offerDetails ? (
+                                <>
+                                    <Badge variant="destructive" className="mb-1 text-sm">{product.offerDetails.percentage}% OFF</Badge>
+                                    <div>
+                                        <span className="text-xl text-gray-500 line-through mr-2">
+                                            ${(product.originalPrice || product.price)?.toFixed(2) ?? 'N/A'} 
+                                        </span>
+                                        <span className="text-3xl font-bold text-yumrun-red">
+                                            ${(product.discountedPrice)?.toFixed(2) ?? 'N/A'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Offer: {product.offerDetails.title}</p>
+                                </> 
+                            ) : (
+                                <span className="text-3xl font-bold text-gray-900">
+                                    ${product.price?.toFixed(2) ?? 'N/A'}
+                                </span>
+                            )}
                         </div>
                         
-                        {/* Product Details & Actions */}
-                        <div className="p-4 space-y-6 md:p-8">
-                            {/* Status Badge */}
-                            {product.isAvailable === false && (
-                                <Badge variant="destructive" className="mb-2">
-                                    Currently Unavailable
-                                </Badge>
-                            )}
-                            
-                            {/* Name, Category, Rating, Favorite */}
-                            <div>
-                                <div className="flex items-start justify-between mb-2">
-                                    <h1 className="text-2xl font-bold text-gray-800 md:text-3xl">{product.name}</h1>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={toggleFavorite}
-                                        disabled={favoriteLoading || !isAuthenticated}
-                                        className={`rounded-full transition-colors ${
-                                            isFavorite 
-                                                ? 'text-red-500 hover:bg-red-50' 
-                                                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                                        }`}
-                                        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                                    >
-                                        {favoriteLoading ? (
-                                            <Spinner size="sm" />
-                                        ) : isFavorite ? (
-                                            <FaHeart className="w-6 h-6" />
-                                        ) : (
-                                            <FaRegHeart className="w-6 h-6" />
-                                        )}
-                                    </Button>
-                                </div>
-                                <p className="mb-3 text-sm text-gray-500">
-                                    {product.category?.name && `Category: ${product.category.name}`}
-                                    {product.restaurant?.name && ` | Restaurant: ${product.restaurant.name}`}
-                                </p>
-                                <div className="flex items-center gap-2 mb-4">
-                                    {renderRatingStars(averageRating)}
-                                    <span className="text-sm text-gray-600">({totalReviews || 0} reviews)</span>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Price Section */}
-                            <div className="flex items-baseline gap-3">
-                                <span className="text-3xl font-bold text-primary">Rs.{displayPrice.toFixed(2)}</span>
-                                {product.discount > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-lg text-gray-500 line-through">Rs.{product.price.toFixed(2)}</span>
-                                        <Badge variant="secondary" className="text-green-700 bg-green-100">
-                                            {product.discount}% OFF
-                                        </Badge>
-                                    </div>
-                                )}
-                            </div>
-                                
-                            {/* Description */}
-                            <div>
-                                <h3 className="mb-1 text-lg font-semibold text-gray-700">Description</h3>
-                                <p className="leading-relaxed text-gray-600">{product.description || 'No description available.'}</p>
-                            </div>
-                            
-                            <Separator />
-                                
-                            {/* Quantity Selector */}
-                            <div className="flex flex-col gap-4">
-                                <div className="flex items-center gap-4">
-                                    <span className="font-medium text-gray-700">Quantity:</span>
-                                    <div className="flex items-center border rounded-md">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="w-8 h-8" 
-                                            onClick={() => handleQuantityChange('decrease')} 
-                                            disabled={quantity <= 1}
-                                        >
-                                            <FaMinus className="w-3 h-3"/>
-                                        </Button>
-                                        <span className="w-8 font-medium text-center">{quantity}</span>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="w-8 h-8" 
-                                            onClick={() => handleQuantityChange('increase')}
-                                        >
-                                            <FaPlus className="w-3 h-3"/>
-                                        </Button>
-                                    </div>
-                                </div>
-                                
-                                {/* Special Instructions */}
-                                <div>
-                                    <label htmlFor="specialInstructions" className="block mb-1 text-sm font-medium text-gray-700">
-                                        Special Instructions (Optional)
-                                    </label>
-                                    <textarea
-                                        id="specialInstructions"
-                                        rows={2}
-                                        className="w-full p-2 text-sm border rounded-md" 
-                                        placeholder="Any special requests or preferences?"
-                                        value={specialInstructions}
-                                        onChange={(e) => setSpecialInstructions(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-                                <Button
-                                    size="lg"
-                                    variant="outline"
-                                    className="flex-1 gap-2"
-                                    onClick={handleAddToCartClick}
-                                    disabled={product.isAvailable === false}
+                        <p className="text-gray-600 mb-5 leading-relaxed">{product.description || 'No description available.'}</p>
+                        
+                        {/* Quantity Selector */}
+                        <div className="flex items-center mb-5">
+                            <span className="mr-4 font-semibold text-gray-700">Quantity:</span>
+                            <div className="flex items-center border border-gray-300 rounded">
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon-sm" 
+                                    onClick={() => handleQuantityChange('decrease')} 
+                                    className="px-3 py-1 rounded-r-none"
+                                    disabled={quantity <= 1}
                                 >
-                                    <FaShoppingCart className="w-5 h-5" />
-                                    Add to Cart
+                                    <FaMinus />
                                 </Button>
-                                <Button
-                                    size="lg"
-                                    className="flex-1 gap-2"
-                                    onClick={handleOrderNowClick}
-                                    disabled={product.isAvailable === false}
+                                <span className="px-4 py-1 text-center w-12 font-semibold">{quantity}</span>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon-sm" 
+                                    onClick={() => handleQuantityChange('increase')}
+                                    className="px-3 py-1 rounded-l-none"
                                 >
-                                    Order Now
+                                    <FaPlus />
                                 </Button>
                             </div>
+                        </div>
+
+                        {/* Special Instructions */}
+                        <div className="mb-5">
+                            <label htmlFor="specialInstructions" className="block mb-1 font-semibold text-gray-700">Special Instructions:</label>
+                            <textarea
+                                id="specialInstructions"
+                                rows="2"
+                                value={specialInstructions}
+                                onChange={(e) => setSpecialInstructions(e.target.value)}
+                                placeholder="Any specific requests? (e.g., no onions, extra spicy)"
+                                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
+                            ></textarea>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-4 mt-auto">
+                            <Button 
+                                onClick={handleAddToCartClick} 
+                                variant="primary" 
+                                size="lg" 
+                                className="flex-1"
+                                disabled={!product} // Disable if product hasn't loaded
+                            >
+                                <FaShoppingCart className="mr-2" /> Add to Cart
+                            </Button>
+                            <Button 
+                                variant="outline"
+                                size="lg"
+                                onClick={toggleFavorite}
+                                disabled={favoriteLoading || !product} // Disable if product hasn't loaded
+                                className="p-2 rounded-full hover:bg-red-100"
+                                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                                {favoriteLoading ? <Spinner size="sm" /> : isFavorite ? <FaHeart className="text-red-500" /> : <FaRegHeart className="text-gray-600" />}
+                            </Button>
                         </div>
                     </div>
-                </Card>
+                </div>
 
-                {/* Tabs for Features, Nutrition, Reviews */}
-                <Card className="mb-8">
-                    <Tabs defaultValue="features" className="w-full p-4">
-                        <TabsList className="grid w-full grid-cols-3 mb-6">
-                            <TabsTrigger value="features"><FaInfoCircle className="mr-2"/> Details</TabsTrigger>
-                            <TabsTrigger value="nutrition"><FaAllergies className="mr-2"/> Nutrition & Allergens</TabsTrigger>
-                            <TabsTrigger value="reviews"><FaCommentDots className="mr-2"/> Reviews ({totalReviews || 0})</TabsTrigger>
+                {/* Separator */}
+                <Separator className="my-10" />
+                
+                 {/* Product Features / Ingredients / Allergens (Optional Component) */}
+                 {/* Add null check for product before rendering features */} 
+                 {product && <ProductFeatures product={product} />} 
+
+                {/* Separator */}
+                <Separator className="my-10" />
+
+                {/* Reviews Section */}
+                <div>
+                    <h2 className="text-2xl font-semibold mb-6">Reviews & Ratings</h2>
+                    <Tabs defaultValue="reviews" className="w-full">
+                        <TabsList>
+                            <TabsTrigger value="reviews">Customer Reviews ({totalReviews})</TabsTrigger>
+                            {isAuthenticated && <TabsTrigger value="add-review">Add Your Review</TabsTrigger>}
                         </TabsList>
-                        
-                        {/* Features/Details Tab */}
-                        <TabsContent value="features">
-                            <ProductFeatures product={product} />
-                        </TabsContent>
-
-                        {/* Nutrition & Allergens Tab */}
-                        <TabsContent value="nutrition">
-                            <div className="p-6 bg-white rounded-lg">
-                                <h3 className="mb-4 text-xl font-semibold text-gray-800">Nutritional Information</h3>
-                                {product.nutritionalInfo ? (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-4 mb-6 text-sm md:grid-cols-3">
-                                            {product.nutritionalInfo.calories !== undefined && (
-                                                <div className="p-4 rounded-lg bg-gray-50">
-                                                    <p className="text-sm text-gray-500">Calories</p>
-                                                    <p className="text-xl font-bold text-gray-900">{product.nutritionalInfo.calories}</p>
-                                                    <p className="text-xs text-gray-500">kcal</p>
-                                                </div>
-                                            )}
-                                            {product.nutritionalInfo.fat !== undefined && (
-                                                <div className="p-4 rounded-lg bg-gray-50">
-                                                    <p className="text-sm text-gray-500">Fat</p>
-                                                    <p className="text-xl font-bold text-gray-900">{product.nutritionalInfo.fat}g</p>
-                                                    <p className="text-xs text-gray-500">Total</p>
-                                                </div>
-                                            )}
-                                            {product.nutritionalInfo.carbs !== undefined && (
-                                                <div className="p-4 rounded-lg bg-gray-50">
-                                                    <p className="text-sm text-gray-500">Carbs</p>
-                                                    <p className="text-xl font-bold text-gray-900">{product.nutritionalInfo.carbs}g</p>
-                                                    <p className="text-xs text-gray-500">Total</p>
-                                                </div>
-                                            )}
-                                            {product.nutritionalInfo.protein !== undefined && (
-                                                <div className="p-4 rounded-lg bg-gray-50">
-                                                    <p className="text-sm text-gray-500">Protein</p>
-                                                    <p className="text-xl font-bold text-gray-900">{product.nutritionalInfo.protein}g</p>
-                                                </div>
-                                            )}
-                                            {product.nutritionalInfo.sodium !== undefined && (
-                                                <div className="p-4 rounded-lg bg-gray-50">
-                                                    <p className="text-sm text-gray-500">Sodium</p>
-                                                    <p className="text-xl font-bold text-gray-900">{product.nutritionalInfo.sodium}mg</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Allergens Section */}
-                                        {product.nutritionalInfo.allergens && product.nutritionalInfo.allergens.length > 0 && (
-                                            <div className="mt-6">
-                                                <h3 className="mb-2 text-lg font-semibold text-gray-800">Allergens</h3>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {product.nutritionalInfo.allergens.map((allergen, index) => (
-                                                        <Badge key={index} variant="outline" className="text-yellow-800 border-yellow-200 bg-yellow-50">
-                                                            {allergen}
-                                                        </Badge>
-                                                    ))}
-                                                </div>
+                        <TabsContent value="reviews" className="mt-4">
+                            {reviewsLoading ? (
+                                <Spinner />
+                            ) : reviewsError ? (
+                                <Alert variant="warning">{reviewsError}</Alert>
+                            ) : reviews.length === 0 ? (
+                                <p className="text-gray-600">No reviews yet for this product.</p>
+                            ) : (
+                                <div className="space-y-6">
+                                    {reviews.map(review => (
+                                        <Card key={review.id} className="p-4">
+                                            <div className="flex items-center mb-2">
+                                                {renderRatingStars(review.rating)}
+                                                <span className="ml-auto text-xs text-gray-500">{new Date(review.date).toLocaleDateString()}</span>
                                             </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <p className="mb-6 text-gray-500">Nutritional information not available for this product.</p>
-                                )}
-                            </div>
-                        </TabsContent>
-
-                        {/* Reviews Tab */}
-                        <TabsContent value="reviews">
-                            <div className="p-6 bg-white rounded-lg">
-                                <h3 className="mb-4 text-xl font-semibold text-gray-800">Customer Reviews</h3>
-                                {/* Average Rating Display */}
-                                <div className="flex items-center gap-4 pb-6 mb-6 border-b">
-                                    <div className="text-4xl font-bold text-gray-800">{averageRating.toFixed(1)}</div>
-                                    <div className="flex flex-col">
-                                        {renderRatingStars(averageRating, 'lg')}
-                                        <span className="text-sm text-gray-500">Based on {totalReviews} reviews</span>
-                                    </div>
+                                            <p className="text-sm text-gray-800 mb-1 font-medium">{review.user?.name || 'Anonymous'}</p>
+                                            <p className="text-sm text-gray-600">{review.comment}</p>
+                                        </Card>
+                                    ))}
+                                    {/* TODO: Add Pagination if many reviews */}
                                 </div>
-
-                                {/* Existing Reviews List */}
-                                {reviewsLoading ? (
-                                    <div className="flex justify-center py-8"><Spinner size="lg" /></div>
-                                ) : reviewsError ? (
-                                    <Alert variant="error">{reviewsError}</Alert>
-                                ) : reviews.length > 0 ? (
-                                    <div className="mb-8 space-y-6">
-                                        {reviews.map(review => (
-                                            <div key={review._id || review.id} className="pb-4 border-b last:border-b-0">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <div className="flex items-center gap-2">
-                                                        {renderRatingStars(review.rating, 'sm')}
-                                                        <span className="font-medium text-gray-800">{review.user?.fullName || 'Anonymous'}</span>
-                                                    </div>
-                                                    <span className="text-xs text-gray-500">
-                                                        {new Date(review.createdAt || review.date).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-600">{review.comment || 'No comment provided.'}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="mb-8 text-center text-gray-500">No reviews yet. Be the first to share your thoughts!</p>
-                                )}
-                                
-                                {/* Write a Review Section */}
-                                {isAuthenticated ? (
-                                    <div className="pt-6 border-t">
-                                        <h4 className="mb-3 text-lg font-semibold text-gray-800">Write Your Review</h4>
-                                        {reviewSubmitSuccess && (
-                                            <Alert variant="success" className="mb-4">Review submitted successfully!</Alert>
-                                        )}
-                                        {reviewSubmitError && (
-                                            <Alert variant="error" className="mb-4">Error: {reviewSubmitError}</Alert>
-                                        )}
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block mb-1 text-sm font-medium text-gray-700">Your Rating *</label>
-                                                <div className="flex space-x-1">
-                                                    {[1, 2, 3, 4, 5].map(star => (
-                                                        <button
-                                                            key={star}
-                                                            onClick={() => setNewReviewRating(star)}
-                                                            className="focus:outline-none"
-                                                            type="button"
-                                                        >
-                                                            {star <= newReviewRating ? (
-                                                                <FaStar className="w-6 h-6 text-yellow-400" />
-                                                            ) : (
-                                                                <FaRegStar className="w-6 h-6 text-yellow-400" />
-                                                            )}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            
-                                            <div>
-                                                <label htmlFor="comment" className="block mb-1 text-sm font-medium text-gray-700">Your Comment</label>
-                                                <textarea
-                                                    id="comment"
-                                                    rows={3}
-                                                    value={newReviewComment}
-                                                    onChange={(e) => setNewReviewComment(e.target.value)}
-                                                    className="w-full p-2 text-sm border rounded-md"
-                                                    placeholder="Share your experience..."
-                                                />
-                                            </div>
-                                            <Button 
-                                                variant="brand" 
-                                                onClick={submitReview}
-                                                disabled={reviewSubmitting}
-                                            >
-                                                {reviewSubmitting ? <Spinner size="sm" className="mr-2" /> : null}
-                                                Submit Review
-                                            </Button>
+                            )}
+                        </TabsContent>
+                        {isAuthenticated && (
+                            <TabsContent value="add-review" className="mt-4">
+                                <Card className="p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Write Your Review</h3>
+                                    {reviewSubmitSuccess && <Alert variant="success" className="mb-4">Review submitted successfully!</Alert>}
+                                    {reviewSubmitError && <Alert variant="destructive" className="mb-4">{reviewSubmitError}</Alert>}
+                                    <div className="mb-4">
+                                        <label className="block mb-2 font-medium">Your Rating:</label>
+                                        <div className="flex space-x-1">
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <button 
+                                                    key={star} 
+                                                    onClick={() => setNewReviewRating(star)}
+                                                    aria-label={`Rate ${star} stars`}
+                                                >
+                                                    {star <= newReviewRating ? 
+                                                        <FaStar className="w-6 h-6 text-yellow-400" /> : 
+                                                        <FaRegStar className="w-6 h-6 text-yellow-400" />
+                                                    }
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="py-6 text-center border-t">
-                                        <p className="mb-2 text-gray-600">Want to share your experience?</p>
-                                        <Button variant="outline" onClick={() => navigate('/signin', { state: { from: `/product/${productId}` } })}>
-                                            Sign in to leave a review
-                                        </Button>
+                                    <div className="mb-4">
+                                        <label htmlFor="reviewComment" className="block mb-2 font-medium">Your Comment:</label>
+                                        <textarea
+                                            id="reviewComment"
+                                            rows="4"
+                                            value={newReviewComment}
+                                            onChange={(e) => setNewReviewComment(e.target.value)}
+                                            placeholder="Share your thoughts about this product..."
+                                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
+                                        ></textarea>
                                     </div>
-                                )}
-                            </div>
-                        </TabsContent>
+                                    <Button onClick={submitReview} disabled={reviewSubmitting || newReviewRating === 0}>
+                                        {reviewSubmitting ? <Spinner size="sm" /> : 'Submit Review'}
+                                    </Button>
+                                </Card>
+                            </TabsContent>
+                        )}
                     </Tabs>
-                </Card>
+                </div>
 
-                {/* Related Products Section */}
-                <RelatedProducts currentProductId={productId} />
-            </div>
+                {/* Related Products */}
+                <Separator className="my-10" />
+                 {/* Add null check for product before rendering related products */}
+                {product && <RelatedProducts currentProductId={productId} />} 
+
+            </Container>
         </div>
     );
 };

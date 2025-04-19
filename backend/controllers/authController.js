@@ -218,30 +218,58 @@ exports.register = async (req, res) => {
             emailVerificationOTPExpires: otpExpiry
         };
         
-        // Add role-specific fields
-        if (role === 'customer') {
-            userData.healthCondition = healthCondition || 'Healthy';
-        } else if (role === 'restaurant') {
-            // Additional validation for restaurant owner
-            if (!restaurantName || !restaurantAddress || !restaurantDescription || !panNumber) {
+        // Create the user
+        const user = new User(userData);
+        await user.save();
+
+        // If the user is a restaurant owner, create a corresponding restaurant entry
+        if (user.role === 'restaurant') {
+            // Validate required restaurant fields
+            if (!restaurantName || !panNumber) { 
+                // Clean up created user if restaurant creation fails validation
+                await User.findByIdAndDelete(user._id); 
                 return res.status(400).json({
                     success: false,
                     error: {
-                        message: 'Restaurant details are required',
+                        message: 'Restaurant name and PAN number are required for restaurant registration.',
                         code: 'VALIDATION_ERROR'
                     }
                 });
             }
-            userData.restaurantDetails = {
-                name: restaurantName,
-                address: restaurantAddress,
-                description: restaurantDescription,
-                panNumber,
-                approved: false // Requires admin approval
-            };
+
+            try {
+                const newRestaurant = new Restaurant({
+                    name: restaurantName,
+                    address: restaurantAddress, // Assuming restaurantAddress is an object { street, city, state, zipCode, country }
+                    description: restaurantDescription,
+                    panNumber: panNumber,
+                    owner: user._id, // Link restaurant to the user
+                    contactInfo: { email: user.email, phone: user.phone }, // Populate contact info
+                    // status defaults to 'pending_approval' via schema
+                });
+                await newRestaurant.save();
+                console.log(`Restaurant entry created for user ${user._id}`);
+                
+                // Optional: Update user with restaurant ID if needed
+                // user.restaurant = newRestaurant._id; 
+                // await user.save();
+
+            } catch (restaurantError) {
+                console.error('Error creating restaurant entry:', restaurantError);
+                // Clean up the created user if restaurant creation fails
+                await User.findByIdAndDelete(user._id); 
+                return res.status(500).json({
+                    success: false,
+                    error: {
+                        message: 'Failed to create associated restaurant profile.',
+                        code: 'RESTAURANT_CREATION_FAILED'
+                    }
+                });
+            }
         } else if (role === 'delivery_rider') {
-            // Additional validation for delivery rider
+            // Additional validation for delivery rider (keep existing logic)
             if (!vehicleType || !licenseNumber || !vehicleRegistrationNumber) {
+                 await User.findByIdAndDelete(user._id); // Clean up user
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -250,86 +278,55 @@ exports.register = async (req, res) => {
                     }
                 });
             }
-            userData.deliveryRiderDetails = {
-                vehicleType,
-                licenseNumber,
-                vehicleRegistrationNumber,
-                approved: false // Requires admin approval
-            };
-        }
-        
-        // Create user
-        const newUser = new User(userData);
-        await newUser.save();
-        
-        // If this is a restaurant user, create a restaurant record as well
-        if (role === 'restaurant' && restaurantName) {
-            // Create a restaurant entry
-            const restaurant = new Restaurant({
-                name: restaurantName,
-                address: restaurantAddress ? { formatted: restaurantAddress } : {},
-                description: restaurantDescription,
-                owner: newUser._id,
-                isApproved: false,  // Default to not approved
-                isActive: true,
-                cuisine: userData.restaurantDetails.cuisine || ['General'],
-                email: email,
-                phone: phone
-            });
-            
-            try {
-                await restaurant.save();
-                console.log(`Created restaurant record for user ${newUser._id}`);
-            } catch (restaurantError) {
-                console.error('Error creating restaurant record:', restaurantError);
-                // Continue with user creation even if restaurant creation fails
-            }
+             // Assuming delivery rider details are stored directly on the user model
+             user.deliveryRiderDetails = {
+                 vehicleType,
+                 licenseNumber,
+                 vehicleRegistrationNumber,
+                 approved: false // Requires admin approval
+             };
+             await user.save(); // Save rider details
         }
         
         // Send verification email
-        await sendVerificationOTP({
-            email: newUser.email,
-            otp,
-            name: newUser.fullName || `${newUser.firstName} ${newUser.lastName}`
+        try {
+            await sendVerificationOTP({
+                email: user.email,
+                otp,
+                name: user.fullName || `${user.firstName} ${user.lastName}`
+            });
+        } catch (emailError) {
+            console.error("Failed to send verification email:", emailError);
+            // Don't fail the registration, but log the error
+        }
+
+        // Return success response (user needs to verify email)
+        return res.status(201).json({ 
+            success: true, 
+            message: 'Registration successful. Please check your email to verify your account.',
+            requiresOTP: true,
+            email: user.email
         });
         
-        // Generate token for auto-login
-        const token = generateToken(newUser);
-        
-        res.status(201).json({
-            success: true,
-            message: 'User registered successfully. Please verify your email with the OTP sent.',
-            data: {
-                user: {
-                    id: newUser._id,
-                    firstName: newUser.firstName,
-                    lastName: newUser.lastName,
-                    fullName: newUser.fullName || `${newUser.firstName} ${newUser.lastName}`,
-                    email: newUser.email,
-                    role: newUser.role
-                },
-                token
-            }
-        });
     } catch (error) {
         console.error('Registration error:', error);
         
-        // Handle validation errors
+        // Handle Mongoose validation errors specifically
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(val => val.message);
-            return res.status(400).json({
-                success: false,
+            return res.status(400).json({ 
+                success: false, 
                 error: {
-                    message: messages.join(', '),
+                    message: messages.join('. '),
                     code: 'VALIDATION_ERROR'
                 }
             });
         }
         
-        return res.status(500).json({
-            success: false,
+        return res.status(500).json({ 
+            success: false, 
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error during registration.',
                 code: 'SERVER_ERROR'
             }
         });

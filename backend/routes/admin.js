@@ -1897,4 +1897,73 @@ router.delete('/restaurants/:restaurantId', auth, isAdmin, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/admin/restaurants/pending
+ * @desc    Get restaurants pending approval
+ * @access  Private/Admin
+ */
+router.get('/restaurants/pending', auth, isAdmin, async (req, res) => {
+    try {
+        const pendingRestaurants = await Restaurant.find({ status: 'pending_approval' }).populate('owner', 'firstName lastName email');
+        return res.status(200).json({
+            success: true,
+            data: pendingRestaurants
+        });
+    } catch (error) {
+        console.error('Error fetching pending restaurants:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch pending restaurants'
+        });
+    }
+});
+
+/**
+ * @route   PATCH /api/admin/restaurants/:restaurantId/status
+ * @desc    Update restaurant approval status
+ * @access  Private/Admin
+ */
+router.patch('/restaurants/:restaurantId/status', auth, isAdmin, async (req, res) => {
+    try {
+        const { restaurantId } = req.params;
+        const { status } = req.body;
+
+        // Validate restaurant ID
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+            return res.status(400).json({ success: false, message: 'Invalid restaurant ID' });
+        }
+
+        // Validate status
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status value. Must be \'approved\' or \'rejected\'.' });
+        }
+
+        // Find and update the restaurant
+        const restaurant = await Restaurant.findByIdAndUpdate(
+            restaurantId,
+            { status: status },
+            { new: true, runValidators: true } // Return the updated document and run schema validators
+        );
+
+        if (!restaurant) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
+
+        // TODO: Optionally send notification to the restaurant owner about the status change
+
+        return res.status(200).json({
+            success: true,
+            message: `Restaurant status updated to ${status}`,
+            data: restaurant
+        });
+
+    } catch (error) {
+        console.error('Error updating restaurant status:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update restaurant status'
+        });
+    }
+});
+
 module.exports = router; 

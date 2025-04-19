@@ -67,57 +67,107 @@ const createSystemNotificationForAll = async (notification, userIds) => {
 
 /**
  * Create an order notification for a user
- * @param {Object} order - The order object
  * @param {string} userId - The user ID
+ * @param {string} title - The notification title
+ * @param {string} message - The notification message
+ * @param {Object} order - Optional full order object
  * @returns {Promise<Object>} The created notification
  */
-const createOrderNotification = async (order, userId) => {
+const createOrderNotification = async (userId, title, message, order = null) => {
   try {
-    const title = 'New Order';
-    const message = `Your order #${order.orderNumber} has been placed successfully.`;
+    // Determine if we're using the new (separate params) or old (order object) format
+    let notificationData = {};
+    
+    if (order && typeof order === 'object') {
+      // Old format - receiving full order object
+      title = title || 'New Order';
+      message = message || `Your order #${order.orderNumber} has been placed successfully.`;
+      notificationData = {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        actionUrl: `/user/orders/${order._id}`
+      };
+    } else if (typeof title === 'object' && title !== null) {
+      // Very old format - order is passed as first parameter
+      order = title;
+      title = 'New Order';
+      message = `Your order #${order.orderNumber} has been placed successfully.`;
+      notificationData = {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        actionUrl: `/user/orders/${order._id}`
+      };
+    } else {
+      // New format - receiving separate parameters
+      notificationData = {
+        actionUrl: `/user/orders`
+      };
+    }
     
     return await createNotification({
       userId,
       type: 'ORDER',
       title,
       message,
-      data: {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        actionUrl: `/user/orders/${order._id}`
-      }
+      data: notificationData
     });
   } catch (error) {
     console.error('Error creating order notification:', error);
-    throw error;
+    // Don't throw, just return null to avoid breaking the caller
+    return null;
   }
 };
 
 /**
  * Create a restaurant order notification
- * @param {Object} order - The order object
  * @param {string} restaurantId - The restaurant ID
+ * @param {string} title - The notification title
+ * @param {string} message - The notification message
+ * @param {Object} order - Optional full order object
  * @returns {Promise<Object>} The created notification
  */
-const createRestaurantOrderNotification = async (order, restaurantId) => {
+const createRestaurantOrderNotification = async (restaurantId, title, message, order = null) => {
   try {
-    const title = 'New Order Received';
-    const message = `You have received a new order #${order.orderNumber}.`;
+    // Determine if we're using the new (separate params) or old (order object) format
+    let notificationData = {};
+    
+    if (order && typeof order === 'object') {
+      // Old format - receiving full order object
+      title = title || 'New Order Received';
+      message = message || `You have received a new order #${order.orderNumber}.`;
+      notificationData = {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        actionUrl: `/restaurant/orders/${order._id}`
+      };
+    } else if (typeof title === 'object' && title !== null) {
+      // Very old format - order is passed as first parameter
+      order = title;
+      title = 'New Order Received';
+      message = `You have received a new order #${order.orderNumber}.`;
+      notificationData = {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        actionUrl: `/restaurant/orders/${order._id}`
+      };
+    } else {
+      // New format - receiving separate parameters
+      notificationData = {
+        actionUrl: `/restaurant/orders`
+      };
+    }
     
     return await createNotification({
       userId: restaurantId,
       type: 'ORDER',
       title,
       message,
-      data: {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        actionUrl: `/restaurant/orders/${order._id}`
-      }
+      data: notificationData
     });
   } catch (error) {
     console.error('Error creating restaurant order notification:', error);
-    throw error;
+    // Don't throw, just return null to avoid breaking the caller
+    return null;
   }
 };
 

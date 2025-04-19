@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Button, Input, Alert, Spinner, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
-import { FaSearch, FaHeart, FaMapMarkerAlt, FaShoppingCart, FaExclamationTriangle, FaInfoCircle, FaStar, FaUtensils, FaRegClock } from 'react-icons/fa';
+import { FaSearch, FaHeart, FaMapMarkerAlt, FaShoppingCart, FaExclamationTriangle, FaStar, FaUtensils, FaRegClock, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
@@ -12,8 +12,11 @@ const UserFavorites = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(null);
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'items';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Fetch favorites from API
   useEffect(() => {
@@ -30,16 +33,26 @@ const UserFavorites = () => {
     setError(null);
     
     try {
-      const response = await api.get('/favorites');
+      console.log('Fetching favorites...');
+      const response = await api.get('/user/favorites');
+      console.log('Favorites response:', response);
       
       if (response.data && response.data.success) {
-        setFavorites(response.data.data?.favorites || []);
+        const fetchedFavorites = response.data.data?.favorites;
+        if (Array.isArray(fetchedFavorites)) {
+          setFavorites(fetchedFavorites);
+          console.log('Favorites set:', fetchedFavorites);
+        } else {
+          console.warn('Favorites data is not an array:', fetchedFavorites);
+          setFavorites([]);
+        }
       } else {
         throw new Error(response.data?.error?.message || 'Failed to fetch favorites');
       }
     } catch (err) {
       console.error('Error fetching favorites:', err);
-      setError('Unable to load favorites. Please try again later.');
+      const errorMessage = err.response?.data?.error?.message || err.message || 'Unable to load favorites. Please try again later.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -48,20 +61,20 @@ const UserFavorites = () => {
   // Remove item from favorites
   const removeFavorite = async (itemId) => {
     setActionInProgress(itemId);
+    setError(null);
     try {
-      const response = await api.delete(`/favorites/${itemId}`);
+      const response = await api.delete(`/user/favorites/${itemId}`);
       
       if (response.data && response.data.success) {
-        // Update local state after successful API call
         setFavorites(prevFavorites => 
-          prevFavorites.filter(item => item.id !== itemId && item._id !== itemId)
+          prevFavorites.filter(item => getItemId(item) !== itemId)
         );
       } else {
         throw new Error(response.data?.error?.message || 'Failed to remove from favorites');
       }
     } catch (err) {
       console.error('Error removing favorite:', err);
-      setError('Failed to remove from favorites. Please try again.');
+      setError(err.message || 'Failed to remove from favorites. Please try again.');
     } finally {
       setActionInProgress(null);
     }
@@ -69,7 +82,8 @@ const UserFavorites = () => {
 
   // Navigate to menu item detail page
   const navigateToItem = (item) => {
-    navigate(`/product/${item.id || item._id || item.menuItemId}`, { 
+    const itemId = getItemId(item);
+    navigate(`/product/${itemId}`, { 
       state: { 
         fromFavorites: true,
         preselectedOptions: {
@@ -80,104 +94,123 @@ const UserFavorites = () => {
     });
   };
 
-  // Filter favorites based on search query
-  const filteredFavorites = favorites.filter(item => {
-    const itemName = item.item_name || item.name || '';
-    const restaurantName = item.restaurant?.restaurantDetails?.name || 
-                          (item.restaurantId && typeof item.restaurantId === 'object' ? 
-                            item.restaurantId.name || item.restaurantId.restaurantDetails?.name : '');
-    
-    return itemName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           restaurantName.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Update URL when tab changes
+  const handleTabChange = (value) => {
+    setActiveTab(value);
+    setSearchParams({ tab: value });
+  };
 
-  // Extract and normalize restaurant data
+  // Formatting helpers (defined before use)
+  const getItemId = (item) => item?.id || item?._id || item?.menuItemId;
+  const getItemName = (item) => item?.item_name || item?.name || 'Item';
+  const getItemPrice = (item) => item?.price || item?.item_price || 0;
+  const formatPrice = (price) => {
+    return typeof price === 'number' ? price.toFixed(2) : '0.00';
+  };
+
+  // Extract and normalize restaurant data (defined before use in grouping/filtering)
   const getRestaurantData = (favorite) => {
-    let restaurantData = { items: [] };
+    let restaurantData = { id: null, name: 'Restaurant', address: 'Address unavailable', cuisine: [], rating: 0, items: [] };
     
-    if (favorite.restaurant && typeof favorite.restaurant === 'object') {
-      const restaurant = favorite.restaurant;
+    const sourceRestaurant = favorite?.restaurant || favorite?.restaurantId;
+
+    if (sourceRestaurant && typeof sourceRestaurant === 'object') {
+      const details = sourceRestaurant.restaurantDetails;
       restaurantData = {
-        id: restaurant.id || restaurant._id,
-        name: restaurant.restaurantDetails?.name || restaurant.name || 'Restaurant',
-        address: restaurant.restaurantDetails?.address || restaurant.address || 'Address unavailable',
-        cuisine: restaurant.restaurantDetails?.cuisine || restaurant.cuisine || [],
-        rating: restaurant.rating || 0,
+        id: sourceRestaurant.id || sourceRestaurant._id,
+        name: details?.name || sourceRestaurant.name || 'Restaurant',
+        address: details?.address || sourceRestaurant.address || 'Address unavailable',
+        bannerImage: details?.bannerImage || sourceRestaurant.bannerImage,
+        cuisine: details?.cuisine || sourceRestaurant.cuisine || [],
+        rating: sourceRestaurant.rating || 0,
         items: []
       };
-    } else if (favorite.restaurantId && typeof favorite.restaurantId === 'object') {
-      const restaurant = favorite.restaurantId;
-      restaurantData = {
-        id: restaurant.id || restaurant._id,
-        name: restaurant.name || restaurant.restaurantDetails?.name || 'Restaurant',
-        address: restaurant.address || restaurant.restaurantDetails?.address || 'Address unavailable',
-        cuisine: restaurant.cuisine || restaurant.restaurantDetails?.cuisine || [],
-        rating: restaurant.rating || 0,
-        items: []
-      };
-    }
+    } 
     
     return restaurantData;
   };
 
-  // Group by restaurant for restaurant tab
+  // Group by restaurant for restaurant tab (defined before use in filtering)
   const restaurantsMap = favorites.reduce((acc, item) => {
+    if (!item) return acc;
     const restaurantData = getRestaurantData(item);
     const restaurantId = restaurantData.id;
     
-    if (restaurantId && !acc[restaurantId]) {
-      acc[restaurantId] = restaurantData;
-    }
-    
-    if (restaurantId && acc[restaurantId]) {
-      acc[restaurantId].items.push(item);
+    if (restaurantId) {
+      if (!acc[restaurantId]) {
+        acc[restaurantId] = { ...restaurantData, items: [] };
+      }
+      if (item && typeof item === 'object') {
+          acc[restaurantId].items.push(item);
+      }
     }
     
     return acc;
   }, {});
-  
+
   const restaurantsList = Object.values(restaurantsMap);
+
+  // Filter favorites based on search query
+  const lowerCaseQuery = searchQuery.toLowerCase();
+
+  const filteredFavorites = favorites.filter(item => {
+    if (!item) return false;
+    const itemName = getItemName(item).toLowerCase(); // Now safe to use
+    const restaurantData = getRestaurantData(item); // Now safe to use
+    const restaurantName = restaurantData.name.toLowerCase();
+    
+    return itemName.includes(lowerCaseQuery) || restaurantName.includes(lowerCaseQuery);
+  });
   
   const filteredRestaurants = restaurantsList.filter(restaurant => {
     if (!restaurant) return false;
-    
-    const restaurantName = restaurant.name || '';
-    const restaurantAddress = restaurant.address || '';
+    const restaurantName = (restaurant.name || '').toLowerCase();
+    const restaurantAddress = (restaurant.address || '').toLowerCase();
     const cuisines = restaurant.cuisine || [];
     
-    return restaurantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           restaurantAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           cuisines.some(c => c.toLowerCase?.includes(searchQuery.toLowerCase()));
+    return restaurantName.includes(lowerCaseQuery) ||
+           restaurantAddress.includes(lowerCaseQuery) ||
+           cuisines.some(c => typeof c === 'string' && c.toLowerCase().includes(lowerCaseQuery));
   });
-
-  // Formatting helpers
-  const getItemId = (item) => item.id || item._id || item.menuItemId;
-  const getItemName = (item) => item.item_name || item.name || 'Item';
-  const getItemPrice = (item) => item.price || item.item_price || 0;
-  const formatPrice = (price) => {
-    if (typeof price !== 'number') return '0.00';
-    return price.toFixed(2);
-  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" />
+        <span className="ml-3 text-lg text-gray-600 dark:text-gray-400">Loading Favorites...</span>
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="p-8 py-12 text-center rounded-lg bg-gray-50">
-        <FaExclamationTriangle className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
-        <h2 className="mb-2 text-xl font-semibold">Authentication Required</h2>
-        <p className="mb-6 text-gray-600">You need to sign in to view and manage your favorites.</p>
+      <div className="p-8 py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+        <FaExclamationTriangle className="w-16 h-16 mx-auto mb-6 text-yellow-500" />
+        <h2 className="mb-3 text-2xl font-semibold">Authentication Required</h2>
+        <p className="mb-8 text-lg text-gray-600 dark:text-gray-400">Please sign in to view and manage your favorites.</p>
         <Button 
+          size="lg"
           variant="default" 
           onClick={() => navigate('/signin', { state: { from: '/user/favorites' } })}
         >
-          Sign In
+          Go to Sign In
+        </Button>
+      </div>
+    );
+  }
+
+  if (error && favorites.length === 0) {
+    return (
+      <div className="p-8 py-16 text-center rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
+        <FaExclamationTriangle className="w-16 h-16 mx-auto mb-6 text-red-500" />
+        <h2 className="mb-3 text-2xl font-semibold text-red-800 dark:text-red-200">Loading Failed</h2>
+        <p className="mb-6 text-lg text-red-700 dark:text-red-300">{error}</p>
+        <Button 
+          size="lg"
+          variant="outline" 
+          onClick={fetchFavorites}
+        >
+          Try Again
         </Button>
       </div>
     );
@@ -185,123 +218,141 @@ const UserFavorites = () => {
 
   if (favorites.length === 0 && !error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Favorites</h1>
-        </div>
-        <div className="py-12 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
-          <FaHeart className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold">No favorites yet</h3>
-          <p className="mt-2 mb-6 text-gray-500">
-            Look for the <FaHeart className="inline mx-1 text-red-500" size={14} /> icon when browsing menus to save your favorite items!
-          </p>
-          <Button 
-            variant="default" 
-            onClick={() => navigate('/')}
-          >
-            Browse Restaurants
-          </Button>
-        </div>
+      <div className="p-8 py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+        <FaHeart className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
+        <h3 className="mb-3 text-2xl font-semibold">No Favorites Yet</h3>
+        <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">
+          Find items you love and click the <FaHeart className="inline mx-1 text-red-500" size={16} /> icon to save them here!
+        </p>
+        <Button 
+          size="lg"
+          variant="default" 
+          onClick={() => navigate('/')}
+        >
+          Browse Restaurants
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Favorites</h1>
-        <div className="relative w-64">
+    <div className="container py-8 mx-auto space-y-8">
+      <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+        <h1 className="text-3xl font-bold tracking-tight">My Favorites</h1>
+        <div className="relative w-full md:w-72">
           <FaSearch className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
           <Input
-            placeholder="Search favorites..."
+            type="text"
+            placeholder="Search items or restaurants..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-4 py-2 text-base"
           />
+           {searchQuery && (
+             <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute text-gray-500 transform -translate-y-1/2 right-1 top-1/2 hover:text-gray-700 dark:hover:text-gray-300"
+                onClick={() => setSearchQuery('')}
+             >
+               <FaTimes className="w-4 h-4" />
+             </Button>
+           )}
         </div>
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          {error}
+      {error && favorites.length > 0 && (
+        <Alert variant="destructive">
+          <FaExclamationTriangle className="w-4 h-4" />
+          <span className="ml-2">{error}</span>
+           <Button 
+             variant="ghost" 
+             size="sm" 
+             className="ml-auto"
+             onClick={() => setError(null)}
+           >
+             Dismiss
+           </Button>
         </Alert>
       )}
 
-      <Tabs defaultValue="items">
-        <TabsList className="mb-4">
-          <TabsTrigger value="items" className="flex items-center gap-2">
-            Menu Items
-            <Badge variant="secondary">{favorites.length}</Badge>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="items" className="py-2 text-base">
+            <FaUtensils className="w-4 h-4 mr-2" /> Menu Items
+            <Badge variant={activeTab === 'items' ? 'default' : 'secondary'} className="ml-2">{filteredFavorites.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="restaurants" className="flex items-center gap-2">
-            Restaurants
-            <Badge variant="secondary">{restaurantsList.length}</Badge>
+          <TabsTrigger value="restaurants" className="py-2 text-base">
+            <FaMapMarkerAlt className="w-4 h-4 mr-2" /> Restaurants
+            <Badge variant={activeTab === 'restaurants' ? 'default' : 'secondary'} className="ml-2">{filteredRestaurants.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="restaurants">
+        <TabsContent value="restaurants" className="mt-6">
           {filteredRestaurants.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredRestaurants.map(restaurant => (
-                <Card key={restaurant.id} className="overflow-hidden transition-shadow hover:shadow-md">
-                  <div className="relative h-32 bg-gray-200">
-                    <img 
-                      src={getFullImageUrl(restaurant.bannerImage)}
-                      alt={restaurant.name}
-                      className="object-cover w-full h-full"
-                      onError={(e) => {
-                        e.target.src = PLACEHOLDERS.RESTAURANT;
-                      }}
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold">{restaurant.name}</h3>
-                    <div className="flex items-center mt-1 text-sm text-gray-500">
-                      {restaurant.rating > 0 && (
-                        <div className="flex items-center mr-3">
-                          <FaStar className="mr-1 text-yellow-400" />
-                          <span>{restaurant.rating.toFixed(1)}</span>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-1 my-1">
-                        {Array.isArray(restaurant.cuisine) && restaurant.cuisine.slice(0, 3).map((type, index) => (
-                          <span key={index} className="px-2 py-0.5 bg-gray-100 text-xs rounded-full">
-                            {type}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                      <FaMapMarkerAlt className="text-gray-400" />
-                      <span className="truncate">{restaurant.address}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                      <FaUtensils className="text-gray-400" />
-                      <span>
-                        {restaurant.items.length} favorited {restaurant.items.length === 1 ? 'item' : 'items'}
-                      </span>
-                    </div>
-                    <Button 
-                      className="w-full mt-4"
-                      onClick={() => navigate(`/restaurant/${restaurant.id}`)}
-                    >
-                      View Menu
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredRestaurants.map(restaurant => {
+                 if (!restaurant || !restaurant.id) return null;
+                 return (
+                   <Card key={restaurant.id} className="flex flex-col overflow-hidden transition-shadow duration-200 rounded-lg shadow-sm hover:shadow-lg dark:bg-gray-800">
+                     <div className="relative h-40 bg-gray-200 dark:bg-gray-700">
+                       <img 
+                         src={getFullImageUrl(restaurant.bannerImage)}
+                         alt={`${restaurant.name} banner`}
+                         className="object-cover w-full h-full"
+                         onError={(e) => { e.target.src = PLACEHOLDERS.RESTAURANT; }}
+                       />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
+                       {restaurant.rating > 0 && (
+                         <Badge variant="secondary" className="absolute flex items-center gap-1 bottom-2 left-2 bg-black/60 text-white border-none">
+                           <FaStar className="text-yellow-400" />
+                           {restaurant.rating.toFixed(1)}
+                         </Badge>
+                       )}
+                     </div>
+                     <div className="flex flex-col flex-grow p-5">
+                       <h3 className="mb-1 text-xl font-semibold group-hover:text-primary">{restaurant.name}</h3>
+                       {Array.isArray(restaurant.cuisine) && restaurant.cuisine.length > 0 && (
+                         <div className="flex flex-wrap gap-1.5 my-2">
+                           {restaurant.cuisine.slice(0, 4).map((type, index) => (
+                             <Badge key={index} variant="outline" className="text-xs font-normal">
+                               {type}
+                             </Badge>
+                           ))}
+                         </div>
+                       )}
+                       <div className="flex items-start gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                         <FaMapMarkerAlt className="flex-shrink-0 mt-1 text-gray-400" />
+                         <span className="line-clamp-2">{restaurant.address}</span>
+                       </div>
+                       <div className="flex items-center gap-2 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                         <FaHeart className="text-red-500" />
+                         <span>
+                           {restaurant.items.length} favorited {restaurant.items.length === 1 ? 'item' : 'items'}
+                         </span>
+                       </div>
+                       <Button 
+                         className="w-full mt-auto pt-2"
+                         onClick={() => navigate(`/restaurant/${restaurant.id}`)}
+                       >
+                         View Restaurant Menu
+                       </Button>
+                     </div>
+                   </Card>
+                 );
+              })}
             </div>
           ) : (
-            <div className="py-12 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
-              <FaInfoCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-semibold">No restaurants match your search</h3>
-              <p className="mt-2 text-gray-500">
-                {searchQuery ? `No restaurants match your search for "${searchQuery}"` : "Add items to favorites to see restaurants here"}
+            <div className="py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <FaSearch className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
+              <h3 className="text-2xl font-semibold">No Matching Restaurants</h3>
+              <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">
+                {searchQuery ? `We couldn&apos;t find any favorited restaurants matching "${searchQuery}".` : 'Add items to favorites to see their restaurants here.'}
               </p>
               {searchQuery && (
                 <Button 
                   variant="outline" 
-                  className="mt-4"
+                  size="lg"
                   onClick={() => setSearchQuery('')}
                 >
                   Clear Search
@@ -311,111 +362,104 @@ const UserFavorites = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="items">
-          {searchQuery && filteredFavorites.length === 0 ? (
-            <div className="py-12 text-center rounded-lg bg-gray-50 dark:bg-gray-800">
-              <FaInfoCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-semibold">No matching favorites</h3>
-              <p className="mt-2 text-gray-500">
-                No items match your search for "{searchQuery}"
-              </p>
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => setSearchQuery('')}
-              >
-                Clear Search
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="items" className="mt-6">
+          {filteredFavorites.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredFavorites.map(item => {
+                if (!item) return null;
                 const itemId = getItemId(item);
+                const restaurantData = getRestaurantData(item);
                 return (
-                  <Card key={itemId} className="overflow-hidden transition-all duration-200 hover:shadow-lg border border-gray-200 dark:border-gray-700">
-                    <div className="relative h-48 bg-gray-200 dark:bg-gray-800">
-                      <img 
-                        src={getFullImageUrl(item.image)}
-                        alt={getItemName(item)} 
-                        className="object-cover w-full h-full"
-                        onError={(e) => {
-                          e.target.src = PLACEHOLDERS.FOOD;
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 hover:opacity-100 transition-opacity"></div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 opacity-90 hover:opacity-100 shadow-md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeFavorite(itemId);
-                        }}
-                        disabled={actionInProgress === itemId}
-                      >
-                        {actionInProgress === itemId ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <FaHeart className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" onClick={() => navigateToItem(item)}>
-                      <h3 className="font-semibold text-lg truncate">{getItemName(item)}</h3>
-                      
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        <FaUtensils className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        <span className="truncate">
-                          {item.restaurant?.restaurantDetails?.name || 
-                          (item.restaurantId && typeof item.restaurantId === 'object' ? 
-                            item.restaurantId.name || item.restaurantId.restaurantDetails?.name : 'Restaurant')}
-                        </span>
-                      </div>
-                      
-                      {item.categories && item.categories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {item.categories.slice(0, 3).map((category, index) => (
-                            <span key={index} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
-                              {category}
-                            </span>
-                          ))}
-                        </div>
+                  <Card key={itemId} className="relative flex flex-col overflow-hidden transition-shadow duration-200 rounded-lg shadow-sm group hover:shadow-lg dark:bg-gray-800">
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute z-10 w-8 h-8 shadow-md top-3 right-3 opacity-80 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); removeFavorite(itemId); }}
+                      disabled={actionInProgress === itemId}
+                      aria-label="Remove from favorites"
+                    >
+                      {actionInProgress === itemId ? (
+                        <Spinner size="sm" className="w-4 h-4" />
+                      ) : (
+                        <FaTimes className="w-4 h-4" />
                       )}
-                      
-                      <div className="flex items-center mt-2">
-                        {item.rating > 0 && (
-                          <div className="flex items-center text-sm">
-                            <FaStar className="mr-1 text-yellow-400" />
-                            <span>{item.rating.toFixed(1)}</span>
-                          </div>
-                        )}
-                        
-                        {item.preparationTime && (
-                          <div className="flex items-center ml-3 text-sm">
-                            <FaRegClock className="mr-1 text-gray-400" />
-                            <span>{item.preparationTime} min</span>
-                          </div>
-                        )}
+                    </Button>
+                    <div className="flex flex-col flex-grow cursor-pointer" onClick={() => navigateToItem(item)}>
+                      <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
+                        <img 
+                          src={getFullImageUrl(item.image)}
+                          alt={getItemName(item)} 
+                          className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => { e.target.src = PLACEHOLDERS.FOOD; }}
+                          loading="lazy"
+                        />
+                         <div className="absolute inset-0 transition-opacity opacity-0 bg-gradient-to-t from-black/30 to-transparent group-hover:opacity-100"></div>
                       </div>
-                      
-                      <div className="flex items-center justify-between mt-3">
-                        <span className="text-lg font-bold">${formatPrice(getItemPrice(item))}</span>
-                        <Button 
-                          size="sm"
-                          className="transition-transform hover:scale-105"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigateToItem(item);
-                          }}
-                        >
-                          <FaShoppingCart className="w-4 h-4 mr-2" />
-                          Order
-                        </Button>
+                      <div className="flex flex-col flex-grow p-5">
+                        <h3 className="mb-1 text-lg font-semibold truncate group-hover:text-primary">{getItemName(item)}</h3>
+                        <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                          <FaUtensils className="flex-shrink-0 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                          <span className="truncate">{restaurantData.name}</span>
+                        </div>
+                         {Array.isArray(item.categories) && item.categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 my-2">
+                            {item.categories.slice(0, 3).map((category, index) => (
+                               <Badge key={index} variant="secondary" className="text-xs font-normal">
+                                {category}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                         <div className="flex items-center gap-4 mt-2 text-sm">
+                           {item.rating > 0 && (
+                             <div className="flex items-center">
+                               <FaStar className="w-4 h-4 mr-1 text-yellow-400" />
+                               <span className="font-medium">{item.rating.toFixed(1)}</span>
+                             </div>
+                           )}
+                           {item.preparationTime && (
+                             <div className="flex items-center text-gray-600 dark:text-gray-400">
+                               <FaRegClock className="w-4 h-4 mr-1 text-gray-400" />
+                               <span>{item.preparationTime} min</span>
+                             </div>
+                           )}
+                         </div>
+                        
+                        <div className="flex items-center justify-between mt-auto pt-3">
+                          <span className="text-xl font-bold">Rs.{formatPrice(getItemPrice(item))}</span>
+                          <Button 
+                            size="sm"
+                            className="transition-transform group-hover:scale-105"
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              navigateToItem(item); 
+                            }}
+                          >
+                            <FaShoppingCart className="w-4 h-4 mr-1.5" />
+                            Order
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>
                 );
               })}
+            </div>
+          ) : (
+             <div className="py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <FaSearch className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
+              <h3 className="text-2xl font-semibold">No Matching Items</h3>
+              <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">
+                We couldn&apos;t find any favorite items matching &quot;{searchQuery}&quot;.
+              </p>
+              <Button 
+                variant="outline" 
+                size="lg"
+                onClick={() => setSearchQuery('')}
+              >
+                Clear Search
+              </Button>
             </div>
           )}
         </TabsContent>

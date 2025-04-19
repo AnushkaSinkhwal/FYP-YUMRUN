@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Container, Spinner, Button } from '../../components/ui';
-import { FaFire, FaFilter, FaUtensils, FaSearch } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { Container, Spinner, Button, Badge } from '../../components/ui';
+import { FaFilter, FaSearch, FaShoppingCart, FaStar } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const Menu = () => {
-  const navigate = useNavigate();
   const { addToCart } = useCart();
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,6 @@ const Menu = () => {
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform the API data to match our frontend format
           const formattedItems = response.data.data.map(item => {
-            // Extract restaurant info safely
             const restaurantId = item.restaurant?.id || item.restaurant?._id || 
               (typeof item.restaurant === 'string' ? item.restaurant : null);
             
@@ -52,6 +51,9 @@ const Menu = () => {
               name: item.name || item.item_name || 'Unnamed Item',
               description: item.description || 'No description available',
               price: parseFloat(item.price || item.item_price || 0),
+              originalPrice: item.originalPrice,
+              discountedPrice: item.discountedPrice,
+              offerDetails: item.offerDetails,
               rating: parseFloat(item.averageRating || 0),
               totalReviews: parseInt(item.numberOfRatings || 0, 10),
               category: (item.category || 'main course').toLowerCase(),
@@ -59,7 +61,7 @@ const Menu = () => {
                 id: restaurantId,
                 name: item.restaurant?.name || 'Restaurant'
               },
-              image: item.image || `https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&h=300&auto=format&q=80`,
+              image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
               isPopular: !!item.isPopular || item.numberOfRatings > 2 || item.averageRating > 4
             };
           });
@@ -166,19 +168,21 @@ const Menu = () => {
 
   // Handle add to cart
   const handleAddToCart = (item) => {
+    const priceToAdd = item.discountedPrice !== undefined ? item.discountedPrice : item.price;
     addToCart({
       id: item.id,
       name: item.name,
-      price: item.price,
+      price: priceToAdd,
       image: item.image,
       quantity: 1,
       restaurantId: item.restaurant.id,
       restaurantName: item.restaurant.name
     });
+    console.log(`Added ${item.name} to cart at price ${priceToAdd}`);
   };
 
   return (
-    <div className="py-10">
+    <div className="py-10 bg-gray-50">
       <Container>
         <div className="mb-8">
           <h1 className="mb-6 text-3xl font-bold text-center">Our Menu</h1>
@@ -284,86 +288,69 @@ const Menu = () => {
           
           {/* Results */}
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Spinner size="lg" />
+            <div className="flex items-center justify-center h-64">
+              <Spinner size="large" />
             </div>
           ) : error ? (
-            <div className="p-4 mb-6 text-red-700 bg-red-100 rounded-md">
+            <div className="p-4 text-center text-red-600 bg-red-100 rounded-lg">
               {error}
             </div>
           ) : sortedItems.length === 0 ? (
-            <div className="p-8 text-center bg-white rounded-lg shadow-md">
-              <FaUtensils className="mx-auto mb-4 text-4xl text-gray-300" />
-              <h3 className="mb-2 text-xl font-semibold">No Menu Items Found</h3>
-              <p className="mb-4 text-gray-600">
-                We couldn&apos;t find any items matching your criteria.
-              </p>
-              <Button
-                onClick={() => {
-                  setSearchQuery('');
-                  setActiveCategory('all');
-                  setFilters({ priceRange: 'all', rating: 'all', sortBy: 'popularity' });
-                }}
-              >
-                Clear Filters
-              </Button>
+            <div className="p-4 text-center text-gray-600 bg-gray-100 rounded-lg">
+              No menu items found matching your criteria.
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedItems.map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
-                  <div className="relative">
+                <div key={item.id} className="overflow-hidden bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                  <Link to={`/product/${item.id}`} className="block">
                     <img 
                       src={item.image} 
                       alt={item.name} 
                       className="object-cover w-full h-48"
-                      onClick={() => navigate(`/product/${item.id}`)}
-                      style={{ cursor: 'pointer' }}
+                      onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDERS.FOOD }}
                     />
-                    {item.isPopular && (
-                      <div className="absolute top-0 left-0 m-2">
-                        <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
-                          <FaFire className="mr-1" /> Popular
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 
-                        className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-yumrun-orange"
-                        onClick={() => navigate(`/product/${item.id}`)}
-                      >
+                  </Link>
+                  <div className="flex flex-col flex-grow p-4">
+                    <h3 className="mb-2 text-lg font-semibold text-gray-800 truncate">
+                      <Link to={`/product/${item.id}`} className="hover:text-yumrun-orange">
                         {item.name}
-                      </h3>
-                      <span className="font-bold text-yumrun-orange">${item.price.toFixed(2)}</span>
-                    </div>
-                    
-                    <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
-                    
-                    <div className="flex items-center mb-3">
-                      <div className="flex items-center mr-2">
-                        <span className="mr-1 text-yellow-400">★</span>
-                        <span>{item.rating.toFixed(1)}</span>
+                      </Link>
+                    </h3>
+                    <p className="mb-3 text-sm text-gray-600 flex-grow line-clamp-2">
+                      {item.description}
+                    </p>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <FaStar className="mr-1 text-yellow-500" />
+                        <span>{item.rating.toFixed(1)} ({item.totalReviews})</span>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        ({item.totalReviews} {item.totalReviews === 1 ? 'review' : 'reviews'})
-                      </span>
+                      <div className="text-right">
+                        {item.offerDetails ? (
+                          <>
+                            <Badge variant="destructive" className="mb-1 text-xs">{item.offerDetails.percentage}% OFF</Badge>
+                            <div>
+                              <span className="text-sm text-gray-500 line-through mr-1.5">
+                                ${item.originalPrice.toFixed(2)}
+                              </span>
+                              <span className="text-lg font-bold text-yumrun-red">
+                                ${item.discountedPrice.toFixed(2)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-lg font-semibold text-gray-900">
+                            ${item.price.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    
-                    <Link 
-                      to={`/restaurant/${item.restaurant.id}`} 
-                      className="mb-3 text-sm text-gray-600 hover:text-yumrun-orange"
-                    >
-                      {item.restaurant.name}
-                    </Link>
-                    
                     <Button 
-                      onClick={() => handleAddToCart(item)}
-                      className="w-full"
+                      onClick={() => handleAddToCart(item)} 
+                      variant="primary" 
+                      className="w-full mt-auto"
                     >
-                      Add to Cart
+                      <FaShoppingCart className="mr-2" /> Add to Cart
                     </Button>
                   </div>
                 </div>

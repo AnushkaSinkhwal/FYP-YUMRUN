@@ -715,24 +715,12 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
             }
         }
         
-        // Fallback to known restaurant ID if needed (based on sample order in the database)
-        const knownRestaurantId = "67fb7977b23ec6b3cad80fe1";
-        
         // Fetch counts and aggregated data with try/catch for each operation
         let totalOrders = 0, pendingOrders = 0, menuItems = 0, activeOffers = 0;
         let revenueData = [], recentOrders = [], recentMenuUpdates = [];
         
         try {
             totalOrders = await Order.countDocuments({ restaurantId: restaurantId.toString() });
-            // If no orders found with primary ID, try the fallback ID
-            if (totalOrders === 0 && knownRestaurantId) {
-                totalOrders = await Order.countDocuments({ restaurantId: knownRestaurantId });
-                if (totalOrders > 0) {
-                    console.log(`Found ${totalOrders} orders using fallback restaurantId: ${knownRestaurantId}`);
-                    // Use this ID for all queries going forward
-                    restaurantId = knownRestaurantId;
-                }
-            }
         } catch (err) {
             console.error('Error counting total orders:', err);
         }
@@ -753,9 +741,9 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
         }
         
         try {
-            activeOffers = await Offer.countDocuments({ 
-                restaurantId: restaurantId.toString(), 
-                isActive: true 
+            activeOffers = await Offer.countDocuments({
+                restaurant: restaurantId.toString(),
+                isActive: true
             });
         } catch (err) {
             console.error('Error counting active offers:', err);
@@ -776,14 +764,6 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
                 .sort('-createdAt')
                 .limit(5)
                 .lean();
-                
-            // If no orders found, try the fallback restaurant ID
-            if (recentOrders.length === 0 && knownRestaurantId) {
-                recentOrders = await Order.find({ restaurantId: knownRestaurantId })
-                    .sort('-createdAt')
-                    .limit(5)
-                    .lean();
-            }
         } catch (err) {
             console.error('Error fetching recent orders:', err);
         }

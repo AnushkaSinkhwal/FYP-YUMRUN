@@ -6,6 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="/unregister-sw.js"></script>
+    <script>
+      // Fix WebSocket connection issues
+      window.addEventListener('error', function(e) {
+        // Prevent WebSocket errors from causing page crashes
+        if (e && e.message && (
+          e.message.includes('WebSocket') || 
+          e.message.includes('ws://') || 
+          e.message.includes('Failed to construct')
+        )) {
+          e.preventDefault();
+          console.warn('WebSocket error intercepted:', e.message);
+        }
+      }, true);
+    </script>
     <title>YUMRUN</title>
   </head>
   <body>

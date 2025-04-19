@@ -142,7 +142,7 @@ const UserDashboard = () => {
       count: dashboardData.favoriteRestaurants || 0,
       icon: <FaHeart className="w-5 h-5 text-white" />,
       color: 'bg-red-500',
-      link: '/favorites'
+      link: '/user/favorites?tab=restaurants'
     },
     {
       title: 'Amount Saved',
@@ -153,6 +153,32 @@ const UserDashboard = () => {
       onClick: () => setActiveTab('loyalty')
     }
   ];
+
+  // Function to get the appropriate color class for an order status
+  const getStatusColor = (status) => {
+    if (!status) return 'bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-300';
+    
+    const normalizedStatus = status.toUpperCase();
+    
+    switch (normalizedStatus) {
+      case 'DELIVERED':
+        return 'bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300';
+      case 'PREPARING':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-800/30 dark:text-blue-300';
+      case 'CANCELLED':
+        return 'bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-800/30 dark:text-yellow-300';
+      case 'CONFIRMED':
+        return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-800/30 dark:text-indigo-300';
+      case 'OUT_FOR_DELIVERY':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-800/30 dark:text-purple-300';
+      case 'READY':
+        return 'bg-teal-100 text-teal-700 dark:bg-teal-800/30 dark:text-teal-300';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-300';
+    }
+  };
 
   if (loading) {
     return (
@@ -326,50 +352,36 @@ const UserDashboard = () => {
             <TabsContent value="orders" className="p-6">
               <h2 className="mb-6 text-xl font-bold">Order History</h2>
               
-              {orderHistory && orderHistory.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+              {orderHistory.length > 0 ? (
+                <div className="relative overflow-x-auto">
+                  <table className="w-full text-sm text-left rtl:text-right">
+                    <thead className="text-xs uppercase bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Order ID</th>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Date</th>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Total</th>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Restaurant</th>
-                        <th scope="col" className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+                        <th scope="col" className="px-6 py-3">Order #</th>
+                        <th scope="col" className="px-6 py-3">Date</th>
+                        <th scope="col" className="px-6 py-3">Status</th>
+                        <th scope="col" className="px-6 py-3">Total</th>
+                        <th scope="col" className="px-6 py-3">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {orderHistory.map((order) => (
-                        <tr key={order._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{order.orderNumber}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">Rs {order.grandTotal}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge variant={
-                              order.status === 'DELIVERED' ? 'success' : 
-                              order.status === 'PENDING' ? 'warning' : 
-                              order.status === 'CONFIRMED' ? 'info' : 
-                              order.status === 'CANCELLED' ? 'destructive' : 
-                              'default'
-                            }>
+                    <tbody>
+                      {orderHistory.slice(0, 5).map((order) => (
+                        <tr key={order._id} className="bg-white border-b dark:bg-gray-800">
+                          <td className="px-6 py-4">{order.orderNumber}</td>
+                          <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
+                          <td className="px-6 py-4">
+                            <Badge className={`px-2 py-1 text-xs ${getStatusColor(order.status)}`}>
                               {order.status}
                             </Badge>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{order.restaurantId?.restaurantDetails?.name || 'Unknown'}</div>
+                          <td className="px-6 py-4">
+                            ${Number(order.grandTotal).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => navigate(`/orders/${order._id}`)}
+                              onClick={() => navigate(`/order/${order._id}`)}
                               className="text-blue-600 hover:text-blue-900"
                             >
                               View Details

@@ -24,11 +24,22 @@ const OrderDetail = () => {
         setLoading(true);
         setError(null);
         
+        console.log('Fetching order details for ID:', id);
         const response = await userAPI.getOrder(id);
+        console.log('Order response:', response);
         
         if (response.data && response.data.success) {
-          setOrder(response.data.order);
+          // Handle both possible response formats
+          const orderData = response.data.data;
+          if (orderData) {
+            console.log('Setting order data:', orderData);
+            setOrder(orderData);
+          } else {
+            console.error('Order data structure is invalid:', response.data);
+            throw new Error('Order data structure is invalid');
+          }
         } else {
+          console.error('Failed to fetch order details:', response?.data?.message || 'Unknown error');
           throw new Error(response.data?.message || 'Failed to fetch order details');
         }
       } catch (err) {
@@ -177,7 +188,18 @@ const OrderDetail = () => {
               <FaMapMarkerAlt className="mr-3 text-gray-500" />
               <div>
                 <p className="text-sm text-gray-500">Delivery Address</p>
-                <p className="font-medium">{order.deliveryAddress}</p>
+                {typeof order.deliveryAddress === "string" ? (
+                  <p className="font-medium">{order.deliveryAddress}</p>
+                ) : (
+                  <p className="font-medium">
+                    {order.deliveryAddress.fullAddress || 
+                     [
+                       order.deliveryAddress.street,
+                       order.deliveryAddress.city,
+                       order.deliveryAddress.country
+                     ].filter(Boolean).join(', ')}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -206,7 +228,7 @@ const OrderDetail = () => {
                 <div key={index} className="grid grid-cols-3 gap-2 p-3">
                   <div className="text-sm">{item.name}</div>
                   <div className="text-sm text-center">{item.quantity}</div>
-                  <div className="text-sm text-right">Rs. {(item.price * item.quantity).toFixed(2)}</div>
+                  <div className="text-sm text-right">${(item.price * item.quantity).toFixed(2)}</div>
                 </div>
               ))}
             </div>
@@ -214,16 +236,16 @@ const OrderDetail = () => {
             <div className="p-3 border-t bg-gray-50">
               <div className="grid grid-cols-2 gap-y-2">
                 <div className="text-sm text-gray-600">Subtotal:</div>
-                <div className="text-sm text-right">Rs. {order.totalPrice?.toFixed(2)}</div>
+                <div className="text-sm text-right">${order.totalPrice?.toFixed(2)}</div>
                 
                 <div className="text-sm text-gray-600">Delivery Fee:</div>
-                <div className="text-sm text-right">Rs. {order.deliveryFee?.toFixed(2)}</div>
+                <div className="text-sm text-right">${order.deliveryFee?.toFixed(2)}</div>
                 
                 <div className="text-sm text-gray-600">Tax:</div>
-                <div className="text-sm text-right">Rs. {order.tax?.toFixed(2)}</div>
+                <div className="text-sm text-right">${order.tax?.toFixed(2)}</div>
                 
                 <div className="text-base font-semibold">Total:</div>
-                <div className="text-base font-semibold text-right">Rs. {order.grandTotal?.toFixed(2)}</div>
+                <div className="text-base font-semibold text-right">${order.grandTotal?.toFixed(2)}</div>
               </div>
             </div>
           </div>
