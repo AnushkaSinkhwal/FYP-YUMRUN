@@ -603,6 +603,11 @@ export const userAPI = {
     }
   },
   
+  // Create a new order
+  createOrder: async (orderData) => {
+    return api.post('/orders', orderData);
+  },
+  
   // Submit a review
   submitReview: async (reviewData) => {
     return api.post('/reviews', reviewData);

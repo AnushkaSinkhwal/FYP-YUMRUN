@@ -1,30 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Button, Alert } from '../ui';
 import { userAPI } from '../../utils/api';
 
-const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
+const KhaltiPayment = ({ orderId, amount, onFailure }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [khaltiStatus, setKhaltiStatus] = useState('initial');
   
   // We don't need the paymentDetails state since we're redirecting to Khalti
   // and not using this information locally
-
-  useEffect(() => {
-    // Check for Khalti callback in URL if this component is loaded after payment initiation
-    const urlParams = new URLSearchParams(window.location.search);
-    const pidx = urlParams.get('pidx');
-    const status = urlParams.get('status');
-    
-    if (pidx && orderId) {
-      verifyPayment(pidx);
-    } else if (status === 'FAILED' || status === 'User canceled') {
-      setError('Payment was canceled or failed. Please try again.');
-      setKhaltiStatus('failed');
-      if (onFailure) onFailure('Payment was canceled or failed');
-    }
-  }, [orderId, onFailure]);
 
   const initiatePayment = async () => {
     if (!orderId || !amount) {
@@ -71,52 +56,6 @@ const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
     } catch (err) {
       console.error('Error initiating Khalti payment:', err);
       let errorMessage = 'An error occurred while initiating payment';
-      
-      if (err.response) {
-        errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-      setKhaltiStatus('failed');
-      if (onFailure) onFailure(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyPayment = async (pidx) => {
-    setLoading(true);
-    setError(null);
-    setKhaltiStatus('verifying');
-    
-    try {
-      console.log('Verifying Khalti payment with pidx:', pidx, 'for order:', orderId);
-      
-      // Call the API to verify Khalti payment
-      const response = await userAPI.verifyKhaltiPayment({
-        orderId,
-        pidx
-      });
-      
-      console.log('Payment verification response:', response);
-      
-      if (response.data && response.data.success && response.data.data && response.data.data.status === 'Completed') {
-        setKhaltiStatus('success');
-        // Clear the pending order from session storage
-        sessionStorage.removeItem('pendingOrder');
-        if (onSuccess) onSuccess(response.data.data);
-      } else {
-        const errorMsg = response.data?.message || 'Payment verification failed';
-        console.error('Payment verification failed:', errorMsg);
-        setError(errorMsg);
-        setKhaltiStatus('failed');
-        if (onFailure) onFailure(errorMsg);
-      }
-    } catch (err) {
-      console.error('Error verifying Khalti payment:', err);
-      let errorMessage = 'An error occurred while verifying payment';
       
       if (err.response) {
         errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
@@ -229,7 +168,6 @@ const KhaltiPayment = ({ orderId, amount, onSuccess, onFailure }) => {
 KhaltiPayment.propTypes = {
   orderId: PropTypes.string.isRequired,
   amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  onSuccess: PropTypes.func,
   onFailure: PropTypes.func
 };
 

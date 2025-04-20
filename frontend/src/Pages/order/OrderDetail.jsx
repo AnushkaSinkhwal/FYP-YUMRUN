@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fa';
 
 const OrderDetail = () => {
-  const { id } = useParams();
+  const { orderId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState(null);
@@ -24,8 +24,8 @@ const OrderDetail = () => {
         setLoading(true);
         setError(null);
         
-        console.log('Fetching order details for ID:', id);
-        const response = await userAPI.getOrder(id);
+        console.log('Fetching order details for ID:', orderId);
+        const response = await userAPI.getOrder(orderId);
         console.log('Order response:', response);
         
         if (response.data && response.data.success) {
@@ -51,7 +51,7 @@ const OrderDetail = () => {
     };
 
     fetchOrderDetails();
-  }, [id]);
+  }, [orderId]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';

@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext } from "react";
 import PropTypes from 'prop-types';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -36,6 +36,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import ScrollToTop from './components/ScrollToTop';
 import { Spinner } from './components/ui';
 import ProtectedRoute from './components/ProtectedRoute';
+import { MyContext } from "./context/UIContext";
 
 // Admin imports
 import AdminLayout from "./layouts/AdminLayout";
@@ -84,7 +85,7 @@ const PlaceholderPage = ({ title }) => (
   <div className="py-20 text-center">
     <h1 className="text-3xl font-bold">{title || 'Page Under Construction'}</h1>
     <p className="mt-4">This page is currently under development.</p>
-    <Link to="/" className="mt-6 inline-block bg-yumrun-primary text-white px-6 py-2 rounded hover:bg-yumrun-primary-dark">
+    <Link to="/" className="inline-block px-6 py-2 mt-6 text-white rounded bg-yumrun-primary hover:bg-yumrun-primary-dark">
       Go Home
     </Link>
   </div>
@@ -110,9 +111,6 @@ const RouteChangeDetector = () => {
 
   return null;
 };
-
-// Create Context for UI management
-const MyContext = createContext();
 
 function App() {
   const [isOpenProductModel, setIsOpenProductModel] = useState(false);
@@ -513,7 +511,7 @@ function App() {
                   <Route path="/restaurants" element={<LayoutWrapper><Restaurants /></LayoutWrapper>} />
                   <Route path="/menu" element={<LayoutWrapper><Menu /></LayoutWrapper>} />
 
-                  <Route path="/order/:id" element={
+                  <Route path="/orders/:orderId" element={
                     <>
                       {isHeaderFooterShow && <Header />}
                       <main id="main-content">
@@ -554,4 +552,3 @@ LayoutWrapper.propTypes = {
 };
 
 export default App;
-export { MyContext };

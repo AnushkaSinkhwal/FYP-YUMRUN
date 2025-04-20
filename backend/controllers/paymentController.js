@@ -174,35 +174,67 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
     
     console.log('Khalti verification response:', khaltiResponse.data);
     
-    const paymentStatus = khaltiResponse.data.status;
-    
+    const khaltiStatus = khaltiResponse.data.status;
+    const transactionId = khaltiResponse.data.transaction_id || null;
+
+    // Map Khalti status to our internal payment detail status
+    let internalPaymentStatus;
+    switch (khaltiStatus) {
+      case 'Completed':
+        internalPaymentStatus = 'completed';
+        break;
+      case 'Pending':
+        internalPaymentStatus = 'pending';
+        break;
+      case 'Expired':
+      case 'User canceled':
+        internalPaymentStatus = 'failed'; // Treat expired/cancelled as failed
+        break;
+      case 'Refunded':
+        internalPaymentStatus = 'refunded';
+        break;
+      default:
+        internalPaymentStatus = 'failed'; // Default to failed for unknown statuses
+        console.warn('Unknown Khalti verification status:', khaltiStatus);
+    }
+
     // Update order with payment status
     order.paymentDetails = {
       ...order.paymentDetails,
-      status: paymentStatus === 'Completed' ? 'completed' : 'failed',
-      transaction_id: khaltiResponse.data.transaction_id || null,
+      status: internalPaymentStatus,
+      transaction_id: transactionId,
       verifiedAt: Date.now()
     };
-    
-    // If payment is successful, update order status
-    if (paymentStatus === 'Completed') {
+
+    // If payment is successful, update order status and payment flags
+    if (khaltiStatus === 'Completed') {
       order.status = 'CONFIRMED';
       order.isPaid = true;
       order.paidAt = Date.now();
       order.paymentStatus = 'PAID';
-      
+
       // Add a status update
       order.statusUpdates.push({
         status: 'CONFIRMED',
         timestamp: Date.now(),
-        updatedBy: req.user._id
+        updatedBy: req.user._id // Assuming req.user is populated by auth middleware
       });
+    } else if (khaltiStatus === 'Expired' || khaltiStatus === 'User canceled' || khaltiStatus === 'Refunded') {
+       // Optionally, update main order status if payment permanently failed/refunded
+       // order.status = 'CANCELLED'; // Or keep as 'PENDING' but mark payment as failed
+       order.paymentStatus = khaltiStatus === 'Refunded' ? 'REFUNDED' : 'FAILED';
+       order.isPaid = false; // Ensure isPaid is false
+    } else if (khaltiStatus === 'Pending') {
+        // Keep main order status as PENDING and paymentStatus as PENDING
+        order.paymentStatus = 'PENDING';
+        order.isPaid = false;
     }
-    
+    // For other statuses, paymentStatus remains PENDING or as previously set
+
     await order.save();
-    
-    // Award loyalty points if payment is successful
-    if (paymentStatus === 'Completed') {
+
+    // Award loyalty points only if payment is successfully completed
+    if (khaltiStatus === 'Completed') {
       try {
         const loyaltyController = require('./loyaltyController');
         await loyaltyController.addOrderPoints({
@@ -223,7 +255,7 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        status: paymentStatus,
+        status: khaltiStatus, // Return the actual Khalti status
         order
       }
     });
@@ -240,71 +272,23 @@ exports.verifyKhaltiPayment = asyncHandler(async (req, res) => {
  */
 exports.khaltiWebhook = asyncHandler(async (req, res) => {
   const { event, data } = req.body;
-  
+
   console.log('Khalti webhook received:', { event, data });
-  
-  // Validate webhook signature (implementation depends on Khalti requirements)
-  
-  // Process the event
-  if (event === 'payment_completed') {
-    const { pidx, transaction_id, purchase_order_id } = data;
-    
-    try {
-      // Find the order - handle both MongoDB ObjectIds and string order numbers
-      console.log('Looking up order with ID:', purchase_order_id);
-      
-      let order;
-      if (isValidObjectId(purchase_order_id)) {
-        order = await Order.findById(purchase_order_id);
-      } else {
-        // Try to find by orderNumber if it's not a valid ObjectId
-        order = await Order.findOne({ orderNumber: purchase_order_id });
-      }
-      
-      console.log('Order found:', !!order);
-      
-      if (!order) {
-        return res.status(404).json({ success: false, message: `Order not found with id: ${purchase_order_id}` });
-      }
-      
-      // Update order payment details
-      order.paymentDetails = {
-        provider: 'khalti',
-        status: 'completed',
-        sessionId: pidx,
-        transaction_id: transaction_id,
-        verifiedAt: Date.now()
-      };
-      
-      // Update order status
-      order.status = 'paid';
-      order.isPaid = true;
-      order.paidAt = Date.now();
-      
-      await order.save();
-      
-      // Award loyalty points
-      try {
-        const loyaltyController = require('./loyaltyController');
-        await loyaltyController.addOrderPoints({
-          body: {
-            orderId: order._id,
-            orderTotal: order.totalPrice
-          },
-          user: { _id: order.userId }
-        }, {
-          status: () => ({ json: () => {} })
-        });
-      } catch (error) {
-        console.error('Error awarding loyalty points:', error);
-      }
-    } catch (error) {
-      console.error('Error processing Khalti webhook:', error);
-      return res.status(500).json({ success: false, message: 'Error processing webhook' });
-    }
+
+  // TODO: Implement webhook signature validation for security
+  // const signature = req.headers['x-khalti-signature']; // Example header, check Khalti docs
+  // if (!isValidSignature(signature, req.rawBody)) { // Assuming rawBody middleware is used
+  //   console.error('Invalid Khalti webhook signature');
+  //   return res.status(401).json({ success: false, message: 'Invalid signature' });
+  // }
+
+  // For now, just log the event. Primary verification happens via /verify endpoint.
+  console.log(`Received Khalti event: ${event || 'UNKNOWN'}`);
+  if (data) {
+    console.log('Webhook data:', data);
   }
-  
-  // Acknowledge receipt of webhook
+
+  // Acknowledge receipt of webhook immediately
   res.status(200).json({ received: true });
 });
 

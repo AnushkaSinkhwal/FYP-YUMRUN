@@ -83,7 +83,7 @@ const PaymentVerificationPage = () => {
               setOrderDetails(response.data.data.order);
             } else {
               setStatus('error');
-              setError(`Payment status is ${paymentStatus}. Please try again or contact support.`);
+              setError(`Payment status: ${paymentStatus || 'Unknown'}. Please try again or contact support.`);
             }
           } else {
             setStatus('error');
@@ -144,7 +144,7 @@ const PaymentVerificationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
       <Card className="w-full max-w-lg p-6">
         {status === 'processing' && (
           <div className="text-center">
@@ -154,7 +154,7 @@ const PaymentVerificationPage = () => {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
-            <h2 className="text-xl font-semibold mb-2">Verifying Payment</h2>
+            <h2 className="mb-2 text-xl font-semibold">Verifying Payment</h2>
             <p className="text-gray-600">Please wait while we verify your payment...</p>
           </div>
         )}
@@ -166,12 +166,33 @@ const PaymentVerificationPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-green-700 mb-2">Payment Successful!</h2>
-            <p className="text-gray-600 mb-4">
+            <h2 className="mb-2 text-xl font-semibold text-green-700">Payment Successful!</h2>
+            <p className="mb-4 text-gray-600">
               Your payment has been successfully processed. Your order is now confirmed.
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
+            <div className="flex flex-col justify-center gap-2 mt-6 sm:flex-row">
               <Button onClick={handleGoToOrder}>View Order</Button>
+              <Button variant="outline" onClick={handleGoToHome}>Go to Home</Button>
+            </div>
+          </div>
+        )}
+        
+        {status === 'pending' && (
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 text-yellow-500">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <h2 className="mb-2 text-xl font-semibold text-yellow-700">Payment Pending</h2>
+            <p className="mb-4 text-gray-600">
+              Your payment is currently being processed by Khalti. This may take a few moments.
+            </p>
+            <p className="mb-6 text-sm text-gray-500">
+              You can check your order status later or contact support if this persists.
+            </p>
+            <div className="flex flex-col justify-center gap-2 mt-6 sm:flex-row">
+              <Button onClick={handleGoToOrder}>Check Order Status</Button>
               <Button variant="outline" onClick={handleGoToHome}>Go to Home</Button>
             </div>
           </div>
@@ -184,11 +205,11 @@ const PaymentVerificationPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-red-700 mb-2">Payment Failed</h2>
+            <h2 className="mb-2 text-xl font-semibold text-red-700">Payment Failed</h2>
             <Alert variant="destructive" className="mb-4">
               {error || 'There was an error processing your payment. Please try again.'}
             </Alert>
-            <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
+            <div className="flex flex-col justify-center gap-2 mt-6 sm:flex-row">
               <Button onClick={handleTryAgain}>Try Again</Button>
               <Button variant="outline" onClick={handleGoToHome}>Go to Home</Button>
             </div>

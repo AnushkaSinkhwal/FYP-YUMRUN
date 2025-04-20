@@ -8,7 +8,7 @@ import { MdOutlineEmail } from "react-icons/md";
 import SearchBox from './SearchBox';
 import Navigation from "./Navigation";
 import { useContext, useState, useEffect, useRef } from 'react';
-import { MyContext } from '../../App';
+import { MyContext } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { Container, Button } from '../../components/ui';

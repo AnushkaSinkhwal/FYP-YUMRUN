@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { initiateKhaltiPayment } from '../../utils/payment';
 import { userAPI } from '../../utils/api';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
 import {
@@ -18,7 +17,7 @@ import {
   Spinner,
   RadioGroupItem
 } from '../../components/ui';
-import axios from 'axios';
+import KhaltiPayment from '../../components/Payments/KhaltiPayment';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -36,6 +35,10 @@ const Checkout = () => {
     additionalInfo: '',
   });
   const [orderRestaurantId, setOrderRestaurantId] = useState(null);
+
+  // Add state for Khalti flow
+  const [showKhalti, setShowKhalti] = useState(false);
+  const [khaltiDetails, setKhaltiDetails] = useState({ orderId: null, amount: null });
 
   // Form validation
   const [errors, setErrors] = useState({});
@@ -187,179 +190,93 @@ const Checkout = () => {
 
     setIsLoading(true);
 
+    // Create a unique order number (can still be generated locally if needed)
+    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    // Create order payload
+    const orderPayload = {
+      orderNumber: orderNumber,
+      userId: currentUser?._id || "67fb33ee85f505c7e9c02a7d",
+      items: cartItems.map(item => ({
+        productId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        options: item.options || []
+      })),
+      restaurantId: orderRestaurantId,
+      totalPrice: cartStats.subTotal,
+      deliveryFee: cartStats.shipping,
+      tax: 0,
+      grandTotal: cartStats.total,
+      status: 'PENDING',
+      paymentMethod: paymentMethod === 'cod' ? 'CASH' : 'KHALTI',
+      paymentStatus: 'PENDING',
+      isPaid: false,
+      deliveryAddress: {
+        fullAddress: deliveryAddress.address + (deliveryAddress.city ? `, ${deliveryAddress.city}` : '') + ', Nepal',
+        street: deliveryAddress.address,
+        city: deliveryAddress.city || 'Bhaktapur',
+        country: 'Nepal'
+      },
+      specialInstructions: deliveryAddress.additionalInfo || ''
+    };
+
+    console.log('Order payload prepared:', orderPayload);
+
     try {
-      // Get first cart item to identify restaurant
-      if (!cartItems.length) {
-        addToast('Your cart is empty', { type: 'error' });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Create a unique order ID
-      const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      
-      // Create order payload
-      const orderPayload = {
-        orderNumber: orderId,
-        userId: currentUser?._id || "67fb33ee85f505c7e9c02a7d", // Fallback to a known user ID
-        items: cartItems.map(item => ({
-          productId: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          options: item.options || []
-        })),
-        restaurantId: orderRestaurantId,
-        totalPrice: cartStats.subTotal,
-        deliveryFee: cartStats.shipping,
-        tax: 0,
-        grandTotal: cartStats.total,
-        status: 'PENDING',
-        paymentMethod: paymentMethod === 'cod' ? 'CASH' : 'KHALTI',
-        paymentStatus: 'PENDING',
-        isPaid: false,
-        // Send the address in both string and object formats for maximum compatibility
-        deliveryAddress: {
-          fullAddress: deliveryAddress.address + (deliveryAddress.city ? `, ${deliveryAddress.city}` : '') + ', Nepal',
-          street: deliveryAddress.address,
-          city: deliveryAddress.city || 'Bhaktapur',
-          country: 'Nepal'
-        },
-        specialInstructions: deliveryAddress.additionalInfo || ''
-      };
-      
-      console.log('Order payload:', orderPayload);
-      
-      // If payment method is cash on delivery
-      if (paymentMethod === 'cod') {
-        try {
-          // Ensure backend changes have propagated by waiting a moment
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Create order in the database
-          console.log('Sending order payload:', orderPayload);
-          let response;
-          try {
-            response = await userAPI.createOrder(orderPayload);
-          } catch (apiError) {
-            console.error('API Error, trying direct POST:', apiError);
-            // Try direct API call as fallback
-            response = await axios.post('http://localhost:8000/api/orders', orderPayload, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                'Content-Type': 'application/json'
-              }
-            });
-          }
-          
-          if (response?.data?.success) {
-            // Clear cart and redirect to confirmation page
-            clearCart();
-            navigate(`/order-confirmation/${response.data.order._id}`);
-            addToast('Order placed successfully!', { type: 'success' });
-          } else {
-            // If we got a response but success is false, it's still a server-side issue
-            const errorMsg = response?.data?.message || 'Failed to create order';
-            console.error('Order creation failed:', errorMsg);
-            
-            // As a last resort, show success anyway and clear cart
-            console.log('Forcing success despite error');
-            clearCart();
-            addToast('Order processed. You will receive an email confirmation.', { type: 'success' });
-            navigate('/order-confirmation/placeholder');
-          }
-        } catch (error) {
-          console.error('Error creating order:', error);
-          
-          // Enhanced error logging
-          if (error.response) {
-            console.error('Server error status:', error.response.status);
-            console.error('Full error response:', error.response);
-            console.error('Response data:', error.response.data);
-            console.error('Restaurant ID used:', orderRestaurantId);
-            
-            // EMERGENCY FALLBACK - Create a fake success
-            console.log('Using emergency fallback - fake success');
-            clearCart();
-            addToast('Order submitted. You will receive an email confirmation shortly.', { type: 'success' });
-            navigate('/order-confirmation/fallback');
-          } else if (error.request) {
-            // The request was made but no response was received
-            console.error('No response received:', error.request);
-            
-            // EMERGENCY FALLBACK - Create a fake success
-            console.log('Using emergency fallback - fake success');
-            clearCart();
-            addToast('Order submitted. Connection issues detected, but your order has been recorded.', { type: 'success' });
-            navigate('/order-confirmation/fallback');
-          } else {
-            // Something happened in setting up the request that triggered an Error
-            console.error('Error setting up request:', error.message);
-            
-            // EMERGENCY FALLBACK - Create a fake success
-            console.log('Using emergency fallback - fake success');
-            clearCart();
-            addToast('Your order has been submitted.', { type: 'success' });
-            navigate('/order-confirmation/fallback');
-          }
-        } finally {
-          setIsLoading(false);
+      // STEP 1: Create the order in the database *first*
+      console.log('Attempting to create order in DB...');
+      const orderCreationResponse = await userAPI.createOrder(orderPayload);
+      console.log('Order creation response:', orderCreationResponse);
+
+      if (orderCreationResponse?.data?.success) {
+        // Correctly access the order object from response.data.data
+        const createdOrder = orderCreationResponse.data.data;
+        
+        if (!createdOrder || !createdOrder._id) {
+            console.error('Order data or _id missing in the response:', orderCreationResponse.data);
+            addToast('Failed to retrieve created order details.', { type: 'error' });
+            setIsLoading(false);
+            return;
         }
-        return;
-      }
-      
-      // For Khalti payment
-      if (paymentMethod === 'khalti') {
-        console.log('Initiating Khalti payment for order:', orderId);
-        console.log('Amount:', cartStats.total);
+
+        const actualOrderId = createdOrder._id; // Use the ID from the database
+        console.log('Order created successfully with ID:', actualOrderId);
+
+        // STEP 2: Handle payment method based on the created order
+        if (paymentMethod === 'cod') {
+          console.log('Processing Cash on Delivery...');
+          clearCart();
+          navigate(`/order-confirmation/${actualOrderId}`);
+          addToast('Order placed successfully!', { type: 'success' });
+          setIsLoading(false);
+          return; 
+        }
         
-        // Save order payload to session storage
-        sessionStorage.setItem('orderPayload', JSON.stringify(orderPayload));
-        
-        // Create customer details object for Khalti
-        const customerDetails = {
-          name: deliveryAddress.fullName,
-          email: deliveryAddress.email,
-          phone: deliveryAddress.phone
-        };
-        
-        console.log('Customer details:', customerDetails);
-        
-        // Save cart items to session storage for payment processing
-        sessionStorage.setItem('cartItems', JSON.stringify(cartItems));
-        
-        // Save order details to session storage for retrieval after payment
-        sessionStorage.setItem('pendingOrder', JSON.stringify({
-          orderId,
-          items: cartItems,
-          amount: cartStats.total,
-          deliveryAddress,
-          paymentMethod: 'khalti'
-        }));
-        
-        // Initiate Khalti payment
-        initiateKhaltiPayment(
-          orderId,
-          cartStats.total,
-          customerDetails,
-          (result) => {
-            console.log('Khalti payment result:', result);
-            
-            if (!result.success) {
-              // If payment initiation failed, show error and allow retry
-              setIsLoading(false);
-              addToast(result.message || 'Payment initiation failed. Please try again.', { type: 'error' });
-            }
-            
-            // Note: We don't set isLoading to false on success because 
-            // the user will be redirected to Khalti payment page
-          }
-        );
+        if (paymentMethod === 'khalti') {
+          console.log('Order created, proceeding to Khalti initiation for order ID:', actualOrderId);
+          setKhaltiDetails({ orderId: actualOrderId, amount: createdOrder.grandTotal }); // Use actual order ID and amount
+          setShowKhalti(true);
+          setIsLoading(false); // Khalti component handles its own loading
+          return;
+        }
+
+      } else {
+        // Order creation failed
+        const errorMsg = orderCreationResponse?.data?.message || 'Failed to create order in database';
+        console.error('Order creation failed:', errorMsg);
+        addToast(errorMsg, { type: 'error' });
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error('Order placement error:', error);
+      console.error('Error during order placement or payment initiation:', error);
+      let errorMessage = 'Failed to place order. Please try again.';
+      if (error.response) {
+         errorMessage = error.response.data?.message || errorMessage;
+      }
+      addToast(errorMessage, { type: 'error' });
       setIsLoading(false);
-      addToast('Failed to place order. Please try again.', { type: 'error' });
     }
   };
 
@@ -368,259 +285,287 @@ const Checkout = () => {
       <Container>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold sm:text-3xl">Checkout</h1>
-          <Link 
-            to="/cart" 
-            className="inline-flex items-center transition-colors text-yumrun-primary hover:text-yumrun-secondary"
-          >
-            <FiArrowLeft className="mr-2" />
-            Back to Cart
-          </Link>
+          {!showKhalti && (
+            <Link
+              to="/cart"
+              className="inline-flex items-center transition-colors text-yumrun-primary hover:text-yumrun-secondary"
+            >
+              <FiArrowLeft className="mr-2" />
+              Back to Cart
+            </Link>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Delivery Information */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Delivery Address */}
-            <Card>
-              <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
-                <FiMapPin className="mr-2 text-yumrun-primary" />
-                <h2 className="font-medium">Delivery Information</h2>
-              </div>
-              
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {!showKhalti ? (
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {/* Delivery Information */}
+            <div className="space-y-6 lg:col-span-2">
+              {/* Delivery Address */}
+              <Card>
+                <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
+                  <FiMapPin className="mr-2 text-yumrun-primary" />
+                  <h2 className="font-medium">Delivery Information</h2>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <Label htmlFor="fullName" className="mb-1.5">
+                        Full Name <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
+                          <FiUser />
+                        </div>
+                        <Input
+                          id="fullName"
+                          name="fullName"
+                          value={deliveryAddress.fullName}
+                          onChange={handleInputChange}
+                          className={`pl-10 ${errors.fullName ? 'border-red-500' : ''}`}
+                          placeholder="Your full name"
+                        />
+                      </div>
+                      {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="phone" className="mb-1.5">
+                        Phone Number <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
+                          <FiPhone />
+                        </div>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          value={deliveryAddress.phone}
+                          onChange={handleInputChange}
+                          className={`pl-10 ${errors.phone ? 'border-red-500' : ''}`}
+                          placeholder="10-digit phone number"
+                        />
+                      </div>
+                      {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
+                    </div>
+                  </div>
+                  
                   <div>
-                    <Label htmlFor="fullName" className="mb-1.5">
-                      Full Name <span className="text-red-500">*</span>
+                    <Label htmlFor="email" className="mb-1.5">
+                      Email Address <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
                       <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
-                        <FiUser />
+                        <FiMail />
                       </div>
                       <Input
-                        id="fullName"
-                        name="fullName"
-                        value={deliveryAddress.fullName}
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={deliveryAddress.email}
                         onChange={handleInputChange}
-                        className={`pl-10 ${errors.fullName ? 'border-red-500' : ''}`}
-                        placeholder="Your full name"
+                        className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
+                        placeholder="Your email address"
                       />
                     </div>
-                    {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
+                    {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                   </div>
                   
                   <div>
-                    <Label htmlFor="phone" className="mb-1.5">
-                      Phone Number <span className="text-red-500">*</span>
+                    <Label htmlFor="address" className="mb-1.5">
+                      Delivery Address <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
-                      <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
-                        <FiPhone />
+                      <div className="absolute left-3 top-3.5 text-gray-400">
+                        <FiHome />
                       </div>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        value={deliveryAddress.phone}
+                      <Textarea
+                        id="address"
+                        name="address"
+                        value={deliveryAddress.address}
                         onChange={handleInputChange}
-                        className={`pl-10 ${errors.phone ? 'border-red-500' : ''}`}
-                        placeholder="10-digit phone number"
+                        className={`pl-10 ${errors.address ? 'border-red-500' : ''}`}
+                        placeholder="Your delivery address"
+                        rows={2}
                       />
                     </div>
-                    {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="email" className="mb-1.5">
-                    Email Address <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <div className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
-                      <FiMail />
-                    </div>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={deliveryAddress.email}
-                      onChange={handleInputChange}
-                      className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
-                      placeholder="Your email address"
-                    />
-                  </div>
-                  {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
-                </div>
-                
-                <div>
-                  <Label htmlFor="address" className="mb-1.5">
-                    Delivery Address <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-3.5 text-gray-400">
-                      <FiHome />
-                    </div>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      value={deliveryAddress.address}
-                      onChange={handleInputChange}
-                      className={`pl-10 ${errors.address ? 'border-red-500' : ''}`}
-                      placeholder="Your delivery address"
-                      rows={2}
-                    />
-                  </div>
-                  {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
-                </div>
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="city" className="mb-1.5">
-                      City
-                    </Label>
-                    <Input
-                      id="city"
-                      name="city"
-                      value={deliveryAddress.city}
-                      onChange={handleInputChange}
-                      placeholder="City"
-                      disabled
-                    />
-                    <p className="mt-1 text-sm text-gray-500">Currently we only deliver in Bhaktapur</p>
+                    {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
                   </div>
                   
-                  <div>
-                    <Label htmlFor="additionalInfo" className="mb-1.5">
-                      Additional Information
-                    </Label>
-                    <Textarea
-                      id="additionalInfo"
-                      name="additionalInfo"
-                      value={deliveryAddress.additionalInfo}
-                      onChange={handleInputChange}
-                      placeholder="Landmark, delivery instructions, etc."
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-            </Card>
-            
-            {/* Payment Method */}
-            <Card>
-              <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
-                <FiCreditCard className="mr-2 text-yumrun-primary" />
-                <h2 className="font-medium">Payment Method</h2>
-              </div>
-              
-              <div className="p-6">
-                <RadioGroup
-                  value={paymentMethod}
-                  onValueChange={setPaymentMethod}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="khalti" id="khalti" />
-                    <Label htmlFor="khalti" className="flex items-center cursor-pointer">
-                      <img src="/images/khalti-logo.png" alt="Khalti" className="h-8 mr-2" />
-                      Pay with Khalti
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cod" id="cod" />
-                    <Label htmlFor="cod" className="cursor-pointer">
-                      Cash on Delivery (COD)
-                    </Label>
-                  </div>
-                </RadioGroup>
-                
-                {paymentMethod === 'khalti' && (
-                  <Alert variant="info" className="mt-4">
-                    You will be redirected to Khalti to complete your payment.
-                  </Alert>
-                )}
-                
-                {paymentMethod === 'cod' && (
-                  <Alert variant="info" className="mt-4">
-                    Please have the exact amount ready for the delivery person.
-                  </Alert>
-                )}
-              </div>
-            </Card>
-          </div>
-          
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4">
-              <Card className="overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50">
-                  <h2 className="font-medium">Order Summary</h2>
-                </div>
-                
-                <div className="p-4">
-                  <div className="mb-4 overflow-y-auto max-h-64">
-                    {cartItems.map((item) => (
-                      <div key={item.id} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-                        <div className="flex-1">
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {item.quantity} × Rs.{item.price}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">Rs.{(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="pt-3 space-y-3 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">Rs.{cartStats.subTotal.toFixed(2)}</span>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <Label htmlFor="city" className="mb-1.5">
+                        City
+                      </Label>
+                      <Input
+                        id="city"
+                        name="city"
+                        value={deliveryAddress.city}
+                        onChange={handleInputChange}
+                        placeholder="City"
+                        disabled
+                      />
+                      <p className="mt-1 text-sm text-gray-500">Currently we only deliver in Bhaktapur</p>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-medium">
-                        {cartStats.shipping === 0 ? 'Free' : `Rs.${cartStats.shipping.toFixed(2)}`}
-                      </span>
-                    </div>
-                    
-                    <div className="h-px my-3 bg-gray-100"></div>
-                    
-                    <div className="flex items-center justify-between font-medium">
-                      <span>Total</span>
-                      <span className="text-lg text-yumrun-accent">Rs.{cartStats.total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <Button 
-                      className="w-full py-3" 
-                      size="lg" 
-                      onClick={handlePlaceOrder}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Spinner size="sm" className="mr-2" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Place Order - Rs.${cartStats.total.toFixed(2)}`
-                      )}
-                    </Button>
-                    
-                    <div className="mt-4 text-xs text-center text-gray-500">
-                      <p>By completing your purchase, you agree to these <Link to="/terms" className="underline">Terms of Service</Link>.</p>
+                    <div>
+                      <Label htmlFor="additionalInfo" className="mb-1.5">
+                        Additional Information
+                      </Label>
+                      <Textarea
+                        id="additionalInfo"
+                        name="additionalInfo"
+                        value={deliveryAddress.additionalInfo}
+                        onChange={handleInputChange}
+                        placeholder="Landmark, delivery instructions, etc."
+                        rows={2}
+                      />
                     </div>
                   </div>
                 </div>
               </Card>
+              
+              {/* Payment Method */}
+              <Card>
+                <div className="flex items-center p-4 border-b border-gray-100 bg-gray-50">
+                  <FiCreditCard className="mr-2 text-yumrun-primary" />
+                  <h2 className="font-medium">Payment Method</h2>
+                </div>
+                
+                <div className="p-6">
+                  <RadioGroup
+                    value={paymentMethod}
+                    onValueChange={setPaymentMethod}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="khalti" id="khalti" />
+                      <Label htmlFor="khalti" className="flex items-center cursor-pointer">
+                        <img src="/images/khalti-logo.png" alt="Khalti" className="h-8 mr-2" />
+                        Pay with Khalti
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cod" id="cod" />
+                      <Label htmlFor="cod" className="cursor-pointer">
+                        Cash on Delivery (COD)
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  
+                  {paymentMethod === 'khalti' && (
+                    <Alert variant="info" className="mt-4">
+                      You will be redirected to Khalti to complete your payment.
+                    </Alert>
+                  )}
+                  
+                  {paymentMethod === 'cod' && (
+                    <Alert variant="info" className="mt-4">
+                      Please have the exact amount ready for the delivery person.
+                    </Alert>
+                  )}
+                </div>
+              </Card>
+            </div>
+            
+            {/* Order Summary */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-4">
+                <Card className="overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 bg-gray-50">
+                    <h2 className="font-medium">Order Summary</h2>
+                  </div>
+                  
+                  <div className="p-4">
+                    <div className="mb-4 overflow-y-auto max-h-64">
+                      {cartItems.map((item) => (
+                        <div key={item.id} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {item.quantity} × Rs.{item.price}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">Rs.{(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="pt-3 space-y-3 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Subtotal</span>
+                        <span className="font-medium">Rs.{cartStats.subTotal.toFixed(2)}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="font-medium">
+                          {cartStats.shipping === 0 ? 'Free' : `Rs.${cartStats.shipping.toFixed(2)}`}
+                        </span>
+                      </div>
+                      
+                      <div className="h-px my-3 bg-gray-100"></div>
+                      
+                      <div className="flex items-center justify-between font-medium">
+                        <span>Total</span>
+                        <span className="text-lg text-yumrun-accent">Rs.{cartStats.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6">
+                      <Button 
+                        className="w-full py-3" 
+                        size="lg" 
+                        onClick={handlePlaceOrder}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Spinner size="sm" className="mr-2" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Place Order - Rs.${cartStats.total.toFixed(2)}`
+                        )}
+                      </Button>
+                      
+                      <div className="mt-4 text-xs text-center text-gray-500">
+                        <p>By completing your purchase, you agree to these <Link to="/terms" className="underline">Terms of Service</Link>.</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          // Render Khalti Component when showKhalti is true
+          <div className="flex items-center justify-center">
+            <Card className="w-full max-w-md">
+              {khaltiDetails.orderId && khaltiDetails.amount ? (
+                <KhaltiPayment
+                  orderId={khaltiDetails.orderId}
+                  amount={khaltiDetails.amount}
+                  onFailure={(error) => {
+                    console.error('Khalti payment initiation failed:', error);
+                    addToast(error || 'Khalti payment failed', { type: 'error' });
+                    setShowKhalti(false); // Go back to checkout form on failure
+                    setKhaltiDetails({ orderId: null, amount: null });
+                  }}
+                />
+              ) : (
+                // Optional: Show a loading or error state if details aren't ready
+                <div className="p-6 text-center">
+                  <Spinner size="lg" />
+                  <p className="mt-2 text-gray-600">Preparing Khalti payment...</p>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
       </Container>
     </section>
   );
