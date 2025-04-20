@@ -3,7 +3,7 @@ import { CiHeart } from "react-icons/ci";
 import { FiShoppingCart } from "react-icons/fi";
 import { FaMapMarkerAlt, FaHeart, FaStore } from "react-icons/fa";
 import { useContext, useState, useEffect } from 'react';
-import { MyContext } from '../../App';
+import { MyContext } from '../../context/UIContext.js';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { 

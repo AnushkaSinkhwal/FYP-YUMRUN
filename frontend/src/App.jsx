@@ -36,7 +36,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import ScrollToTop from './components/ScrollToTop';
 import { Spinner } from './components/ui';
 import ProtectedRoute from './components/ProtectedRoute';
-import { MyContext } from "./context/UIContext";
+import { MyContext } from "./context/UIContext.js";
 
 // Admin imports
 import AdminLayout from "./layouts/AdminLayout";

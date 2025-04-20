@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MyContext } from "../../App";
+import { MyContext } from "../../context/UIContext.js";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
 import { Button, Input, Label, Alert, Spinner, Container, RadioGroup, RadioGroupItem, Select } from "../../components/ui";

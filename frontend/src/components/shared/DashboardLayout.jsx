@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { MyContext } from '../../App';
+import { MyContext } from '../../context/UIContext.js';
 import PropTypes from 'prop-types';
 import { adminAPI, restaurantAPI, userAPI } from '../../utils/api';
 import { 

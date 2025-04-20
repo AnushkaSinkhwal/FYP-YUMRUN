@@ -4,7 +4,7 @@ import { MdClose } from "react-icons/md";
 import { FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
-import { MyContext } from '../../App';
+import { MyContext } from '../../context/UIContext.js';
 import ProductZoom from '../ProductZoom';
 import axios from 'axios';
 import PropTypes from 'prop-types';

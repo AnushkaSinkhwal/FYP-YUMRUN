@@ -395,7 +395,12 @@ const UserOrders = () => {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                       <FaMapMarkerAlt className="flex-shrink-0 w-4 h-4" />
-                      <span className="truncate">Delivery: {order.deliveryAddress?.street || order.deliveryAddress || 'N/A'}</span>
+                      <span className="truncate">Delivery: { 
+                        // Safely access address properties
+                        typeof order.deliveryAddress === 'object' && order.deliveryAddress !== null 
+                          ? `${order.deliveryAddress.street || ''}${order.deliveryAddress.street && order.deliveryAddress.city ? ', ' : ''}${order.deliveryAddress.city || ''}` 
+                          : order.deliveryAddress || 'N/A' 
+                      }</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                       <FaClock className="flex-shrink-0 w-4 h-4" />
