@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { FaEdit, FaTrashAlt, FaUserPlus, FaSearch, FaFilter } from 'react-icons/fa';
 import { adminAPI } from '../../utils/api';
 import { Card, Badge, Button, Alert, Spinner } from '../../components/ui';
+// Import Label as it was missing
+import { Label } from '@/components/ui/label';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -83,6 +85,8 @@ const Users = () => {
 
   const getUserStatus = (user) => {
     // Check isActive and isEmailVerified to determine the correct status
+    console.log(`getUserStatus called for user: ${user.email}, isActive: ${user.isActive} (type: ${typeof user.isActive}), isEmailVerified: ${user.isEmailVerified}`);
+
     if (user.isActive === false) {
       return 'Inactive';
     }
@@ -179,15 +183,25 @@ const Users = () => {
         return;
       }
       
-      const response = await adminAPI.updateUser(userToEdit._id, {
+      // Construct the payload
+      const updatePayload = {
         firstName: userToEdit.firstName,
         lastName: userToEdit.lastName,
         fullName: `${userToEdit.firstName} ${userToEdit.lastName}`,
         email: userToEdit.email,
         phone: userToEdit.phone,
         role: userToEdit.role,
-        isActive: userToEdit.isActive
-      });
+        isActive: userToEdit.isActive // Ensure isActive is included
+      };
+
+      // Log the payload before sending
+      console.log('--- Updating User Payload ---');
+      console.log('User ID:', userToEdit._id);
+      console.log('Payload:', updatePayload);
+      console.log('isActive type:', typeof updatePayload.isActive);
+      console.log('---------------------------');
+      
+      const response = await adminAPI.updateUser(userToEdit._id, updatePayload);
       
       if (response.data && response.data.success) {
         // Update the user in the state
@@ -286,10 +300,10 @@ const Users = () => {
 
   // Handle input changes for new user form
   const handleNewUserChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setNewUser({
       ...newUser,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     });
   };
 
@@ -317,6 +331,13 @@ const Users = () => {
         return;
       }
       
+      // Password validation (e.g., minimum length)
+      if (newUser.password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        setIsCreating(false);
+        return;
+      }
+      
       // Phone validation
       const phoneRegex = /^\d{10}$/;
       if (!phoneRegex.test(newUser.phone)) {
@@ -325,32 +346,29 @@ const Users = () => {
         return;
       }
       
-      // Don't allow creating admin users
-      if (newUser.role === 'admin') {
-        setError('Cannot create users with admin role');
+      // **Frontend Role Validation:** Prevent creating admin or restaurant roles here
+      if (newUser.role === 'admin' || newUser.role === 'restaurant') {
+        setError(`Cannot create users with role '${newUser.role}' from this form. Use Restaurant Management for owners.`);
         setIsCreating(false);
         return;
       }
-      
+
       const response = await adminAPI.createUser(newUser);
       
       if (response.data && response.data.success) {
         // Add the new user to the state
-        const createdUser = response.data.user;
-        setUsers([...users, {
-          _id: createdUser.id,
-          firstName: createdUser.firstName,
-          lastName: createdUser.lastName,
-          fullName: createdUser.fullName,
-          email: createdUser.email,
-          phone: createdUser.phone,
-          role: createdUser.role,
-          isActive: createdUser.isActive,
-          createdAt: new Date().toISOString()
-        }]);
-        
+        setUsers([...users, response.data.user]);
         setSuccess('User created successfully');
         setShowAddUserModal(false);
+        setNewUser({ // Reset form
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          phone: '',
+          role: 'customer',
+          isActive: true
+        });
         
         // Hide success message after 3 seconds
         setTimeout(() => {
@@ -618,21 +636,21 @@ const Users = () => {
               />
             </div>
             
-            <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Role
-              </label>
-              <select
-                name="role"
-                value={newUser.role}
-                onChange={handleNewUserChange}
-                className="w-full p-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            <div className="grid items-center grid-cols-4 gap-4 mb-4">
+              <Label htmlFor="role" className="text-right">Role</Label>
+              <select 
+                  id="role"
+                  name="role"
+                  value={newUser.role}
+                  onChange={handleNewUserChange}
+                  className="col-span-3 p-2 border rounded border-input dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value="customer">Customer</option>
-                <option value="delivery_rider">Delivery Rider</option>
+                  {/* Only allow roles that admin should create directly */}
+                  <option value="customer">Customer</option>
+                  <option value="delivery_rider">Delivery Rider</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Note: To create a restaurant account, use the Restaurant Management page
+              <p className="col-span-4 mt-1 text-xs text-center text-gray-500 dark:text-gray-400">
+                To add a Restaurant Owner, use the Restaurant Management page.
               </p>
             </div>
             
@@ -766,12 +784,13 @@ const Users = () => {
               <input
                 type="checkbox"
                 name="isActive"
+                id="editIsActive"
                 checked={userToEdit.isActive}
                 onChange={handleEditUserChange}
-                className="w-4 h-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                className="w-4 h-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-offset-gray-800"
               />
-              <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Active Account
+              <label htmlFor="editIsActive" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Active Account (User can log in)
               </label>
             </div>
             

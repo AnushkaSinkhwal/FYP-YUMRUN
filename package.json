@@ -8,7 +8,7 @@
     "install:backend": "cd backend && yarn install",
     "install:frontend": "cd frontend && yarn install",
     "dev": "concurrently \"yarn run dev:backend\" \"yarn run dev:frontend\"",
-    "dev:backend": "cd backend && yarn run start",
+    "dev:backend": "cd backend && yarn run dev",
     "dev:frontend": "cd frontend && yarn run dev",
     "build": "yarn run build:frontend",
     "build:frontend": "cd frontend && yarn run build"
@@ -26,8 +26,6 @@
   "author": "YumRun Team",
   "license": "MIT",
   "dependencies": {
-    "@radix-ui/react-avatar": "^1.1.3",
-    "axios": "^1.8.4",
     "concurrently": "^8.2.2",
     "mkdirp": "^3.0.1"
   },

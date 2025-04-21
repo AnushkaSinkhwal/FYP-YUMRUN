@@ -38,9 +38,7 @@ const Restaurants = () => {
             cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine[0] : restaurant.cuisine || 'Various',
             priceRange: restaurant.priceRange || '',
             deliveryTime: restaurant.deliveryTime || '',
-            image: restaurant.logo ? getFullImageUrl(restaurant.logo) : 
-                   restaurant.image ? getFullImageUrl(restaurant.image) : 
-                   PLACEHOLDERS.RESTAURANT,
+            image: restaurant.logo ? getFullImageUrl(restaurant.logo) : PLACEHOLDERS.RESTAURANT,
             address: restaurant.location || restaurant.address || 'Address not available',
             isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : false
           }));

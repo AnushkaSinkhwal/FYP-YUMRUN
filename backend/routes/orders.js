@@ -123,6 +123,10 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
         })
             .sort({ createdAt: -1 })
             .populate('userId', 'firstName lastName fullName email phone') // Populate customer details
+            .populate({ // Populate the user who updated the status in the history
+                path: 'statusUpdates.updatedBy',
+                select: 'name' // Select only the name field
+            })
             .lean(); // Use lean for performance
         
         console.log(`[Orders API] Found ${orders.length} orders matching IDs: ${uniqueStringIds.join(', ')}`);
@@ -210,9 +214,20 @@ router.get('/:id', auth, async (req, res) => {
         console.log(`ATTEMPTING TO FETCH ORDER: ${req.params.id}`);
         console.log(`USER AUTH INFO:`, req.user);
         
+        // Ensure req.user and req.user.userId are available from the auth middleware
+        if (!req.user || !req.user.userId) {
+            console.error('Authorization Error: User information missing from request.');
+            return res.status(401).json({ success: false, message: 'Authentication required.' });
+        }
+        
         const order = await Order.findById(req.params.id)
             .populate('userId', 'firstName lastName fullName email phone address')
-            .populate('restaurantId');
+            .populate('restaurantId', 'name owner') // Populate owner field for auth check
+            .populate('deliveryPersonId', '_id') // Populate only the ID for auth check
+            .populate({
+              path: 'statusUpdates.updatedBy',
+              select: 'name'
+            });
             
         if (!order) {
             console.log(`ORDER NOT FOUND: ${req.params.id}`);
@@ -248,33 +263,68 @@ router.get('/:id', auth, async (req, res) => {
             customer: null
         };
         
-        // Safely add restaurant info if possible
-        if (order.restaurantId && typeof order.restaurantId === 'object' && order.restaurantId !== null) {
-            formattedOrder.restaurant = {
-                id: order.restaurantId._id || null,
-                name: order.restaurantId.name || 
-                      (order.restaurantId.restaurantDetails ? order.restaurantId.restaurantDetails.name : 'Restaurant')
-            };
+        // Populate restaurant info if available
+        if (order.restaurantId) {
+           formattedOrder.restaurant = {
+              id: order.restaurantId._id,
+              name: order.restaurantId.name || order.restaurantId.restaurantDetails?.name || 'Unknown Restaurant'
+              // Add other needed restaurant fields safely
+           };
         }
         
-        // Safely add customer info if possible
-        if (order.userId && typeof order.userId === 'object' && order.userId !== null) {
-            formattedOrder.customer = {
-                id: order.userId._id || null,
-                name: order.userId.fullName || 
-                      `${order.userId.firstName || ''} ${order.userId.lastName || ''}`.trim() || 'Customer',
-                email: order.userId.email,
-                phone: order.userId.phone
-            };
+        // Populate customer info if available
+        if (order.userId) {
+           formattedOrder.customer = {
+              id: order.userId._id,
+              name: order.userId.fullName || `${order.userId.firstName || ''} ${order.userId.lastName || ''}`.trim() || 'Unknown User',
+              email: order.userId.email,
+              phone: order.userId.phone
+              // Add other needed user fields safely
+           };
         }
         
-        console.log(`SENDING SUCCESS RESPONSE`);
+        // --- Authorization Check --- 
+        let authorized = false;
+        const requestingUserId = req.user.userId.toString(); // Ensure it's a string for comparison
+
+        // 1. Is the user an Admin?
+        if (req.user.role === 'admin') {
+            authorized = true;
+            console.log('Access granted: Admin user.');
+        }
+
+        // 2. Is the user the customer who placed the order?
+        if (!authorized && order.userId && order.userId._id.toString() === requestingUserId) {
+            authorized = true;
+            console.log('Access granted: User is the customer.');
+        }
+
+        // 3. Is the user the restaurant owner for this order?
+        if (!authorized && req.user.role === 'restaurant' && order.restaurantId && order.restaurantId.owner) {
+            // Check if the requesting user ID matches the owner ID populated from the restaurant
+            if (order.restaurantId.owner.toString() === requestingUserId) {
+               authorized = true;
+               console.log('Access granted: User owns the restaurant.');
+            }
+        }
+
+        // 4. Is the user the assigned delivery rider for this order?
+        if (!authorized && req.user.role === 'delivery_rider' && order.deliveryPersonId) {
+            if (order.deliveryPersonId._id.toString() === requestingUserId) {
+                authorized = true;
+                console.log('Access granted: User is the assigned delivery rider.');
+            }
+        }
+
+        // If not authorized by any rule, deny access
+        if (!authorized) {
+            console.log('Authorization failed for user:', requestingUserId, 'role:', req.user.role);
+            return res.status(403).json({ success: false, message: 'Not authorized to view this order' });
+        }
+        // --- End Authorization Check ---
         
-        // Send the formatted order data under the 'data' key
-        return res.status(200).json({
-            success: true,
-            data: formattedOrder 
-        });
+        console.log('Authorization check passed. Returning order.');
+        return res.status(200).json({ success: true, data: formattedOrder });
     } catch (error) {
         console.error(`CRITICAL ERROR in GET /:id route:`, error);
         // Handle CastError for invalid ID format

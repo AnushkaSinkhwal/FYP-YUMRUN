@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift, FaInfoCircle, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 import { restaurantAPI } from '../../utils/api';
+import { Alert } from '../../components/ui';
 
 const RestaurantDashboard = () => {
   const [dashboardData, setDashboardData] = useState({
@@ -12,44 +13,72 @@ const RestaurantDashboard = () => {
     totalRevenue: 0,
     recentActivity: []
   });
+  const [profileStatus, setProfileStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
+    const fetchData = async () => {
       setIsLoading(true);
       setError(null);
-      
-      const response = await restaurantAPI.getDashboard();
-      
-      if (response && response.data && response.data.success) {
-        const data = response.data.data || {};
-        console.log('Successfully fetched restaurant dashboard data:', data);
-        
-        setDashboardData({
-          totalOrders: data.totalOrders || 0,
-          pendingOrders: data.pendingOrders || 0,
-          menuItems: data.menuItems || 0,
-          activeOffers: data.activeOffers || 0,
-          totalRevenue: data.totalRevenue || 0,
-          recentActivity: data.recentActivity || []
-        });
-      } else {
-        const errorMessage = response?.data?.message || 'Failed to fetch dashboard data';
-        console.error('Error fetching dashboard data:', errorMessage);
-        setError(errorMessage);
+      try {
+        const [dashboardResponse, profileResponse] = await Promise.all([
+          restaurantAPI.getDashboard(),
+          restaurantAPI.getProfile()
+        ]);
+
+        if (dashboardResponse?.data?.success) {
+          const data = dashboardResponse.data.data || {};
+          console.log('Successfully fetched restaurant dashboard data:', data);
+          setDashboardData({
+            totalOrders: data.totalOrders || 0,
+            pendingOrders: data.pendingOrders || 0,
+            menuItems: data.menuItems || 0,
+            activeOffers: data.activeOffers || 0,
+            totalRevenue: data.totalRevenue || 0,
+            recentActivity: data.recentActivity || []
+          });
+        } else {
+          const errorMessage = dashboardResponse?.data?.message || 'Failed to fetch dashboard data';
+          console.error('Error fetching dashboard data:', errorMessage);
+          setError(prev => prev ? `${prev}\n${errorMessage}` : errorMessage);
+        }
+
+        if (profileResponse?.data?.success) {
+          const profileData = profileResponse.data.data || {};
+          console.log('Successfully fetched restaurant profile data:', profileData);
+          setProfileStatus(profileData.status);
+        } else {
+          const profileError = profileResponse?.data?.message || 'Failed to fetch profile status';
+          console.error('Error fetching profile status:', profileError);
+          setError(prev => prev ? `${prev}\n${profileError}` : profileError);
+        }
+
+      } catch (err) {
+        console.error('Error fetching data for restaurant dashboard:', err);
+        setError('Failed to load dashboard data. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching restaurant dashboard data:', error);
-      setError('Failed to load dashboard data. Please try again.');
-    } finally {
-      setIsLoading(false);
+    };
+    
+    fetchData();
+  }, []);
+
+  const getStatusBadge = () => {
+    switch (profileStatus) {
+      case 'approved':
+        return { text: 'Approved', variant: 'success', icon: <FaCheckCircle className="mr-1" /> };
+      case 'pending_approval':
+        return { text: 'Pending Approval', variant: 'warning', icon: <FaInfoCircle className="mr-1" /> };
+      case 'rejected':
+        return { text: 'Rejected', variant: 'destructive', icon: <FaTimesCircle className="mr-1" /> };
+      default:
+        return { text: 'Unknown Status', variant: 'secondary', icon: <FaInfoCircle className="mr-1" /> };
     }
   };
+
+  const statusBadgeDetails = getStatusBadge();
 
   // Restaurant-specific stats
   const stats = [
@@ -126,16 +155,72 @@ const RestaurantDashboard = () => {
     }
   ];
 
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [dashboardResponse, profileResponse] = await Promise.all([
+        restaurantAPI.getDashboard(),
+        restaurantAPI.getProfile()
+      ]);
+
+      if (dashboardResponse?.data?.success) {
+        const data = dashboardResponse.data.data || {};
+        console.log('Successfully fetched restaurant dashboard data:', data);
+        setDashboardData({
+          totalOrders: data.totalOrders || 0,
+          pendingOrders: data.pendingOrders || 0,
+          menuItems: data.menuItems || 0,
+          activeOffers: data.activeOffers || 0,
+          totalRevenue: data.totalRevenue || 0,
+          recentActivity: data.recentActivity || []
+        });
+      } else {
+        const errorMessage = dashboardResponse?.data?.message || 'Failed to fetch dashboard data';
+        console.error('Error fetching dashboard data:', errorMessage);
+        setError(prev => prev ? `${prev}\n${errorMessage}` : errorMessage);
+      }
+
+      if (profileResponse?.data?.success) {
+        const profileData = profileResponse.data.data || {};
+        console.log('Successfully fetched restaurant profile data:', profileData);
+        setProfileStatus(profileData.status);
+      } else {
+        const profileError = profileResponse?.data?.message || 'Failed to fetch profile status';
+        console.error('Error fetching profile status:', profileError);
+        setError(prev => prev ? `${prev}\n${profileError}` : profileError);
+      }
+
+    } catch (err) {
+      console.error('Error fetching data for restaurant dashboard:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Dashboard
-      role="restaurant"
-      stats={stats}
-      quickActions={quickActions}
-      recentActivity={dashboardData.recentActivity}
-      isLoading={isLoading}
-      error={error}
-      onRefresh={fetchDashboardData}
-    />
+    <div>
+      {!isLoading && profileStatus && (
+        <Alert variant={statusBadgeDetails.variant} className="mb-4 flex items-center">
+          {statusBadgeDetails.icon}
+          <span>Your restaurant status is currently: <strong>{statusBadgeDetails.text}</strong></span>
+          {profileStatus === 'pending_approval' && <span className="ml-2 text-sm"> (Admin review required)</span>}
+          {profileStatus === 'rejected' && <span className="ml-2 text-sm"> (Please contact support)</span>}
+        </Alert>
+      )}
+    
+      <Dashboard
+        title="Restaurant Dashboard"
+        role="restaurant"
+        stats={stats}
+        quickActions={quickActions}
+        recentActivity={dashboardData.recentActivity}
+        isLoading={isLoading && !profileStatus}
+        error={error}
+        onRefresh={fetchDashboardData}
+      />
+    </div>
   );
 };
 

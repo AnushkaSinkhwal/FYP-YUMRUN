@@ -167,10 +167,13 @@ const AdminNotificationItem = ({ notification }) => {
             </div>
             
             <p className="mt-1 text-sm text-gray-600">
-              {notification.message}
+              {typeof notification.message === 'object' && notification.message !== null
+                ? `From: ${notification.message.from}, To: ${notification.message.to}`
+                : notification.message
+              }
             </p>
             
-            <p className="mt-1 text-xs text-gray-500 flex items-center">
+            <p className="flex items-center mt-1 text-xs text-gray-500">
               <FiClock className="mr-1" size={12} />
               {getRelativeTime(notification.createdAt)}
             </p>
@@ -178,7 +181,7 @@ const AdminNotificationItem = ({ notification }) => {
         </div>
         
         {notification.requiresAction && (
-          <div className="ml-4 flex-shrink-0 flex space-x-2">
+          <div className="flex flex-shrink-0 ml-4 space-x-2">
             <Button 
               size="sm" 
               variant="success" 
@@ -227,7 +230,7 @@ const AdminNotificationItem = ({ notification }) => {
         title="Provide Rejection Reason"
       >
         <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="mb-3 text-sm text-gray-600">
             Please provide a reason for rejecting this request. This feedback will be sent to the user.
           </p>
           

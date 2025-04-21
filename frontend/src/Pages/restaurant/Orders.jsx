@@ -255,6 +255,24 @@ const RestaurantOrdersContent = () => {
     }
   };
 
+  // Helper function to format currency (reuse from admin/user)
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount || 0).toFixed(2)}`;
+  };
+
+  // Reusable Badge variant logic (reuse from admin/user)
+  const getStatusBadgeVariant = (status) => {
+    if (!status) return 'default';
+    const upperStatus = status.toUpperCase();
+    switch (upperStatus) {
+      case 'DELIVERED': return 'success';
+      case 'PREPARING': case 'READY': case 'OUT_FOR_DELIVERY': case 'CONFIRMED': return 'info'; // Combined processing states
+      case 'PENDING': return 'warning';
+      case 'CANCELLED': return 'danger';
+      default: return 'default';
+    }
+  };
+
   const renderActionButton = (order) => {
     if (!order || !order.status) return null;
 
@@ -404,183 +422,116 @@ const RestaurantOrdersContent = () => {
 
       {/* Order Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>
-              Order Details -{" "}
-              {selectedOrder?.orderNumber ||
-                `Order #${selectedOrder?._id?.substring(0, 6)}`}
-            </DialogTitle>
-            <DialogDescription>Detailed view of the order.</DialogDescription>
-          </DialogHeader>
-          {selectedOrder && (
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedOrder ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Order Details #{selectedOrder.orderNumber}</DialogTitle>
+                <DialogDescription>
+                  Placed on: {formatDate(selectedOrder.createdAt)} - Status: 
+                  <Badge variant={getStatusBadgeVariant(selectedOrder.status)} className="ml-1">{selectedOrder.status}</Badge>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                {/* Customer Information */}
                 <div>
-                  <h4 className="mb-1 font-semibold">Customer Information</h4>
-                  <p>
-                    <strong>Name:</strong>{" "}
-                    {selectedOrder.userId?.fullName || 
-                     (selectedOrder.userId?.firstName && selectedOrder.userId?.lastName 
-                      ? `${selectedOrder.userId.firstName} ${selectedOrder.userId.lastName}` 
-                      : "N/A")}
-                  </p>
-                  <p>
-                    <strong>Email:</strong>{" "}
-                    {selectedOrder.userId?.email || "N/A"}
-                  </p>
-                  <p>
-                    <strong>Phone:</strong>{" "}
-                    {selectedOrder.userId?.phone || "N/A"}
-                  </p>
+                  <h4 className="font-semibold text-sm mb-1">Customer</h4>
+                  <p className="text-sm">{selectedOrder.userId?.fullName || "N/A"}</p>
+                  <p className="text-xs text-gray-500">{selectedOrder.userId?.email || "N/A"}</p>
+                  <p className="text-xs text-gray-500">{selectedOrder.userId?.phone || "N/A"}</p>
                 </div>
+                <Separator />
+                {/* Delivery Address */}
                 <div>
-                  <h4 className="mb-1 font-semibold">Delivery Address</h4>
-                  {typeof selectedOrder.deliveryAddress === "string" ? (
-                    <p>{selectedOrder.deliveryAddress || "N/A"}</p>
-                  ) : (
-                    <>
-                      <p>{selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}</p>
-                      {selectedOrder.deliveryAddress?.city && (
-                        <p>
-                          {selectedOrder.deliveryAddress.city}
-                          {selectedOrder.deliveryAddress.state
-                            ? `, ${selectedOrder.deliveryAddress.state}`
-                            : ""}
-                          {selectedOrder.deliveryAddress.zipCode
-                            ? ` ${selectedOrder.deliveryAddress.zipCode}`
-                            : ""}
-                        </p>
-                      )}
-                      <p>{selectedOrder.deliveryAddress?.country || ""}</p>
-                    </>
-                  )}
+                  <h4 className="font-semibold text-sm mb-1">Delivery Address</h4>
+                   {typeof selectedOrder.deliveryAddress === "string" ? (
+                     <p className="text-sm">{selectedOrder.deliveryAddress}</p>
+                   ) : (
+                     <p className="text-sm">
+                       {selectedOrder.deliveryAddress?.street || ""}, {selectedOrder.deliveryAddress?.city || ""}, 
+                       {selectedOrder.deliveryAddress?.state || ""} {selectedOrder.deliveryAddress?.zipCode || ""}
+                     </p>
+                   )}
+                   {selectedOrder.specialInstructions && (
+                    <p className="text-xs text-gray-500 mt-1">Notes: {selectedOrder.specialInstructions}</p>
+                   )}
                 </div>
-              </div>
-
-              <div>
-                <h4 className="mb-2 font-semibold">Order Items</h4>
-                <Card>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <div className="min-w-full">
-                        <div className="grid grid-cols-4 gap-4 p-3 font-semibold text-gray-700 bg-gray-100 dark:bg-gray-800 dark:text-gray-300">
-                          <div>Item</div>
-                          <div className="text-center">Quantity</div>
-                          <div className="text-center">Price</div>
-                          <div className="text-right">Subtotal</div>
-                        </div>
-                        <Separator />
-                        {selectedOrder.items?.length > 0 ? (
-                          selectedOrder.items.map((item, index) => (
-                            <div
-                              key={index}
-                              className="grid grid-cols-4 gap-4 p-3 text-sm border-b last:border-0"
-                            >
-                              <div>{item.name || "Unnamed item"}</div>
-                              <div className="text-center">
-                                {item.quantity || 0}
-                              </div>
-                              <div className="text-center">
-                                ${item.price?.toFixed(2) || "0.00"}
-                              </div>
-                              <div className="text-right">
-                                $
-                                {(
-                                  (item.price || 0) * (item.quantity || 0)
-                                ).toFixed(2)}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-3 text-center text-gray-500">
-                            No items found
-                          </div>
-                        )}
+                <Separator />
+                {/* Items */}
+                <div>
+                   <h4 className="font-semibold text-sm mb-1">Items Ordered</h4>
+                   <ul className="text-sm space-y-1">
+                     {selectedOrder.items?.map((item, index) => (
+                       <li key={index} className="flex justify-between">
+                         <span>{item.quantity}x {item.name}</span>
+                         <span>{formatCurrency(item.price * item.quantity)}</span>
+                       </li>
+                     ))}
+                   </ul>
+                </div>
+                <Separator />
+                 {/* Financials */}
+                 <div>
+                   <h4 className="font-semibold text-sm mb-1">Payment</h4>
+                   <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>{formatCurrency(selectedOrder.totalPrice)}</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span>Delivery Fee:</span>
+                        <span>{formatCurrency(selectedOrder.deliveryFee)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax:</span>
+                        <span>{formatCurrency(selectedOrder.tax)}</span>
+                      </div>
+                      {selectedOrder.tip > 0 && (
+                         <div className="flex justify-between">
+                           <span>Tip:</span>
+                           <span>{formatCurrency(selectedOrder.tip)}</span>
+                         </div>
+                       )}
+                      <div className="flex justify-between font-bold pt-1 border-t">
+                        <span>Total:</span>
+                        <span>{formatCurrency(selectedOrder.grandTotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                         <span>Method:</span>
+                         <span>{selectedOrder.paymentMethod} ({selectedOrder.paymentStatus})</span>
+                       </div>
+                   </div>
+                 </div>
+                 <Separator />
+                 {/* Status History Section */}
+                 {selectedOrder.statusUpdates && selectedOrder.statusUpdates.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-sm mb-2">Order History</h4>
+                      <ul className="space-y-2">
+                        {selectedOrder.statusUpdates.slice().reverse().map((update, index) => (
+                          <li key={index} className="flex items-center justify-between text-xs">
+                            <Badge variant={getStatusBadgeVariant(update.status)} size="sm">{update.status}</Badge>
+                            <span className="text-gray-500">{formatDate(update.timestamp)}</span>
+                            {update.updatedBy && (
+                              <span className="text-gray-500">by {update.updatedBy.name || 'System'}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="mb-1 font-semibold">Payment Details</h4>
-                  <p>
-                    <strong>Method:</strong>{" "}
-                    {selectedOrder.paymentMethod || "N/A"}
-                  </p>
-                  <p>
-                    <strong>Status:</strong>{" "}
-                    {selectedOrder.paymentStatus || "N/A"}
-                  </p>
-                  <p>
-                    <strong>Subtotal:</strong> $
-                    {selectedOrder.totalPrice?.toFixed(2) || "0.00"}
-                  </p>
-                  <p>
-                    <strong>Delivery Fee:</strong> $
-                    {selectedOrder.deliveryFee?.toFixed(2) || "0.00"}
-                  </p>
-                  <p>
-                    <strong>Tax:</strong> $
-                    {selectedOrder.tax?.toFixed(2) || "0.00"}
-                  </p>
-                  <p>
-                    <strong>Tip:</strong> $
-                    {selectedOrder.tip?.toFixed(2) || "0.00"}
-                  </p>
-                  <p className="font-bold">
-                    <strong>Grand Total:</strong> $
-                    {selectedOrder.grandTotal?.toFixed(2) || "0.00"}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="mb-1 font-semibold">Status History</h4>
-                  {selectedOrder.statusUpdates?.length > 0 ? (
-                    <ul className="space-y-1 text-sm">
-                      {selectedOrder.statusUpdates.map((update, index) => (
-                        <li key={index}>
-                          <Badge
-                            className={`${
-                              STATUS_COLORS[update.status] || "bg-gray-100"
-                            } mr-2`}
-                          >
-                            {update.status}
-                          </Badge>
-                          {formatDate(update.timestamp)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      No status updates recorded
-                    </p>
                   )}
-                </div>
               </div>
-              {selectedOrder.specialInstructions && (
-                <div>
-                  <h4 className="mb-1 font-semibold">Special Instructions</h4>
-                  <p className="p-2 border rounded bg-gray-50 dark:bg-gray-800">
-                    {selectedOrder.specialInstructions}
-                  </p>
-                </div>
-              )}
-            </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <p>Loading order details...</p> // Fallback if selectedOrder is null
           )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDetailsDialogOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Status Update Dialog */}
+      {/* Confirmation Dialog for Status Update */}
       <Dialog
         open={isConfirmStatusDialogOpen}
         onOpenChange={setIsConfirmStatusDialogOpen}

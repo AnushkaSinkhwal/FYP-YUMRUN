@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 5000,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
@@ -23,7 +23,7 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: 5173
+      port: 5000
     },
   },
   optimizeDeps: {
@@ -39,13 +39,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'react-slick': 'react-slick',
-      '@mui/utils/node_modules/react-is': path.resolve(__dirname, './src/utils/mui-resolver.js'),
-      '@mui/utils/node_modules/prop-types': path.resolve(__dirname, './src/utils/prop-types-resolver.js'),
-      'react-is': 'react-is',
-      'prop-types': 'prop-types',
-      '@emotion/react': '@emotion/react',
-      '@emotion/styled': '@emotion/styled'
+      '@': path.resolve(__dirname, './src'),
     }
   },
   build: {

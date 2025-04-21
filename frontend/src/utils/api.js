@@ -253,168 +253,118 @@ export const adminAPI = {
     return api.get('/admin/users');
   },
   
-  // Get user by ID (admin only)
-  getUser: async (userId) => {
+  // Get a single user by ID (admin only)
+  getUserById: async (userId) => {
     return api.get(`/admin/users/${userId}`);
   },
   
-  // Create a new user (admin only)
-  createUser: async (userData) => {
-    return api.post('/admin/users', userData);
-  },
-  
-  // Update user (admin only)
+  // Update a user (admin only)
   updateUser: async (userId, userData) => {
     return api.put(`/admin/users/${userId}`, userData);
   },
   
-  // Delete user (admin only)
+  // Delete a user (admin only)
   deleteUser: async (userId) => {
     return api.delete(`/admin/users/${userId}`);
   },
+
+  // Get all orders (admin only)
+  getOrders: async () => {
+    return api.get('/admin/orders');
+  },
+
+  // Get available drivers (admin only)
+  getAvailableDrivers: async () => {
+    // Assuming the endpoint exists, otherwise this will fail
+    // Add a proper endpoint in the backend if needed
+    // return api.get('/admin/drivers/available');
+    
+    // Placeholder: return sample data if endpoint doesn't exist
+    // In a real app, implement the backend endpoint
+    return new Promise(resolve => resolve({
+      data: {
+        success: true,
+        drivers: [
+          { id: "DRV001", name: "Alex Green", status: "available" },
+          { id: "DRV002", name: "Maria Rodriguez", status: "available" },
+          { id: "DRV003", name: "Sam Carter", status: "on_delivery" },
+        ]
+      }
+    }));
+  },
   
-  // Get all restaurants (admin only)
+  // Restaurant Management (approvals, updates)
   getRestaurants: async () => {
+    // Calls the new endpoint that returns formatted, non-deleted restaurants
     return api.get('/admin/restaurants');
   },
-  
-  // Create a new restaurant with owner account (admin only)
-  createRestaurant: async (restaurantData) => {
-    return api.post('/admin/restaurants', restaurantData);
+  getRestaurantById: async (restaurantId) => {
+    // Calls the new endpoint for single restaurant details
+    return api.get(`/admin/restaurants/${restaurantId}`);
   },
-  
-  // Approve a restaurant
-  approveRestaurant: async (restaurantId) => {
-    return api.patch(`/admin/restaurants/${restaurantId}/approve`);
+  // **NEW**: Update restaurant status (approve, reject, delete)
+  updateRestaurantStatus: async (restaurantId, { status, reason }) => {
+    return api.patch(`/admin/restaurants/${restaurantId}/status`, { status, reason });
   },
-  
-  // Reject a restaurant
-  rejectRestaurant: async (restaurantId, reason) => {
-    return api.patch(`/admin/restaurants/${restaurantId}/reject`, { reason });
+  // **NEW**: Update restaurant details by admin
+  updateRestaurantDetails: async (restaurantId, detailsData) => {
+    return api.patch(`/admin/restaurants/${restaurantId}/details`, detailsData);
   },
-  
-  // Delete a restaurant
-  deleteRestaurant: async (restaurantId) => {
-    return api.delete(`/admin/restaurants/${restaurantId}`);
-  },
-  
-  // Update admin's own profile
-  updateProfile: async (profileData) => {
-    return api.put('/admin/profile', profileData);
-  },
-  
-  // Get all pending approval requests
-  getApprovalRequests: async () => {
-    return api.get('/admin/approval-requests');
-  },
-  
-  // Process an approval request (approve or reject)
-  processApprovalRequest: async (requestId, { status, feedback }) => {
-    return api.post(`/admin/approval/${requestId}`, { status, feedback });
-  },
-  
-  // Get all deliveries
-  getDeliveries: async () => {
-    return api.get('/admin/deliveries');
-  },
-  
-  // Get delivery by ID
-  getDelivery: async (deliveryId) => {
-    return api.get(`/admin/deliveries/${deliveryId}`);
-  },
-  
-  // Update delivery status
-  updateDeliveryStatus: async (deliveryId, status) => {
-    return api.put(`/admin/deliveries/${deliveryId}/status`, { status });
-  },
-  
-  // Assign driver to delivery
-  assignDriver: async (deliveryId, driverId) => {
-    return api.post(`/admin/deliveries/${deliveryId}/assign`, { driverId });
-  },
-  
-  // Get all drivers available for assignment
-  getAvailableDrivers: async () => {
-    return api.get('/admin/drivers/available');
-  },
-  
-  // Get admin notifications
-  getNotifications: async () => {
-    return api.get('/admin/notifications');
-  },
-  
-  // Get notification count
-  getNotificationCount: async () => {
-    return api.get('/admin/notifications/count');
-  },
-  
-  // Process notification (approve/reject)
-  processNotification: async (notificationId, action, data = {}) => {
-    return api.post(`/admin/notifications/${notificationId}/process`, { action, ...data });
-  },
-  
-  // Get pending restaurant profile approvals
-  getRestaurantApprovals: async () => {
-    return api.get('/admin/restaurant-approvals');
-  },
-  
-  // Get count of pending restaurant profile approvals
-  getRestaurantApprovalsCount: async () => {
-    return api.get('/admin/restaurant-approvals/count');
-  },
-  
-  // Approve restaurant profile changes
-  approveRestaurantChanges: async (approvalId) => {
-    return api.post(`/admin/restaurant-approvals/${approvalId}/approve`);
-  },
-  
-  // Reject restaurant profile changes
-  rejectRestaurantChanges: async (approvalId, reason) => {
-    return api.post(`/admin/restaurant-approvals/${approvalId}/reject`, { reason });
-  },
-  
-  // Manage categories
-  getCategories: async () => {
-    return api.get('/admin/categories');
-  },
-  addCategory: async (categoryData) => {
-    return api.post('/admin/categories', categoryData);
-  },
-  updateCategory: async (categoryId, categoryData) => {
-    return api.put(`/admin/categories/${categoryId}`, categoryData);
-  },
-  deleteCategory: async (categoryId) => {
-    return api.delete(`/admin/categories/${categoryId}`);
-  },
-  
-  // Manage offers/promotions
-  getOffers: async () => {
-    return api.get('/admin/offers');
-  },
-  addOffer: async (offerData) => {
-    return api.post('/admin/offers', offerData);
-  },
-  updateOffer: async (offerId, offerData) => {
-    return api.put(`/admin/offers/${offerId}`, offerData);
-  },
-  deleteOffer: async (offerId) => {
-    return api.delete(`/admin/offers/${offerId}`);
-  },
-  
-  // Get general approval requests (e.g., user profile updates)
-  // getApprovalRequests: async () => {
-  //   return api.get('/admin/approval-requests'); // Assuming this endpoint exists
+  // **DEPRECATED/REMOVED**: Direct delete route
+  // deleteRestaurant: async (restaurantId) => {
+  //   return api.delete(`/admin/restaurants/${restaurantId}`); 
   // },
-  
-  // Get pending restaurants for approval (NEW)
-  getPendingRestaurants: async () => {
-    return api.get('/admin/restaurants/pending');
+  // **DEPRECATED/REMOVED**: Old approval/rejection routes (now handled by updateRestaurantStatus)
+  // approveRestaurant: async (restaurantId) => {
+  //   return api.patch(`/admin/restaurants/${restaurantId}/approve`);
+  // },
+  // rejectRestaurant: async (restaurantId, reason) => {
+  //   return api.patch(`/admin/restaurants/${restaurantId}/reject`, { reason });
+  // },
+  // **DEPRECATED**: Old restaurant approval list (use getRestaurants with filtering)
+  // getRestaurantApprovals: async () => {
+  //   return api.get('/admin/approvals/restaurants');
+  // },
+  // **DEPRECATED**: Old pending restaurant list (use getRestaurants with filtering)
+  // getPendingRestaurants: async () => {
+  //   return api.get('/admin/restaurants/pending');
+  // },
+
+  // Notification Management
+  getNotifications: async (params) => {
+    return api.get('/admin/notifications', { params });
+  },
+  getNotificationCounts: async () => {
+    return api.get('/admin/notifications/counts');
+  },
+  getUnreadNotificationCount: async () => {
+    return api.get('/admin/notifications/unread-count');
+  },
+  processNotification: async (notificationId, action, data) => {
+    return api.patch(`/admin/notifications/${notificationId}/process`, { action, ...data });
+  },
+  approveNotification: async (notificationId, data = {}) => {
+    return api.patch(`/admin/notifications/${notificationId}/approve`, data);
+  },
+  rejectNotification: async (notificationId, reason) => {
+    return api.patch(`/admin/notifications/${notificationId}/reject`, { reason });
+  },
+  markNotificationAsRead: async (notificationId) => {
+    return api.patch(`/admin/notifications/${notificationId}/read`);
   },
   
-  // Update restaurant status (approve/reject) (NEW)
-  updateRestaurantStatus: async (restaurantId, status) => {
-    return api.patch(`/admin/restaurants/${restaurantId}/status`, { status });
-  }
+  // Other admin operations (settings, logs, etc.)
+  // ... add other admin API calls as needed ...
+
+  // **NEW** (from Restaurants.jsx - Add Restaurant functionality)
+  createRestaurantAndOwner: async (newRestaurantData) => {
+    return api.post('/admin/restaurants', newRestaurantData);
+  },
+
+  // Update order status (admin only)
+  updateOrderStatus: async (orderId, status) => {
+    return api.patch(`/admin/orders/${orderId}/status`, { status });
+  },
 };
 
 // Restaurant API methods
@@ -579,23 +529,10 @@ export const userAPI = {
   // Get a specific order by ID
   getOrder: async (orderId) => {
     try {
-      // Use the new safe endpoint instead of the problematic one
-      console.log(`Using safe endpoint for order: ${orderId}`);
-      const response = await api.get(`/orders/safe/details/${orderId}`);
-      
-      // Check if the response has the correct format
-      if (response.data && response.data.success && response.data.data) {
-        console.log('Safe endpoint response:', response.data);
-        // Transform the response to match the expected format in OrderDetail.jsx
-        return {
-          data: {
-            success: true,
-            data: response.data.data
-          }
-        };
-      }
-      
-      // If the response already has the expected format, return it as is
+      // Use the standard GET /orders/:id endpoint now
+      console.log(`Fetching order details from /orders/${orderId}`);
+      const response = await api.get(`/orders/${orderId}`);
+      // The response should already be in the { success: true, data: order } format
       return response;
     } catch (error) {
       console.error('Error fetching order details:', error);

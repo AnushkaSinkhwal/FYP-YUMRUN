@@ -154,9 +154,7 @@ const RestaurantDetails = () => {
             <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-md">
               <div className="relative h-64">
                 <img 
-                  src={restaurant.image ? getFullImageUrl(restaurant.image) : 
-                       restaurant.logo ? getFullImageUrl(restaurant.logo) : 
-                       PLACEHOLDERS.RESTAURANT} 
+                  src={restaurant.logo ? getFullImageUrl(restaurant.logo) : PLACEHOLDERS.RESTAURANT} 
                   alt={restaurant.name} 
                   className="object-cover w-full h-full"
                 />
@@ -268,7 +266,7 @@ const RestaurantDetails = () => {
                     <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
                       <div className="relative">
                         <img 
-                          src={item.image} 
+                          src={item.imageUrl ? getFullImageUrl(item.imageUrl) : PLACEHOLDERS.FOOD} 
                           alt={item.name} 
                           className="object-cover w-full h-48 cursor-pointer"
                           onClick={() => navigate(`/product/${item.id}`)}

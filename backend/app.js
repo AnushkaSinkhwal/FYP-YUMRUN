@@ -25,7 +25,7 @@ const app = express();
 
 // CORS Configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -113,7 +113,7 @@ mongoose.connect(process.env.CONNECTION_STRING)
     app.listen(PORT, () => {
       console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
       console.log(`MongoDB Connected`);
-      console.log(`CORS enabled for origin: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+      console.log(`CORS enabled for origin: ${process.env.FRONTEND_URL || 'http://localhost:5000'}`);
       // Log Khalti configuration status
       console.log(`Khalti API configuration:`, { 
         baseUrl: process.env.NODE_ENV === 'production' ? 'https://khalti.com/api/v2' : 'https://a.khalti.com/api/v2',

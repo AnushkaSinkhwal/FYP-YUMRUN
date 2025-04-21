@@ -1,11 +1,34 @@
 import { useState, useEffect } from 'react';
 import { FaMapMarkerAlt, FaClock, FaDollarSign, FaCheck, FaTimes, FaMotorcycle, FaInfoCircle, FaPhoneAlt, FaCheckCircle } from 'react-icons/fa';
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Spinner, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui';
-import { useAuth } from '../../context/AuthContext';
+import { deliveryAPI } from '../../utils/api'; // Import deliveryAPI
+
+// Reusable helper functions (consider moving to a utils file)
+const formatCurrency = (amount) => `$${parseFloat(amount || 0).toFixed(2)}`;
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleString(undefined, { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: 'numeric', minute: '2-digit' 
+    });
+  } catch { return 'Invalid Date'; }
+};
+const getStatusBadgeVariant = (status) => {
+  if (!status) return 'default';
+  const upperStatus = status.toUpperCase();
+  switch (upperStatus) {
+    case 'DELIVERED': return 'success';
+    case 'PROCESSING': case 'PREPARING': case 'READY': case 'OUT_FOR_DELIVERY': case 'CONFIRMED': return 'info';
+    case 'PENDING': return 'warning';
+    case 'CANCELLED': return 'danger';
+    default: return 'default';
+  }
+};
 
 const DeliveryOrders = () => {
   const [activeTab, setActiveTab] = useState('available');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start loading initially
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -14,79 +37,32 @@ const DeliveryOrders = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState('');
   
-  const { currentUser } = useAuth();
-
-  // Sample orders data - In production, this would come from an API
-  const sampleOrders = [
-    {
-      id: 'ORD001',
-      restaurant: 'Pizza Palace',
-      customer: 'John Doe',
-      items: [
-        { name: 'Margherita Pizza', quantity: 1, price: 15.99 },
-        { name: 'Coke', quantity: 2, price: 5.00 }
-      ],
-      totalPrice: 25.99,
-      status: 'available',
-      createdAt: '2024-03-20T10:30:00',
-      pickupAddress: '123 Restaurant St, City',
-      deliveryAddress: '456 Customer Ave, City',
-      estimatedDistance: '2.5 km',
-      estimatedEarnings: 8.00,
-      customerPhone: '+1234567890'
-    },
-    {
-      id: 'ORD002',
-      restaurant: 'Burger King',
-      customer: 'Jane Smith',
-      items: [
-        { name: 'Whopper', quantity: 2, price: 12.99 },
-        { name: 'French Fries', quantity: 1, price: 4.99 }
-      ],
-      totalPrice: 30.97,
-      status: 'active',
-      createdAt: '2024-03-20T10:15:00',
-      pickupAddress: '789 Burger Ave, City',
-      deliveryAddress: '321 Smith St, City',
-      estimatedDistance: '3.2 km',
-      estimatedEarnings: 9.50,
-      customerPhone: '+1234567891'
-    },
-    {
-      id: 'ORD003',
-      restaurant: 'Sushi Express',
-      customer: 'Mike Johnson',
-      items: [
-        { name: 'California Roll', quantity: 2, price: 16.99 },
-        { name: 'Miso Soup', quantity: 1, price: 3.99 }
-      ],
-      totalPrice: 37.97,
-      status: 'completed',
-      createdAt: '2024-03-20T09:30:00',
-      pickupAddress: '567 Sushi Lane, City',
-      deliveryAddress: '890 Johnson Rd, City',
-      estimatedDistance: '1.8 km',
-      estimatedEarnings: 7.50,
-      customerPhone: '+1234567892'
-    }
-  ];
-
   // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       setLoading(true);
       setError(null);
+      setOrders([]); // Clear previous orders
       try {
-        // In production, this would be API calls:
-        // GET /api/delivery/available - for available orders
-        // GET /api/delivery/active - for orders assigned to current delivery person
-        // GET /api/delivery/history - for completed orders by this delivery person
+        let response;
+        if (activeTab === 'available') {
+          response = await deliveryAPI.getAvailableOrders();
+          setOrders(response.data?.orders || []);
+        } else if (activeTab === 'active') {
+          response = await deliveryAPI.getActiveDeliveries();
+          // Backend now returns { success: true, deliveries: [...] }
+          setOrders(response.data?.deliveries || []); 
+        } else if (activeTab === 'completed') {
+          response = await deliveryAPI.getDeliveryHistory();
+          // Backend returns { success: true, deliveries: [...] }
+          setOrders(response.data?.deliveries || []);
+        }
         
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 1000));
-        setOrders(sampleOrders);
       } catch (err) {
-        setError('Failed to fetch orders. Please try again.');
+        const message = err.response?.data?.message || err.message || 'Failed to fetch orders.';
+        setError(message);
         console.error('Error fetching orders:', err);
       } finally {
         setLoading(false);
@@ -94,7 +70,7 @@ const DeliveryOrders = () => {
     };
 
     fetchOrders();
-  }, [refreshKey]);
+  }, [activeTab, refreshKey]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -132,27 +108,27 @@ const DeliveryOrders = () => {
   };
 
   const handleAcceptOrder = async (orderId) => {
-    setLoading(true);
-    setError(null); // Clear any previous errors
+    setLoading(true); // Use main loading state for accepting
+    setError(null);
     try {
-      // In production, this would be a POST request to /api/delivery/accept/:orderId
-      // Example: await deliveryAPI.acceptOrder(orderId);
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update order status locally
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, status: 'active', assignedTo: currentUser?.id }
-            : order
-        )
-      );
-      
-      setShowSuccessMessage('Order accepted successfully! You can now pick it up.');
-      setTimeout(() => setShowSuccessMessage(''), 3000);
+      // Call the actual API endpoint
+      console.log(`Calling deliveryAPI.acceptOrder for order: ${orderId}`);
+      const response = await deliveryAPI.acceptOrder(orderId);
+      console.log('Accept Order API response:', response.data);
+
+      if (response.data && response.data.success) {
+         // Refresh the orders list to reflect the change from available to active
+        setRefreshKey(prev => prev + 1); 
+        setShowSuccessMessage('Order accepted successfully! Check your Active Orders tab.');
+        setTimeout(() => setShowSuccessMessage(''), 4000);
+        // Optionally switch tab to active after a short delay
+        // setTimeout(() => setActiveTab('active'), 500); 
+      } else {
+        throw new Error(response.data?.message || 'Failed to accept the order.');
+      }
+
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to accept order. Please try again.';
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to accept order. Please try again.';
       setError(errorMessage);
       console.error('Error accepting order:', error);
     } finally {
@@ -162,41 +138,29 @@ const DeliveryOrders = () => {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     setUpdatingStatus(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     try {
-      // In production, this would be a POST request to /api/delivery/update-status/:orderId with
-      // uppercase status for backend compatibility
-      
-      // Simulate API call, passing the uppercase status that the backend expects
-      console.log(`Would send status ${newStatus.toUpperCase()} to backend API`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update order status locally
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, status: newStatus }
-            : order
-        )
-      );
-      
-      // If we're updating the currently selected order, update that too
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder({
-          ...selectedOrder,
-          status: newStatus
-        });
-      }
-      
-      setShowSuccessMessage(`Order marked as ${newStatus}!`);
-      setTimeout(() => setShowSuccessMessage(''), 3000);
-      
-      // Close the modal if order is completed
-      if (newStatus === 'completed') {
-        setShowDetailModal(false);
+      // Call the actual API endpoint
+      const upperCaseStatus = newStatus.toUpperCase(); // Ensure status matches backend enum
+      console.log(`Calling deliveryAPI.updateOrderStatus for order ${orderId} with status ${upperCaseStatus}`);
+      const response = await deliveryAPI.updateOrderStatus(orderId, upperCaseStatus);
+      console.log('Update Status API response:', response.data);
+
+      if (response.data && response.data.success) {
+         // Refresh the orders list
+        setRefreshKey(prev => prev + 1);
+        setShowSuccessMessage(`Order status updated to ${upperCaseStatus}!`);
+        setTimeout(() => setShowSuccessMessage(''), 3000);
+
+        // Close the modal if order is completed or cancelled
+        if (upperCaseStatus === 'DELIVERED' || upperCaseStatus === 'CANCELLED') {
+          setShowDetailModal(false);
+        }
+      } else {
+         throw new Error(response.data?.message || 'Failed to update order status.');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || `Failed to update order status to ${newStatus}. Please try again.`;
+      const errorMessage = error.response?.data?.message || error.message || `Failed to update order status to ${newStatus}. Please try again.`;
       setError(errorMessage);
       console.error('Error updating order status:', error);
     } finally {
@@ -206,10 +170,6 @@ const DeliveryOrders = () => {
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
-  };
-
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString();
   };
 
   if (loading && orders.length === 0) {
@@ -311,7 +271,7 @@ const DeliveryOrders = () => {
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
-                      {formatDateTime(order.createdAt)}
+                      {formatDate(order.createdAt)}
                     </div>
                   </div>
                   
@@ -372,103 +332,108 @@ const DeliveryOrders = () => {
       {/* Order Details Modal */}
       {showDetailModal && selectedOrder && (
         <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex justify-between items-center">
-                <span>Order #{selectedOrder.id}</span>
-                <Badge className={getStatusColor(selectedOrder.status)}>
-                  {getStatusIcon(selectedOrder.status)}
-                  <span className="ml-1">{selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}</span>
-                </Badge>
-              </DialogTitle>
+              <DialogTitle>Order Details: {selectedOrder.orderNumber || selectedOrder._id || selectedOrder.id}</DialogTitle>
             </DialogHeader>
-            
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">Restaurant</h3>
-                  <p className="text-gray-800 dark:text-gray-200">{selectedOrder.restaurant}</p>
-                  <p className="text-gray-600 dark:text-gray-400">{selectedOrder.pickupAddress}</p>
+            <div className="space-y-4 py-4">
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Restaurant</p>
+                  <p>{selectedOrder.restaurantId?.name || 'N/A'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {selectedOrder.restaurantId?.address?.street || 'N/A'}
+                  </p>
                 </div>
-                
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">Customer</h3>
-                  <p className="text-gray-800 dark:text-gray-200">{selectedOrder.customer}</p>
-                  <p className="text-gray-600 dark:text-gray-400">{selectedOrder.deliveryAddress}</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-1"
-                    onClick={() => window.open(`tel:${selectedOrder.customerPhone}`, '_blank')}
-                  >
-                    <FaPhoneAlt className="mr-1.5" />
-                    Call Customer
-                  </Button>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Customer</p>
+                  <p>{selectedOrder.userId?.fullName || 'N/A'}</p>
+                  {selectedOrder.userId?.phone && (
+                     <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center">
+                        <FaPhoneAlt className="mr-1 h-3 w-3"/> {selectedOrder.userId.phone}
+                     </p>
+                   )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Delivery Address</p>
+                  <p>{selectedOrder.deliveryAddress?.street || 'N/A'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {selectedOrder.deliveryAddress?.city || ''}, {selectedOrder.deliveryAddress?.state || ''}
+                  </p>
+                </div>
+                 <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Order Placed</p>
+                  <p>{formatDate(selectedOrder.createdAt)}</p>
                 </div>
               </div>
-              
+
+              {/* Items */}
               <div>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Order Items</h3>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 space-y-2">
-                  {selectedOrder.items.map((item, index) => (
-                    <div key={index} className="flex justify-between py-1 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                      <div>
-                        <span className="font-medium">{item.quantity}x</span> {item.name}
-                      </div>
-                      <div className="font-medium">${(item.price * item.quantity).toFixed(2)}</div>
-                    </div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Items</p>
+                <ul className="text-sm border rounded-md divide-y dark:border-gray-700 dark:divide-gray-700">
+                  {selectedOrder.items?.map((item, index) => (
+                    <li key={index} className="px-3 py-2 flex justify-between">
+                      <span>{item.quantity} x {item.name}</span>
+                      <span>{formatCurrency(item.price * item.quantity)}</span>
+                    </li>
                   ))}
-                  <div className="flex justify-between pt-2 font-semibold">
-                    <div>Total</div>
-                    <div>${selectedOrder.totalPrice.toFixed(2)}</div>
-                  </div>
-                </div>
+                  <li className="px-3 py-2 flex justify-between font-semibold bg-gray-50 dark:bg-gray-700/50">
+                    <span>Total Price</span>
+                    <span>{formatCurrency(selectedOrder.totalPrice)}</span>
+                  </li>
+                </ul>
               </div>
-              
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Delivery Information</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Distance:</span> {selectedOrder.estimatedDistance}
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Earnings:</span> ${selectedOrder.estimatedEarnings.toFixed(2)}
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Order Time:</span> {formatDateTime(selectedOrder.createdAt)}
-                  </div>
+
+              {/* Status History */} 
+              {selectedOrder.statusUpdates && selectedOrder.statusUpdates.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Order History</h4>
+                  <ul className="space-y-2 border rounded-md p-3 dark:border-gray-700">
+                    {selectedOrder.statusUpdates.slice().reverse().map((update, index) => (
+                      <li key={index} className="flex items-center justify-between text-xs">
+                        <Badge variant={getStatusBadgeVariant(update.status)} size="sm">{update.status}</Badge>
+                        <span className="text-gray-400 dark:text-gray-500">{formatDate(update.timestamp)}</span>
+                        {update.updatedBy && (
+                          <span className="text-gray-400 dark:text-gray-500">by {update.updatedBy.name || 'System'}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              )}
               
-              <DialogFooter className="flex justify-end space-x-2">
-                {selectedOrder.status === 'active' && (
-                  <>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowDetailModal(false)}
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      variant="brand"
-                      onClick={() => handleUpdateStatus(selectedOrder.id, 'completed')}
-                      disabled={updatingStatus}
-                    >
-                      {updatingStatus ? <Spinner size="sm" className="mr-1.5" /> : <FaCheck className="mr-1.5" />}
-                      Mark as Delivered
-                    </Button>
-                  </>
-                )}
-                {selectedOrder.status !== 'active' && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowDetailModal(false)}
+              {/* Rider Actions - Conditionally Rendered */}
+              {(selectedOrder.status === 'READY' || selectedOrder.status === 'PREPARING' || selectedOrder.status === 'CONFIRMED') && (
+                <div className="pt-4 border-t dark:border-gray-700">
+                  <Button
+                    variant="secondary" // Or appropriate variant
+                    className="w-full"
+                    onClick={() => handleUpdateStatus(selectedOrder._id, 'OUT_FOR_DELIVERY')} // Use _id for consistency
+                    disabled={updatingStatus}
                   >
-                    Close
+                    {updatingStatus ? <Spinner size="sm" className="mr-1.5" /> : <FaMotorcycle className="mr-1.5" />}
+                    Mark Picked Up (Out for Delivery)
                   </Button>
-                )}
-              </DialogFooter>
+                </div>
+              )}
+              {selectedOrder.status === 'OUT_FOR_DELIVERY' && (
+                 <div className="pt-4 border-t dark:border-gray-700">
+                   <Button
+                    variant="success" // Green button for final step
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => handleUpdateStatus(selectedOrder._id, 'DELIVERED')}
+                    disabled={updatingStatus}
+                  >
+                    {updatingStatus ? <Spinner size="sm" className="mr-1.5" /> : <FaCheck className="mr-1.5" />}
+                    Mark as Delivered
+                  </Button>
+                </div>
+              )}
             </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDetailModal(false)}>Close</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

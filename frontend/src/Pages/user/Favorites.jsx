@@ -184,7 +184,7 @@ const UserFavorites = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="p-8 py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+      <div className="p-8 py-16 text-center border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
         <FaExclamationTriangle className="w-16 h-16 mx-auto mb-6 text-yellow-500" />
         <h2 className="mb-3 text-2xl font-semibold">Authentication Required</h2>
         <p className="mb-8 text-lg text-gray-600 dark:text-gray-400">Please sign in to view and manage your favorites.</p>
@@ -201,7 +201,7 @@ const UserFavorites = () => {
 
   if (error && favorites.length === 0) {
     return (
-      <div className="p-8 py-16 text-center rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
+      <div className="p-8 py-16 text-center border border-red-200 rounded-lg bg-red-50 dark:bg-red-900/30 dark:border-red-700">
         <FaExclamationTriangle className="w-16 h-16 mx-auto mb-6 text-red-500" />
         <h2 className="mb-3 text-2xl font-semibold text-red-800 dark:text-red-200">Loading Failed</h2>
         <p className="mb-6 text-lg text-red-700 dark:text-red-300">{error}</p>
@@ -218,7 +218,7 @@ const UserFavorites = () => {
 
   if (favorites.length === 0 && !error) {
     return (
-      <div className="p-8 py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+      <div className="p-8 py-16 text-center border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
         <FaHeart className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
         <h3 className="mb-3 text-2xl font-semibold">No Favorites Yet</h3>
         <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">
@@ -246,7 +246,7 @@ const UserFavorites = () => {
             placeholder="Search items or restaurants..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 text-base"
+            className="py-2 pl-10 pr-4 text-base"
           />
            {searchQuery && (
              <Button 
@@ -297,14 +297,14 @@ const UserFavorites = () => {
                    <Card key={restaurant.id} className="flex flex-col overflow-hidden transition-shadow duration-200 rounded-lg shadow-sm hover:shadow-lg dark:bg-gray-800">
                      <div className="relative h-40 bg-gray-200 dark:bg-gray-700">
                        <img 
-                         src={getFullImageUrl(restaurant.bannerImage)}
+                         src={getFullImageUrl(restaurant.coverImage)}
                          alt={`${restaurant.name} banner`}
                          className="object-cover w-full h-full"
                          onError={(e) => { e.target.src = PLACEHOLDERS.RESTAURANT; }}
                        />
                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
                        {restaurant.rating > 0 && (
-                         <Badge variant="secondary" className="absolute flex items-center gap-1 bottom-2 left-2 bg-black/60 text-white border-none">
+                         <Badge variant="secondary" className="absolute flex items-center gap-1 text-white border-none bottom-2 left-2 bg-black/60">
                            <FaStar className="text-yellow-400" />
                            {restaurant.rating.toFixed(1)}
                          </Badge>
@@ -332,7 +332,7 @@ const UserFavorites = () => {
                          </span>
                        </div>
                        <Button 
-                         className="w-full mt-auto pt-2"
+                         className="w-full pt-2 mt-auto"
                          onClick={() => navigate(`/restaurant/${restaurant.id}`)}
                        >
                          View Restaurant Menu
@@ -343,7 +343,7 @@ const UserFavorites = () => {
               })}
             </div>
           ) : (
-            <div className="py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <div className="py-16 text-center border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
               <FaSearch className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
               <h3 className="text-2xl font-semibold">No Matching Restaurants</h3>
               <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">
@@ -374,7 +374,7 @@ const UserFavorites = () => {
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute z-10 w-8 h-8 shadow-md top-3 right-3 opacity-80 group-hover:opacity-100 transition-opacity"
+                      className="absolute z-10 w-8 h-8 transition-opacity shadow-md top-3 right-3 opacity-80 group-hover:opacity-100"
                       onClick={(e) => { e.stopPropagation(); removeFavorite(itemId); }}
                       disabled={actionInProgress === itemId}
                       aria-label="Remove from favorites"
@@ -388,7 +388,7 @@ const UserFavorites = () => {
                     <div className="flex flex-col flex-grow cursor-pointer" onClick={() => navigateToItem(item)}>
                       <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
                         <img 
-                          src={getFullImageUrl(item.image)}
+                          src={getFullImageUrl(item.imageUrl)}
                           alt={getItemName(item)} 
                           className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => { e.target.src = PLACEHOLDERS.FOOD; }}
@@ -426,7 +426,7 @@ const UserFavorites = () => {
                            )}
                          </div>
                         
-                        <div className="flex items-center justify-between mt-auto pt-3">
+                        <div className="flex items-center justify-between pt-3 mt-auto">
                           <span className="text-xl font-bold">Rs.{formatPrice(getItemPrice(item))}</span>
                           <Button 
                             size="sm"
@@ -447,7 +447,7 @@ const UserFavorites = () => {
               })}
             </div>
           ) : (
-             <div className="py-16 text-center rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+             <div className="py-16 text-center border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
               <FaSearch className="w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
               <h3 className="text-2xl font-semibold">No Matching Items</h3>
               <p className="mt-2 mb-8 text-lg text-gray-500 dark:text-gray-400">

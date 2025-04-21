@@ -250,7 +250,7 @@ const ReviewCard = ({
         <div className="flex gap-4">
           <div className="flex-shrink-0 w-24 h-24 bg-gray-200 rounded-lg overflow-hidden">
             <img
-              src={getFullImageUrl(review.menuItem?.image)}
+              src={getFullImageUrl(review.menuItem?.imageUrl)}
               alt={review.menuItem?.name || 'Food item'}
               className="w-full h-full object-cover"
               onError={(e) => {

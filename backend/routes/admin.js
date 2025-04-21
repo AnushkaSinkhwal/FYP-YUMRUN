@@ -6,7 +6,10 @@ const Notification = require('../models/notification');
 const { auth, isAdmin, emailVerified } = require('../middleware/auth');
 const RestaurantApproval = require('../models/restaurantApproval');
 const Restaurant = require('../models/restaurant');
+const Order = require('../models/order');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const { createNotification } = require('../utils/notifications'); // Import the function
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -245,9 +248,18 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
       user.role = role;
     }
     
-    if (isActive !== undefined && isActive !== user.isActive) {
-      changes.isActive = { from: user.isActive, to: isActive };
+    // Log incoming isActive value
+    console.log(`[Admin Update User ${user._id}] Received isActive in body:`, req.body.isActive, `(type: ${typeof req.body.isActive})`);
+    
+    // Update isActive status - always update if provided in request
+    if (isActive !== undefined) {
+      console.log(`[Admin Update User ${user._id}] Current user.isActive:`, user.isActive);
+      if (isActive !== user.isActive) { // Log only if it changes
+         changes.isActive = { from: user.isActive, to: isActive };
+         console.log(`[Admin Update User ${user._id}] Change detected for isActive. Setting to:`, isActive);
+      }
       user.isActive = isActive;
+      console.log(`[Admin Update User ${user._id}] user.isActive set to:`, user.isActive);
     }
     
     if (healthCondition && healthCondition !== user.healthCondition) {
@@ -255,8 +267,14 @@ router.put('/users/:userId', auth, isAdmin, async (req, res) => {
       user.healthCondition = healthCondition;
     }
     
+    // Log before saving
+    console.log(`[Admin Update User ${user._id}] User object BEFORE save:`, { isActive: user.isActive, email: user.email, phone: user.phone });
+    
     // Save the updated user with a promise to ensure it completes
     const savedUser = await user.save();
+    
+    // Log after saving
+    console.log(`[Admin Update User ${user._id}] User object AFTER save:`, { isActive: savedUser.isActive, email: savedUser.email, phone: savedUser.phone });
     
     // Log that the save was successful with changes
     console.log(`User updated by admin. User ID: ${savedUser._id}, Changes:`, changes);
@@ -418,6 +436,7 @@ router.get('/notifications', auth, isAdmin, async (req, res) => {
     
     // Get notifications with pagination and sorting
     const notifications = await Notification.find(query)
+      .select('-__v') // Exclude the __v field, include everything else including isRead
       .sort({ createdAt: -1 })
       .skip(Number(skip))
       .limit(Number(limit))
@@ -460,6 +479,61 @@ router.get('/notifications/count', auth, isAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error fetching notifications count'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/notifications/unread-count
+ * @desc    Get count of unread notifications
+ * @access  Private/Admin
+ */
+router.get('/notifications/unread-count', auth, isAdmin, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ isRead: false });
+    
+    return res.status(200).json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    console.error('Get unread notifications count error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching unread notifications count'
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/notifications/:notificationId/read
+ * @desc    Mark a notification as read
+ * @access  Private/Admin
+ */
+router.patch('/notifications/:notificationId/read', auth, isAdmin, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.notificationId);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+    
+    // Update the notification
+    notification.isRead = true;
+    await notification.save();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Notification marked as read successfully'
+    });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error marking notification as read'
     });
   }
 });
@@ -579,30 +653,62 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
         
       case 'RESTAURANT_UPDATE':
         // Handle restaurant update
+        const restaurantId = notification.data.restaurantId;
+        if (!restaurantId) {
+            return res.status(400).json({ success: false, message: 'Notification data missing restaurantId.' });
+        }
+        
+        const restaurant = await Restaurant.findById(restaurantId);
+        if (!restaurant) {
+             return res.status(404).json({ success: false, message: 'Restaurant associated with this update not found.' });
+        }
+
         if (action === 'approve') {
-          // Get the restaurant
-          const restaurant = await Restaurant.findById(notification.data.restaurantId);
-          
-          if (!restaurant) {
-            return res.status(404).json({
-              success: false,
-              message: 'Restaurant not found'
-            });
+          // Apply the changes stored in notification.data.submittedData
+          const changesToApply = notification.data.submittedData;
+          if (!changesToApply) {
+               return res.status(400).json({ success: false, message: 'No changes found in notification data.' });
           }
-          
-          // Update the restaurant with the requested changes
-          if (notification.data.restaurantDetails) {
-            const { name, address, cuisine, description, openingHours, contactInfo } = notification.data.restaurantDetails;
-            
-            if (name) restaurant.name = name;
-            if (address) restaurant.address = address;
-            if (cuisine) restaurant.cuisine = cuisine;
-            if (description) restaurant.description = description;
-            if (openingHours) restaurant.openingHours = openingHours;
-            if (contactInfo) restaurant.contactInfo = contactInfo;
+
+          console.log(`Approving changes for restaurant ${restaurantId}:`, changesToApply);
+
+          // Apply fields selectively
+          if (changesToApply.name !== undefined) restaurant.name = changesToApply.name;
+          if (changesToApply.description !== undefined) restaurant.description = changesToApply.description;
+          if (changesToApply.address !== undefined) restaurant.address = changesToApply.address; // Assume direct assignment works for now
+          if (changesToApply.openingHours !== undefined) restaurant.openingHours = changesToApply.openingHours;
+          if (changesToApply.cuisine !== undefined) restaurant.cuisine = changesToApply.cuisine;
+          if (changesToApply.isOpen !== undefined) restaurant.isActive = changesToApply.isOpen; // Map isOpen to isActive
+          if (changesToApply.deliveryRadius !== undefined) restaurant.deliveryRadius = changesToApply.deliveryRadius;
+          if (changesToApply.minimumOrder !== undefined) restaurant.minimumOrder = changesToApply.minimumOrder;
+          if (changesToApply.deliveryFee !== undefined) restaurant.deliveryFee = changesToApply.deliveryFee;
+          if (changesToApply.logo !== undefined) {
+               // Optional: Delete old logo file before updating path
+               // if (restaurant.logo && restaurant.logo !== changesToApply.logo && fs.existsSync(restaurant.logo.substring(1))) {
+               //    fs.unlinkSync(restaurant.logo.substring(1));
+               // }
+               restaurant.logo = changesToApply.logo;
           }
-          
-          await restaurant.save();
+           if (changesToApply.coverImage !== undefined) {
+               // Optional: Delete old cover image file
+               // if (restaurant.coverImage && restaurant.coverImage !== changesToApply.coverImage && fs.existsSync(restaurant.coverImage.substring(1))) {
+               //    fs.unlinkSync(restaurant.coverImage.substring(1));
+               // }
+               restaurant.coverImage = changesToApply.coverImage;
+          }
+          // Add other fields as needed
+
+          // Mark nested paths if necessary (e.g., if address or openingHours are complex objects)
+          // restaurant.markModified('address');
+          // restaurant.markModified('openingHours');
+
+          try {
+               await restaurant.save();
+               console.log(`Restaurant ${restaurantId} updated successfully.`);
+          } catch (saveError) {
+               console.error(`Error saving restaurant ${restaurantId} during approval:`, saveError);
+               return res.status(500).json({ success: false, message: `Failed to save restaurant updates: ${saveError.message}` });
+          }
           
           // Update notification status
           notification.status = 'APPROVED';
@@ -612,28 +718,26 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
           
           // Create a notification for the restaurant owner
           const ownerNotification = new Notification({
-            userId: notification.userId,
+            userId: notification.userId, // The owner who requested the change
             type: 'SYSTEM',
             title: 'Restaurant Update Approved',
             message: 'Your requested restaurant profile changes have been approved by the admin.',
             isRead: false,
-            data: {}
+            data: { restaurantId: restaurant._id } // Include restaurant ID for context
           });
-          
           await ownerNotification.save();
           
           return res.status(200).json({
             success: true,
             message: 'Restaurant update approved successfully'
           });
-        } else {
+        } else { // action === 'reject'
           // Reject - need a reason
           if (!reason) {
-            return res.status(400).json({
-              success: false,
-              message: 'Rejection reason is required'
-            });
+            return res.status(400).json({ success: false, message: 'Rejection reason is required' });
           }
+
+          console.log(`Rejecting changes for restaurant ${restaurantId}. Reason: ${reason}`);
           
           // Update notification status
           notification.status = 'REJECTED';
@@ -641,6 +745,33 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
           notification.processedAt = new Date();
           notification.rejectionReason = reason;
           await notification.save();
+
+          // **Important**: If files were uploaded during the rejected request, they should be deleted.
+          // Access file paths from notification.data.submittedData.logo / .coverImage IF they differ from original restaurant.logo / .coverImage
+          const rejectedData = notification.data.submittedData || {};
+          const originalLogo = restaurant.logo;
+          const originalCover = restaurant.coverImage;
+
+          if (rejectedData.logo && rejectedData.logo !== originalLogo) {
+               try {
+                    if (fs.existsSync(rejectedData.logo.substring(1))) {
+                         fs.unlinkSync(rejectedData.logo.substring(1));
+                         console.log(`Deleted rejected logo file: ${rejectedData.logo}`);
+                    }
+               } catch (fileError) {
+                    console.error(`Error deleting rejected logo file ${rejectedData.logo}:`, fileError);
+               }
+          }
+           if (rejectedData.coverImage && rejectedData.coverImage !== originalCover) {
+              try {
+                   if (fs.existsSync(rejectedData.coverImage.substring(1))) {
+                        fs.unlinkSync(rejectedData.coverImage.substring(1));
+                        console.log(`Deleted rejected cover image file: ${rejectedData.coverImage}`);
+                   }
+              } catch (fileError) {
+                   console.error(`Error deleting rejected cover image file ${rejectedData.coverImage}:`, fileError);
+              }
+          }
           
           // Create a notification for the restaurant owner
           const ownerNotification = new Notification({
@@ -649,9 +780,8 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
             title: 'Restaurant Update Rejected',
             message: `Your requested restaurant profile changes have been rejected by the admin. Reason: ${reason}`,
             isRead: false,
-            data: {}
+            data: { restaurantId: restaurant._id, reason: reason }
           });
-          
           await ownerNotification.save();
           
           return res.status(200).json({
@@ -830,51 +960,80 @@ router.get('/statistics', auth, isAdmin, async (req, res) => {
     }
 });
 
-// GET all restaurants 
+/**
+ * @route   GET /api/admin/restaurants
+ * @desc    Get all restaurants for admin view
+ * @access  Private/Admin
+ */
 router.get('/restaurants', auth, isAdmin, async (req, res) => {
     try {
-        // Get restaurants from Restaurant collection
+        // Fetch ALL restaurants, including those marked as deleted
+        // const restaurantDocuments = await Restaurant.find({ status: { $ne: 'deleted' } })
         const restaurantDocuments = await Restaurant.find()
-            .populate('owner', 'name username email phone restaurantDetails.cuisine restaurantDetails.approved createdAt');
+            .populate('owner', 'name email') // Populate owner info
+            .sort({ createdAt: -1 }); // Sort by creation date
 
-        // Format the restaurants combining data from both restaurant and owner documents
         const restaurants = restaurantDocuments.map(restaurant => {
-            const owner = restaurant.owner;
-            // Get cuisine from restaurant or owner's restaurantDetails
-            let category = 'Uncategorized';
-            if (restaurant.cuisine && restaurant.cuisine.length > 0) {
-                category = restaurant.cuisine.join(', ');
-            } else if (owner?.restaurantDetails?.cuisine && owner.restaurantDetails.cuisine.length > 0) {
-                category = owner.restaurantDetails.cuisine.join(', ');
-            }
+            // Basic validation for owner existence
+            const ownerName = restaurant.owner ? restaurant.owner.name : 'N/A';
+            const ownerEmail = restaurant.owner ? restaurant.owner.email : 'N/A';
             
+            // Safely access nested properties
+            const address = restaurant.address || {};
+            const contactInfo = restaurant.contactInfo || {};
+
             return {
                 id: restaurant._id,
                 name: restaurant.name,
-                owner: owner?.name || owner?.fullName || owner?.username || 'Unknown Owner',
-                ownerId: owner?._id,
-                email: owner?.email || 'No email',
-                address: restaurant.location || (restaurant.address?.formatted || JSON.stringify(restaurant.address || {})),
-                phone: owner?.phone || restaurant.phone || 'No phone provided',
-                status: restaurant.isApproved ? 'Approved' : 'Pending',
-                isApproved: restaurant.isApproved,
-                createdAt: restaurant.dateCreated || restaurant.createdAt,
-                category: category,
-                description: restaurant.description,
-                logo: restaurant.logo
+                ownerName: ownerName,
+                ownerEmail: ownerEmail,
+                ownerId: restaurant.owner ? restaurant.owner._id : null,
+                email: contactInfo.email || 'N/A', // Assuming this is restaurant contact email
+                phone: contactInfo.phone || 'N/A', // Assuming this is restaurant contact phone
+                address: address.street ? `${address.street}, ${address.city}, ${address.state}` : 'N/A',
+                cuisine: restaurant.cuisine && restaurant.cuisine.length > 0 ? restaurant.cuisine.join(', ') : 'N/A',
+                joined: restaurant.createdAt.toLocaleDateString(),
+                rating: restaurant.rating || 'N/A',
+                logo: restaurant.logo, // Include logo for display
+                status: restaurant.status || 'N/A' // Return raw status
             };
         });
 
-        res.status(200).json({ 
+        res.status(200).json({
             success: true,
-            restaurants
+            restaurants: restaurants
         });
     } catch (error) {
-        console.error('Get restaurants error:', error);
-        res.status(500).json({ 
+        console.error('Error fetching restaurants for admin:', error);
+        res.status(500).json({
             success: false,
-            message: 'Server error. Please try again.'
+            message: 'Server error fetching restaurants'
         });
+    }
+});
+
+// GET route for detailed restaurant view (if needed by admin panel)
+router.get('/restaurants/:id', auth, isAdmin, async (req, res) => {
+    try {
+        const restaurant = await Restaurant.findById(req.params.id)
+                                      .populate('owner', 'name email');
+
+        // If the restaurant document is not found at all, return 404
+        if (!restaurant) { 
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
+
+        // Map to a detailed view model if necessary, similar to the list view
+        // For now, returning the full restaurant object (excluding sensitive data if any)
+        res.status(200).json({ success: true, restaurant }); 
+
+    } catch (error) {
+        console.error('Error fetching restaurant details for admin:', error);
+        // Handle CastError specifically for invalid ID format
+        if (error.name === 'CastError') {
+             return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
+        }
+        res.status(500).json({ success: false, message: 'Server error fetching restaurant details' });
     }
 });
 
@@ -1054,16 +1213,22 @@ router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (r
             await approval.save();
             
             // Create notification for restaurant owner
-            const notification = new Notification({
-                type: 'PROFILE_UPDATE',
-                title: 'Profile Update Approved',
-                message: 'Your profile update request has been approved by the administrator.',
+            const notificationTitle = 'Restaurant Approved';
+            const notificationMessage = 'Your restaurant has been approved by the administrator.';
+            const notificationType = 'RESTAURANT_APPROVAL';
+                 
+            await createNotification({
                 userId: restaurant._id,
+                title: notificationTitle,
+                message: notificationMessage,
+                type: notificationType,
                 status: 'PENDING',
-                data: changes
+                data: { 
+                    restaurantId: restaurant._id, 
+                    restaurantName: restaurant.name,
+                    reason: undefined 
+                }
             });
-            
-            await notification.save();
 
             // Double-check that changes were applied correctly
             const updatedRestaurant = await User.findById(restaurant._id);
@@ -1168,20 +1333,22 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         await approval.save();
         
         // Create notification for restaurant owner
-        const notification = new Notification({
-            type: 'PROFILE_UPDATE',
-            title: 'Profile Update Rejected',
-            message: 'Your profile update request has been rejected by the administrator.',
+        const notificationTitle = 'Restaurant Rejected';
+        const notificationMessage = `Your restaurant registration has been rejected by the administrator. Reason: ${reason}`;
+        const notificationType = 'RESTAURANT_REJECTION';
+                 
+        await createNotification({
             userId: approval.restaurantId,
+            title: notificationTitle,
+            message: notificationMessage,
+            type: notificationType,
             status: 'PENDING',
-            data: {
-                reason: reason,
-                approvalId: approval._id,
-                rejectedAt: new Date()
+            data: { 
+                restaurantId: approval.restaurantId, 
+                restaurantName: approval.restaurantName,
+                reason: reason 
             }
         });
-        
-        await notification.save();
         
         console.log(`Restaurant profile changes rejected. Restaurant ID: ${approval.restaurantId}, Reason: ${reason}`);
 
@@ -1385,6 +1552,17 @@ router.post('/users', auth, isAdmin, async (req, res) => {
       address = {}
     } = req.body;
     
+    // *** START NEW VALIDATION ***
+    // Prevent creating admin or restaurant users via this general user creation route
+    if (role === 'admin' || role === 'restaurant') { 
+      console.log(`POST /admin/users - Attempt to create restricted role (${role}) user rejected`);
+      return res.status(403).json({
+        success: false,
+        message: `Creating users with role '${role}' is not allowed via this endpoint. Use Restaurant Management for owners.`
+      });
+    }
+    // *** END NEW VALIDATION ***
+    
     // Validate required fields
     if (!firstName || !lastName || !email || !password || !phone) {
       console.log('POST /admin/users - Validation failed, missing required fields');
@@ -1404,12 +1582,12 @@ router.post('/users', auth, isAdmin, async (req, res) => {
       });
     }
     
-    // Prevent creating admin users
-    if (role === 'admin') {
-      console.log('POST /admin/users - Attempt to create admin user rejected');
+    // Prevent creating admin or restaurant users via this route
+    if (role === 'admin' || role === 'restaurant') { 
+      console.log(`POST /admin/users - Attempt to create restricted role (${role}) user rejected`);
       return res.status(403).json({
         success: false,
-        message: 'Creating users with admin role is not allowed'
+        message: `Creating users with role '${role}' is not allowed via this endpoint. Use Restaurant Management for owners.`
       });
     }
     
@@ -1649,7 +1827,12 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
         location: location || restaurantAddress,
         address: {
           full: restaurantAddress,
-          formatted: restaurantAddress
+          formatted: restaurantAddress,
+          street: restaurantAddress, // Add street info for better display
+          city: '', // These can be populated more specifically if address parts available
+          state: '',
+          zipCode: '',
+          country: ''
         },
         description: restaurantDescription || `${restaurantName} restaurant`,
         owner: savedUser._id,
@@ -1657,8 +1840,15 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
         isActive,
         cuisine,
         priceRange,
-        phone,
-        email,
+        // Store contact info in the proper nested object
+        contactInfo: {
+          phone: phone,
+          email: email,
+          website: ''
+        },
+        // Keep top-level values for backward compatibility
+        phone: phone,
+        email: email,
         panNumber // Add PAN Number to restaurant record
       });
       
@@ -1712,190 +1902,144 @@ router.post('/restaurants', auth, isAdmin, async (req, res) => {
   }
 });
 
-// PATCH approve a restaurant
-router.patch('/restaurants/:restaurantId/approve', auth, isAdmin, async (req, res) => {
+// PATCH update restaurant status (approve, reject, delete)
+router.patch('/restaurants/:restaurantId/status', auth, isAdmin, async (req, res) => {
     try {
-        const restaurantId = req.params.restaurantId;
-        
-        // Find the restaurant
-        const restaurant = await Restaurant.findById(restaurantId);
-        
-        if (!restaurant) {
-            return res.status(404).json({
-                success: false,
-                message: 'Restaurant not found'
+        const { restaurantId } = req.params;
+        const { status, reason } = req.body; // Expect 'status' ('approved', 'rejected', 'deleted') and optional 'reason'
+
+        // Validate restaurant ID
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+            return res.status(400).json({ success: false, message: 'Invalid restaurant ID' });
+        }
+
+        // Validate status against the updated enum in the model
+        const validStatuses = Restaurant.schema.path('status').enumValues;
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Invalid status value. Must be one of: ${validStatuses.join(', ')}.` 
             });
         }
         
-        // Update approval status
-        restaurant.isApproved = true;
-        await restaurant.save();
+        // If rejecting or deleting, reason might be required/useful
+        if ((status === 'rejected' || status === 'deleted') && !reason) {
+             console.warn(`${status === 'rejected' ? 'Rejecting' : 'Deleting'} restaurant ${restaurantId} without a reason.`);
+             // Optionally enforce reason:
+             // if (status === 'rejected') {
+             //    return res.status(400).json({ success: false, message: 'Rejection reason is required.' });
+             // }
+        }
+
+        // Find the restaurant
+        const restaurant = await Restaurant.findById(restaurantId);
+        if (!restaurant) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
         
-        // Update the owner's restaurant details approval status as well
+        const previousStatus = restaurant.status;
+        restaurant.status = status;
+        
+        await restaurant.save();
+        console.log(`Restaurant ${restaurantId} status updated from ${previousStatus} to ${status}.`);
+
+        // Find owner for notification and potential deactivation
         const owner = await User.findById(restaurant.owner);
         if (owner) {
-            if (!owner.restaurantDetails) {
-                owner.restaurantDetails = {};
-            }
-            owner.restaurantDetails.approved = true;
-            await owner.save();
-            
-            // Create notification for owner
-            const notification = new Notification({
-                userId: owner._id,
-                title: 'Restaurant Approved',
-                message: 'Your restaurant has been approved by the administrator.',
-                type: 'RESTAURANT_APPROVAL',
-                status: 'PENDING',
-                data: {
-                    restaurantId: restaurant._id,
-                    restaurantName: restaurant.name
-                }
-            });
-            
-            await notification.save();
-        }
-        
-        return res.status(200).json({
-            success: true,
-            message: 'Restaurant approved successfully',
-            data: {
-                restaurantId: restaurant._id,
-                name: restaurant.name,
-                isApproved: restaurant.isApproved
-            }
-        });
-    } catch (error) {
-        console.error('Approve restaurant error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error approving restaurant: ' + error.message
-        });
-    }
-});
+             // If owner details were linked to restaurant status, update them (e.g., restaurantDetails.approved)
+             // This part might need removal if `isApproved` was removed from User model too
+            // if (owner.restaurantDetails) {
+            //     owner.restaurantDetails.approved = (status === 'approved');
+            //     await owner.save();
+            //     console.log(`Owner (${owner._id}) restaurantDetails.approved updated.`);
+            // }
 
-// PATCH reject a restaurant
-router.patch('/restaurants/:restaurantId/reject', auth, isAdmin, async (req, res) => {
-    try {
-        const restaurantId = req.params.restaurantId;
-        const { reason } = req.body;
-        
-        // Find the restaurant
-        const restaurant = await Restaurant.findById(restaurantId);
-        
-        if (!restaurant) {
-            return res.status(404).json({
-                success: false,
-                message: 'Restaurant not found'
-            });
-        }
-        
-        // Update approval status
-        restaurant.isApproved = false;
-        await restaurant.save();
-        
-        // Update the owner's restaurant details approval status as well
-        const owner = await User.findById(restaurant.owner);
-        if (owner) {
-            if (!owner.restaurantDetails) {
-                owner.restaurantDetails = {};
-            }
-            owner.restaurantDetails.approved = false;
-            await owner.save();
-            
-            // Create notification for owner
-            const notification = new Notification({
-                userId: owner._id,
-                title: 'Restaurant Approval Rejected',
-                message: reason || 'Your restaurant approval has been rejected by the administrator.',
-                type: 'RESTAURANT_REJECTION',
-                status: 'PENDING',
-                data: {
-                    restaurantId: restaurant._id,
-                    restaurantName: restaurant.name,
-                    reason: reason || 'No reason provided'
-                }
-            });
-            
-            await notification.save();
-        }
-        
-        return res.status(200).json({
-            success: true,
-            message: 'Restaurant rejected successfully',
-            data: {
-                restaurantId: restaurant._id,
-                name: restaurant.name,
-                isApproved: restaurant.isApproved
-            }
-        });
-    } catch (error) {
-        console.error('Reject restaurant error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error rejecting restaurant: ' + error.message
-        });
-    }
-});
-
-// DELETE a restaurant
-router.delete('/restaurants/:restaurantId', auth, isAdmin, async (req, res) => {
-    try {
-        const restaurantId = req.params.restaurantId;
-        
-        // Find the restaurant
-        const restaurant = await Restaurant.findById(restaurantId);
-        
-        if (!restaurant) {
-            return res.status(404).json({
-                success: false,
-                message: 'Restaurant not found'
-            });
-        }
-        
-        // Delete the restaurant
-        await Restaurant.findByIdAndDelete(restaurantId);
-        
-        // Optional: Update the owner to remove restaurant role or mark as inactive
-        if (restaurant.owner) {
-            const owner = await User.findById(restaurant.owner);
-            if (owner) {
-                // Option 1: Remove restaurant role
-                // owner.role = 'customer';
-                
-                // Option 2: Mark as inactive
+            // --- Handle Owner Login Status for 'deleted' --- 
+            // If the restaurant is deleted, we might want to deactivate the owner account or remove their role
+            // Option A: Deactivate owner account (prevents login)
+            if (status === 'deleted' && owner.isActive) {
                 owner.isActive = false;
-                
                 await owner.save();
-                
-                // Create notification for owner
-                const notification = new Notification({
-                    userId: owner._id,
-                    title: 'Restaurant Deleted',
-                    message: 'Your restaurant has been deleted by the administrator.',
-                    type: 'RESTAURANT_DELETION',
-                    status: 'PENDING',
-                    data: {
-                        restaurantName: restaurant.name
-                    }
-                });
-                
-                await notification.save();
+                console.log(`Owner account ${owner._id} deactivated due to restaurant deletion.`);
+            } else if (status === 'approved' && !owner.isActive) {
+                // Optional: Reactivate owner if restaurant is approved (if previously deleted/deactivated)
+                owner.isActive = true;
+                await owner.save();
+                console.log(`Owner account ${owner._id} reactivated due to restaurant approval.`);
             }
+            // Option B: Change owner role (allows login as customer)
+            // if (status === 'deleted' && owner.role === 'restaurant') {
+            //     owner.role = 'customer';
+            //     await owner.save();
+            //     console.log(`Owner ${owner._id} role changed to customer due to restaurant deletion.`);
+            // }
+             // Option C: Keep owner active, but check restaurant status during login (preferred?)
+             // -> This requires modification in the login route or auth middleware
+
+            // --- Send Notification --- 
+            let notificationTitle = '';
+            let notificationMessage = '';
+            let notificationType = '';
+
+            switch (status) {
+                case 'approved':
+                    notificationTitle = 'Restaurant Approved';
+                    notificationMessage = 'Your restaurant registration has been approved by the administrator.';
+                    notificationType = 'RESTAURANT_APPROVAL';
+                    break;
+                case 'rejected':
+                    notificationTitle = 'Restaurant Rejected';
+                    notificationMessage = `Your restaurant registration has been rejected.${reason ? ' Reason: ' + reason : ''}`;
+                    notificationType = 'RESTAURANT_REJECTION';
+                    break;
+                case 'deleted':
+                    notificationTitle = 'Restaurant Deleted';
+                    notificationMessage = `Your restaurant has been marked as deleted by the administrator.${reason ? ' Reason: ' + reason : ''}`;
+                    notificationType = 'SYSTEM'; // Use generic SYSTEM type
+                    break;
+                // Add cases for 'active'/'inactive' if they are re-introduced
+            }
+
+            if (notificationTitle) {
+                await createNotification({
+                    userId: owner._id,
+                    title: notificationTitle,
+                    message: notificationMessage,
+                    type: notificationType, // Use the determined type
+                    status: 'PENDING', // Assuming admin actions generate PENDING notifications for user
+                    data: { restaurantId: restaurant._id, restaurantName: restaurant.name, reason: reason }
+                });
+            } else {
+                 console.warn(`Notification not created for status update to "${status}" for restaurant ${restaurantId} - title was empty.`);
+            }
+        } else {
+             console.warn(`Owner (${restaurant.owner}) not found for restaurant ${restaurantId} during status update notification.`);
         }
-        
+
         return res.status(200).json({
             success: true,
-            message: 'Restaurant deleted successfully'
+            message: `Restaurant status updated to ${status}`,
+            data: { // Return updated restaurant basic info
+                 id: restaurant._id,
+                 name: restaurant.name,
+                 status: restaurant.status
+            }
         });
+
     } catch (error) {
-        console.error('Delete restaurant error:', error);
+        console.error('Error updating restaurant status:', error);
+        if (error.name === 'ValidationError') {
+             return res.status(400).json({ success: false, message: `Validation Error: ${error.message}` });
+        }
         return res.status(500).json({
             success: false,
-            message: 'Error deleting restaurant: ' + error.message
+            message: 'Failed to update restaurant status: ' + error.message
         });
     }
 });
+
+// DELETE a restaurant - Replaced by PATCH status to 'deleted'
+// router.delete('/restaurants/:restaurantId', auth, isAdmin, async (req, res) => { ... });
 
 /**
  * @route   GET /api/admin/restaurants/pending
@@ -1918,52 +2062,207 @@ router.get('/restaurants/pending', auth, isAdmin, async (req, res) => {
     }
 });
 
-/**
- * @route   PATCH /api/admin/restaurants/:restaurantId/status
- * @desc    Update restaurant approval status
- * @access  Private/Admin
- */
-router.patch('/restaurants/:restaurantId/status', auth, isAdmin, async (req, res) => {
+// PATCH update restaurant details (Admin only)
+router.patch('/restaurants/:restaurantId/details', auth, isAdmin, async (req, res) => {
+    const { restaurantId } = req.params;
+    // Destructure all potentially editable fields from the request body
+    const { 
+        name, 
+        description, 
+        cuisine, // Expect array or comma-separated string
+        priceRange, 
+        contactInfo, // Expect { phone, email, website }
+        address, // Expect { street, city, state, zipCode, country }
+        openingHours // Expect object structure like in the model
+        // Add other top-level fields if needed (e.g., logo, coverImage if admin can change these)
+    } = req.body; 
+
+    if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
+    }
+    // Add more specific validation if needed, e.g., check if name is empty
+
     try {
-        const { restaurantId } = req.params;
-        const { status } = req.body;
+        const restaurant = await Restaurant.findById(restaurantId);
 
-        // Validate restaurant ID
-        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
-            return res.status(400).json({ success: false, message: 'Invalid restaurant ID' });
+        if (!restaurant || restaurant.status === 'deleted') {
+            return res.status(404).json({ success: false, message: 'Restaurant not found or has been deleted' });
         }
 
-        // Validate status
-        if (!['approved', 'rejected'].includes(status)) {
-            return res.status(400).json({ success: false, message: 'Invalid status value. Must be \'approved\' or \'rejected\'.' });
+        // Prepare update object and markModified paths
+        const updateData = {};
+        const modifiedPaths = [];
+
+        if (name !== undefined) restaurant.name = name;
+        if (description !== undefined) restaurant.description = description;
+        if (priceRange !== undefined) restaurant.priceRange = priceRange;
+        
+        // Handle cuisine (assuming frontend sends array)
+        if (cuisine !== undefined && Array.isArray(cuisine)) {
+             restaurant.cuisine = cuisine;
+             modifiedPaths.push('cuisine');
         }
 
-        // Find and update the restaurant
-        const restaurant = await Restaurant.findByIdAndUpdate(
-            restaurantId,
-            { status: status },
-            { new: true, runValidators: true } // Return the updated document and run schema validators
-        );
-
-        if (!restaurant) {
-            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        // Handle contactInfo (merge existing with new, allows partial updates)
+        if (contactInfo !== undefined && typeof contactInfo === 'object') {
+            restaurant.contactInfo = { ...restaurant.contactInfo, ...contactInfo };
+            modifiedPaths.push('contactInfo');
         }
 
-        // TODO: Optionally send notification to the restaurant owner about the status change
+        // Handle address (merge existing with new)
+        if (address !== undefined && typeof address === 'object') {
+            restaurant.address = { ...restaurant.address, ...address };
+            modifiedPaths.push('address');
+        }
+        
+        // Handle openingHours (merge existing with new)
+        if (openingHours !== undefined && typeof openingHours === 'object') {
+             // Iterate through days and update if provided
+             Object.keys(openingHours).forEach(day => {
+                  if (restaurant.openingHours[day] && openingHours[day]) {
+                       restaurant.openingHours[day] = { ...restaurant.openingHours[day], ...openingHours[day] };
+                  }
+             });
+             modifiedPaths.push('openingHours');
+        }
+        
+        // Mark modified paths for Mongoose to detect changes in nested objects/arrays
+        modifiedPaths.forEach(path => restaurant.markModified(path));
+        
+        restaurant.updatedAt = Date.now(); // Explicitly update the timestamp
+
+        const updatedRestaurant = await restaurant.save();
+        console.log(`Restaurant ${restaurantId} details updated by admin.`);
+
+        // Optionally, send notification to owner
+        // await createNotification({ ... });
 
         return res.status(200).json({
             success: true,
-            message: `Restaurant status updated to ${status}`,
-            data: restaurant
+            message: 'Restaurant details updated successfully',
+            restaurant: updatedRestaurant // Return the full updated restaurant object
         });
 
     } catch (error) {
-        console.error('Error updating restaurant status:', error);
+        console.error(`Error updating restaurant details for ${restaurantId}:`, error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ success: false, message: `Validation Error: ${error.message}` });
+        }
         return res.status(500).json({
             success: false,
-            message: 'Failed to update restaurant status'
+            message: 'Failed to update restaurant details: ' + error.message
         });
     }
+});
+
+/**
+ * @route   GET /api/admin/orders
+ * @desc    Get all orders for admin view
+ * @access  Private/Admin
+ */
+router.get('/orders', auth, isAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('userId', 'name email phone') // Populate user details including phone
+      .populate('restaurantId', 'name') // Populate restaurant name
+      .populate({ // Populate the user who updated the status in the history
+        path: 'statusUpdates.updatedBy',
+        select: 'name' // Select only the name field
+      })
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    return res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders: orders,
+    });
+  } catch (error) {
+    console.error('Admin get orders error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching orders',
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/orders/:orderId/status
+ * @desc    Update the status of an order
+ * @access  Private/Admin
+ */
+router.patch('/orders/:orderId/status', auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const adminUserId = req.user.userId; // Get admin user ID from auth middleware
+
+    // Validate status
+    const validStatuses = Order.schema.path('status').enumValues;
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status value. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const previousStatus = order.status;
+
+    // Don't update if status is the same
+    if (previousStatus === status) {
+      return res.status(200).json({
+        success: true,
+        message: 'Order status is already set to the requested value.',
+        order: order,
+      });
+    }
+
+    // Update the status
+    order.status = status;
+
+    // Add status update history
+    order.statusUpdates.push({
+      status: status,
+      timestamp: new Date(),
+      updatedBy: adminUserId, // Reference the admin user who made the change
+    });
+    
+    // If setting to DELIVERED, set actualDeliveryTime
+    if (status === 'DELIVERED' && !order.actualDeliveryTime) {
+      order.actualDeliveryTime = new Date();
+    }
+
+    // Save the updated order
+    const updatedOrder = await order.save();
+
+    console.log(`Order ${orderId} status updated from ${previousStatus} to ${status} by admin ${adminUserId}`);
+
+    // TODO: Potentially send notification to the customer about the status change
+
+    return res.status(200).json({
+      success: true,
+      message: 'Order status updated successfully',
+      order: updatedOrder, // Return the full updated order
+    });
+
+  } catch (error) {
+    console.error(`Error updating order status for ${req.params.orderId}:`, error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Invalid Order ID format' });
+    }
+    if (error.name === 'ValidationError') {
+       return res.status(400).json({ success: false, message: `Validation Error: ${error.message}` });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Server error updating order status',
+    });
+  }
 });
 
 module.exports = router; 

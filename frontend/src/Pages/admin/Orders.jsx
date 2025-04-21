@@ -4,10 +4,6 @@ import {
   FaFilter, 
   FaEye, 
   FaDownload, 
-  FaPrint, 
-  FaShoppingBag, 
-  FaMoneyBillWave, 
-  FaTruck, 
   FaCheckCircle, 
   FaTimesCircle,
   FaMotorcycle,
@@ -15,6 +11,27 @@ import {
 } from 'react-icons/fa';
 import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, Select } from '../../components/ui';
 import { adminAPI } from '../../utils/api';
+
+// Define available order statuses (matching backend enum)
+const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+
+// Helper function to format currency
+const formatCurrency = (amount) => {
+  return `$${parseFloat(amount || 0).toFixed(2)}`;
+};
+
+// Helper function to format date
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleString(undefined, { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: 'numeric', minute: '2-digit' 
+    });
+  } catch {
+    return 'Invalid Date';
+  }
+};
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -27,6 +44,11 @@ const Orders = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const itemsPerPage = 10;
+
+  // State for status update in modal
+  const [newStatus, setNewStatus] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
   // Add state for delivery staff
   const [deliveryStaff, setDeliveryStaff] = useState([]);
@@ -43,80 +65,51 @@ const Orders = () => {
       setIsLoading(true);
       setError(null);
       
-      // Attempt to fetch orders from API, but handle missing endpoint gracefully
-      try {
-        const response = await adminAPI.getOrders();
+      // Attempt to fetch orders directly
+      const response = await adminAPI.getOrders();
+      
+      if (response.data && response.data.success && response.data.orders) {
+        const formattedOrders = response.data.orders.map(order => ({
+          id: order.orderNumber || order._id, // Use orderNumber if available, fallback to _id
+          originalId: order._id, // ** ALWAYS store the original MongoDB _id **
+          customer: order.userId?.name || 'Unknown User',
+          email: order.userId?.email || 'No email',
+          phone: order.userId?.phone || 'No phone',
+          restaurant: order.restaurantId?.name || 'Unknown Restaurant',
+          total: order.grandTotal || 0, // Use grandTotal from backend
+          totalPrice: order.totalPrice || 0,
+          items: order.items || [],
+          status: order.status || 'PENDING',
+          paymentStatus: order.paymentStatus || 'PENDING',
+          date: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown date',
+          deliveryAddress: order.deliveryAddress || 'No address provided',
+          specialInstructions: order.specialInstructions || '',
+          paymentMethod: order.paymentMethod,
+          deliveryFee: order.deliveryFee || 0,
+          tax: order.tax || 0,
+          tip: order.tip || 0,
+        }));
         
-        if (response.data && response.data.success) {
-          const formattedOrders = (response.data.orders || []).map(order => ({
-            id: order._id || order.orderId || `ORD-${Math.floor(Math.random() * 10000)}`,
-            customer: order.user?.name || order.customerName || 'Unknown Customer',
-            email: order.user?.email || order.customerEmail || 'No email',
-            restaurant: order.restaurant?.name || order.restaurantName || 'Unknown Restaurant',
-            total: order.total || order.amount || 0,
-            items: order.items || [],
-            status: order.status || 'Pending',
-            paymentStatus: order.paymentStatus || 'Pending',
-            date: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown date',
-            deliveryAddress: order.deliveryAddress || 'No address provided',
-            notes: order.notes || ''
-          }));
-          
-          console.log('Fetched orders:', formattedOrders);
-          setOrders(formattedOrders);
-          return;
-        }
-      } catch (err) {
-        console.log('Order API endpoint not available:', err.message);
-        // Don't throw error here, continue to fallback data
+        console.log('Fetched and formatted orders:', formattedOrders);
+        setOrders(formattedOrders);
+      } else {
+        // Handle cases where the API call succeeded but returned unexpected data
+        console.error('API returned success but data is missing or malformed:', response.data);
+        setError('Failed to load orders: Invalid data received from server.');
+        setOrders([]); // Clear orders
       }
       
-      // Fallback to sample data if API fails or returns empty results
-      console.log('Using sample order data');
-      const sampleOrders = [
-        {
-          id: "ORD-2023-001",
-          customer: "John Doe",
-          email: "john@example.com",
-          restaurant: "Fresh Bites",
-          total: 45.99,
-          items: [
-            { name: "Grilled Chicken Salad", price: 15.99, quantity: 1 },
-            { name: "Quinoa Bowl", price: 14.50, quantity: 2 }
-          ],
-          status: "Delivered",
-          paymentStatus: "Paid",
-          date: new Date().toLocaleString(),
-          deliveryAddress: "123 Main St, Apt 4B, New York, NY 10001",
-          notes: "Please leave at the door"
-        },
-        {
-          id: "ORD-2023-002",
-          customer: "Jane Smith",
-          email: "jane@example.com",
-          restaurant: "Burger House",
-          total: 32.50,
-          items: [
-            { name: "Classic Burger", price: 12.99, quantity: 1 },
-            { name: "Cheese Fries", price: 6.50, quantity: 1 },
-            { name: "Chocolate Shake", price: 5.99, quantity: 2 }
-          ],
-          status: "Processing",
-          paymentStatus: "Paid",
-          date: new Date().toLocaleString(),
-          deliveryAddress: "456 Oak Ave, Brooklyn, NY 11201",
-          notes: ""
-        }
-      ];
-      
-      setOrders(sampleOrders);
-      
     } catch (error) {
+      // Handle API call errors (network, server errors, etc.)
       console.error("Error fetching orders:", error);
-      setError("Failed to load orders. Please try again.");
-      
-      // If API fails, set empty array to avoid showing stale data
-      setOrders([]);
+      let errorMessage = "Failed to load orders. Please try again.";
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = `Failed to load orders: ${error.response.data.message}`;
+      } else if (error.message) {
+        errorMessage = `Failed to load orders: ${error.message}`;
+      }
+      setError(errorMessage);
+      setOrders([]); // Clear orders on error
     } finally {
       setIsLoading(false);
     }
@@ -182,6 +175,8 @@ const Orders = () => {
   // View order details
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
+    setNewStatus(order.status); // Initialize modal status with current status
+    setUpdateError(null); // Clear previous update errors
     setShowOrderDetails(true);
   };
 
@@ -217,21 +212,24 @@ const Orders = () => {
       
       setIsAssigningDelivery(true);
       
-      // In a real application, replace with actual API call
-      // await adminAPI.assignDeliveryStaff(orderId, staffId);
-      
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
       
+      // Find original ID for state update
+      const orderToUpdate = orders.find(o => o.id === selectedOrder.id);
+      if (!orderToUpdate) return; // Should not happen
+      const originalOrderId = orderToUpdate.originalId;
+
       // Update the order in our local state to reflect the assignment
       const updatedOrders = orders.map(order => {
-        if (order.id === selectedOrder.id) {
+        // Match using originalId now for consistency
+        if (order.originalId === originalOrderId) {
           const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
           return {
             ...order,
-            deliveryPerson: assignedStaff.name,
-            deliveryPersonId: assignedStaff.id,
-            status: 'Out for Delivery'
+            deliveryPerson: assignedStaff?.name || 'Unknown Driver', // Handle case where staff not found
+            deliveryPersonId: assignedStaff?.id, // Use optional chaining
+            status: 'OUT_FOR_DELIVERY' // Use correct status enum value
           };
         }
         return order;
@@ -244,9 +242,9 @@ const Orders = () => {
         const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
         setSelectedOrder({
           ...selectedOrder,
-          deliveryPerson: assignedStaff.name,
-          deliveryPersonId: assignedStaff.id,
-          status: 'Out for Delivery'
+          deliveryPerson: assignedStaff?.name || 'Unknown Driver',
+          deliveryPersonId: assignedStaff?.id,
+          status: 'OUT_FOR_DELIVERY'
         });
       }
       
@@ -259,6 +257,79 @@ const Orders = () => {
       console.error("Error assigning delivery staff:", error);
       setError("Failed to assign delivery staff. Please try again.");
       setIsAssigningDelivery(false);
+    }
+  };
+
+  // Handle Order Status Update
+  const handleStatusUpdate = async () => {
+    if (!selectedOrder || !newStatus || newStatus === selectedOrder.status) {
+      setUpdateError('Please select a new status.');
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    setUpdateError(null);
+
+    try {
+      // Extract original ID (_id) using the reliably stored field
+      const originalOrderId = selectedOrder.originalId;
+      if (!originalOrderId) {
+         console.error("Original ID missing from selected order object:", selectedOrder);
+         throw new Error('Cannot determine original order ID for update.');
+      }
+      
+      console.log(`Updating status for order ${originalOrderId} to ${newStatus}`);
+      const response = await adminAPI.updateOrderStatus(originalOrderId, newStatus);
+
+      if (response.data && response.data.success) {
+        const updatedOrderData = response.data.order;
+        
+        // Create the formatted version of the updated order
+        const formattedUpdatedOrder = {
+           id: updatedOrderData.orderNumber || updatedOrderData._id,
+           originalId: updatedOrderData._id, // Store original ID
+           customer: updatedOrderData.userId?.name || 'Unknown User',
+           email: updatedOrderData.userId?.email || 'No email',
+           phone: updatedOrderData.userId?.phone || 'No phone',
+           restaurant: updatedOrderData.restaurantId?.name || 'Unknown Restaurant',
+           total: updatedOrderData.grandTotal || 0,
+           totalPrice: updatedOrderData.totalPrice || 0,
+           items: updatedOrderData.items || [],
+           status: updatedOrderData.status,
+           paymentStatus: updatedOrderData.paymentStatus,
+           date: updatedOrderData.createdAt ? new Date(updatedOrderData.createdAt).toLocaleString() : 'Unknown date',
+           deliveryAddress: updatedOrderData.deliveryAddress,
+           specialInstructions: updatedOrderData.specialInstructions,
+           paymentMethod: updatedOrderData.paymentMethod,
+           deliveryFee: updatedOrderData.deliveryFee || 0,
+           tax: updatedOrderData.tax || 0,
+           tip: updatedOrderData.tip || 0,
+           // Ensure all fields used in the modal/table are included
+           statusUpdates: updatedOrderData.statusUpdates,
+           actualDeliveryTime: updatedOrderData.actualDeliveryTime
+        };
+
+        // Update the main orders list
+        setOrders(prevOrders => 
+          prevOrders.map(o => (o.id === selectedOrder.id ? formattedUpdatedOrder : o))
+        );
+        
+        // Update the selected order in the modal
+        setSelectedOrder(formattedUpdatedOrder);
+        setNewStatus(formattedUpdatedOrder.status); // Reflect the new status in the dropdown
+
+        // Optionally show a success message or close modal
+        console.log('Order status updated successfully');
+        // setShowOrderDetails(false); // Uncomment to close modal on success
+      } else {
+        throw new Error(response.data?.message || 'Failed to update status: Invalid response from server');
+      }
+    } catch (err) {
+      console.error("Error updating order status:", err);
+      const message = err.response?.data?.message || err.message || "An unknown error occurred.";
+      setUpdateError(`Failed to update status: ${message}`);
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -367,22 +438,17 @@ const Orders = () => {
                     <td className="px-4 py-3">
                       <div>
                         <div className="font-medium">
-                          {order.userId?.fullName || 
-                           (order.userId?.firstName && order.userId?.lastName 
-                            ? `${order.userId.firstName} ${order.userId.lastName}` 
-                            : order.customer || "N/A")}
+                          {order.customer}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {order.userId?.email || order.email || "N/A"}
+                          {order.email}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      {typeof order.restaurantId === 'object' 
-                        ? order.restaurantId?.restaurantDetails?.name || order.restaurant || "N/A"
-                        : order.restaurant || "N/A"}
+                      {order.restaurant}
                     </td>
-                    <td className="px-4 py-3 font-medium">${parseFloat(order.grandTotal || order.total || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 font-medium">${parseFloat(order.total).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={getStatusBadgeVariant(order.status)}>
                         {order.status}
@@ -440,238 +506,246 @@ const Orders = () => {
 
       {/* Order details modal */}
       {showOrderDetails && selectedOrder && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <Card className="max-w-3xl mx-auto dark:bg-gray-800 p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-6">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+          <Card className="w-full max-w-4xl dark:bg-gray-800 p-6 max-h-[95vh] overflow-y-auto relative">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-6 pb-4 border-b dark:border-gray-600">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Order Details</h3>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">{selectedOrder.id}</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Order Details: {selectedOrder.id}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Placed on: {formatDate(selectedOrder.date)} 
+                </p>
               </div>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm" className="flex items-center">
-                  <FaPrint className="mr-1" /> Print
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowOrderDetails(false)}>
-                  Close
-                </Button>
-              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowOrderDetails(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                 <FaTimesCircle size={20} />
+              </Button>
             </div>
 
-            {/* Order info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Customer Information</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  <span className="font-medium">Name:</span>{" "}
-                  {selectedOrder.userId?.fullName || 
-                   (selectedOrder.userId?.firstName && selectedOrder.userId?.lastName 
-                    ? `${selectedOrder.userId.firstName} ${selectedOrder.userId.lastName}` 
-                    : selectedOrder.customer || "N/A")}
-                </p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  <span className="font-medium">Email:</span>{" "}
-                  {selectedOrder.userId?.email || selectedOrder.email || "N/A"}
-                </p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                  <span className="font-medium">Phone:</span>{" "}
-                  {selectedOrder.userId?.phone || selectedOrder.phone || "N/A"}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Delivery Address</h4>
-                {typeof selectedOrder.deliveryAddress === "string" ? (
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                    {selectedOrder.deliveryAddress || "N/A"}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                      {selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* Left Column: Customer & Delivery */}
+              <div className="md:col-span-1 space-y-4">
+                {/* Customer Info Card */}
+                <div className="border dark:border-gray-600 rounded-md p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Customer</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{selectedOrder.customer}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{selectedOrder.email}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.phone}</p>
+                </div>
+
+                {/* Delivery Address Card */}
+                <div className="border dark:border-gray-600 rounded-md p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Delivery Address</h4>
+                  {typeof selectedOrder.deliveryAddress === "string" ? (
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {selectedOrder.deliveryAddress}
                     </p>
-                    {selectedOrder.deliveryAddress?.city && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                        {selectedOrder.deliveryAddress.city}
-                        {selectedOrder.deliveryAddress.state
-                          ? `, ${selectedOrder.deliveryAddress.state}`
-                          : ""}
-                        {selectedOrder.deliveryAddress.zipCode
-                          ? ` ${selectedOrder.deliveryAddress.zipCode}`
-                          : ""}
+                  ) : (
+                    <> 
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}
                       </p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {selectedOrder.deliveryAddress?.city}{selectedOrder.deliveryAddress?.state ? `, ${selectedOrder.deliveryAddress.state}` : ""}{selectedOrder.deliveryAddress?.zipCode ? ` ${selectedOrder.deliveryAddress.zipCode}` : ""}
+                      </p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {selectedOrder.deliveryAddress?.country || ""}
+                      </p>
+                    </>
+                  )}
+                   {selectedOrder.specialInstructions && (
+                    <div className="mt-3 pt-3 border-t dark:border-gray-600">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Instructions:</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.specialInstructions}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Order Summary & Financials */}
+              <div className="md:col-span-2 space-y-4">
+                 {/* Order Summary Card */}
+                 <div className="border dark:border-gray-600 rounded-md p-4 grid grid-cols-2 gap-4">
+                    <div>
+                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Restaurant</p>
+                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100">{selectedOrder.restaurant}</p>
+                    </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Payment</p>
+                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center">
+                          {selectedOrder.paymentMethod} <Badge variant={getPaymentStatusBadgeVariant(selectedOrder.paymentStatus)} className="ml-2">{selectedOrder.paymentStatus}</Badge>
+                       </p>
+                    </div>
+                     <div className="col-span-2">
+                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Order Status</p>
+                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100"><Badge variant={getStatusBadgeVariant(selectedOrder.status)} size="lg">{selectedOrder.status}</Badge></p>
+                    </div>
+                 </div>
+
+                {/* Price Breakdown Card */}
+                <div className="border dark:border-gray-600 rounded-md p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Financials</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Subtotal:</span>
+                      <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.totalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Delivery Fee:</span>
+                      <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.deliveryFee)}</span>
+                    </div>
+                     <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Tax:</span>
+                      <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.tax)}</span>
+                    </div>
+                    {selectedOrder.tip > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-300">Tip:</span>
+                        <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.tip)}</span>
+                      </div>
                     )}
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                      {selectedOrder.deliveryAddress?.country || ""}
-                    </p>
-                  </>
-                )}
-                {selectedOrder.specialInstructions && (
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                    <span className="font-medium">Notes:</span> {selectedOrder.specialInstructions}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md flex items-center">
-                <div className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 p-3 mr-3">
-                  <FaShoppingBag size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Order Status</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.status}</p>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md flex items-center">
-                <div className="rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 p-3 mr-3">
-                  <FaMoneyBillWave size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Payment Status</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.paymentStatus}</p>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md flex items-center">
-                <div className="rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 p-3 mr-3">
-                  <FaTruck size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Restaurant</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.restaurant}</p>
+                    <div className="flex justify-between pt-2 border-t dark:border-gray-600 font-bold text-base">
+                      <span className="text-gray-800 dark:text-gray-100">Grand Total:</span>
+                      <span className="text-gray-800 dark:text-gray-100">{formatCurrency(selectedOrder.total)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Order items */}
-            <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Order Items</h4>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-md overflow-hidden mb-6">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-gray-100 dark:bg-gray-600">
-                  <tr>
-                    <th className="px-4 py-2">Item</th>
-                    <th className="px-4 py-2 text-right">Price</th>
-                    <th className="px-4 py-2 text-right">Quantity</th>
-                    <th className="px-4 py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrder.items && selectedOrder.items.map((item, index) => (
-                    <tr key={index} className="border-b dark:border-gray-600">
-                      <td className="px-4 py-3">{item.name}</td>
-                      <td className="px-4 py-3 text-right">${parseFloat(item.price).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right">{item.quantity}</td>
-                      <td className="px-4 py-3 text-right">${(parseFloat(item.price) * parseInt(item.quantity, 10)).toFixed(2)}</td>
+            {/* Order Items Table */}
+            <div className="mb-6">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Order Items</h4>
+              <div className="overflow-x-auto border dark:border-gray-600 rounded-md">
+                <table className="w-full text-sm text-left"> 
+                  <thead className="text-xs uppercase bg-gray-50 dark:bg-gray-700"> 
+                    <tr> 
+                      <th className="px-4 py-2">Item</th>
+                      <th className="px-4 py-2 text-right">Price</th>
+                      <th className="px-4 py-2 text-center">Quantity</th>
+                      <th className="px-4 py-2 text-right">Line Total</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot className="font-medium">
-                  <tr className="border-t-2 dark:border-gray-600">
-                    <td colSpan="3" className="px-4 py-3 text-right">Subtotal:</td>
-                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.totalPrice || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td colSpan="3" className="px-4 py-3 text-right">Delivery Fee:</td>
-                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.deliveryFee || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td colSpan="3" className="px-4 py-3 text-right">Tax:</td>
-                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.tax || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr className="font-bold">
-                    <td colSpan="3" className="px-4 py-3 text-right">Grand Total:</td>
-                    <td className="px-4 py-3 text-right">${parseFloat(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedOrder.items && selectedOrder.items.map((item, index) => (
+                      <tr key={item.productId || index} className="border-b dark:border-gray-700 last:border-b-0"> 
+                        <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{item.name}</td>
+                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(item.price)}</td>
+                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{item.quantity}</td>
+                        <td className="px-4 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(item.price * item.quantity)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-wrap justify-end gap-3">
-              {/* Assign Delivery Staff Section */}
-              {(selectedOrder.status === 'Pending' || selectedOrder.status === 'Processing' || selectedOrder.status === 'Ready') && !selectedOrder.deliveryPersonId && (
-                <div className="w-full mb-4">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Assign Delivery Staff</h4>
-                  
-                  {deliveryStaff.filter(staff => staff.status === 'available').length === 0 ? (
-                    <Alert variant="warning" className="mb-2">
-                      No delivery staff currently available
+            {/* Status Update Section */}
+            <div className="mb-6 p-4 border rounded-md dark:border-gray-600">
+              <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Update Order Status</h4>
+              {updateError && (
+                <Alert variant="error" className="mb-3">
+                  {updateError}
+                </Alert>
+              )}
+              <div className="flex items-center gap-3">
+                <Select
+                  value={newStatus}
+                  onChange={(value) => setNewStatus(value)}
+                  options={ORDER_STATUSES.map(status => ({ value: status, label: status }))}
+                  className="flex-grow"
+                  disabled={isUpdatingStatus}
+                />
+                <Button 
+                  variant="primary"
+                  onClick={handleStatusUpdate}
+                  disabled={isUpdatingStatus || newStatus === selectedOrder.status}
+                  className="flex items-center whitespace-nowrap"
+                >
+                  {isUpdatingStatus ? <Spinner size="sm" className="mr-2" /> : <FaCheckCircle className="mr-1" />}
+                  Update Status
+                </Button>
+              </div>
+            </div>
+
+            {/* Delivery Staff Section - ** Show ONLY when status is CONFIRMED ** */}
+            {selectedOrder.status === 'CONFIRMED' && (
+              <div className="mb-6 p-4 border rounded-md dark:border-gray-600">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Delivery Assignment</h4>
+                {selectedOrder.deliveryPersonId ? (
+                  // Show assigned driver info
+                  <div className="flex items-center gap-3">
+                     <div className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 p-3">
+                        <FaMotorcycle size={20} />
+                     </div>
+                     <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Assigned To</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.deliveryPerson || 'N/A'}</p>
+                     </div>
+                     {/* Optionally add button to unassign/reassign */} 
+                  </div>
+                ) : (
+                  // Show assignment controls
+                  deliveryStaff.filter(staff => staff.status === 'available').length === 0 ? (
+                    <Alert variant="warning" size="sm">
+                      No delivery staff currently available for assignment.
                     </Alert>
                   ) : (
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-3">
                       <Select
                         value={selectedDeliveryPerson}
                         onChange={(value) => setSelectedDeliveryPerson(value)}
                         options={deliveryStaff
                           .filter(staff => staff.status === 'available')
-                          .map(staff => ({
-                            value: staff.id,
-                            label: `${staff.name} (${staff.vehicleType})`
-                          }))}
-                        placeholder="Select delivery staff"
+                          .map(staff => ({ value: staff.id, label: `${staff.name}` }))} // Simplified label
+                        placeholder="Select delivery staff..."
                         className="flex-grow"
+                        disabled={isAssigningDelivery}
                       />
                       <Button
-                        variant="primary"
+                        variant="secondary"
                         size="sm"
                         onClick={() => handleAssignDelivery(selectedOrder.id, selectedDeliveryPerson)}
                         disabled={!selectedDeliveryPerson || isAssigningDelivery}
-                        className="flex items-center"
+                        className="flex items-center whitespace-nowrap"
                       >
-                        {isAssigningDelivery ? (
-                          <Spinner size="sm" className="mr-2" />
-                        ) : (
-                          <FaUserPlus className="mr-1" />
-                        )}
-                        Assign
+                        {isAssigningDelivery ? <Spinner size="sm" className="mr-2" /> : <FaUserPlus className="mr-1" />}
+                        Assign Driver
                       </Button>
                     </div>
-                  )}
-                </div>
-              )}
+                  )
+                )}
+              </div>
+            )}
+            
+            {/* Status History */}
+            {selectedOrder.statusUpdates && selectedOrder.statusUpdates.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Status History</h4>
+                <ul className="space-y-3">
+                  {selectedOrder.statusUpdates.slice().reverse().map((update, index) => ( // Show newest first
+                    <li key={index} className="flex items-center gap-3 text-sm">
+                      <Badge variant={getStatusBadgeVariant(update.status)} size="sm">{update.status}</Badge>
+                      <span className="text-gray-500 dark:text-gray-400">{formatDate(update.timestamp)}</span>
+                      {update.updatedBy && (
+                        <span className="text-gray-500 dark:text-gray-400">by {update.updatedBy.name || 'System'}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* Modal Footer Actions (Optional - Print/Close are moved to header) */}
+            {/* <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-600"> ... </div> */}
 
-              {/* Delivery Information (when assigned) */}
-              {selectedOrder.deliveryPersonId && (
-                <div className="w-full mb-4">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Delivery Information</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md flex items-center mb-4">
-                    <div className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 p-3 mr-3">
-                      <FaMotorcycle size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Delivery Staff</p>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{selectedOrder.deliveryPerson}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                disabled={selectedOrder.status === 'Cancelled'}
-              >
-                <FaTimesCircle className="mr-1" /> Cancel Order
-              </Button>
-              {selectedOrder.status === 'Pending' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                >
-                  <FaTruck className="mr-1" /> Process Order
-                </Button>
-              )}
-              {(selectedOrder.status === 'Processing' || selectedOrder.status === 'Out for Delivery') && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-green-600 border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                >
-                  <FaCheckCircle className="mr-1" /> Mark as Delivered
-                </Button>
-              )}
-            </div>
           </Card>
         </div>
       )}

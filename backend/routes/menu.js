@@ -172,70 +172,50 @@ router.get('/related/:id', async (req, res) => {
 // GET all menu items (publicly accessible)
 router.get('/', async (req, res) => {
     try {
-        // Check if restaurantId is provided as a query parameter
         const { restaurantId } = req.query;
-        let query = {};
-        
-        // If restaurantId is provided, filter by restaurant
+        let restaurantFilter = { status: 'approved' }; // Filter for approved restaurants
+
+        // If a specific restaurantId is requested, add it to the filter
         if (restaurantId) {
-            query.restaurant = restaurantId;
-        } else {
-             // If no specific restaurant, fetch all active offers for potentially multiple restaurants
-            // This might be inefficient if there are many restaurants/offers.
-            // Consider fetching offers per restaurant if performance becomes an issue.
+            if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+                return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
+            }
+            restaurantFilter._id = restaurantId;
         }
-        
-        console.log('Query for menu items:', query);
-        
-        // Fetch all active offers
+
+        // Find approved restaurant IDs matching the filter
+        const approvedRestaurants = await mongoose.model('Restaurant').find(restaurantFilter).select('_id').lean();
+        const approvedRestaurantIds = approvedRestaurants.map(r => r._id);
+
+        if (approvedRestaurantIds.length === 0) {
+            // If no approved restaurants match (or specific one wasn't approved), return empty list
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        // Build the menu item query based on approved restaurants
+        let menuItemQuery = { restaurant: { $in: approvedRestaurantIds } };
+
+        console.log('Query for menu items from approved restaurants:', menuItemQuery);
+
+        // Fetch menu items belonging to approved restaurants
+        const menuItemsFromApproved = await MenuItem.find(menuItemQuery).populate({
+            path: 'restaurant',
+            select: 'name logo location cuisine' // Select fields needed for frontend
+        }).lean();
+
+        // Fetch all active offers (can be optimized if needed)
         const now = new Date();
         const activeOffers = await Offer.find({
             isActive: true,
             startDate: { $lte: now },
             endDate: { $gte: now }
-        }).lean(); // Use lean for performance
+        }).lean();
 
+        console.log(`Fetched ${menuItemsFromApproved.length} menu items from approved restaurants.`);
         console.log(`Fetched ${activeOffers.length} active offers.`);
 
-        // DIRECT FIX: Find a restaurant to use for association
-        const restaurant = await mongoose.model('Restaurant').findOne({
-            $or: [
-                { owner: "67fb7932b23ec6b3cad80fbb" }, // Try to match with user ID from logs
-                {} // Fallback to any restaurant
-            ]
-        });
-        
-        if (restaurant) {
-            console.log(`Found restaurant for direct fix: ${restaurant.name} (ID: ${restaurant._id})`);
-            
-            // Update all menu items in memory during this request
-            const menuItems = await MenuItem.find(query);
-            
-            // Log detailed restaurant data for debugging
-            if (menuItems.length > 0) {
-                console.log(`Processing ${menuItems.length} menu items`);
-                
-                // Update any items with missing restaurant directly
-                for (const item of menuItems) {
-                    if (!item.restaurant) {
-                        console.log(`Fixing menu item ${item.item_name} with missing restaurant`);
-                        item.restaurant = restaurant._id;
-                        await item.save();
-                    }
-                }
-            } else {
-                console.log('No menu items found for query:', query);
-            }
-        }
-        
-        // Now proceed with the regular query with populated data
-        const processedMenuItems = await MenuItem.find(query).populate({
-            path: 'restaurant',
-            select: 'name logo location cuisine'
-        }).lean(); // Use lean for performance
-        
         // Format the response including offer calculations
-        const formattedItems = processedMenuItems.map(item => {
+        const formattedItems = menuItemsFromApproved.map(item => {
             const itemRestaurantId = item.restaurant?._id?.toString();
             let bestOffer = null;
             let discountedPrice = item.item_price; // Default to original price
@@ -273,14 +253,11 @@ router.get('/', async (req, res) => {
                 name: item.item_name,
                 description: item.description,
                 price: item.item_price, // Keep original price accessible
-                image: item.image,
+                imageUrl: item.imageUrl, // Use imageUrl
                 restaurant: item.restaurant ? {
                     id: item.restaurant._id,
                     name: item.restaurant.name
-                } : {
-                    id: restaurant ? restaurant._id : null, // Fallback if item had no restaurant initially
-                    name: restaurant ? restaurant.name : 'Unknown Restaurant'
-                },
+                } : null, // Should always have restaurant now
                 category: item.category || 'Main Course',
                 calories: item.calories,
                 protein: item.protein,

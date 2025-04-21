@@ -64,6 +64,17 @@ exports.login = async (req, res) => {
             });
         }
 
+        // Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({ 
+                success: false, 
+                error: {
+                    message: 'Your account is currently inactive. Please contact support.',
+                    code: 'ACCOUNT_INACTIVE'
+                }
+            });
+        }
+
         // Check if email is verified - strict enforcement
         if (!user.isEmailVerified) {
             // Generate a new OTP for verification

@@ -63,6 +63,10 @@ router.get('/active', auth, isDeliveryRider, async (req, res) => {
         })
         .populate('userId', 'fullName email phone address')
         .populate('restaurantId', 'name address')
+        .populate({
+          path: 'statusUpdates.updatedBy',
+          select: 'name'
+        })
         .sort({ createdAt: -1 });
         
         res.status(200).json({ 

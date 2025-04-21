@@ -109,6 +109,21 @@ const DashboardLayout = ({ children, role }) => {
     return () => clearInterval(interval);
   }, [location.pathname]);
   
+  // Add event listener for notification updates
+  useEffect(() => {
+    // Listen for custom event when notifications are marked as read
+    const handleNotificationsUpdated = () => {
+      console.log('Notifications updated event received, refreshing counts...');
+      fetchNotificationCount();
+    };
+    
+    window.addEventListener('notifications-updated', handleNotificationsUpdated);
+    
+    return () => {
+      window.removeEventListener('notifications-updated', handleNotificationsUpdated);
+    };
+  }, []);
+  
   // Handle click outside profile dropdown to close it
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -124,19 +139,19 @@ const DashboardLayout = ({ children, role }) => {
   const fetchNotificationCount = async () => {
     try {
       if (userRole === 'admin') {
-        // Check for pending restaurant approvals
+        // Get unread notifications count for admin
         try {
-          const response = await adminAPI.getRestaurantApprovalsCount();
+          const response = await adminAPI.getUnreadNotificationCount();
           
           if (response.data.success) {
             setNotificationCount(response.data.count || 0);
-            console.log('Admin notification count:', response.data.count);
+            console.log('Admin unread notification count:', response.data.count);
           } else {
             setNotificationCount(0);
-            console.error('Failed to fetch admin approval count');
+            console.error('Failed to fetch admin notification count');
           }
         } catch (error) {
-          console.error('Error fetching approval count:', error);
+          console.error('Error fetching admin notification count:', error);
           setNotificationCount(0);
         }
       } else if (userRole === 'restaurant') {

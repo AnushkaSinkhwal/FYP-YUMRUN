@@ -4,7 +4,16 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['PROFILE_UPDATE', 'RESTAURANT_UPDATE', 'RESTAURANT_REGISTRATION', 'SYSTEM', 'ORDER', 'REWARD'],
+    enum: [
+      'PROFILE_UPDATE', 
+      'RESTAURANT_UPDATE', 
+      'RESTAURANT_REGISTRATION', 
+      'RESTAURANT_APPROVAL',
+      'RESTAURANT_REJECTION',
+      'SYSTEM', 
+      'ORDER', 
+      'REWARD'
+    ],
     required: true
   },
   title: {
