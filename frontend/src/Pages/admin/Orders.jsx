@@ -12,6 +12,9 @@ import {
 import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, Select } from '../../components/ui';
 import { adminAPI } from '../../utils/api';
 
+// Helper to humanize status codes
+const humanizeStatus = (status) => status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
 // Define available order statuses (matching backend enum)
 const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 
@@ -70,13 +73,13 @@ const Orders = () => {
       
       if (response.data && response.data.success && response.data.orders) {
         const formattedOrders = response.data.orders.map(order => ({
-          id: order.orderNumber || order._id, // Use orderNumber if available, fallback to _id
-          originalId: order._id, // ** ALWAYS store the original MongoDB _id **
+          id: order.orderNumber || order._id,                // Use orderNumber or fallback
+          originalId: order._id,                              // Always store MongoDB _id
           customer: order.userId?.name || 'Unknown User',
           email: order.userId?.email || 'No email',
           phone: order.userId?.phone || 'No phone',
           restaurant: order.restaurantId?.name || 'Unknown Restaurant',
-          total: order.grandTotal || 0, // Use grandTotal from backend
+          total: order.grandTotal || 0,
           totalPrice: order.totalPrice || 0,
           items: order.items || [],
           status: order.status || 'PENDING',
@@ -88,6 +91,9 @@ const Orders = () => {
           deliveryFee: order.deliveryFee || 0,
           tax: order.tax || 0,
           tip: order.tip || 0,
+          // New: assigned rider from backend
+          deliveryPersonId: order.assignedRider?._id || null,
+          deliveryPerson: order.assignedRider?.name || 'Unassigned',
         }));
         
         console.log('Fetched and formatted orders:', formattedOrders);
@@ -152,15 +158,15 @@ const Orders = () => {
       order.restaurant.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.email.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Filter by status
+    // Filter by status dropdown (uses codes)
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
     
-    // Filter by tab
-    const matchesTab = activeTab === 'all' || 
-      (activeTab === 'pending' && order.status === 'Pending') ||
-      (activeTab === 'processing' && (order.status === 'Processing' || order.status === 'Out for Delivery')) ||
-      (activeTab === 'delivered' && order.status === 'Delivered') ||
-      (activeTab === 'cancelled' && order.status === 'Cancelled');
+    // Filter by tab group
+    const matchesTab = activeTab === 'all' ||
+      (activeTab === 'pending' && order.status === 'PENDING') ||
+      (activeTab === 'processing' && ['CONFIRMED','PREPARING','READY','OUT_FOR_DELIVERY'].includes(order.status)) ||
+      (activeTab === 'delivered' && order.status === 'DELIVERED') ||
+      (activeTab === 'cancelled' && order.status === 'CANCELLED');
     
     return matchesSearch && matchesStatus && matchesTab;
   });
@@ -180,14 +186,16 @@ const Orders = () => {
     setShowOrderDetails(true);
   };
 
-  // Status badge variant
+  // Status badge variant based on backend codes
   const getStatusBadgeVariant = (status) => {
     switch (status) {
-      case 'Delivered': return 'success';
-      case 'Processing': return 'info';
-      case 'Pending': return 'warning';
-      case 'Out for Delivery': return 'primary';
-      case 'Cancelled': return 'danger';
+      case 'PENDING': return 'warning';
+      case 'CONFIRMED': return 'info';
+      case 'PREPARING': return 'info';
+      case 'READY': return 'primary';
+      case 'OUT_FOR_DELIVERY': return 'primary';
+      case 'DELIVERED': return 'success';
+      case 'CANCELLED': return 'danger';
       default: return 'default';
     }
   };
@@ -203,7 +211,7 @@ const Orders = () => {
   };
 
   // Assign delivery staff to order
-  const handleAssignDelivery = async (orderId, staffId) => {
+  const handleAssignDelivery = async (originalId, staffId) => {
     try {
       if (!staffId || staffId.trim() === '') {
         setError("Please select a delivery staff member");
@@ -212,45 +220,31 @@ const Orders = () => {
       
       setIsAssigningDelivery(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Find original ID for state update
-      const orderToUpdate = orders.find(o => o.id === selectedOrder.id);
-      if (!orderToUpdate) return; // Should not happen
-      const originalOrderId = orderToUpdate.originalId;
+      // Call API to assign driver and update status
+      const response = await adminAPI.updateOrderStatus(originalId, 'OUT_FOR_DELIVERY', staffId);
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to assign driver');
+      }
 
-      // Update the order in our local state to reflect the assignment
-      const updatedOrders = orders.map(order => {
-        // Match using originalId now for consistency
-        if (order.originalId === originalOrderId) {
-          const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
-          return {
-            ...order,
-            deliveryPerson: assignedStaff?.name || 'Unknown Driver', // Handle case where staff not found
-            deliveryPersonId: assignedStaff?.id, // Use optional chaining
-            status: 'OUT_FOR_DELIVERY' // Use correct status enum value
-          };
-        }
-        return order;
-      });
-      
-      setOrders(updatedOrders);
-      
-      // Update selectedOrder to reflect changes
-      if (selectedOrder && selectedOrder.id === orderId) {
-        const assignedStaff = deliveryStaff.find(staff => staff.id === staffId);
-        setSelectedOrder({
-          ...selectedOrder,
-          deliveryPerson: assignedStaff?.name || 'Unknown Driver',
-          deliveryPersonId: assignedStaff?.id,
+      // On success, update local state
+      setOrders(prev => prev.map(order =>
+        order.originalId === originalId
+          ? { ...order, deliveryPersonId: staffId, deliveryPerson: deliveryStaff.find(s => s.id === staffId)?.name || 'Driver', status: 'OUT_FOR_DELIVERY' }
+          : order
+      ));
+
+      // Also update modal state
+      if (selectedOrder?.originalId === originalId) {
+        setSelectedOrder(prev => ({
+          ...prev,
+          deliveryPersonId: staffId,
+          deliveryPerson: deliveryStaff.find(s => s.id === staffId)?.name || 'Driver',
           status: 'OUT_FOR_DELIVERY'
-        });
+        }));
       }
       
-      // Show success message
+      // Clear UI state
       setError(null);
-      
       setIsAssigningDelivery(false);
       setSelectedDeliveryPerson('');
     } catch (error) {
@@ -390,11 +384,9 @@ const Orders = () => {
               onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="all">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Processing">Processing</option>
-              <option value="Out for Delivery">Out for Delivery</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Cancelled">Cancelled</option>
+              {ORDER_STATUSES.map(status => (
+                <option key={status} value={status}>{humanizeStatus(status)}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -451,12 +443,12 @@ const Orders = () => {
                     <td className="px-4 py-3 font-medium">${parseFloat(order.total).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={getStatusBadgeVariant(order.status)}>
-                        {order.status}
+                        {humanizeStatus(order.status)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <Badge variant={getPaymentStatusBadgeVariant(order.paymentStatus)}>
-                        {order.paymentStatus}
+                        {humanizeStatus(order.paymentStatus)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">{order.date}</td>
@@ -580,12 +572,12 @@ const Orders = () => {
                      <div>
                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Payment</p>
                        <p className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center">
-                          {selectedOrder.paymentMethod} <Badge variant={getPaymentStatusBadgeVariant(selectedOrder.paymentStatus)} className="ml-2">{selectedOrder.paymentStatus}</Badge>
+                          {selectedOrder.paymentMethod} <Badge variant={getPaymentStatusBadgeVariant(selectedOrder.paymentStatus)} className="ml-2">{humanizeStatus(selectedOrder.paymentStatus)}</Badge>
                        </p>
                     </div>
                      <div className="col-span-2">
                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Order Status</p>
-                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100"><Badge variant={getStatusBadgeVariant(selectedOrder.status)} size="lg">{selectedOrder.status}</Badge></p>
+                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100"><Badge variant={getStatusBadgeVariant(selectedOrder.status)} size="lg">{humanizeStatus(selectedOrder.status)}</Badge></p>
                     </div>
                  </div>
 
@@ -659,7 +651,7 @@ const Orders = () => {
                 <Select
                   value={newStatus}
                   onChange={(value) => setNewStatus(value)}
-                  options={ORDER_STATUSES.map(status => ({ value: status, label: status }))}
+                  options={ORDER_STATUSES.map(status => ({ value: status, label: humanizeStatus(status) }))}
                   className="flex-grow"
                   disabled={isUpdatingStatus}
                 />
@@ -675,8 +667,8 @@ const Orders = () => {
               </div>
             </div>
 
-            {/* Delivery Staff Section - ** Show ONLY when status is CONFIRMED ** */}
-            {selectedOrder.status === 'CONFIRMED' && (
+            {/* Delivery Staff Section - Show when status is CONFIRMED or OUT_FOR_DELIVERY */}
+            {['CONFIRMED','OUT_FOR_DELIVERY'].includes(selectedOrder.status) && (
               <div className="mb-6 p-4 border rounded-md dark:border-gray-600">
                   <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Delivery Assignment</h4>
                 {selectedOrder.deliveryPersonId ? (
@@ -712,7 +704,7 @@ const Orders = () => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleAssignDelivery(selectedOrder.id, selectedDeliveryPerson)}
+                        onClick={() => handleAssignDelivery(selectedOrder.originalId, selectedDeliveryPerson)}
                         disabled={!selectedDeliveryPerson || isAssigningDelivery}
                         className="flex items-center whitespace-nowrap"
                       >
@@ -732,7 +724,7 @@ const Orders = () => {
                 <ul className="space-y-3">
                   {selectedOrder.statusUpdates.slice().reverse().map((update, index) => ( // Show newest first
                     <li key={index} className="flex items-center gap-3 text-sm">
-                      <Badge variant={getStatusBadgeVariant(update.status)} size="sm">{update.status}</Badge>
+                      <Badge variant={getStatusBadgeVariant(update.status)} size="sm">{humanizeStatus(update.status)}</Badge>
                       <span className="text-gray-500 dark:text-gray-400">{formatDate(update.timestamp)}</span>
                       {update.updatedBy && (
                         <span className="text-gray-500 dark:text-gray-400">by {update.updatedBy.name || 'System'}</span>

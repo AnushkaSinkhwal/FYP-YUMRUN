@@ -2165,6 +2165,7 @@ router.get('/orders', auth, isAdmin, async (req, res) => {
     const orders = await Order.find()
       .populate('userId', 'name email phone') // Populate user details including phone
       .populate('restaurantId', 'name') // Populate restaurant name
+      .populate('assignedRider', 'name') // Populate assigned rider info
       .populate({ // Populate the user who updated the status in the history
         path: 'statusUpdates.updatedBy',
         select: 'name' // Select only the name field
@@ -2185,24 +2186,50 @@ router.get('/orders', auth, isAdmin, async (req, res) => {
   }
 });
 
+// Utility: allowed order status transitions
+const allowedTransitions = {
+  PENDING: ['CONFIRMED','CANCELLED'],
+  CONFIRMED: ['PREPARING','CANCELLED'],
+  PREPARING: ['READY','CANCELLED'],
+  READY: ['OUT_FOR_DELIVERY','CANCELLED'],
+  OUT_FOR_DELIVERY: ['DELIVERED','CANCELLED'],
+  DELIVERED: [],
+  CANCELLED: []
+};
+
+/**
+ * @route   GET /api/admin/deliveries
+ * @desc    Get deliveries for admin view (orders in progress)
+ * @access  Private/Admin
+ */
+router.get('/deliveries', auth, isAdmin, async (req, res) => {
+  try {
+    const deliveries = await Order.find({ status: { $in: ['PREPARING','READY','OUT_FOR_DELIVERY'] } })
+      .populate('userId', 'name email')
+      .populate('restaurantId', 'name')
+      .populate('assignedRider', 'name');  // Populate new assignedRider field
+    return res.status(200).json({ success: true, deliveries });
+  } catch (error) {
+    console.error('Error fetching deliveries:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch deliveries' });
+  }
+});
+
 /**
  * @route   PATCH /api/admin/orders/:orderId/status
- * @desc    Update the status of an order
+ * @desc    Update the status of an order with transition rules and optional rider assignment
  * @access  Private/Admin
  */
 router.patch('/orders/:orderId/status', auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status } = req.body;
-    const adminUserId = req.user.userId; // Get admin user ID from auth middleware
+    const { status, riderId } = req.body;
+    const adminUserId = req.user.userId;
 
     // Validate status
     const validStatuses = Order.schema.path('status').enumValues;
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status value. Must be one of: ${validStatuses.join(', ')}`,
-      });
+      return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
 
     // Find the order
@@ -2211,57 +2238,35 @@ router.patch('/orders/:orderId/status', auth, isAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    const previousStatus = order.status;
-
-    // Don't update if status is the same
-    if (previousStatus === status) {
-      return res.status(200).json({
-        success: true,
-        message: 'Order status is already set to the requested value.',
-        order: order,
-      });
+    const prev = order.status;
+    // Enforce allowed transition
+    if (!allowedTransitions[prev] || !allowedTransitions[prev].includes(status)) {
+      return res.status(400).json({ success: false, message: `Cannot change status from ${prev} to ${status}` });
     }
 
-    // Update the status
-    order.status = status;
+    // If moving to OUT_FOR_DELIVERY, require riderId
+    if (status === 'OUT_FOR_DELIVERY') {
+      if (!riderId || !mongoose.Types.ObjectId.isValid(riderId)) {
+        return res.status(400).json({ success: false, message: 'A valid riderId is required when assigning for delivery' });
+      }
+      // Assign rider to the order
+      order.assignedRider = riderId;
+      // For backward compatibility
+      order.deliveryPersonId = riderId;
+    }
 
-    // Add status update history
-    order.statusUpdates.push({
-      status: status,
-      timestamp: new Date(),
-      updatedBy: adminUserId, // Reference the admin user who made the change
-    });
-    
-    // If setting to DELIVERED, set actualDeliveryTime
+    order.status = status;
+    order.statusUpdates.push({ status, timestamp: new Date(), updatedBy: adminUserId });
+
     if (status === 'DELIVERED' && !order.actualDeliveryTime) {
       order.actualDeliveryTime = new Date();
     }
 
-    // Save the updated order
-    const updatedOrder = await order.save();
-
-    console.log(`Order ${orderId} status updated from ${previousStatus} to ${status} by admin ${adminUserId}`);
-
-    // TODO: Potentially send notification to the customer about the status change
-
-    return res.status(200).json({
-      success: true,
-      message: 'Order status updated successfully',
-      order: updatedOrder, // Return the full updated order
-    });
-
+    const updated = await order.save();
+    return res.status(200).json({ success: true, message: 'Order status updated', order: updated });
   } catch (error) {
-    console.error(`Error updating order status for ${req.params.orderId}:`, error);
-    if (error.name === 'CastError') {
-      return res.status(400).json({ success: false, message: 'Invalid Order ID format' });
-    }
-    if (error.name === 'ValidationError') {
-       return res.status(400).json({ success: false, message: `Validation Error: ${error.message}` });
-    }
-    return res.status(500).json({
-      success: false,
-      message: 'Server error updating order status',
-    });
+    console.error('Error updating order status:', error);
+    return res.status(500).json({ success: false, message: 'Server error updating status' });
   }
 });
 

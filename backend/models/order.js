@@ -140,6 +140,10 @@ const orderSchema = new mongoose.Schema({
     default: 'PENDING'
   },
   statusUpdates: [statusUpdateSchema],
+  assignedRider: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   paymentMethod: {
     type: String,
     enum: ['CASH', 'KHALTI'],

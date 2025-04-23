@@ -3,6 +3,9 @@ import { FaSearch, FaFilter, FaEye, FaLocationArrow, FaRoute, FaMotorcycle } fro
 import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger } from '../../components/ui';
 import { adminAPI } from '../../utils/api';
 
+// Helper to humanize status codes
+const humanizeStatus = (status) => status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
 const Deliveries = () => {
   const [deliveries, setDeliveries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,88 +24,35 @@ const Deliveries = () => {
   }, []);
 
   const fetchDeliveries = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Attempt to fetch real deliveries
-      try {
-        console.log('Fetching deliveries from API...');
-        const response = await adminAPI.getDeliveries();
-        
-        if (response.data?.success) {
-          console.log('Successfully fetched deliveries:', response.data);
-          const formattedDeliveries = (response.data.deliveries || []).map(delivery => ({
-            id: delivery._id || delivery.id || `DEL-${Math.floor(Math.random() * 10000)}`,
-            orderId: delivery.orderId || delivery.order?._id || 'Unknown',
-            customer: delivery.customerName || delivery.order?.customer?.name || 'Unknown',
-            driver: delivery.driverName || delivery.driver?.name || 'Unassigned',
-            restaurant: delivery.restaurantName || delivery.order?.restaurant?.name || 'Unknown',
-            status: delivery.status || 'Pending',
-            pickupTime: delivery.pickupTime || null,
-            deliveryTime: delivery.deliveryTime || null,
-            address: delivery.deliveryAddress || delivery.order?.deliveryAddress || 'No address',
-            distance: delivery.distance || 'Unknown',
-            earnings: delivery.driverEarnings ? `$${delivery.driverEarnings.toFixed(2)}` : 'Unknown'
-          }));
-          
-          setDeliveries(formattedDeliveries);
-          setIsLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.log('Delivery API endpoint not available:', err.message);
-        // Don't throw error, continue to fallback data
+      console.log('Fetching deliveries from API...');
+      const response = await adminAPI.getDeliveries();
+      if (response.data?.success) {
+        const formattedDeliveries = response.data.deliveries.map(delivery => ({
+          id: delivery._id,
+          orderId: delivery._id,
+          customer: delivery.userId?.name || 'Unknown',
+          driver: delivery.assignedRider?.name || 'Unassigned',
+          restaurant: delivery.restaurantId?.name || 'Unknown',
+          status: delivery.status,
+          pickupTime: delivery.estimatedDeliveryTime || null,
+          deliveryTime: delivery.actualDeliveryTime || null,
+          address: typeof delivery.deliveryAddress === 'string'
+            ? delivery.deliveryAddress
+            : delivery.deliveryAddress?.full || 'No address',
+          distance: delivery.distance || 'Unknown',
+          earnings: delivery.driverEarnings ? `$${delivery.driverEarnings.toFixed(2)}` : 'Unknown'
+        }));
+        setDeliveries(formattedDeliveries);
+      } else {
+        throw new Error(response.data.message || 'Failed to load deliveries');
       }
-      
-      // Fallback to sample data if API is not available or returns empty
-      console.log('Using sample delivery data');
-      const sampleDeliveries = [
-        {
-          id: "DEL-2023-001",
-          orderId: "ORD-2023-001",
-          customer: "John Doe",
-          driver: "Alex Johnson",
-          restaurant: "Fresh Bites",
-          status: "Delivered",
-          pickupTime: "2023-06-15 12:00",
-          deliveryTime: "2023-06-15 12:30",
-          address: "123 Main St, Apt 4B, New York, NY 10001",
-          distance: "2.3 miles",
-          earnings: "$8.50"
-        },
-        {
-          id: "DEL-2023-002",
-          orderId: "ORD-2023-002",
-          customer: "Jane Smith",
-          driver: "Michael Williams",
-          restaurant: "Burger House",
-          status: "In Progress",
-          pickupTime: "2023-06-15 13:30",
-          deliveryTime: null,
-          address: "456 Oak Ave, Brooklyn, NY 11201",
-          distance: "3.1 miles",
-          earnings: "$9.25"
-        },
-        {
-          id: "DEL-2023-003",
-          orderId: "ORD-2023-003",
-          customer: "Robert Johnson",
-          driver: "Sarah Davis",
-          restaurant: "Pho House",
-          status: "Picked Up",
-          pickupTime: "2023-06-14 18:05",
-          deliveryTime: null,
-          address: "789 Pine St, Queens, NY 11354",
-          distance: "4.7 miles",
-          earnings: "$12.00"
-        }
-      ];
-      
-      setDeliveries(sampleDeliveries);
-    } catch (error) {
-      console.error("Error fetching deliveries:", error);
-      setError("Failed to load deliveries. Please try again.");
+    } catch (err) {
+      console.error('Error fetching deliveries:', err);
+      setError(err.message);
+      setDeliveries([]);
     } finally {
       setIsLoading(false);
     }
@@ -155,10 +105,7 @@ const Deliveries = () => {
     const matchesStatus = filterStatus === 'all' || delivery.status === filterStatus;
     
     // Filter by tab
-    const matchesTab = activeTab === 'all' || 
-      (activeTab === 'assigned' && delivery.status === 'Assigned') ||
-      (activeTab === 'in-progress' && (delivery.status === 'In Progress' || delivery.status === 'Picked Up')) ||
-      (activeTab === 'delivered' && delivery.status === 'Delivered');
+    const matchesTab = activeTab === 'all' || delivery.status === activeTab;
     
     return matchesSearch && matchesStatus && matchesTab;
   });
@@ -176,13 +123,13 @@ const Deliveries = () => {
     setShowDeliveryDetails(true);
   };
 
-  // Status badge variant
+  // Status badge variant based on code
   const getStatusBadgeVariant = (status) => {
     switch (status) {
-      case 'Delivered': return 'success';
-      case 'In Progress': return 'info';
-      case 'Picked Up': return 'primary';
-      case 'Assigned': return 'warning';
+      case 'DELIVERED': return 'success';
+      case 'PREPARING': return 'info';
+      case 'READY': return 'primary';
+      case 'OUT_FOR_DELIVERY': return 'warning';
       default: return 'default';
     }
   };
@@ -209,9 +156,10 @@ const Deliveries = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="all">All Deliveries</TabsTrigger>
-          <TabsTrigger value="assigned">Assigned</TabsTrigger>
-          <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-          <TabsTrigger value="delivered">Delivered</TabsTrigger>
+          <TabsTrigger value="PREPARING">Preparing</TabsTrigger>
+          <TabsTrigger value="READY">Ready</TabsTrigger>
+          <TabsTrigger value="OUT_FOR_DELIVERY">Out for Delivery</TabsTrigger>
+          <TabsTrigger value="DELIVERED">Delivered</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -272,7 +220,7 @@ const Deliveries = () => {
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{delivery.id}</h3>
                   <Badge variant={getStatusBadgeVariant(delivery.status)}>
-                    {delivery.status}
+                    {humanizeStatus(delivery.status)}
                   </Badge>
                 </div>
                 
@@ -395,7 +343,7 @@ const Deliveries = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
                   <Badge variant={getStatusBadgeVariant(selectedDelivery.status)}>
-                    {selectedDelivery.status}
+                    {humanizeStatus(selectedDelivery.status)}
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">

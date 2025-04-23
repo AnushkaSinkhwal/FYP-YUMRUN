@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import PropTypes from 'prop-types';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import { BrowserRouter, Route, Routes, useLocation, Link } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, Link, Navigate } from "react-router-dom";
 import Home from "./Pages/Home";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -27,6 +27,10 @@ import Shop from "./Pages/Shop";
 import PaymentVerificationPage from './Pages/payment/Verify';
 import OrderDetail from './Pages/order/OrderDetail';
 import EmailVerification from './Pages/EmailVerification';
+
+// Forgot/Reset Password pages
+import ForgotPassword from "./Pages/ForgotPassword";
+import ResetPassword from "./Pages/ResetPassword";
 
 // Contexts
 import { ToastProvider } from "./context/ToastContext";
@@ -139,7 +143,10 @@ function App() {
         setisHeaderFooterShow(false);
       } else {
         setIsAdminPath(false);
-        if (!path.includes('/signin') && !path.includes('/signup')) {
+        if (!path.includes('/signin') && 
+            !path.includes('/signup') && 
+            !path.includes('/forgot-password') && 
+            !path.includes('/reset-password')) {
           setisHeaderFooterShow(true);
         }
       }
@@ -523,6 +530,28 @@ function App() {
                       <BackToTop />
                     </>
                   } />
+
+                  {/* Forgot Password Route */}
+                  <Route path="/forgot-password" element={
+                    <>
+                      <main id="main-content">
+                        <ForgotPassword />
+                      </main>
+                      <BackToTop />
+                    </>
+                  } />
+                  {/* Reset Password Route */}
+                  <Route path="/reset-password/:token" element={
+                    <>
+                      <main id="main-content">
+                        <ResetPassword />
+                      </main>
+                      <BackToTop />
+                    </>
+                  } />
+
+                  {/* Alias old /login path to /signin */}
+                  <Route path="/login" element={<Navigate to="/signin" replace />} />
                 </Routes>
                 {isOpenProductModel && <ProductModel productId={productId} />}
                 <BackToTop />

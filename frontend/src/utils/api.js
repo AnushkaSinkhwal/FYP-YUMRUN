@@ -74,9 +74,14 @@ api.interceptors.response.use(
         localStorage.removeItem('authToken');
         localStorage.removeItem('userData');
         
-        // Redirect to login if not already there
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login?session=expired';
+        // Do not auto-redirect for login attempts
+        if (config.url && config.url.includes('/auth/login')) {
+          return Promise.reject(error);
+        }
+        
+        // Redirect to sign-in page if not already there
+        if (!window.location.pathname.includes('/signin')) {
+          window.location.href = '/signin?session=expired';
         }
       }
       
@@ -213,6 +218,16 @@ export const authAPI = {
     return api.post('/auth/resend-otp', data);
   },
   
+  // Send forgot password email
+  forgotPassword: async (data) => {
+    return api.post('/auth/forgot-password', data);
+  },
+  
+  // Reset password using token
+  resetPassword: async ({ token, password }) => {
+    return api.post(`/auth/reset-password/${token}`, { password });
+  },
+  
   // Get current user profile
   getCurrentUser: async () => {
     return api.get('/auth/me');
@@ -273,6 +288,22 @@ export const adminAPI = {
     return api.get('/admin/orders');
   },
 
+  // Get deliveries for admin (orders in progress)
+  getDeliveries: async () => {
+    return api.get('/admin/deliveries');
+  },
+
+  // Update delivery status (uses same endpoint as order status update)
+  updateDeliveryStatus: async (deliveryId, status) => {
+    return api.patch(`/admin/orders/${deliveryId}/status`, { status });
+  },
+
+  // Update order status with optional rider assignment
+  updateOrderStatus: async (orderId, status, riderId) => {
+    const payload = riderId ? { status, riderId } : { status };
+    return api.patch(`/admin/orders/${orderId}/status`, payload);
+  },
+
   // Get available drivers (admin only)
   getAvailableDrivers: async () => {
     // Assuming the endpoint exists, otherwise this will fail
@@ -303,8 +334,13 @@ export const adminAPI = {
     return api.get(`/admin/restaurants/${restaurantId}`);
   },
   // **NEW**: Update restaurant status (approve, reject, delete)
-  updateRestaurantStatus: async (restaurantId, { status, reason }) => {
-    return api.patch(`/admin/restaurants/${restaurantId}/status`, { status, reason });
+  updateRestaurantStatus: async (restaurantId, statusData) => {
+    // Handle both formats: string status or { status, reason } object
+    const payload = typeof statusData === 'string' 
+      ? { status: statusData } 
+      : statusData;
+    
+    return api.patch(`/admin/restaurants/${restaurantId}/status`, payload);
   },
   // **NEW**: Update restaurant details by admin
   updateRestaurantDetails: async (restaurantId, detailsData) => {
@@ -359,11 +395,6 @@ export const adminAPI = {
   // **NEW** (from Restaurants.jsx - Add Restaurant functionality)
   createRestaurantAndOwner: async (newRestaurantData) => {
     return api.post('/admin/restaurants', newRestaurantData);
-  },
-
-  // Update order status (admin only)
-  updateOrderStatus: async (orderId, status) => {
-    return api.patch(`/admin/orders/${orderId}/status`, { status });
   },
 };
 
@@ -552,7 +583,25 @@ export const userAPI = {
   
   // Update user profile
   updateProfile: async (profileData) => {
+    // Ensure fullName is used if name is provided
+    if (profileData.name && !profileData.fullName) {
+        profileData.fullName = profileData.name;
+        delete profileData.name; // Remove the ambiguous 'name' field
+    }
     return api.put('/user/profile', profileData);
+  },
+  
+  // Update user health profile
+  updateHealthProfile: async (healthProfileData) => {
+    console.log('Updating health profile with:', healthProfileData);
+    return api.put('/user/health-profile', { healthProfile: healthProfileData });
+  },
+  
+  // Update delivery rider details
+  updateDeliveryDetails: async (deliveryDetailsData) => {
+    console.log('Updating delivery details with:', deliveryDetailsData);
+    // Assuming a new endpoint, adjust if it uses the main profile endpoint
+    return api.put('/user/delivery-details', deliveryDetailsData);
   },
   
   // Update user settings
@@ -610,11 +659,6 @@ export const userAPI = {
   // Delete notification
   deleteNotification: async (notificationId) => {
     return api.delete(`/user/notifications/${notificationId}`);
-  },
-  
-  // Update health profile
-  updateHealthProfile: async (healthProfileData) => {
-    return api.put('/user/health-profile', { healthProfile: healthProfileData });
   },
   
   // Get user's loyalty points

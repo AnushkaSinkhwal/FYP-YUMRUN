@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs"); // For password hashing
 const validator = require("validator");
+const crypto = require('crypto'); // Import crypto for token generation
 const restaurantDetailsSchema = require("./restaurantDetailsSchema");
 
 // Restaurant details schema
@@ -223,6 +224,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
+      select: false // Hide password by default when querying
     },
     role: {
       type: String,
@@ -247,6 +249,16 @@ const userSchema = new mongoose.Schema(
     profilePic: {
       type: String,
       default: "",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    notifications: {
+      orderUpdates: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: true },
+      newsletters: { type: Boolean, default: false },
+      deliveryUpdates: { type: Boolean, default: true }
     },
     favorites: {
       type: [mongoose.Schema.Types.ObjectId],
@@ -318,6 +330,9 @@ const userSchema = new mongoose.Schema(
         default: 0,
       },
     },
+    // Add fields for password reset
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     createdAt: {
       type: Date,
       default: Date.now,
@@ -370,6 +385,24 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
     console.error('Error in comparePassword:', error);
     return false;
   }
+};
+
+// Method to generate password reset token
+userSchema.methods.getResetPasswordToken = function() {
+    // Generate token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    // Hash token and set to resetPasswordToken field
+    this.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+
+    // Set expire time (e.g., 10 minutes from now)
+    this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Return the unhashed token (to be sent via email)
+    return resetToken;
 };
 
 // Update timestamps on save

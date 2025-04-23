@@ -224,9 +224,11 @@ exports.register = async (req, res) => {
             password,
             address,
             role: role || 'customer',
+            healthCondition: healthCondition || 'Healthy',
             isEmailVerified: false,
             emailVerificationOTP: otp,
-            emailVerificationOTPExpires: otpExpiry
+            emailVerificationOTPExpires: otpExpiry,
+            isActive: true
         };
         
         // Create the user

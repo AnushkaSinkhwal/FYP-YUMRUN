@@ -923,4 +923,11 @@ router.get('/dashboard', protect, async (req, res) => {
   }
 });
 
+/**
+ * @route   PUT /api/user/delivery-details
+ * @desc    Update the current delivery rider's details
+ * @access  Private (Delivery Rider only)
+ */
+router.put('/delivery-details', protect, emailVerificationCheck, userController.updateDeliveryDetails);
+
 module.exports = router;

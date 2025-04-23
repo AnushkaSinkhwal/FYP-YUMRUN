@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
+import { Select } from '@/components/ui/select';
 import { adminAPI } from '../../utils/api';
 
 // Helper to safely get nested properties
@@ -54,6 +55,9 @@ const getInitialFormData = (data = {}) => ({
   // Other common fields
   cuisine: Array.isArray(data.cuisine) ? data.cuisine.join(', ') : (getNested(data, 'cuisine') || ''), 
   priceRange: getNested(data, 'priceRange', '$$'),
+  
+  // Status field for Edit mode
+  status: getNested(data, 'status', 'pending_approval'),
   
   // Defaults for Add mode (not typically edited directly)
   isApproved: true, 
@@ -140,6 +144,11 @@ const RestaurantEditModal = ({ isOpen, onClose, restaurantId, onSave }) => {
     }
   };
 
+  // Handle select change for status field
+  const handleStatusChange = (value) => {
+    setFormData(prev => ({ ...prev, status: value }));
+  };
+
   const handleSubmit = async () => {
     setIsSaving(true);
     setError(null);
@@ -168,6 +177,11 @@ const RestaurantEditModal = ({ isOpen, onClose, restaurantId, onSave }) => {
         console.log('Updating restaurant:', restaurantId, updatePayload);
         response = await adminAPI.updateRestaurantDetails(restaurantId, updatePayload);
 
+        // After updating the restaurant details, also update the status if it has changed
+        if (formData.status) {
+          console.log('Updating restaurant status to:', formData.status);
+          await adminAPI.updateRestaurantStatus(restaurantId, { status: formData.status });
+        }
       } else {
         // --- ADD MODE PAYLOAD ---
         // Prepare payload for POST /admin/restaurants
@@ -228,14 +242,14 @@ const RestaurantEditModal = ({ isOpen, onClose, restaurantId, onSave }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* Adjusted max width and height, ensure content scrolls */}
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col"> 
-        <DialogHeader className="pb-2 flex-shrink-0">
-          <DialogTitle className="text-xl font-bold">{modalTitle}</DialogTitle>
-          <DialogDescription className="text-sm text-gray-500">{modalDescription}</DialogDescription>
+      <DialogContent className="w-[90vw] max-w-[800px] max-h-[90vh] flex flex-col overflow-hidden"> 
+        <DialogHeader className="flex-shrink-0 pb-2">
+          <DialogTitle className="text-xl font-bold break-words">{modalTitle}</DialogTitle>
+          <DialogDescription className="text-sm text-gray-500 break-words">{modalDescription}</DialogDescription>
         </DialogHeader>
         
         {/* Scrollable Content Area */}
-        <div className="flex-grow overflow-y-auto pr-4 pl-1 custom-scrollbar"> 
+        <div className="flex-grow min-h-0 pl-1 pr-4 overflow-x-hidden overflow-y-auto custom-scrollbar"> 
           {isLoading ? (
             <div className="flex items-center justify-center h-40"><Spinner size="large"/></div>
           ) : (
@@ -304,6 +318,24 @@ const RestaurantEditModal = ({ isOpen, onClose, restaurantId, onSave }) => {
                       placeholder="Brief description of the restaurant, cuisine type, etc."
                     />
                   </div>
+
+                  {/* Status field - EDIT mode only */}
+                  {isEditMode && (
+                    <Select
+                      label="Status"
+                      value={formData.status}
+                      onChange={handleStatusChange}
+                      options={[
+                        { value: 'pending_approval', label: 'Pending Approval' },
+                        { value: 'approved', label: 'Approved' },
+                        { value: 'rejected', label: 'Rejected' },
+                        { value: 'deleted', label: 'Deleted' },
+                      ]}
+                      placeholder="Select status"
+                      disabled={isSaving}
+                      className="w-full"
+                    />
+                  )}
 
                   {/* PAN Number - Required for Add, potentially viewable/non-editable for Edit */}
                   {!isEditMode && (
@@ -484,7 +516,7 @@ const RestaurantEditModal = ({ isOpen, onClose, restaurantId, onSave }) => {
         </div>
 
         {/* Footer */}
-        <DialogFooter className="pt-4 mt-auto border-t flex-shrink-0">
+        <DialogFooter className="flex-shrink-0 pt-4 mt-auto border-t">
           <DialogClose asChild>
             <Button type="button" variant="secondary" disabled={isSaving}>Cancel</Button>
           </DialogClose>

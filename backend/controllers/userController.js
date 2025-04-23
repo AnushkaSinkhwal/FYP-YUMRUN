@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const { LoyaltyPoints } = require('../models/loyalty');
 const Order = require('../models/order');
+const Restaurant = require('../models/restaurant');
 
 /**
  * Get count of unread notifications for a user
@@ -48,7 +49,8 @@ exports.getUnreadNotificationsCount = async (req, res) => {
  */
 exports.getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    // Fetch user, excluding password related fields
+    const user = await User.findById(req.user._id).select('-password -resetPasswordToken -resetPasswordExpire -emailVerificationOTP -emailVerificationOTPExpires');
     
     if (!user) {
       return res.status(404).json({
@@ -63,7 +65,7 @@ exports.getUserProfile = async (req, res) => {
     // Get loyalty points
     const loyaltyPoints = user.loyaltyPoints || 0;
     
-    // Format response without sensitive data
+    // Format response object from user data
     const userProfile = {
       id: user._id,
       fullName: user.fullName,
@@ -73,17 +75,30 @@ exports.getUserProfile = async (req, res) => {
       role: user.role,
       healthCondition: user.healthCondition,
       healthProfile: user.healthProfile,
-      settings: user.settings,
       favorites: user.favorites,
       loyaltyPoints,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      notifications: user.notifications,
+      deliveryRiderDetails: user.deliveryRiderDetails
     };
 
-    // Add role-specific data
+    // If user is a restaurant owner, fetch and attach their restaurant details
     if (user.role === 'restaurant') {
-      userProfile.restaurantDetails = user.restaurantDetails;
-    } else if (user.role === 'delivery_rider') {
-      userProfile.deliveryRiderDetails = user.deliveryRiderDetails;
+      console.log(`User ${user._id} is a restaurant owner. Fetching restaurant details...`);
+      const restaurant = await Restaurant.findOne({ owner: user._id });
+      if (restaurant) {
+        console.log(`Found restaurant details for user ${user._id}: ID ${restaurant._id}`);
+        // Selectively add relevant restaurant details
+        userProfile.restaurantDetails = {
+          _id: restaurant._id,
+          name: restaurant.name,
+          status: restaurant.status,
+          address: restaurant.address,
+        };
+      } else {
+         console.warn(`No restaurant document found for owner ID: ${user._id}`);
+         userProfile.restaurantDetails = null;
+      }
     }
 
     return res.status(200).json({
@@ -113,7 +128,8 @@ exports.updateUserProfile = async (req, res) => {
       fullName,
       phone,
       address,
-      healthCondition
+      healthCondition,
+      notifications
     } = req.body;
 
     // Find user
@@ -139,6 +155,13 @@ exports.updateUserProfile = async (req, res) => {
       user.healthCondition = healthCondition;
     }
 
+    // Update notification settings if provided
+    if (notifications) {
+       // Ensure we merge, not overwrite completely, or handle partial updates
+       // A simple merge works if the frontend sends the complete object
+       user.notifications = { ...user.notifications, ...notifications };
+    }
+
     // Save updated user
     await user.save();
 
@@ -151,7 +174,8 @@ exports.updateUserProfile = async (req, res) => {
         email: user.email,
         phone: user.phone,
         address: user.address,
-        healthCondition: user.healthCondition
+        healthCondition: user.healthCondition,
+        notifications: user.notifications
       }
     });
   } catch (error) {
@@ -377,6 +401,92 @@ exports.getLoyaltyDetails = async (req, res) => {
         message: 'Server error. Please try again.',
         code: 'SERVER_ERROR'
       }
+    });
+  }
+};
+
+/**
+ * Update delivery rider details
+ * @route PUT /api/user/delivery-details
+ * @access Private (Delivery Rider only)
+ */
+exports.updateDeliveryDetails = async (req, res) => {
+  try {
+    const {
+      vehicleType,
+      licenseNumber,
+      vehicleRegistrationNumber,
+      isAvailable
+    } = req.body;
+
+    // Find user and ensure they are a delivery rider
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'User not found', code: 'NOT_FOUND' }
+      });
+    }
+
+    if (user.role !== 'delivery_rider') {
+       return res.status(403).json({
+        success: false,
+        error: { message: 'Access denied. Only delivery riders can update these details.', code: 'FORBIDDEN' }
+      });     
+    }
+
+    // Update fields within the deliveryRiderDetails sub-document
+    const updates = {};
+    if (vehicleType !== undefined) updates['deliveryRiderDetails.vehicleType'] = vehicleType;
+    if (licenseNumber !== undefined) updates['deliveryRiderDetails.licenseNumber'] = licenseNumber;
+    if (vehicleRegistrationNumber !== undefined) updates['deliveryRiderDetails.vehicleRegistrationNumber'] = vehicleRegistrationNumber;
+    if (isAvailable !== undefined) updates['deliveryRiderDetails.isAvailable'] = isAvailable;
+
+    // Only update if there are changes
+    if (Object.keys(updates).length === 0) {
+       return res.status(200).json({ 
+         success: true, 
+         message: 'No delivery details provided for update.', 
+         data: user.deliveryRiderDetails 
+       });
+    }
+
+    // Use findByIdAndUpdate for atomic updates on sub-documents if preferred,
+    // but direct modification and save also works here.
+    // Update the fields directly on the user object found earlier
+    if (user.deliveryRiderDetails) {
+        if (vehicleType !== undefined) user.deliveryRiderDetails.vehicleType = vehicleType;
+        if (licenseNumber !== undefined) user.deliveryRiderDetails.licenseNumber = licenseNumber;
+        if (vehicleRegistrationNumber !== undefined) user.deliveryRiderDetails.vehicleRegistrationNumber = vehicleRegistrationNumber;
+        if (isAvailable !== undefined) user.deliveryRiderDetails.isAvailable = isAvailable;
+    } else {
+        // If sub-document doesn't exist, create it (should exist from registration)
+        user.deliveryRiderDetails = { vehicleType, licenseNumber, vehicleRegistrationNumber, isAvailable };
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Delivery details updated successfully',
+      data: user.deliveryRiderDetails // Return updated details
+    });
+
+  } catch (error) {
+    console.error('Error updating delivery details:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: { message: messages.join(', '), code: 'VALIDATION_ERROR' }
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: { message: 'Server error. Please try again.', code: 'SERVER_ERROR' }
     });
   }
 }; 
