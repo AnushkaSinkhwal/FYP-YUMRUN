@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift, FaInfoCircle, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift, FaInfoCircle, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 import { restaurantAPI } from '../../utils/api';
 import { Alert } from '../../components/ui';
@@ -68,13 +68,33 @@ const RestaurantDashboard = () => {
   const getStatusBadge = () => {
     switch (profileStatus) {
       case 'approved':
-        return { text: 'Approved', variant: 'success', icon: <FaCheckCircle className="mr-1" /> };
+        return { 
+          text: 'Approved', 
+          variant: 'success', 
+          icon: <FaCheckCircle className="mr-2" />,
+          message: 'Your restaurant is approved and visible to customers.'
+        };
       case 'pending_approval':
-        return { text: 'Pending Approval', variant: 'warning', icon: <FaInfoCircle className="mr-1" /> };
+        return { 
+          text: 'Pending Approval', 
+          variant: 'warning', 
+          icon: <FaExclamationTriangle className="mr-2" />,
+          message: 'Your restaurant is awaiting approval by an administrator. You cannot receive orders until approved.'
+        };
       case 'rejected':
-        return { text: 'Rejected', variant: 'destructive', icon: <FaTimesCircle className="mr-1" /> };
+        return { 
+          text: 'Rejected', 
+          variant: 'error', 
+          icon: <FaTimesCircle className="mr-2" />,
+          message: 'Your restaurant approval was rejected. Please contact support for more information.'
+        };
       default:
-        return { text: 'Unknown Status', variant: 'secondary', icon: <FaInfoCircle className="mr-1" /> };
+        return { 
+          text: 'Unknown Status', 
+          variant: 'info', 
+          icon: <FaInfoCircle className="mr-2" />,
+          message: 'Your restaurant status is unknown. Please contact support.'
+        };
     }
   };
 
@@ -202,11 +222,15 @@ const RestaurantDashboard = () => {
   return (
     <div>
       {!isLoading && profileStatus && (
-        <Alert variant={statusBadgeDetails.variant} className="mb-4 flex items-center">
+        <Alert 
+          variant={statusBadgeDetails.variant} 
+          className="mb-4 flex items-center"
+        >
           {statusBadgeDetails.icon}
-          <span>Your restaurant status is currently: <strong>{statusBadgeDetails.text}</strong></span>
-          {profileStatus === 'pending_approval' && <span className="ml-2 text-sm"> (Admin review required)</span>}
-          {profileStatus === 'rejected' && <span className="ml-2 text-sm"> (Please contact support)</span>}
+          <div>
+            <div className="font-semibold">Restaurant Status: {statusBadgeDetails.text}</div>
+            <div className="mt-1 text-sm">{statusBadgeDetails.message}</div>
+          </div>
         </Alert>
       )}
     

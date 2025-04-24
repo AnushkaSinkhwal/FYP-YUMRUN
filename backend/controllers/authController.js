@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const { sendVerificationOTP } = require('../utils/emailService');
 const { generateOTP, isOTPExpired, generateOTPExpiry } = require('../utils/otpUtils');
 const Restaurant = require('../models/restaurant');
+const asyncHandler = require('express-async-handler');
+const ErrorResponse = require('../utils/errorResponse');
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -160,191 +162,211 @@ exports.login = async (req, res) => {
     }
 };
 
-// Register new user
-exports.register = async (req, res) => {
-    try {
-        const { 
-            firstName, lastName, fullName,
-            email, phone, password, address,
-            role, healthCondition, 
-            restaurantName, restaurantAddress, restaurantDescription, panNumber,
-            vehicleType, licenseNumber, vehicleRegistrationNumber
-        } = req.body;
-        
-        // Validate input
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: 'Please provide email and password',
-                    code: 'VALIDATION_ERROR'
-                }
-            });
-        }
-        
-        // Validate name fields
-        if (!firstName || !lastName) {
-            const missingFields = [];
-            if (!firstName) missingFields.push('First name is required');
-            if (!lastName) missingFields.push('Last name is required');
-            
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: missingFields.join(', '),
-                    code: 'VALIDATION_ERROR'
-                }
-            });
-        }
-        
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: 'User with this email already exists',
-                    code: 'VALIDATION_ERROR'
-                }
-            });
-        }
-        
-        // Generate verification OTP
-        const otp = generateOTP();
-        const otpExpiry = generateOTPExpiry();
-        
-        // Create user data object
-        const userData = {
-            firstName,
-            lastName,
-            fullName: fullName || `${firstName} ${lastName}`,
-            email,
-            phone,
-            password,
-            address,
-            role: role || 'customer',
-            healthCondition: healthCondition || 'Healthy',
-            isEmailVerified: false,
-            emailVerificationOTP: otp,
-            emailVerificationOTPExpires: otpExpiry,
-            isActive: true
-        };
-        
-        // Create the user
-        const user = new User(userData);
-        await user.save();
+// @desc    Register user
+// @route   POST /api/auth/register
+// @access  Public
+exports.register = asyncHandler(async (req, res, next) => {
+  const { 
+    firstName, 
+    lastName, 
+    fullName,
+    email, 
+    password, 
+    phone,
+    role,
+    address,
+    // Restaurant specific fields
+    restaurantName,
+    restaurantAddress,
+    restaurantDescription,
+    panNumber,
+    // Delivery rider specific fields
+    vehicleType,
+    licenseNumber,
+    vehicleRegistrationNumber,
+    // Customer specific fields
+    healthCondition
+  } = req.body;
 
-        // If the user is a restaurant owner, create a corresponding restaurant entry
-        if (user.role === 'restaurant') {
-            // Validate required restaurant fields
-            if (!restaurantName || !panNumber) { 
-                // Clean up created user if restaurant creation fails validation
-                await User.findByIdAndDelete(user._id); 
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: 'Restaurant name and PAN number are required for restaurant registration.',
-                        code: 'VALIDATION_ERROR'
-                    }
-                });
-            }
+  // Validate required fields
+  if (!firstName || !lastName || !email || !password || !phone) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'Please provide all required fields',
+        code: 'VALIDATION_ERROR'
+      }
+    });
+  }
 
-            try {
-                const newRestaurant = new Restaurant({
-                    name: restaurantName,
-                    address: restaurantAddress, // Assuming restaurantAddress is an object { street, city, state, zipCode, country }
-                    description: restaurantDescription,
-                    panNumber: panNumber,
-                    owner: user._id, // Link restaurant to the user
-                    contactInfo: { email: user.email, phone: user.phone }, // Populate contact info
-                    // status defaults to 'pending_approval' via schema
-                });
-                await newRestaurant.save();
-                console.log(`Restaurant entry created for user ${user._id}`);
-                
-                // Optional: Update user with restaurant ID if needed
-                // user.restaurant = newRestaurant._id; 
-                // await user.save();
+  // Check if email is already in use
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'Email is already in use',
+        code: 'DUPLICATE_EMAIL'
+      }
+    });
+  }
 
-            } catch (restaurantError) {
-                console.error('Error creating restaurant entry:', restaurantError);
-                // Clean up the created user if restaurant creation fails
-                await User.findByIdAndDelete(user._id); 
-                return res.status(500).json({
-                    success: false,
-                    error: {
-                        message: 'Failed to create associated restaurant profile.',
-                        code: 'RESTAURANT_CREATION_FAILED'
-                    }
-                });
-            }
-        } else if (role === 'delivery_rider') {
-            // Additional validation for delivery rider (keep existing logic)
-            if (!vehicleType || !licenseNumber || !vehicleRegistrationNumber) {
-                 await User.findByIdAndDelete(user._id); // Clean up user
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: 'Delivery rider details are required',
-                        code: 'VALIDATION_ERROR'
-                    }
-                });
-            }
-             // Assuming delivery rider details are stored directly on the user model
-             user.deliveryRiderDetails = {
-                 vehicleType,
-                 licenseNumber,
-                 vehicleRegistrationNumber,
-                 approved: false // Requires admin approval
-             };
-             await user.save(); // Save rider details
-        }
-        
-        // Send verification email
-        try {
-            await sendVerificationOTP({
-                email: user.email,
-                otp,
-                name: user.fullName || `${user.firstName} ${user.lastName}`
-            });
-        } catch (emailError) {
-            console.error("Failed to send verification email:", emailError);
-            // Don't fail the registration, but log the error
-        }
+  // Create user with default health profile and loyalty
+  const user = await User.create({
+    firstName,
+    lastName,
+    fullName: fullName || `${firstName} ${lastName}`,
+    email,
+    password,
+    phone,
+    role,
+    address,
+    // Initialize health profile with default values
+    healthProfile: {
+      dietaryPreferences: ['None'],
+      healthConditions: ['None'],
+      allergies: [],
+      weightManagementGoal: 'None',
+      fitnessLevel: 'None',
+      dailyCalorieGoal: 2000,
+      macroTargets: {
+        protein: 25,
+        carbs: 50,
+        fat: 25
+      }
+    },
+    // Initialize loyalty points
+    loyaltyPoints: 0,
+    lifetimeLoyaltyPoints: 0,
+    loyaltyTier: 'BRONZE',
+    tierUpdateDate: Date.now()
+  });
+  
+  // Generate email verification OTP
+  const otp = generateOTP(6);
+  
+  // Set OTP expiration (10 minutes from now)
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+  
+  // Save OTP to user document
+  user.emailVerificationOTP = otp;
+  user.emailVerificationOTPExpires = otpExpires;
+  await user.save();
+  
+  // Send welcome email with OTP
+  try {
+    await sendVerificationOTP({
+      email: user.email,
+      otp,
+      name: user.fullName
+    });
+    console.log(`Email sent successfully: <${email}>`);
+  } catch (emailError) {
+    console.error("Failed to send verification email:", emailError);
+    // Don't fail the registration, but log the error
+  }
 
-        // Return success response (user needs to verify email)
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Registration successful. Please check your email to verify your account.',
-            requiresOTP: true,
-            email: user.email
-        });
-        
-    } catch (error) {
-        console.error('Registration error:', error);
-        
-        // Handle Mongoose validation errors specifically
-        if (error.name === 'ValidationError') {
-            const messages = Object.values(error.errors).map(val => val.message);
-            return res.status(400).json({ 
-                success: false, 
-                error: {
-                    message: messages.join('. '),
-                    code: 'VALIDATION_ERROR'
-                }
-            });
-        }
-        
-        return res.status(500).json({ 
-            success: false, 
-            error: {
-                message: 'Server error during registration.',
-                code: 'SERVER_ERROR'
-            }
-        });
+  // If the user is a restaurant owner, create a corresponding restaurant entry
+  if (role === 'restaurant') {
+    // Validate required restaurant fields
+    if (!restaurantName || !panNumber) { 
+      // Clean up created user if restaurant creation fails validation
+      await User.findByIdAndDelete(user._id); 
+      return res.status(400).json({
+          success: false,
+          error: {
+              message: 'Restaurant name and PAN number are required for restaurant registration.',
+              code: 'VALIDATION_ERROR'
+          }
+      });
     }
-};
+
+    try {
+      // Create new restaurant document
+      const newRestaurant = new Restaurant({
+        name: restaurantName,
+        location: restaurantAddress || address || '', 
+        address: {
+          street: restaurantAddress || address || '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: ''
+        },
+        description: restaurantDescription || `${restaurantName} restaurant`,
+        panNumber: panNumber,
+        owner: user._id,
+        contactInfo: { 
+          email: user.email, 
+          phone: user.phone 
+        },
+        cuisine: ['General'],
+        status: 'pending_approval'
+      });
+      
+      // Save restaurant to database
+      const savedRestaurant = await newRestaurant.save();
+      console.log(`Restaurant entry created for user ${user._id} with ID ${savedRestaurant._id}`);
+      
+      // Update user with restaurantId reference
+      user.restaurantId = savedRestaurant._id;
+      await user.save();
+      
+    } catch (restaurantError) {
+      console.error('Error creating restaurant entry:', restaurantError);
+      // Clean up the created user if restaurant creation fails
+      await User.findByIdAndDelete(user._id); 
+      
+      // If validation error, return the specific message
+      if (restaurantError.name === 'ValidationError') {
+        const messages = Object.values(restaurantError.errors).map(val => val.message);
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: messages.join(', '),
+            code: 'VALIDATION_ERROR'
+          }
+        });
+      }
+      
+      return res.status(500).json({
+          success: false,
+          error: {
+              message: 'Failed to create associated restaurant profile: ' + restaurantError.message,
+              code: 'RESTAURANT_CREATION_FAILED'
+          }
+      });
+    }
+  } else if (role === 'delivery_rider') {
+    // Additional validation for delivery rider
+    if (!vehicleType || !licenseNumber || !vehicleRegistrationNumber) {
+       await User.findByIdAndDelete(user._id); // Clean up user
+      return res.status(400).json({
+          success: false,
+          error: {
+              message: 'Delivery rider details are required',
+              code: 'VALIDATION_ERROR'
+          }
+      });
+    }
+     // Set delivery rider details
+     user.deliveryRiderDetails = {
+         vehicleType,
+         licenseNumber,
+         vehicleRegistrationNumber,
+         approved: false // Requires admin approval
+     };
+     await user.save(); // Save rider details
+  }
+
+  // Return success response (user needs to verify email)
+  return res.status(201).json({ 
+      success: true, 
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresOTP: true,
+      email: user.email
+  });
+});
 
 // Verify email with OTP
 exports.verifyEmail = async (req, res) => {

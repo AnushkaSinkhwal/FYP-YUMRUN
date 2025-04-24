@@ -99,7 +99,7 @@ router.post('/login', async (req, res) => {
 router.get('/dashboard', auth, isAdmin, async (req, res) => {
   try {
     // Get counts for dashboard
-    const userCount = await User.countDocuments({ role: 'customer' });
+    const userCount = await User.countDocuments(); // Removed { role: 'customer' } filter
     const restaurantCount = await User.countDocuments({ role: 'restaurant' });
     const pendingNotifications = await Notification.countDocuments({ status: 'PENDING' });
     
@@ -2267,6 +2267,75 @@ router.patch('/orders/:orderId/status', auth, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error updating order status:', error);
     return res.status(500).json({ success: false, message: 'Server error updating status' });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/riders/:id/approve
+ * @desc    Approve or reject a delivery rider
+ * @access  Private/Admin
+ */
+router.put('/riders/:id/approve', auth, isAdmin, async (req, res) => {
+  try {
+    const { approved } = req.body;
+    
+    if (approved === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Approved status is required'
+      });
+    }
+    
+    // Find the rider
+    const rider = await User.findOne({ 
+      _id: req.params.id,
+      role: 'delivery_rider'
+    });
+    
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: 'Delivery rider not found'
+      });
+    }
+    
+    // If rider doesn't have deliveryRiderDetails, initialize it
+    if (!rider.deliveryRiderDetails) {
+      rider.deliveryRiderDetails = {};
+    }
+    
+    // Update approval status
+    rider.deliveryRiderDetails.approved = approved;
+    
+    // Save the updated rider
+    await rider.save();
+    
+    // Create notification for the rider
+    await createNotification({
+      userId: rider._id,
+      title: approved ? 'Account Approved' : 'Account Approval Revoked',
+      message: approved 
+        ? 'Your delivery rider account has been approved. You can now accept delivery orders.'
+        : 'Your delivery rider account approval has been revoked. Please contact support for more information.',
+      type: 'ACCOUNT_UPDATE',
+      status: 'PENDING'
+    });
+    
+    return res.status(200).json({
+      success: true,
+      message: `Rider ${approved ? 'approved' : 'approval revoked'} successfully`,
+      rider: {
+        id: rider._id,
+        fullName: rider.fullName,
+        approved: rider.deliveryRiderDetails.approved
+      }
+    });
+  } catch (error) {
+    console.error('Error updating rider approval status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
   }
 });
 

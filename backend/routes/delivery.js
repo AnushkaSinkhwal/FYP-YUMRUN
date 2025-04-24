@@ -327,6 +327,14 @@ router.post('/accept/:orderId', auth, isDeliveryRider, async (req, res) => {
             });
         }
         
+        // Check if rider is approved
+        if (!req.user.deliveryRiderDetails || !req.user.deliveryRiderDetails.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Your account is not approved for deliveries yet'
+            });
+        }
+        
         // Assign delivery person and update status
         order.deliveryPersonId = req.user._id;
         order.status = 'OUT_FOR_DELIVERY';
@@ -413,6 +421,14 @@ router.post('/assign/:orderId/:staffId', auth, isAdmin, async (req, res) => {
             return res.status(404).json({ 
                 success: false, 
                 message: 'Delivery staff not found' 
+            });
+        }
+        
+        // Check if staff is approved
+        if (!staff.deliveryRiderDetails || !staff.deliveryRiderDetails.approved) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Delivery staff is not approved for deliveries yet' 
             });
         }
         

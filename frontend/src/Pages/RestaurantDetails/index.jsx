@@ -59,15 +59,16 @@ const RestaurantDetails = () => {
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform API data to match frontend format
           const formattedMenuItems = response.data.data.map(item => {
-            console.log(`Processing menu item: ${item.name}, Restaurant:`, item.restaurant);
+            console.log(`Processing menu item: ${item.name || item.item_name}, ID: ${item._id}, Image:`, item.image);
             
             return {
               id: item._id || item.id,
-              name: item.name,
+              name: item.name || item.item_name,
               description: item.description || 'No description available',
-              price: item.price || 0,
+              price: item.price || item.item_price || 0,
               category: item.category || 'Uncategorized',
-              image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
+              image: item.image,
+              imageUrl: item.imageUrl || item.image,
               isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
               isVegetarian: item.isVegetarian || false,
               isVegan: item.isVegan || false,
@@ -77,9 +78,9 @@ const RestaurantDetails = () => {
               totalReviews: item.numberOfRatings || 0,
               calories: item.nutritionInfo?.calories || null,
               allergens: item.allergens || [],
-              restaurant: {
-                id: restaurant.id || restaurant._id,
-                name: restaurant.name
+              restaurant: item.restaurant || {
+                id: restaurant?.id || restaurant?._id,
+                name: restaurant?.name
               }
             };
           });
@@ -266,10 +267,15 @@ const RestaurantDetails = () => {
                     <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
                       <div className="relative">
                         <img 
-                          src={item.imageUrl ? getFullImageUrl(item.imageUrl) : PLACEHOLDERS.FOOD} 
+                          src={item.image ? getFullImageUrl(item.image) : 
+                              item.imageUrl ? getFullImageUrl(item.imageUrl) : PLACEHOLDERS.FOOD} 
                           alt={item.name} 
                           className="object-cover w-full h-48 cursor-pointer"
                           onClick={() => navigate(`/product/${item.id}`)}
+                          onError={(e) => {
+                            console.error(`Image load error for ${item.name}:`, e);
+                            e.target.src = PLACEHOLDERS.FOOD;
+                          }}
                         />
                         {item.isPopular && (
                           <div className="absolute top-0 left-0 m-2">
@@ -288,7 +294,7 @@ const RestaurantDetails = () => {
                           >
                             {item.name}
                           </h3>
-                          <span className="font-bold text-yumrun-orange">${item.price.toFixed(2)}</span>
+                          <span className="font-bold text-yumrun-orange">£{parseFloat(item.price).toFixed(2)}</span>
                         </div>
                         
                         <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>

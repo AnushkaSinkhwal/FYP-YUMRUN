@@ -53,6 +53,7 @@ import AdminProfile from "./Pages/admin/Profile";
 import AdminSettings from "./Pages/admin/Settings";
 import AdminNotifications from "./Pages/admin/Notifications";
 import RestaurantApprovals from "./Pages/admin/RestaurantApprovals";
+import AdminRiders from "./Pages/Admin/Riders";
 
 // Restaurant imports
 import RestaurantLayout from "./components/restaurant/RestaurantLayout";
@@ -237,12 +238,13 @@ function App() {
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="users" element={<AdminUsers />} />
                     <Route path="restaurants" element={<AdminRestaurants />} />
+                    <Route path="riders" element={<AdminRiders />} />
                     <Route path="orders" element={<AdminOrders />} />
                     <Route path="deliveries" element={<AdminDeliveries />} />
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="notifications" element={<AdminNotifications />} />
-                    <Route path="approvals" element={<RestaurantApprovals />} />
+                    <Route path="restaurant-approvals" element={<RestaurantApprovals />} />
                   </Route>
                   
                   {/* User Routes */}

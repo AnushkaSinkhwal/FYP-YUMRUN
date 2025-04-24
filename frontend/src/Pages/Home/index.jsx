@@ -185,27 +185,40 @@ const Home = () => {
                 setLoadingProducts(true);
                 setProductsError(null);
                 
+                console.log('Fetching menu items for homepage...');
                 const response = await fetch('/api/menu');
+                console.log('Menu API response status:', response.status);
                 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Menu data received:', data);
                     
                     if (data.success) {
                         // Process the menu items
                         const allItems = data.data || [];
+                        console.log('Number of menu items received:', allItems.length);
+                        
+                        if (allItems.length === 0) {
+                            console.warn('No menu items returned from API');
+                            setFeaturedProducts([]);
+                            setNewProducts([]);
+                            setLoadingProducts(false);
+                            return;
+                        }
                         
                         // Process each item to ensure discount and price data is correctly formatted
                         const processedItems = allItems.map(item => {
-                            // Skip items without essential data
-                            if (!item || !item.name || !item.price) return null;
-                            
-                            // Add console log for debugging restaurant data
-                            console.log(`Processing item ${item.name} with raw data:`, { 
-                                id: item.id,
-                                restaurantRaw: item.restaurant,
-                                restaurantName: item.restaurant?.name,
-                                hasRestaurant: !!item.restaurant
+                            console.log('Processing menu item:', {
+                                id: item._id || item.id,
+                                name: item.name || item.item_name,
+                                image: item.image
                             });
+                            
+                            // Skip items without essential data
+                            if (!item || (!item.name && !item.item_name) || (!item.price && !item.item_price)) {
+                                console.warn('Skipping item due to missing essential data');
+                                return null;
+                            }
                             
                             // Force check if we need to find a restaurant name
                             let restaurantName = "Unknown Restaurant";
@@ -218,56 +231,76 @@ const Home = () => {
                                 }
                             }
                             
+                            const price = item.price || item.item_price || 0;
+                            const discount = item.discount || 0;
+                            const discountedPrice = discount > 0 
+                                ? (price * (1 - discount / 100)).toFixed(2)
+                                : price.toString();
+                            
                             return {
-                                ...item,
-                                // Use only the image from the database
+                                id: item._id || item.id,
+                                name: item.name || item.item_name,
+                                description: item.description || '',
+                                // Use the direct image path from database - getFullImageUrl will be applied in ProductItem
                                 image: item.image,
                                 // Only include oldPrice if there's a valid discount
-                                oldPrice: item.discount && parseFloat(item.discount) > 0 
-                                    ? item.price 
-                                    : null,
-                                // If there's a discount, calculate the new price
-                                price: item.discount && parseFloat(item.discount) > 0 
-                                    ? (item.price * (1 - parseFloat(item.discount) / 100)).toFixed(2)
-                                    : item.price,
+                                oldPrice: discount > 0 ? price.toString() : null,
+                                // If there's a discount, use the calculated price
+                                price: discountedPrice,
                                 // Ensure rating is a valid number or null
                                 rating: item.averageRating && item.averageRating > 0 ? item.averageRating : 0,
+                                // Include the discount percentage
+                                discount: discount > 0 ? discount.toString() : '',
                                 // Override restaurant data with our validated version
                                 restaurant: { 
                                     id: restaurantId, 
                                     name: restaurantName 
-                                }
+                                },
+                                location: restaurantName,
+                                createdAt: item.createdAt || new Date().toISOString()
                             };
                         }).filter(item => item !== null); // Remove null items
                         
+                        console.log('Processed menu items:', processedItems.length);
+                        
                         if (processedItems.length > 0) {
-                            // For featured products (random selection of 5 items)
+                            // For featured products (random selection of items)
                             const shuffled = [...processedItems].sort(() => 0.5 - Math.random());
-                            setFeaturedProducts(shuffled.slice(0, 5));
+                            const featuredCount = Math.min(shuffled.length, 5);
+                            console.log(`Setting ${featuredCount} featured menu items`);
+                            setFeaturedProducts(shuffled.slice(0, featuredCount));
                             
-                            // For new products (most recent 4 items by date)
+                            // For new products (most recent items by date)
                             const sortedByDate = [...processedItems].sort((a, b) => 
                                 new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
                             );
-                            setNewProducts(sortedByDate.slice(0, 4));
-                            setLoadingProducts(false);
-                            return;
+                            const newCount = Math.min(sortedByDate.length, 4);
+                            console.log(`Setting ${newCount} new menu items`);
+                            setNewProducts(sortedByDate.slice(0, newCount));
+                        } else {
+                            console.warn('No valid menu items after processing');
+                            setFeaturedProducts([]);
+                            setNewProducts([]);
                         }
+                    } else {
+                        console.error('API returned error:', data.message);
+                        setProductsError(data.message || 'Failed to load menu items');
+                        setFeaturedProducts([]);
+                        setNewProducts([]);
                     }
-                    
-                    // If API returns success but no valid items
-                    setFeaturedProducts([]);
-                    setNewProducts([]);
-                    setLoadingProducts(false);
                 } else {
                     // If API fails
-                    throw new Error('Failed to fetch menu items');
+                    console.error('API request failed with status:', response.status);
+                    setProductsError('Failed to fetch menu items. Server returned an error.');
+                    setFeaturedProducts([]);
+                    setNewProducts([]);
                 }
             } catch (error) {
                 console.error('Error fetching menu items:', error);
-                setProductsError('Failed to load menu items.');
+                setProductsError('Failed to load menu items. Please try again later.');
                 setFeaturedProducts([]);
                 setNewProducts([]);
+            } finally {
                 setLoadingProducts(false);
             }
         };
@@ -529,10 +562,11 @@ const Home = () => {
                                                         name={product.name} 
                                                         location={product.restaurant?.name || ''} 
                                                         rating={product.rating || 0}
-                                                        oldPrice={product.oldPrice?.toString() || ''}
-                                                        newPrice={product.price.toString()}
+                                                        oldPrice={product.oldPrice}
+                                                        newPrice={product.price}
                                                         imgSrc={product.image}
-                                                        discount={product.discount?.toString() || ''}
+                                                        image={product.image}
+                                                        discount={product.discount}
                                                     />
                                                 </SwiperSlide>
                                             ))}
@@ -578,10 +612,11 @@ const Home = () => {
                                                     name={product.name} 
                                                     location={product.restaurant?.name || ''} 
                                                     rating={product.rating || 0}
-                                                    oldPrice={product.oldPrice?.toString() || ''}
-                                                    newPrice={product.price.toString()}
+                                                    oldPrice={product.oldPrice}
+                                                    newPrice={product.price}
                                                     imgSrc={product.image}
-                                                    discount={product.discount?.toString() || ''}
+                                                    image={product.image}
+                                                    discount={product.discount}
                                                 />
                                             </div>
                                         ))}

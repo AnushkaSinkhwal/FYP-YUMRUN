@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Input, Textarea, Label, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui';
-import { FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaUtensils } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaTimes, FaSave, FaUtensils } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { toast } from 'react-hot-toast';
 
 // API URL from environment or default
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -13,11 +14,6 @@ console.log('API configuration:', {
   API_URL,
   API_BASE
 });
-
-// Helper function to get the complete image URL
-const getImageUrl = (imagePath) => {
-  return getFullImageUrl(imagePath);
-};
 
 const CATEGORIES = [
   'Appetizers',
@@ -56,6 +52,7 @@ const RestaurantMenu = () => {
   // eslint-disable-next-line no-unused-vars
   const { currentUser, isRestaurantOwner } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
+  const [menuItemsByCategory, setMenuItemsByCategory] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -75,57 +72,67 @@ const RestaurantMenu = () => {
   }, []);
 
   const fetchMenuItems = async () => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        setError('Authentication token not found. Please log in again.');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('Fetching menu items from API...');
+      console.log('Fetching menu items...');
+      setIsLoading(true);
       const response = await axios.get(`${API_URL}/menu/restaurant`, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`
         }
       });
+      console.log('API response for menu items:', response.data);
       
-      if (response.data.success) {
-        console.log('Menu items received:', response.data.data.length);
+      if (response.data && response.data.success) {
+        const items = response.data.data || [];
+        console.log('Received menu items:', items.length);
         
-        // Process and log each menu item's image
-        const processedItems = response.data.data.map(item => {
-          console.log(`Processing menu item: ${item.id} - ${item.name}`);
-          console.log(`Original image path: ${item.image}`);
-          
-          // For debugging, log the full path that will be used
-          if (item.image) {
-            const fullImageUrl = getImageUrl(item.image);
-            console.log(`Full image URL: ${fullImageUrl}`);
-            
-            // Test if the image URL is accessible
-            fetch(fullImageUrl, { method: 'HEAD' })
-              .then(res => {
-                console.log(`Image fetch status for ${item.id}: ${res.status} ${res.statusText}`);
-              })
-              .catch(err => {
-                console.error(`Failed to fetch image for ${item.id}:`, err);
-              });
-          }
-          
-          return item;
+        // Debug each item to check the data structure
+        items.forEach((item, index) => {
+          console.log(`Menu item ${index + 1}:`, {
+            id: item.id || item._id,
+            name: item.name || item.item_name,
+            price: item.price || item.item_price,
+            image: item.image || item.imageUrl,
+            category: item.category || 'Other'
+          });
         });
         
-        setMenuItems(processedItems);
+        // Map fields to ensure consistent naming
+        const mappedItems = items.map(item => ({
+          ...item,
+          id: item.id || item._id,
+          name: item.name || item.item_name,
+          price: item.price || item.item_price,
+          image: item.image || item.imageUrl,
+          category: item.category || 'Other'
+        }));
+        
+        console.log('Mapped items with consistent naming:', mappedItems.length);
+        
+        // Store the flat list of items
+        setMenuItems(mappedItems);
+        
+        // Organize items by category
+        const categorized = {};
+        mappedItems.forEach(item => {
+          const category = item.category || 'Other';
+          if (!categorized[category]) {
+            categorized[category] = [];
+          }
+          categorized[category].push(item);
+        });
+        
+        console.log('Categories found:', Object.keys(categorized));
+        
+        // Set the categorized items separately
+        setMenuItemsByCategory(categorized);
       } else {
-        setError(response.data.message || 'Failed to fetch menu items');
+        console.error('Failed to fetch menu items:', response.data?.message || 'Unknown error');
+        toast.error('Failed to load menu items');
       }
-    } catch (err) {
-      console.error('Error fetching menu items:', err);
-      setError(err.response?.data?.message || 'Failed to fetch menu items. Please try again.');
+    } catch (error) {
+      console.error('Error fetching menu items:', error);
+      toast.error('Failed to load menu items');
     } finally {
       setIsLoading(false);
     }
@@ -172,14 +179,26 @@ const RestaurantMenu = () => {
   };
 
   const openEditDialog = (item) => {
+    console.log('Opening edit dialog for item:', item);
     setCurrentItem(item);
+    
+    // Determine the image preview URL
+    let imagePreview = '';
+    if (item.image && typeof item.image === 'string' && item.image.trim() !== '') {
+      imagePreview = getFullImageUrl(item.image);
+    } else if (item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.trim() !== '') {
+      imagePreview = getFullImageUrl(item.imageUrl);
+    }
+    
+    console.log('Image preview URL:', imagePreview);
+    
     setFormData({
-      name: item.name,
+      name: item.name || item.item_name,
       description: item.description,
-      price: item.price.toString(),
+      price: (item.price || item.item_price).toString(),
       category: item.category,
       image: null,
-      imagePreview: item.image ? getImageUrl(item.image) : '',
+      imagePreview: imagePreview,
       isAvailable: item.isAvailable,
       calories: item.calories?.toString() || '',
       protein: item.protein?.toString() || '',
@@ -200,82 +219,62 @@ const RestaurantMenu = () => {
   const handleAddMenuItem = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
     
     try {
-      // Validate required fields
-      if (!formData.name || !formData.description || !formData.price) {
-        setError('Please fill all required fields');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Get and validate auth token
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        setError('Authentication token not found. Please log in again.');
-        setIsSubmitting(false);
-        return;
-      }
+      console.log('Form data before submission:', formData);
       
-      console.log('Auth token for menu item creation:', token.substring(0, 10) + '...');
+      // Create FormData for file upload
+      const formDataObj = new FormData();
       
-      // Create form data for file upload
-      const data = new FormData();
-      data.append('name', formData.name);
-      data.append('description', formData.description);
-      data.append('price', formData.price);
-      data.append('category', formData.category);
-      data.append('isAvailable', formData.isAvailable ? 'true' : 'false');
+      // Add all fields to the form data
+      formDataObj.append('name', formData.name);
+      formDataObj.append('description', formData.description);
+      formDataObj.append('price', formData.price);
+      formDataObj.append('category', formData.category);
+      formDataObj.append('isAvailable', formData.isAvailable ? 'true' : 'false');
       
-      if (formData.calories) data.append('calories', formData.calories);
-      if (formData.protein) data.append('protein', formData.protein);
-      if (formData.carbs) data.append('carbs', formData.carbs);
-      if (formData.fat) data.append('fat', formData.fat);
+      if (formData.calories) formDataObj.append('calories', formData.calories);
+      if (formData.protein) formDataObj.append('protein', formData.protein);
+      if (formData.carbs) formDataObj.append('carbs', formData.carbs);
+      if (formData.fat) formDataObj.append('fat', formData.fat);
       
-      data.append('isVegetarian', formData.isVegetarian ? 'true' : 'false');
-      data.append('isVegan', formData.isVegan ? 'true' : 'false');
-      data.append('isGlutenFree', formData.isGlutenFree ? 'true' : 'false');
+      formDataObj.append('isVegetarian', formData.isVegetarian ? 'true' : 'false');
+      formDataObj.append('isVegan', formData.isVegan ? 'true' : 'false');
+      formDataObj.append('isGlutenFree', formData.isGlutenFree ? 'true' : 'false');
       
+      // Add the image file if it exists
       if (formData.image instanceof File) {
-        console.log('Image being uploaded:', formData.image.name, formData.image.type, formData.image.size);
-        data.append('image', formData.image);
-      } else {
-        console.log('No image file to upload');
+        formDataObj.append('image', formData.image);
+        console.log('Image file being uploaded:', formData.image.name, formData.image.type, formData.image.size);
       }
       
-      console.log('Sending menu item data:', {
-        name: formData.name,
-        description: formData.description?.substring(0, 20) + '...',
-        price: formData.price,
-        category: formData.category,
-        hasImage: !!formData.image
-      });
-      
-      const response = await axios.post(`${API_URL}/menu`, data, {
+      // Configure the request with the correct content type for FormData
+      const config = {
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`
+        },
+      };
       
-      if (response.data.success) {
-        console.log('Menu item added successfully!', response.data);
-        if (response.data.data.image) {
-          console.log('Image path in response:', response.data.data.image);
-          console.log('Full image URL would be:', getImageUrl(response.data.data.image));
-        }
-        
-        setSuccess('Menu item added successfully!');
-        setIsAddDialogOpen(false);
-        fetchMenuItems(); // Refresh the menu items
+      console.log('Submitting new menu item...');
+      const response = await axios.post(`${API_URL}/menu`, formDataObj, config);
+      console.log('Add menu item response:', response.data);
+      
+      if (response.data && response.data.success) {
+        toast.success('Menu item added successfully!');
+        // Clear the form
         resetForm();
+        setIsAddDialogOpen(false);
+        
+        // Refresh the menu items
+        fetchMenuItems();
+      } else {
+        console.error('Failed to add menu item:', response.data?.message || 'Unknown error');
+        toast.error(response.data?.message || 'Failed to add menu item');
       }
-    } catch (err) {
-      console.error('Error adding menu item:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to add menu item. Please check all fields and try again.';
-      console.log('Error response data:', err.response?.data);
-      setError(errorMessage);
+    } catch (error) {
+      console.error('Error adding menu item:', error);
+      toast.error(error.response?.data?.message || 'Failed to add menu item');
     } finally {
       setIsSubmitting(false);
     }
@@ -290,6 +289,14 @@ const RestaurantMenu = () => {
       // Validate required fields
       if (!formData.name || !formData.description || !formData.price) {
         setError('Please fill all required fields');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Get the item ID from currentItem
+      const itemId = currentItem?.id || currentItem?._id;
+      if (!itemId) {
+        setError('Item ID is missing');
         setIsSubmitting(false);
         return;
       }
@@ -315,7 +322,7 @@ const RestaurantMenu = () => {
         data.append('image', formData.image);
       }
       
-      const response = await axios.put(`${API_URL}/menu/${currentItem.id}`, data, {
+      const response = await axios.put(`${API_URL}/menu/${itemId}`, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'multipart/form-data'
@@ -340,7 +347,15 @@ const RestaurantMenu = () => {
     setError(null);
     
     try {
-      const response = await axios.delete(`${API_URL}/menu/${currentItem.id}`, {
+      // Get the item ID from currentItem
+      const itemId = currentItem?.id || currentItem?._id;
+      if (!itemId) {
+        setError('Item ID is missing');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const response = await axios.delete(`${API_URL}/menu/${itemId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`
         }
@@ -358,15 +373,6 @@ const RestaurantMenu = () => {
       setIsSubmitting(false);
     }
   };
-
-  // Group menu items by category
-  const menuItemsByCategory = menuItems.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {});
 
   const renderForm = (submitHandler) => (
     <form onSubmit={submitHandler} className="space-y-4">
@@ -558,6 +564,82 @@ const RestaurantMenu = () => {
     </form>
   );
 
+  const renderMenuItem = (item) => {
+    // Ensure we have a valid item object to work with
+    if (!item) {
+      console.error('Invalid menu item received:', item);
+      return null;
+    }
+    
+    // Log the item details for debugging
+    console.log('Rendering menu item:', { 
+      id: item.id || item._id,
+      name: item.name,
+      image: item.image,
+      price: item.price
+    });
+    
+    // Get the image URL or use placeholder if not available
+    let imageUrl = '';
+    
+    if (item.image && typeof item.image === 'string' && item.image.trim() !== "") {
+      imageUrl = getFullImageUrl(item.image);
+      console.log(`Using image URL for ${item.name}:`, imageUrl);
+    } else if (item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.trim() !== "") {
+      imageUrl = getFullImageUrl(item.imageUrl);
+      console.log(`Using imageUrl for ${item.name}:`, imageUrl);
+    } else {
+      imageUrl = PLACEHOLDERS.FOOD;
+      console.log(`Using placeholder for ${item.name}:`, imageUrl);
+    }
+    
+    // Generate a unique key using id or _id
+    const itemKey = item.id || item._id || `menu-item-${Math.random().toString(36).substr(2, 9)}`;
+    
+    return (
+      <div key={itemKey} className="p-4 bg-white rounded-lg shadow">
+        <div className="relative h-48 mb-4">
+          <img
+            src={imageUrl}
+            alt={item.name || item.item_name || 'Menu item'}
+            className="object-cover w-full h-full rounded"
+            onError={(e) => {
+              console.error(`Error loading image for ${item.name}:`, e);
+              e.target.src = PLACEHOLDERS.FOOD;
+            }}
+          />
+        </div>
+        <h3 className="text-xl font-semibold">{item.name || item.item_name || 'Unnamed item'}</h3>
+        <p className="my-2 text-gray-600">{item.description || 'No description available'}</p>
+        <p className="font-bold text-red-500">
+          £{parseFloat(item.price || item.item_price || 0).toFixed(2)}
+        </p>
+        <div className="flex flex-wrap gap-2 mt-2 mb-3">
+          {item.isVegan && (
+            <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded">Vegan</span>
+          )}
+          {item.isGlutenFree && (
+            <span className="px-2 py-1 text-xs text-blue-800 bg-blue-100 rounded">Gluten Free</span>
+          )}
+        </div>
+        <div className="flex gap-2 mt-2">
+          <button 
+            onClick={() => openEditDialog(item)} 
+            className="px-3 py-1 text-white transition bg-blue-500 rounded hover:bg-blue-600"
+          >
+            Edit
+          </button>
+          <button 
+            onClick={() => openDeleteDialog(item)} 
+            className="px-3 py-1 text-white transition bg-red-500 rounded hover:bg-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-6">
@@ -600,61 +682,9 @@ const RestaurantMenu = () => {
         <div key={category} className="mb-8">
             <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-100">{category}</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {items.map(item => (
-                <Card key={item.id} className="overflow-hidden">
-                  {item.image ? (
-                    <div className="bg-gray-200 aspect-w-16 aspect-h-9 dark:bg-gray-700">
-                      <img 
-                        src={getImageUrl(item.image)} 
-                        alt={item.name} 
-                        className="object-cover w-full h-48"
-                        onError={(e) => {
-                          console.error('Error loading image:', item.image);
-                          e.target.onerror = null;
-                          e.target.src = PLACEHOLDERS.FOOD;
-                          
-                          // Add border to make it clear this is a placeholder
-                          e.target.style.border = '2px dashed #ff0000';
-                          e.target.style.padding = '8px';
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center w-full h-48 bg-gray-300 dark:bg-gray-600">
-                      <FaUtensils className="w-16 h-16 text-gray-400 dark:text-gray-500" />
-                  </div>
-                  )}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{item.name}</h3>
-                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ${parseFloat(item.price).toFixed(2)}
-                      </span>
-                    </div>
-                    <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                          item.isAvailable ? 'bg-green-500' : 'bg-red-500'
-                        }`} />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {item.isAvailable ? 'Available' : 'Unavailable'}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDialog(item)}>
-                          <FaEdit className="mr-1" /> Edit
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(item)}>
-                          <FaTrash className="mr-1" /> Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+              {items.map(item => renderMenuItem(item))}
+            </div>
           </div>
-        </div>
         ))
       )}
 

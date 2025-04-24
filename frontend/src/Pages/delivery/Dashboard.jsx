@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FaMotorcycle, FaCheckCircle, FaClock, FaDollarSign } from 'react-icons/fa';
+import { FaMotorcycle, FaCheckCircle, FaClock, FaDollarSign, FaExclamationTriangle } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 import { deliveryAPI } from '../../utils/api'; // Assuming deliveryAPI exists
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
+import { Alert } from '../../components/ui';
 
 const DeliveryDashboard = () => {
   const { currentUser } = useAuth();
@@ -112,16 +113,39 @@ const DeliveryDashboard = () => {
     }
   ];
 
+  const isApproved = currentUser?.deliveryRiderDetails?.approved === true;
+
   return (
-    <Dashboard
-      role="deliveryuser"
-      isLoading={isLoading}
-      error={error}
-      stats={stats}
-      quickActions={quickActions}
-      recentActivity={recentActivity}
-      onRefresh={fetchDashboardData} // Pass refresh function
-    />
+    <div>
+      {!isLoading && (
+        <Alert 
+          variant={isApproved ? "success" : "warning"} 
+          className="mb-4 flex items-center"
+        >
+          {isApproved ? (
+            <>
+              <FaCheckCircle className="mr-2" />
+              <span>Your account is <strong>approved</strong>. You can accept delivery orders.</span>
+            </>
+          ) : (
+            <>
+              <FaExclamationTriangle className="mr-2" />
+              <span>Your account is <strong>pending approval</strong> by an administrator. You cannot accept delivery orders until approved.</span>
+            </>
+          )}
+        </Alert>
+      )}
+      
+      <Dashboard
+        role="deliveryuser"
+        isLoading={isLoading}
+        error={error}
+        stats={stats}
+        quickActions={quickActions}
+        recentActivity={recentActivity}
+        onRefresh={fetchDashboardData} // Pass refresh function
+      />
+    </div>
   );
 };
 

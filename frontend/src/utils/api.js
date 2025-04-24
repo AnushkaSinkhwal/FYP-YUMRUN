@@ -591,10 +591,9 @@ export const userAPI = {
     return api.put('/user/profile', profileData);
   },
   
-  // Update user health profile
-  updateHealthProfile: async (healthProfileData) => {
-    console.log('Updating health profile with:', healthProfileData);
-    return api.put('/user/health-profile', { healthProfile: healthProfileData });
+  // Update health profile
+  updateHealthProfile: async (healthProfile) => {
+    return api.put('/user/health-profile', { healthProfile });
   },
   
   // Update delivery rider details
@@ -661,24 +660,34 @@ export const userAPI = {
     return api.delete(`/user/notifications/${notificationId}`);
   },
   
+  // Get user's order history
+  getOrderHistory: async () => {
+    return api.get('/user/order-history');
+  },
+  
+  // Get user's loyalty points and details
+  getLoyaltyInfo: async () => {
+    return api.get('/user/loyalty');
+  },
+  
   // Get user's loyalty points
   getLoyaltyPoints: async () => {
-    return api.get('/loyalty/user/me');
+    return api.get('/user/loyalty/points');
   },
   
-  // Get user's loyalty points history
-  getLoyaltyHistory: async () => {
-    return api.get('/loyalty/history/me');
-  },
-  
-  // Get available loyalty rewards
-  getLoyaltyRewards: async () => {
-    return api.get('/loyalty/rewards');
+  // Get user's loyalty history
+  getLoyaltyHistory: async (page = 1, limit = 10) => {
+    return api.get(`/user/loyalty/history?page=${page}&limit=${limit}`);
   },
   
   // Redeem loyalty points
   redeemLoyaltyPoints: async (points, rewardId) => {
-    return api.post('/loyalty/redeem', { points, rewardId });
+    return api.post('/user/loyalty/redeem', { points, rewardId });
+  },
+  
+  // Get loyalty rewards
+  getLoyaltyRewards: async () => {
+    return api.get('/loyalty/rewards');
   },
   
   // Get personalized recommendations

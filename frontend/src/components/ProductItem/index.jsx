@@ -25,7 +25,8 @@ const ProductItem = ({
     rating = 0, 
     oldPrice = "", 
     newPrice = "520", 
-    image = "", 
+    image = "",
+    imgSrc = "", 
     isRestaurant = false,
     linkTo = ""
 }) => {
@@ -40,8 +41,10 @@ const ProductItem = ({
     const itemLink = linkTo || (isRestaurant ? `/restaurant/${id}` : `/product/${id}`);
 
     // Process the image URL using getFullImageUrl and appropriate placeholder
-    const processedImageUrl = image 
-        ? getFullImageUrl(image) 
+    // Accept either image or imgSrc prop (for backward compatibility)
+    const finalImage = image || imgSrc || '';
+    const processedImageUrl = finalImage 
+        ? getFullImageUrl(finalImage) 
         : isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
 
     // Check if item is in favorites on component mount
@@ -430,6 +433,7 @@ ProductItem.propTypes = {
     oldPrice: PropTypes.string,
     newPrice: PropTypes.string,
     image: PropTypes.string,
+    imgSrc: PropTypes.string,
     isRestaurant: PropTypes.bool,
     linkTo: PropTypes.string
 };

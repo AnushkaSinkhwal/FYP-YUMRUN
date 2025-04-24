@@ -449,33 +449,51 @@ router.get('/restaurant', auth, async (req, res) => {
         const menuItems = await MenuItem.find({ restaurant: restaurantId });
         console.log('Found menu items:', menuItems ? menuItems.length : 'none');
         
-        // Format the response
-        const formattedItems = menuItems ? menuItems.map(item => ({
-            id: item._id,
-            name: item.item_name,
-            description: item.description,
-            price: item.item_price,
-            image: item.image,
-            restaurant: item.restaurant ? {
-                id: item.restaurant._id,
-                name: item.restaurant.name || 'Unknown Restaurant'
-            } : {
-                id: null,
-                name: 'Unknown Restaurant'
-            },
-            category: item.category || 'Main Course',
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-            isVegetarian: item.isVegetarian,
-            isVegan: item.isVegan,
-            isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-            averageRating: item.averageRating || 0,
-            numberOfRatings: item.numberOfRatings || 0,
-            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
-        })) : [];
+        // Debug the first menu item thoroughly if any exist
+        if (menuItems && menuItems.length > 0) {
+            console.log('First menu item debug:', {
+                id: menuItems[0]._id,
+                item_name: menuItems[0].item_name,
+                item_price: menuItems[0].item_price,
+                image: menuItems[0].image
+            });
+        }
+        
+        // Format the response, correctly mapping model field names to API response names
+        const formattedItems = menuItems ? menuItems.map(item => {
+            // Determine which image field to use, with fallbacks
+            let imagePath = item.image || null;
+            
+            // Debug the image path
+            console.log(`Processing image path for item ${item._id}: ${imagePath}`);
+            
+            return {
+                id: item._id,
+                name: item.item_name, // Map item_name to name
+                description: item.description,
+                price: item.item_price, // Map item_price to price
+                image: imagePath, // Use the determined image path
+                restaurant: item.restaurant ? {
+                    id: item.restaurant._id,
+                    name: item.restaurant.name || 'Unknown Restaurant'
+                } : {
+                    id: restaurantId,
+                    name: 'Your Restaurant'
+                },
+                category: item.category || 'Main Course',
+                calories: item.calories,
+                protein: item.protein,
+                carbs: item.carbs,
+                fat: item.fat,
+                isVegetarian: item.isVegetarian,
+                isVegan: item.isVegan,
+                isGlutenFree: item.isGlutenFree,
+                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                averageRating: item.averageRating || 0,
+                numberOfRatings: item.numberOfRatings || 0,
+                isPopular: item.numberOfRatings > 2 || item.averageRating > 4
+            };
+        }) : [];
         
         res.status(200).json({
             success: true,
@@ -608,94 +626,90 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST create new menu item
-router.post('/', [
-    auth, 
-    isRestaurantOwner, 
-    (req, res, next) => {
-        upload.single('image')(req, res, (err) => {
-            if (err) {
-                return handleMulterError(err, req, res, next);
-            }
-            next();
-        });
-    }
-], async (req, res) => {
+// POST create a new menu item (Restaurant owner only)
+router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterError, async (req, res) => {
     try {
-        const {
-            name, description, price, category,
-            calories, protein, carbs, fat,
-            isVegetarian, isVegan, isGlutenFree, isAvailable
-        } = req.body;
+        console.log('Creating new menu item with data:', req.body);
+        console.log('User from token:', req.user);
         
-        // Validate required fields
-        if (!name || !description || !price) {
-            return res.status(400).json({
-                success: false,
-                message: 'Name, description, and price are required fields'
-            });
+        let imageUrl = null;
+        if (req.file) {
+            imageUrl = `uploads/menu/${req.file.filename}`;
+            console.log('Uploaded image saved to:', imageUrl);
         }
-
-        // Validate price is a number
-        if (isNaN(parseFloat(price))) {
+        
+        // Get restaurant ID from token
+        const restaurantId = req.user.id || req.user._id || req.user.userId;
+        if (!restaurantId) {
+            console.log('Missing restaurant ID in request');
             return res.status(400).json({
                 success: false,
-                message: 'Price must be a valid number'
+                message: 'Restaurant ID is missing.'
             });
         }
         
-        // Create menu item
-        const menuItem = new MenuItem({
-            item_name: name,
-            item_price: parseFloat(price),
-            description,
-            image: req.file ? '/' + req.file.path : '',
-            restaurant: req.user.restaurantId,
-            category: category || 'Main Course',
-            calories: calories ? parseFloat(calories) : 0,
-            protein: protein ? parseFloat(protein) : 0,
-            carbs: carbs ? parseFloat(carbs) : 0,
-            fat: fat ? parseFloat(fat) : 0,
-            isVegetarian: isVegetarian === 'true' || isVegetarian === true,
-            isVegan: isVegan === 'true' || isVegan === true,
-            isGlutenFree: isGlutenFree === 'true' || isGlutenFree === true,
-            isAvailable: isAvailable === 'true' || isAvailable === true
-        });
+        console.log('Creating menu item for restaurant ID:', restaurantId);
         
-        await menuItem.save();
+        // Create a new menu item
+        const menuItemData = {
+            item_name: req.body.name, // Map from name (API) to item_name (model)
+            item_price: req.body.price, // Map from price (API) to item_price (model)
+            description: req.body.description,
+            category: req.body.category,
+            restaurant: restaurantId
+        };
         
-        // Return formatted response
+        if (imageUrl) {
+            menuItemData.image = imageUrl; // Store the image URL
+        }
+        
+        // Optional fields
+        if (req.body.calories) menuItemData.calories = parseFloat(req.body.calories);
+        if (req.body.protein) menuItemData.protein = parseFloat(req.body.protein);
+        if (req.body.carbs) menuItemData.carbs = parseFloat(req.body.carbs);
+        if (req.body.fat) menuItemData.fat = parseFloat(req.body.fat);
+        
+        // Boolean fields (convert string values to boolean)
+        menuItemData.isVegetarian = req.body.isVegetarian === 'true';
+        menuItemData.isVegan = req.body.isVegan === 'true';
+        menuItemData.isGlutenFree = req.body.isGlutenFree === 'true';
+        menuItemData.isAvailable = req.body.isAvailable === 'true';
+        
+        console.log('Final menu item data to save:', menuItemData);
+        
+        const menuItem = new MenuItem(menuItemData);
+        const savedItem = await menuItem.save();
+        
+        console.log('Menu item saved successfully:', savedItem._id);
+        
+        // Prepare response data with API field names (name, price)
+        const responseItem = {
+            id: savedItem._id,
+            name: savedItem.item_name,
+            price: savedItem.item_price,
+            description: savedItem.description,
+            category: savedItem.category,
+            image: savedItem.image,
+            calories: savedItem.calories,
+            protein: savedItem.protein,
+            carbs: savedItem.carbs,
+            fat: savedItem.fat,
+            isVegetarian: savedItem.isVegetarian,
+            isVegan: savedItem.isVegan,
+            isGlutenFree: savedItem.isGlutenFree,
+            isAvailable: savedItem.isAvailable
+        };
+        
         res.status(201).json({
             success: true,
-            message: 'Menu item created successfully',
-            data: {
-                id: menuItem._id,
-                name: menuItem.item_name,
-                description: menuItem.description,
-                price: menuItem.item_price,
-                image: menuItem.image,
-                category: menuItem.category,
-                calories: menuItem.calories,
-                protein: menuItem.protein,
-                carbs: menuItem.carbs,
-                fat: menuItem.fat,
-                isVegetarian: menuItem.isVegetarian,
-                isVegan: menuItem.isVegan,
-                isGlutenFree: menuItem.isGlutenFree,
-                isAvailable: menuItem.isAvailable
-            }
+            message: 'Menu item created successfully.',
+            data: responseItem
         });
     } catch (error) {
         console.error('Error creating menu item:', error);
-        let errorMessage = 'Server error. Please try again.';
-        
-        if (error.name === 'ValidationError') {
-            errorMessage = Object.values(error.errors).map(err => err.message).join(', ');
-        }
-        
-        res.status(500).json({ 
-            success: false, 
-            message: errorMessage
+        res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
         });
     }
 });
@@ -714,10 +728,21 @@ router.put('/:id', [
     }
 ], async (req, res) => {
     try {
+        // First, find the restaurant owned by this user
+        const Restaurant = mongoose.model('Restaurant');
+        const restaurant = await Restaurant.findOne({ owner: req.user._id || req.user.userId || req.user.id });
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: "Restaurant not found. Please make sure you have a restaurant registered."
+            });
+        }
+        
         // Find menu item and ensure it belongs to the restaurant owner
         const menuItem = await MenuItem.findOne({ 
             _id: req.params.id,
-            restaurant: req.user.restaurantId
+            restaurant: restaurant._id
         });
         
         if (!menuItem) {
@@ -847,6 +872,62 @@ router.delete('/:id', auth, isRestaurantOwner, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Server error. Please try again.' 
+        });
+    }
+});
+
+// FIX endpoint to repair menu items with incorrect restaurant association
+router.post('/fix-menu-items', [auth, isRestaurantOwner], async (req, res) => {
+    try {
+        // Find the restaurant owned by this user
+        const Restaurant = mongoose.model('Restaurant');
+        const restaurant = await Restaurant.findOne({ owner: req.user._id || req.user.userId || req.user.id });
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: "Restaurant not found. Please make sure you have a restaurant registered."
+            });
+        }
+        
+        console.log(`Fixing menu items for restaurant: ${restaurant.name} (ID: ${restaurant._id})`);
+        
+        // Look for menu items with user ID as restaurant
+        const userIds = [
+            req.user._id,
+            req.user.userId,
+            req.user.id
+        ].filter(Boolean).map(id => id.toString ? id.toString() : id);
+        
+        // Update menu items that have incorrect association
+        const updateResult = await MenuItem.updateMany(
+            { 
+                $or: [
+                    { restaurant: { $in: userIds } },
+                    { restaurant: null }
+                ]
+            },
+            { restaurant: restaurant._id }
+        );
+        
+        console.log(`Updated ${updateResult.modifiedCount} menu items`);
+        
+        // Return success response
+        res.status(200).json({
+            success: true,
+            message: `Fixed ${updateResult.modifiedCount} menu items`,
+            data: {
+                updatedCount: updateResult.modifiedCount,
+                matchedCount: updateResult.matchedCount,
+                restaurantId: restaurant._id,
+                restaurantName: restaurant.name
+            }
+        });
+    } catch (error) {
+        console.error('Error fixing menu items:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while fixing menu items'
         });
     }
 });

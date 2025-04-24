@@ -2,7 +2,9 @@
 
 // Get the base URL for backend server
 const getBackendUrl = () => {
-  return import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+  console.log('Backend URL:', backendUrl);
+  return backendUrl;
 };
 
 /**
@@ -11,21 +13,39 @@ const getBackendUrl = () => {
  * @returns {string} - The full URL including the backend server
  */
 export const getFullImageUrl = (path) => {
+  console.log('getFullImageUrl called with path:', path);
+  
   // If the path already includes http or https, return it as is
   if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
+    console.log('Path already contains http/https, returning as is');
     return path;
   }
   
   // If path is null/undefined or empty, return a default placeholder
   if (!path) {
-    return `${getBackendUrl()}/uploads/placeholders/food-placeholder.jpg`;
+    const defaultUrl = `${getBackendUrl()}/uploads/placeholders/food-placeholder.jpg`;
+    console.log('No path provided, returning default placeholder:', defaultUrl);
+    return defaultUrl;
   }
   
-  // Make sure path starts with a slash
+  // Handle case when path is uploads/menu/file.jpg (without leading slash)
+  // or /uploads/menu/file.jpg (with leading slash)
   const formattedPath = path.startsWith('/') ? path : `/${path}`;
   
+  // If path doesn't start with /uploads and doesn't have http/https, it might be just a filename
+  if (!formattedPath.includes('/uploads/') && !formattedPath.includes('/images/')) {
+    // Check if it's just a filename like "abc.jpg"
+    if (formattedPath.match(/^\/[^/]+\.(jpg|jpeg|png|gif|webp)$/i)) {
+      const fullPath = `${getBackendUrl()}/uploads/menu${formattedPath}`;
+      console.log('Simple filename detected, adding uploads/menu prefix:', fullPath);
+      return fullPath;
+    }
+  }
+  
   // Return full URL
-  return `${getBackendUrl()}${formattedPath}`;
+  const fullUrl = `${getBackendUrl()}${formattedPath}`;
+  console.log('Final image URL:', fullUrl);
+  return fullUrl;
 };
 
 // Common placeholder images

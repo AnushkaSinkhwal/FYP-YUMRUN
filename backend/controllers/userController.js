@@ -209,7 +209,7 @@ exports.updateUserProfile = async (req, res) => {
  */
 exports.updateHealthProfile = async (req, res) => {
   try {
-    const { healthProfile } = req.body;
+    const healthProfile = req.body.healthProfile;
     
     if (!healthProfile) {
       return res.status(400).json({
@@ -234,20 +234,48 @@ exports.updateHealthProfile = async (req, res) => {
       });
     }
 
-    // Only allow customers to update health profile
-    if (user.role !== 'customer') {
-      return res.status(403).json({
-        success: false,
-        error: {
-          message: 'Only customers can update health profiles',
-          code: 'FORBIDDEN'
-        }
-      });
+    // Validate health profile data
+    if (healthProfile.dietaryPreferences) {
+      // Ensure dietaryPreferences is an array
+      if (!Array.isArray(healthProfile.dietaryPreferences)) {
+        healthProfile.dietaryPreferences = [healthProfile.dietaryPreferences];
+      }
+      
+      // If 'None' is present with other options, remove 'None'
+      if (healthProfile.dietaryPreferences.includes('None') && healthProfile.dietaryPreferences.length > 1) {
+        healthProfile.dietaryPreferences = healthProfile.dietaryPreferences.filter(pref => pref !== 'None');
+      }
+    }
+    
+    if (healthProfile.healthConditions) {
+      // Ensure healthConditions is an array
+      if (!Array.isArray(healthProfile.healthConditions)) {
+        healthProfile.healthConditions = [healthProfile.healthConditions];
+      }
+      
+      // If 'None' is present with other options, remove 'None'
+      if (healthProfile.healthConditions.includes('None') && healthProfile.healthConditions.length > 1) {
+        healthProfile.healthConditions = healthProfile.healthConditions.filter(cond => cond !== 'None');
+      }
+    }
+    
+    // Ensure macroTargets percentages add up to 100%
+    if (healthProfile.macroTargets) {
+      const { protein, carbs, fat } = healthProfile.macroTargets;
+      const total = (protein || 0) + (carbs || 0) + (fat || 0);
+      
+      if (total !== 100) {
+        // Adjust proportionally to make total 100%
+        const ratio = 100 / total;
+        healthProfile.macroTargets.protein = Math.round((protein || 0) * ratio);
+        healthProfile.macroTargets.carbs = Math.round((carbs || 0) * ratio);
+        healthProfile.macroTargets.fat = Math.round((fat || 0) * ratio);
+      }
     }
 
-    // Update health profile fields
+    // Update health profile with new validated data
     user.healthProfile = {
-      ...user.healthProfile,
+      ...user.healthProfile || {},
       ...healthProfile
     };
 

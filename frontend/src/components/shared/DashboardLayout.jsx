@@ -59,6 +59,7 @@ const DashboardLayout = ({ children, role }) => {
         { path: '/admin/restaurants', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/admin/users', label: 'Users', icon: <FaUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/riders', label: 'Riders', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/deliveries', label: 'Deliveries', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
@@ -304,11 +305,8 @@ const DashboardLayout = ({ children, role }) => {
           <ul className="space-y-1">
             {getNavItems().map((item) => (
               <li key={item.path}>
-                <div
-                  onClick={() => {
-                    console.log('Navigating to:', item.path);
-                    navigate(item.path);
-                  }}
+                <Link
+                  to={item.path}
                   className={`
                     flex items-center px-4 py-2 text-sm rounded-md transition-colors cursor-pointer
                     ${location.pathname === item.path
@@ -324,7 +322,7 @@ const DashboardLayout = ({ children, role }) => {
                       {notificationCount > 9 ? '9+' : notificationCount}
                     </span>
                   )}
-                </div>
+                </Link>
               </li>
             ))}
           </ul>

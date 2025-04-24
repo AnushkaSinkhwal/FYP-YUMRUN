@@ -4,6 +4,7 @@ import { MyContext } from "../../context/UIContext.js";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../../assets/images/logo.png";
 import { Button, Input, Label, Alert, Spinner, Container, RadioGroup, RadioGroupItem, Select } from "../../components/ui";
+import api from "../../utils/api";
 
 const SignUp = () => {
     const context = useContext(MyContext);
@@ -199,8 +200,18 @@ const SignUp = () => {
             }
             
             console.log("Sending registration data:", userData);
-            const result = await register(userData);
-            console.log("Registration result:", result);
+            
+            let result;
+            // Use direct API call for restaurant role to better handle errors
+            if (role === "restaurant") {
+                const response = await api.post('/auth/register', userData);
+                result = response.data;
+                console.log("Restaurant registration result:", result);
+            } else {
+                // Use register function from AuthContext for other roles
+                result = await register(userData);
+                console.log("Registration result:", result);
+            }
             
             if (result && result.success) {
                 // Check if email verification is required
@@ -215,11 +226,23 @@ const SignUp = () => {
                     });
                 }
             } else {
-                setError(result?.error || "Registration failed. Please try again.");
+                setError(result?.error?.message || result?.error || "Registration failed. Please try again.");
             }
         } catch (err) {
             console.error("Registration error:", err);
-            setError("An unexpected error occurred: " + (err.response?.data?.error?.message || err.message || "Please check your connection and try again."));
+            let errorMsg = "An unexpected error occurred. Please try again.";
+            
+            // Extract the error message from the server response
+            if (err.response && err.response.data) {
+                const responseData = err.response.data;
+                if (responseData.error && responseData.error.message) {
+                    errorMsg = responseData.error.message;
+                } else if (typeof responseData.message === 'string') {
+                    errorMsg = responseData.message;
+                }
+            }
+            
+            setError(errorMsg);
         }
     };
 

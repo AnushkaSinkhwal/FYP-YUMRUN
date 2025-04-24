@@ -684,98 +684,150 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
 router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
     try {
         const userId = req.user.userId;
-        
+        console.log(`[Dashboard] Starting dashboard fetch for user ID: ${userId}`);
+
         // Import models correctly
         const Order = require('../models/order');
         const MenuItem = require('../models/menuItem');
         const Offer = require('../models/offer');
         
         // Find the restaurant associated with this user
-        let restaurantId = userId; // Default to using userId directly
-        
+        let restaurantId = null; // Initialize to null
+        let derivedFrom = null; // Track how ID was derived
+
         // First check if user has restaurantDetails
         const user = await User.findById(userId);
         if (user && user.restaurantDetails && user.restaurantDetails._id) {
             restaurantId = user.restaurantDetails._id;
-            console.log(`Using restaurant ID from user.restaurantDetails: ${restaurantId}`);
+            derivedFrom = 'user.restaurantDetails._id';
+            console.log(`[Dashboard] Found restaurant ID (${restaurantId}) from user.restaurantDetails._id`);
         } else {
+             console.log('[Dashboard] No restaurant ID found in user.restaurantDetails.');
             // Check if a separate restaurant document exists
             try {
                 // Use proper Restaurant model
                 const Restaurant = require('../models/restaurant');
-                const restaurant = await Restaurant.findOne({ owner: userId });
+                console.log(`[Dashboard] Looking up Restaurant collection with owner: ${userId}`);
+                const restaurantDoc = await Restaurant.findOne({ owner: userId });
                 
-                if (restaurant) {
-                    restaurantId = restaurant._id;
-                    console.log(`Using restaurant ID from Restaurant collection: ${restaurantId}`);
+                if (restaurantDoc) {
+                    restaurantId = restaurantDoc._id;
+                    derivedFrom = 'Restaurant collection lookup';
+                    console.log(`[Dashboard] Found restaurant ID (${restaurantId}) from Restaurant collection.`);
+                } else {
+                    console.log('[Dashboard] No restaurant document found in Restaurant collection for this owner.');
+                     // Fallback: Use the user's ID directly IF they are a restaurant owner (as last resort)
+                     if (user && (user.role === 'restaurant' || user.isRestaurantOwner)) {
+                         restaurantId = userId;
+                         derivedFrom = 'fallback to userId';
+                         console.log(`[Dashboard] Falling back to using user ID (${restaurantId}) as restaurant ID.`);
+                     }
                 }
             } catch (err) {
-                console.error('Error looking up restaurant:', err);
-                // Continue with userId as restaurantId if this fails
+                console.error('[Dashboard] Error looking up restaurant collection:', err);
+                // Fallback: Use the user's ID directly IF they are a restaurant owner
+                if (user && (user.role === 'restaurant' || user.isRestaurantOwner)) {
+                    restaurantId = userId;
+                    derivedFrom = 'fallback to userId after error';
+                    console.log(`[Dashboard] Falling back to using user ID (${restaurantId}) as restaurant ID after error.`);
+                }
             }
         }
         
+        // Ensure we have a valid restaurantId before proceeding
+        if (!restaurantId) {
+            console.error(`[Dashboard] Could not determine a valid restaurant ID for user ${userId}.`);
+            return res.status(404).json({
+                success: false,
+                message: 'Could not associate user with a restaurant.'
+            });
+        }
+
+        console.log(`[Dashboard] Final restaurant ID determined: ${restaurantId} (Derived from: ${derivedFrom})`);
+
         // Fetch counts and aggregated data with try/catch for each operation
         let totalOrders = 0, pendingOrders = 0, menuItems = 0, activeOffers = 0;
         let revenueData = [], recentOrders = [], recentMenuUpdates = [];
         
         try {
-            totalOrders = await Order.countDocuments({ restaurantId: restaurantId.toString() });
+            const restaurantIdString = restaurantId.toString();
+            console.log(`[Dashboard] Counting total orders for restaurantId: ${restaurantIdString}`);
+            totalOrders = await Order.countDocuments({ restaurantId: restaurantIdString });
+            console.log(`[Dashboard] Total orders count: ${totalOrders}`);
         } catch (err) {
-            console.error('Error counting total orders:', err);
+            console.error('[Dashboard] Error counting total orders:', err);
         }
         
         try {
+             const restaurantIdString = restaurantId.toString();
+             console.log(`[Dashboard] Counting pending orders for restaurantId: ${restaurantIdString}`);
             pendingOrders = await Order.countDocuments({ 
-                restaurantId: restaurantId.toString(), 
-                status: 'PENDING' 
+                restaurantId: restaurantIdString, 
+                status: { $in: ['PENDING', 'PREPARING', 'CONFIRMED'] } // Include preparing/confirmed as active/pending
             });
+             console.log(`[Dashboard] Pending orders count: ${pendingOrders}`);
         } catch (err) {
-            console.error('Error counting pending orders:', err);
+            console.error('[Dashboard] Error counting pending orders:', err);
         }
         
         try {
-            menuItems = await MenuItem.countDocuments({ restaurant: restaurantId });
+            const restaurantIdString = restaurantId.toString();
+            console.log(`[Dashboard] Counting menu items for restaurant (ID: ${restaurantIdString}) using query: { restaurant: "${restaurantIdString}" }`);
+            menuItems = await MenuItem.countDocuments({ restaurant: restaurantIdString });
+            console.log(`[Dashboard] Menu items count result: ${menuItems}`);
         } catch (err) {
-            console.error('Error counting menu items:', err);
+            console.error('[Dashboard] Error counting menu items:', err);
         }
         
         try {
+             const restaurantIdString = restaurantId.toString();
+             console.log(`[Dashboard] Counting active offers for restaurantId: ${restaurantIdString}`);
             activeOffers = await Offer.countDocuments({
-                restaurant: restaurantId.toString(),
+                restaurant: restaurantIdString,
                 isActive: true
             });
+             console.log(`[Dashboard] Active offers count: ${activeOffers}`);
         } catch (err) {
-            console.error('Error counting active offers:', err);
+            console.error('[Dashboard] Error counting active offers:', err);
         }
         
         try {
+             const restaurantIdString = restaurantId.toString();
+             console.log(`[Dashboard] Aggregating revenue for restaurantId: ${restaurantIdString}`);
             revenueData = await Order.aggregate([
-                { $match: { restaurantId: restaurantId.toString() } },
+                { $match: { restaurantId: restaurantIdString, status: { $nin: ['CANCELLED', 'FAILED'] } } }, // Exclude cancelled/failed
                 { $group: { _id: null, total: { $sum: "$totalPrice" } } }
             ]);
+             console.log(`[Dashboard] Revenue aggregation result:`, revenueData);
         } catch (err) {
-            console.error('Error aggregating revenue data:', err);
+            console.error('[Dashboard] Error aggregating revenue data:', err);
         }
         
         // Get recent orders
         try {
-            recentOrders = await Order.find({ restaurantId: restaurantId.toString() })
+             const restaurantIdString = restaurantId.toString();
+             console.log(`[Dashboard] Fetching recent orders for restaurantId: ${restaurantIdString}`);
+            recentOrders = await Order.find({ restaurantId: restaurantIdString })
                 .sort('-createdAt')
                 .limit(5)
                 .lean();
+             console.log(`[Dashboard] Found ${recentOrders.length} recent orders.`);
         } catch (err) {
-            console.error('Error fetching recent orders:', err);
+            console.error('[Dashboard] Error fetching recent orders:', err);
         }
             
         // Get recent menu updates
         try {
-            recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId })
+             const restaurantIdString = restaurantId.toString();
+             console.log(`[Dashboard] Fetching recent menu updates for restaurant: ${restaurantIdString}`);
+            // Use the determined restaurantId directly (should be ObjectId)
+            recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId }) 
                 .sort('-updatedAt')
                 .limit(3)
                 .lean();
+             console.log(`[Dashboard] Found ${recentMenuUpdates.length} recent menu updates.`);
         } catch (err) {
-            console.error('Error fetching recent menu updates:', err);
+            console.error('[Dashboard] Error fetching recent menu updates:', err);
         }
             
         // Format recent activity

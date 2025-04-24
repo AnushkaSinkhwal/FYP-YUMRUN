@@ -265,6 +265,24 @@ const userSchema = new mongoose.Schema(
       ref: 'MenuItem',
       default: []
     },
+    // Loyalty points system
+    loyaltyPoints: {
+      type: Number,
+      default: 0
+    },
+    lifetimeLoyaltyPoints: {
+      type: Number,
+      default: 0
+    },
+    loyaltyTier: {
+      type: String,
+      enum: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'],
+      default: 'BRONZE'
+    },
+    tierUpdateDate: {
+      type: Date,
+      default: Date.now
+    },
     // Health profile for diet and health recommendations
     healthProfile: {
       height: { type: Number, default: 0 }, // in cm
@@ -298,6 +316,12 @@ const userSchema = new mongoose.Schema(
     },
     // If the user is a restaurant owner
     restaurantDetails: restaurantDetailsSchema,
+    // Add restaurant ID reference
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Restaurant',
+      default: null
+    },
     // If user is a delivery rider
     deliveryRiderDetails: {
       vehicleType: {
