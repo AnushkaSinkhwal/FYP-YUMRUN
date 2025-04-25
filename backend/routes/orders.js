@@ -336,22 +336,22 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST create new order
-router.post('/', auth, async (req, res) => {
+router.post('/', protect, async (req, res) => {
+    console.log('[Orders API] Create order request received');
     try {
-        console.log('[Orders API] Creating new order, request body:', req.body);
-        
-        // Extract order data from request body
-        const { 
-            items: orderItems,
-            restaurantId: providedRestaurantId,
-            deliveryAddress: orderDeliveryAddress,
-            paymentMethod: orderPaymentMethod,
+        const {
+            orderItems,
+            providedRestaurantId,
+            orderDeliveryAddress,
+            orderPaymentMethod,
             specialInstructions,
             totalPrice,
             deliveryFee,
             tax,
             orderNumber,
-            grandTotal
+            grandTotal,
+            loyaltyPointsUsed = 0,
+            nutritionTotals
         } = req.body;
         
         // Validate required fields
@@ -451,17 +451,170 @@ router.post('/', auth, async (req, res) => {
         // Generate the order number if not provided
         const generatedOrderNumber = orderNumber || `ORD-${Date.now()}-${Math.floor(Math.random() * 100)}`;
         
-        // Process the order items - ensure proper productId is set
-        const processedItems = orderItems.map(item => {
+        // Process the order items - ensure proper productId is set and aggregate nutritional info
+        const processedItems = await Promise.all(orderItems.map(async (item) => {
             // Make sure to keep the original productId separate from restaurantId
             // If the item doesn't have a proper productId, generate a new ObjectId
             const itemProductId = item.productId || new mongoose.Types.ObjectId();
             
+            // If the item has nutritional info already, use it
+            if (item.nutritionalInfo) {
+                return {
+                    ...item,
+                    productId: itemProductId
+                };
+            }
+            
+            // If not, try to fetch it from the database
+            try {
+                const menuItem = await MenuItem.findById(itemProductId);
+                if (menuItem) {
+                    // Apply customizations to nutrition if present
+                    let itemNutrition = {
+                        calories: menuItem.calories || 0,
+                        protein: menuItem.protein || 0,
+                        carbs: menuItem.carbs || 0,
+                        fat: menuItem.fat || 0,
+                        sodium: menuItem.sodium || 0,
+                        fiber: menuItem.fiber || 0,
+                        sugar: menuItem.sugar || 0
+                    };
+                    
+                    // Handle customizations if present
+                    if (item.customization) {
+                        // Handle removed ingredients
+                        if (item.customization.removedIngredients && Array.isArray(item.customization.removedIngredients)) {
+                            for (const removedIngredient of item.customization.removedIngredients) {
+                                // If we have detailed ingredient info with portions
+                                if (typeof removedIngredient === 'object' && removedIngredient.name && removedIngredient.portionRemoved) {
+                                    const ingredient = menuItem.ingredients.find(ing => ing.name === removedIngredient.name);
+                                    if (ingredient) {
+                                        const portionFactor = removedIngredient.portionRemoved / 100;
+                                        itemNutrition.calories -= (ingredient.calories || 0) * portionFactor;
+                                        itemNutrition.protein -= (ingredient.protein || 0) * portionFactor;
+                                        itemNutrition.carbs -= (ingredient.carbs || 0) * portionFactor;
+                                        itemNutrition.fat -= (ingredient.fat || 0) * portionFactor;
+                                        itemNutrition.sodium -= (ingredient.sodium || 0) * portionFactor;
+                                    }
+                                } 
+                                // Legacy format: just ingredient name
+                                else if (typeof removedIngredient === 'string') {
+                                    const ingredient = menuItem.ingredients.find(ing => ing.name === removedIngredient);
+                                    if (ingredient) {
+                                        itemNutrition.calories -= ingredient.calories || 0;
+                                        itemNutrition.protein -= ingredient.protein || 0;
+                                        itemNutrition.carbs -= ingredient.carbs || 0;
+                                        itemNutrition.fat -= ingredient.fat || 0;
+                                        itemNutrition.sodium -= ingredient.sodium || 0;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Handle added ingredients
+                        if (item.customization.addedIngredients && Array.isArray(item.customization.addedIngredients)) {
+                            for (const addedIngredient of item.customization.addedIngredients) {
+                                if (addedIngredient.name) {
+                                    // Try to find the add-on in available add-ons
+                                    const addonIngredient = menuItem.customizationOptions?.availableAddOns?.find(
+                                        addon => addon.name === addedIngredient.name
+                                    );
+                                    
+                                    if (addonIngredient) {
+                                        itemNutrition.calories += addonIngredient.calories || 0;
+                                        itemNutrition.protein += addonIngredient.protein || 0;
+                                        itemNutrition.carbs += addonIngredient.carbs || 0;
+                                        itemNutrition.fat += addonIngredient.fat || 0;
+                                        itemNutrition.sodium += addonIngredient.sodium || 0;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Handle cooking method impacts
+                        if (item.customization.cookingMethod) {
+                            // Simple cooking method nutrition adjustments
+                            const cookingMethodAdjustments = {
+                                'Grilled': { calories: -50, fat: -4 },
+                                'Steamed': { calories: -70, fat: -6 },
+                                'Fried': { calories: 100, fat: 8 }
+                            };
+                            
+                            const adjustments = cookingMethodAdjustments[item.customization.cookingMethod];
+                            if (adjustments) {
+                                Object.entries(adjustments).forEach(([nutrient, value]) => {
+                                    if (itemNutrition[nutrient] !== undefined) {
+                                        itemNutrition[nutrient] = Math.max(0, itemNutrition[nutrient] + value);
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // Handle serving size
+                        if (item.customization.servingSize) {
+                            let sizeFactor = 1;
+                            switch (item.customization.servingSize) {
+                                case 'Small':
+                                    sizeFactor = 0.7;
+                                    break;
+                                case 'Large':
+                                    sizeFactor = 1.3;
+                                    break;
+                                case 'Extra Large':
+                                    sizeFactor = 1.5;
+                                    break;
+                            }
+                            
+                            // Apply size factor
+                            Object.keys(itemNutrition).forEach(key => {
+                                itemNutrition[key] = Math.max(0, Math.round(itemNutrition[key] * sizeFactor));
+                            });
+                        }
+                    }
+                    
+                    // Multiply by quantity
+                    const quantity = item.quantity || 1;
+                    Object.keys(itemNutrition).forEach(key => {
+                        itemNutrition[key] = Math.round(itemNutrition[key] * quantity);
+                    });
+                    
+                    return {
+                        ...item,
+                        productId: itemProductId,
+                        nutritionalInfo: itemNutrition
+                    };
+                }
+            } catch (err) {
+                console.error(`[Orders API] Error fetching nutrition for item ${itemProductId}:`, err);
+            }
+            
+            // Return the item without nutrition data if we couldn't fetch it
             return {
                 ...item,
                 productId: itemProductId
             };
-        });
+        }));
+        
+        // Calculate nutrition totals based on processed items if not provided
+        const calculatedNutritionTotals = nutritionTotals || processedItems.reduce((acc, item) => {
+            if (item.nutritionalInfo) {
+                acc.calories += item.nutritionalInfo.calories || 0;
+                acc.protein += item.nutritionalInfo.protein || 0;
+                acc.carbs += item.nutritionalInfo.carbs || 0;
+                acc.fat += item.nutritionalInfo.fat || 0;
+                acc.sodium += item.nutritionalInfo.sodium || 0;
+                acc.fiber += item.nutritionalInfo.fiber || 0;
+                acc.sugar += item.nutritionalInfo.sugar || 0;
+            }
+            return acc;
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0, sugar: 0 });
+        
+        // Handle loyalty points usage and earning
+        let loyaltyPointsEarned = 0;
+        
+        // Calculate loyalty points to be earned (typically based on order amount)
+        // Common formula: 1 point per 100 spent
+        loyaltyPointsEarned = Math.floor(grandTotal / 100);
         
         // Create the new order
         const newOrder = new Order({
@@ -478,6 +631,9 @@ router.post('/', auth, async (req, res) => {
             paymentStatus: 'PENDING',
             deliveryAddress: orderDeliveryAddress,
             specialInstructions: specialInstructions || '',
+            loyaltyPointsEarned, 
+            loyaltyPointsUsed: parseInt(loyaltyPointsUsed) || 0,
+            totalNutritionalInfo: calculatedNutritionTotals,
             statusUpdates: [
                 {
                     status: 'PENDING',
@@ -491,11 +647,90 @@ router.post('/', auth, async (req, res) => {
             orderNumber: newOrder.orderNumber,
             userId: newOrder.userId,
             restaurantId: newOrder.restaurantId,
-            itemsCount: newOrder.items.length
+            itemsCount: newOrder.items.length,
+            loyaltyPointsEarned,
+            loyaltyPointsUsed
         });
         
         // Save the order
-        await newOrder.save();
+        const savedOrder = await newOrder.save();
+        
+        // Process loyalty points if used or earned
+        if (loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0) {
+            try {
+                // Import required models
+                const LoyaltyPoint = mongoose.model('LoyaltyPoint');
+                const LoyaltyTransaction = mongoose.model('LoyaltyTransaction');
+                
+                // Find or create user's loyalty points record
+                let userLoyaltyPoints = await LoyaltyPoint.findOne({ userId });
+                
+                if (!userLoyaltyPoints) {
+                    userLoyaltyPoints = new LoyaltyPoint({
+                        userId,
+                        points: 0,
+                        tier: 'BRONZE',
+                        lifetimePoints: 0
+                    });
+                }
+                
+                // If using points, record a REDEEM transaction
+                if (loyaltyPointsUsed > 0) {
+                    // Ensure user has enough points
+                    if (userLoyaltyPoints.points >= loyaltyPointsUsed) {
+                        // Reduce user's points
+                        userLoyaltyPoints.points -= loyaltyPointsUsed;
+                        
+                        // Record redemption transaction
+                        const redeemTransaction = new LoyaltyTransaction({
+                            user: userId,
+                            points: -loyaltyPointsUsed,
+                            type: 'REDEEM',
+                            source: 'ORDER',
+                            description: `Redeemed ${loyaltyPointsUsed} points for order #${newOrder.orderNumber}`,
+                            referenceId: savedOrder._id,
+                            balance: userLoyaltyPoints.points
+                        });
+                        
+                        await redeemTransaction.save();
+                    } else {
+                        console.error(`[Orders API] User ${userId} tried to use ${loyaltyPointsUsed} points but only has ${userLoyaltyPoints.points}`);
+                    }
+                }
+                
+                // Record earning transaction for points earned
+                if (loyaltyPointsEarned > 0) {
+                    // Add to user's points
+                    userLoyaltyPoints.points += loyaltyPointsEarned;
+                    userLoyaltyPoints.lifetimePoints += loyaltyPointsEarned;
+                    
+                    // Set expiry date (e.g., 1 year from now)
+                    const expiryDate = new Date();
+                    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+                    
+                    // Record earning transaction
+                    const earnTransaction = new LoyaltyTransaction({
+                        user: userId,
+                        points: loyaltyPointsEarned,
+                        type: 'EARN',
+                        source: 'ORDER',
+                        description: `Earned ${loyaltyPointsEarned} points from order #${newOrder.orderNumber}`,
+                        referenceId: savedOrder._id,
+                        balance: userLoyaltyPoints.points,
+                        expiryDate
+                    });
+                    
+                    await earnTransaction.save();
+                }
+                
+                // Save updated user loyalty points
+                await userLoyaltyPoints.save();
+                
+            } catch (loyaltyError) {
+                console.error('[Orders API] Error processing loyalty points:', loyaltyError);
+                // Continue with order response even if loyalty processing fails
+            }
+        }
         
         // Fetch the user details to include in the email
         const customer = await User.findById(userId);
@@ -515,6 +750,17 @@ router.post('/', auth, async (req, res) => {
                     `Your order has been placed and is waiting for restaurant confirmation.`
                 )
             ];
+
+            // Add loyalty notification if points were earned
+            if (loyaltyPointsEarned > 0) {
+                notificationPromises.push(
+                    createOrderNotification(
+                        userId,
+                        `Earned ${loyaltyPointsEarned} Loyalty Points`,
+                        `You earned ${loyaltyPointsEarned} points from your order #${newOrder.orderNumber}.`
+                    )
+                );
+            }
 
             // Add email promise if customer exists and has an email
             if (customer && customer.email) {
@@ -551,7 +797,8 @@ router.post('/', auth, async (req, res) => {
         console.error('[Orders API] Error creating order:', error);
         return res.status(500).json({
             success: false,
-            message: 'Server error while creating your order. Please try again.'
+            message: 'Server error while creating order',
+            error: error.message
         });
     }
 });

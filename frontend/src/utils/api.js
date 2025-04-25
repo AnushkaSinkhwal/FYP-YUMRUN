@@ -835,6 +835,11 @@ export const deliveryAPI = {
   getEarningsSummary: async () => {
     return api.get('/delivery/earnings-summary');
   },
+  
+  // Get comprehensive earnings data with period support
+  getEarnings: async (period = 'week') => {
+    return api.get(`/delivery/earnings?period=${period}`);
+  },
 
   // Get details of a specific order
   getOrderDetails: async (orderId) => {

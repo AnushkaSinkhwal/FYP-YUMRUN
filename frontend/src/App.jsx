@@ -478,7 +478,7 @@ function App() {
 
                   {/* User Routes */}
                   <Route path="/user" element={
-                    <ProtectedRoute allowedRoles={['customer']}>
+                    <ProtectedRoute allowedRoles={['customer', 'delivery_rider']}>
                       <UserLayout />
                     </ProtectedRoute>
                   }>

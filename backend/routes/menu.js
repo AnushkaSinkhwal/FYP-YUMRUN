@@ -218,87 +218,17 @@ router.get('/', async (req, res) => {
             });
         }
 
-        // Define the filter for approved restaurants
-        const restaurantFilter = { isApproved: true, status: 'active' };
+        // Simple approach: Get all menu items, regardless of restaurant status
+        console.log('Getting all menu items for public view');
+        const allMenuItems = await MenuItem.find({ isAvailable: { $ne: false } })
+            .populate({
+                path: 'restaurant',
+                select: 'name logo location cuisine'
+            })
+            .lean();
+            
+        console.log(`Found ${allMenuItems.length} menu items total`);
         
-        // Find approved restaurant IDs matching the filter
-        console.log('Finding approved restaurants with filter:', restaurantFilter);
-        const Restaurant = mongoose.model('Restaurant');
-        const approvedRestaurants = await Restaurant.find(restaurantFilter).select('_id name').lean();
-        console.log(`Found ${approvedRestaurants.length} approved restaurants:`, 
-            approvedRestaurants.map(r => ({ id: r._id, name: r.name })));
-        
-        const approvedRestaurantIds = approvedRestaurants.map(r => r._id);
-
-        if (approvedRestaurantIds.length === 0) {
-            // If no approved restaurants match (or specific one wasn't approved), check for User model restaurants
-            console.log('No approved restaurants found in Restaurant model, checking User model for restaurant owners...');
-            
-            const User = mongoose.model('User');
-            const restaurantOwners = await User.find({ 
-                role: 'restaurant',
-                isRestaurantOwner: true,
-                'restaurantDetails.isApproved': true
-            }).select('_id restaurantDetails.name').lean();
-            
-            console.log(`Found ${restaurantOwners.length} restaurant owners in User model`);
-            
-            if (restaurantOwners.length > 0) {
-                // If we found restaurant owners, use their IDs instead
-                const ownerIds = restaurantOwners.map(o => o._id);
-                
-                console.log('Querying menu items directly by restaurant owner IDs:', ownerIds);
-                
-                // Query by owner IDs instead
-                const menuItemsByOwner = await MenuItem.find({ 
-                    restaurant: { $in: ownerIds }
-                }).populate({
-                    path: 'restaurant',
-                    model: 'User',
-                    select: 'restaurantDetails.name restaurantDetails.logo'
-                }).lean();
-                
-                console.log(`Found ${menuItemsByOwner.length} menu items by restaurant owner query`);
-                
-                if (menuItemsByOwner.length > 0) {
-                    // Format these items
-                    const formattedItems = menuItemsByOwner.map(item => {
-                        return {
-                            id: item._id,
-                            name: item.item_name,
-                            description: item.description,
-                            price: item.item_price,
-                            image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
-                            imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
-                            restaurant: item.restaurant ? {
-                                id: item.restaurant._id,
-                                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
-                            } : null
-                        };
-                    });
-                    
-                    return res.status(200).json({
-                        success: true,
-                        data: formattedItems
-                    });
-                }
-            }
-            
-            // If we still don't have items, return empty array
-            console.log('No approved restaurants found, returning empty array');
-            return res.status(200).json({ success: true, data: [] });
-        }
-
-        // Build the menu item query based on approved restaurants
-        let menuItemQuery = { restaurant: { $in: approvedRestaurantIds } };
-        console.log('Query for menu items from approved restaurants:', menuItemQuery);
-
-        // Fetch menu items belonging to approved restaurants
-        const menuItemsFromApproved = await MenuItem.find(menuItemQuery).populate({
-            path: 'restaurant',
-            select: 'name logo location cuisine' // Select fields needed for frontend
-        }).lean();
-
         // Fetch all active offers (can be optimized if needed)
         const now = new Date();
         const activeOffers = await Offer.find({
@@ -306,17 +236,11 @@ router.get('/', async (req, res) => {
             startDate: { $lte: now },
             endDate: { $gte: now }
         }).lean();
-
-        console.log(`Fetched ${menuItemsFromApproved.length} menu items from approved restaurants.`);
-        console.log('First few menu items:', menuItemsFromApproved.slice(0, 3).map(item => ({
-            id: item._id,
-            name: item.item_name,
-            restaurant: item.restaurant ? { id: item.restaurant._id, name: item.restaurant.name } : 'None'
-        })));
+        
         console.log(`Fetched ${activeOffers.length} active offers.`);
 
         // Format the response including offer calculations
-        const formattedItems = menuItemsFromApproved.map(item => {
+        const formattedItems = allMenuItems.map(item => {
             const itemRestaurantId = item.restaurant?._id?.toString();
             let bestOffer = null;
             let discountedPrice = item.item_price; // Default to original price
@@ -348,56 +272,48 @@ router.get('/', async (req, res) => {
                 }
             }
 
-            // Prepare the final item object
-            const finalItem = {
+            // Calculate discounted price if there's an applicable offer
+            let discount = 0;
+            if (bestOffer) {
+                discount = bestOffer.discountPercentage;
+                discountedPrice = Math.round((item.item_price * (100 - discount)) / 100);
+            }
+
+            // Format the item with complete information
+            return {
                 id: item._id,
                 name: item.item_name,
                 description: item.description,
-                price: item.item_price, // Keep original price accessible
+                price: item.item_price,
+                discountedPrice: discountedPrice,
+                discount: discount,
                 image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
                 imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
                 restaurant: item.restaurant ? {
                     id: item.restaurant._id,
-                    name: item.restaurant.name
-                } : null, // Should always have restaurant now
+                    name: item.restaurant.name || 'Unknown Restaurant'
+                } : {
+                    id: null,
+                    name: 'Unknown Restaurant'
+                },
                 category: item.category || 'Main Course',
-                calories: item.calories,
-                protein: item.protein,
-                carbs: item.carbs,
-                fat: item.fat,
-                isVegetarian: item.isVegetarian,
-                isVegan: item.isVegan,
-                isGlutenFree: item.isGlutenFree,
-                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                isVegetarian: item.isVegetarian || false,
+                isVegan: item.isVegan || false,
+                isGlutenFree: item.isGlutenFree || false,
+                isAvailable: item.isAvailable !== false, // default to true
                 averageRating: item.averageRating || 0,
                 numberOfRatings: item.numberOfRatings || 0,
-                isPopular: item.numberOfRatings > 2 || item.averageRating > 4
+                isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4)
             };
-
-            // If a best offer was found, add discount details
-            if (bestOffer && bestOffer.discountPercentage > 0) {
-                finalItem.originalPrice = item.item_price;
-                finalItem.discountedPrice = parseFloat((item.item_price * (1 - bestOffer.discountPercentage / 100)).toFixed(2));
-                finalItem.offerDetails = {
-                    percentage: bestOffer.discountPercentage,
-                    title: bestOffer.title,
-                    id: bestOffer._id
-                };
-                 console.log(`Applied offer '${bestOffer.title}' (${bestOffer.discountPercentage}%) to item '${item.item_name}'. Original: ${finalItem.originalPrice}, Discounted: ${finalItem.discountedPrice}`);
-            } else {
-                // If no offer, ensure price is set correctly (it defaults above, but explicit here)
-                finalItem.price = item.item_price; 
-            }
-
-            return finalItem;
         });
-        
-        res.status(200).json({
+
+        // Return the formatted menu items
+        return res.status(200).json({
             success: true,
             data: formattedItems
         });
     } catch (error) {
-        console.error('Error fetching menu items:', error);
+        console.error('Error retrieving menu items:', error);
         res.status(500).json({ 
             success: false, 
             message: 'Server error. Please try again.' 

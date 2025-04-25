@@ -231,8 +231,8 @@ const Home = () => {
                                 }
                             }
                             
-                            const price = item.price || item.item_price || 0;
-                            const discount = item.discount || 0;
+                            const price = Number(item.price || item.item_price || 0);
+                            const discount = Number(item.discount || 0);
                             const discountedPrice = discount > 0 
                                 ? (price * (1 - discount / 100)).toFixed(2)
                                 : price.toString();
@@ -242,7 +242,7 @@ const Home = () => {
                                 name: item.name || item.item_name,
                                 description: item.description || '',
                                 // Use the direct image path from database - getFullImageUrl will be applied in ProductItem
-                                image: item.image,
+                                image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
                                 // Only include oldPrice if there's a valid discount
                                 oldPrice: discount > 0 ? price.toString() : null,
                                 // If there's a discount, use the calculated price

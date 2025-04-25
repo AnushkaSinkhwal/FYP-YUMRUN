@@ -1,12 +1,13 @@
 import DashboardLayout from '../shared/DashboardLayout';
 import ErrorBoundary from '../shared/ErrorBoundary';
 import PropTypes from 'prop-types';
+import { Outlet } from 'react-router-dom';
 
 const DeliveryLayout = ({ children }) => {
   return (
     <ErrorBoundary>
-      <DashboardLayout role="deliveryUser">
-        {children}
+      <DashboardLayout role="deliveryuser">
+        {children || <Outlet />}
       </DashboardLayout>
     </ErrorBoundary>
   );

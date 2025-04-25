@@ -1,57 +1,65 @@
-import { useState } from 'react';
-import { Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui';
+import { useState, useEffect } from 'react';
+import { Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner } from '../../components/ui';
 import { FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+import { deliveryAPI } from '../../utils/api';
 
 const DeliveryHistory = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Sample history data
-  const deliveries = [
-    {
-      id: 1,
-      orderNumber: "ORD-123",
-      restaurant: "Burger Palace",
-      customer: "John Doe",
-      date: "2024-03-20T10:30:00",
-      status: "completed",
-      rating: 5,
-      earnings: 8.50,
-      distance: "2.5 km",
-      duration: "25 mins",
-      pickupAddress: "123 Restaurant St",
-      deliveryAddress: "456 Customer Ave",
-      items: [
-        { name: "Classic Burger", quantity: 2 },
-        { name: "French Fries", quantity: 1 }
-      ],
-      totalAmount: 25.99
-    },
-    {
-      id: 2,
-      orderNumber: "ORD-124",
-      restaurant: "Pizza Express",
-      customer: "Jane Smith",
-      date: "2024-03-20T09:15:00",
-      status: "completed",
-      rating: 4,
-      earnings: 10.00,
-      distance: "3.2 km",
-      duration: "30 mins",
-      pickupAddress: "789 Restaurant Ave",
-      deliveryAddress: "321 Customer St",
-      items: [
-        { name: "Margherita Pizza", quantity: 1 },
-        { name: "Coke", quantity: 2 }
-      ],
-      totalAmount: 32.99
-    }
-  ];
+  // Fetch delivery history
+  useEffect(() => {
+    const fetchDeliveryHistory = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await deliveryAPI.getDeliveryHistory();
+        
+        if (response.data && response.data.success) {
+          console.log('Delivery history:', response.data);
+          const formattedDeliveries = response.data.deliveries.map(delivery => ({
+            id: delivery._id,
+            orderNumber: delivery.orderNumber || delivery._id.toString().substring(0, 6),
+            restaurant: delivery.restaurantId?.name || 'Unknown Restaurant',
+            customer: delivery.userId?.fullName || 'Customer',
+            date: delivery.createdAt || new Date().toISOString(),
+            status: delivery.status.toLowerCase(),
+            rating: delivery.rating || 0,
+            earnings: delivery.deliveryFee || 5.00,
+            distance: delivery.distance || '3 km',
+            duration: delivery.deliveryDuration || '30 mins',
+            pickupAddress: delivery.restaurantId?.address || 'Restaurant Address',
+            deliveryAddress: delivery.deliveryAddress || 'Delivery Address',
+            items: delivery.items.map(item => ({
+              name: item.itemName || 'Food item',
+              quantity: item.quantity || 1
+            })),
+            totalAmount: delivery.totalAmount || 0
+          }));
+          
+          setDeliveries(formattedDeliveries);
+        } else {
+          setError('Failed to fetch delivery history');
+        }
+      } catch (err) {
+        console.error('Error fetching delivery history:', err);
+        setError('Failed to load delivery history. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDeliveryHistory();
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed':
+      case 'delivered':
         return 'bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300';
       case 'cancelled':
         return 'bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300';
@@ -111,7 +119,7 @@ const DeliveryHistory = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
@@ -128,69 +136,79 @@ const DeliveryHistory = () => {
         </Select>
       </div>
 
-      <div className="space-y-4">
-        {sortedDeliveries.map(delivery => (
-          <Card key={delivery.id} className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">Order #{delivery.orderNumber}</h3>
-                  <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(delivery.status)}`}>
-                    {delivery.status}
-                  </span>
-                </div>
-                <p className="text-gray-600 dark:text-gray-300">
-                  {delivery.restaurant} • {delivery.customer}
-                </p>
-              </div>
+      {loading ? (
+        <div className="flex justify-center items-center h-[40vh]">
+          <Spinner size="lg" />
+        </div>
+      ) : error ? (
+        <Card className="p-8 text-center text-red-500">
+          <p>{error}</p>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {sortedDeliveries.length > 0 ? (
+            sortedDeliveries.map(delivery => (
+              <Card key={delivery.id} className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">Order #{delivery.orderNumber}</h3>
+                      <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(delivery.status)}`}>
+                        {delivery.status}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      {delivery.restaurant} • {delivery.customer}
+                    </p>
+                  </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1">
-                  <FaStar className="h-4 w-4 text-yellow-400" />
-                  <span>{delivery.rating}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <FaStar className="h-4 w-4 text-yellow-400" />
+                      <span>{delivery.rating}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">${delivery.earnings.toFixed(2)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(delivery.date).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">${delivery.earnings.toFixed(2)}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(delivery.date).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                  <FaMapMarkerAlt className="h-4 w-4" />
-                  <span>Pickup: {delivery.pickupAddress}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                  <FaMapMarkerAlt className="h-4 w-4" />
-                  <span>Delivery: {delivery.deliveryAddress}</span>
-                </div>
-              </div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <FaMapMarkerAlt className="h-4 w-4" />
+                      <span>Pickup: {delivery.pickupAddress}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <FaMapMarkerAlt className="h-4 w-4" />
+                      <span>Delivery: {delivery.deliveryAddress}</span>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                  <FaClock className="h-4 w-4" />
-                  <span>{delivery.distance} • {delivery.duration}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <FaClock className="h-4 w-4" />
+                      <span>{delivery.distance} • {delivery.duration}</span>
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-300">
+                      Items: {delivery.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-gray-600 dark:text-gray-300">
-                  Items: {delivery.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-
-        {sortedDeliveries.length === 0 && (
-          <Card className="p-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400">
-              No delivery history found
-            </p>
-          </Card>
-        )}
-      </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-gray-600 dark:text-gray-400">
+                No delivery history found
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 };

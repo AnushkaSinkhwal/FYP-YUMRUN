@@ -1,38 +1,72 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Alert, Spinner } from '../ui';
+import { Card, Button, Alert, Spinner, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
 import { userAPI } from '../../utils/api';
 import { formatCurrency } from '../../utils/helpers';
 import NutritionSummary from '../NutritionTracker/NutritionSummary';
 import { useNavigate } from 'react-router-dom';
-import { FaSyncAlt, FaLeaf, FaArrowLeft } from 'react-icons/fa';
+import { FaSyncAlt, FaLeaf, FaArrowLeft, FaHeart, FaRegHeart, FaShoppingCart } from 'react-icons/fa';
 import PropTypes from 'prop-types';
+import { useAuth } from '../../context/AuthContext';
 
-const HealthRecommendations = ({ healthCondition }) => {
+const HealthRecommendations = ({ healthCondition, maxItems = 8 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState([]);
+  const [personalizedRecommendations, setPersonalizedRecommendations] = useState([]);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [activeTab, setActiveTab] = useState('health');
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchRecommendations();
-  }, [healthCondition]);
+  }, [healthCondition, user?._id]);
 
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await userAPI.getPersonalizedRecommendations();
+      // Fetch health-based recommendations
+      const healthParams = new URLSearchParams();
+      if (healthCondition) {
+        healthParams.append('healthCondition', healthCondition);
+      }
+      if (user?._id) {
+        healthParams.append('userId', user._id);
+      }
       
-      if (response.data.success) {
-        setRecommendations(response.data.data.recommendations || []);
+      const healthRecsPromise = userAPI.getHealthRecommendations(healthParams.toString());
+      
+      // Fetch personalized recommendations if user is logged in
+      let personalizedRecsPromise;
+      if (user?._id) {
+        personalizedRecsPromise = userAPI.getPersonalizedRecommendations(user._id);
+      }
+      
+      // Wait for both requests to complete
+      const [healthRecsResponse, personalizedRecsResponse] = await Promise.all([
+        healthRecsPromise,
+        personalizedRecsPromise || Promise.resolve({ data: { success: true, data: { recommendations: [] } } })
+      ]);
+      
+      if (healthRecsResponse.data.success) {
+        setRecommendations(healthRecsResponse.data.data?.recommendations || []);
       } else {
-        setError('Failed to fetch recommendations');
+        setError('Failed to fetch health recommendations');
+      }
+      
+      if (personalizedRecsResponse.data.success) {
+        setPersonalizedRecommendations(personalizedRecsResponse.data.data?.recommendations || []);
+        
+        // If we have personalized recommendations, set the active tab to personalized
+        if (personalizedRecsResponse.data.data?.recommendations?.length > 0) {
+          setActiveTab('personalized');
+        }
       }
     } catch (err) {
       console.error('Error fetching recommendations:', err);
-      setError('An error occurred while fetching your personalized recommendations');
+      setError('An error occurred while fetching your recommendations');
     } finally {
       setLoading(false);
     }
@@ -62,12 +96,46 @@ const HealthRecommendations = ({ healthCondition }) => {
     switch(healthCondition) {
       case 'Diabetes':
         return 'Diabetic-Friendly Options';
-      case 'Heart Condition':
+      case 'Heart Disease':
         return 'Heart-Healthy Options';
       case 'Hypertension':
         return 'Low-Sodium Options';
       default:
-        return 'Personalized Recommendations';
+        return `${healthCondition} Options`;
+    }
+  };
+
+  const getHealthBenefits = (item, condition = healthCondition) => {
+    // Use the health benefits from the item if available
+    if (item.healthBenefits && Array.isArray(item.healthBenefits)) {
+      return item.healthBenefits;
+    }
+    
+    // Default benefits based on condition
+    if (condition === 'Diabetes') {
+      return [
+        'Low glycemic index to help manage blood sugar',
+        'High in fiber to slow sugar absorption',
+        'Balanced macronutrients for steady energy'
+      ];
+    } else if (condition === 'Heart Disease') {
+      return [
+        'Low in saturated fats and cholesterol',
+        'Rich in heart-healthy omega-3 fatty acids',
+        'Reduced sodium content'
+      ];
+    } else if (condition === 'Hypertension') {
+      return [
+        'Very low sodium content',
+        'Rich in potassium to help regulate blood pressure',
+        'Antioxidants to support vascular health'
+      ];
+    } else {
+      return [
+        'Well-balanced nutritional profile',
+        'Rich in essential vitamins and minerals',
+        'Good source of quality protein'
+      ];
     }
   };
 
@@ -95,7 +163,11 @@ const HealthRecommendations = ({ healthCondition }) => {
     );
   }
 
-  if (recommendations.length === 0) {
+  const allRecommendationsEmpty = 
+    recommendations.length === 0 && 
+    personalizedRecommendations.length === 0;
+    
+  if (allRecommendationsEmpty) {
     return (
       <Card className="p-6">
         <div className="text-center py-8">
@@ -115,6 +187,20 @@ const HealthRecommendations = ({ healthCondition }) => {
 
   // If an item is selected, show its details
   if (selectedItem) {
+    // Prepare nutritional info object
+    const nutritionalInfo = {
+      calories: selectedItem.calories,
+      protein: selectedItem.protein,
+      carbs: selectedItem.carbs,
+      fat: selectedItem.fat,
+      sodium: selectedItem.sodium,
+      fiber: selectedItem.fiber,
+      sugar: selectedItem.sugar
+    };
+    
+    // Get health benefits for the selected item
+    const healthBenefits = getHealthBenefits(selectedItem);
+    
     return (
       <Card className="p-6">
         <button 
@@ -127,7 +213,7 @@ const HealthRecommendations = ({ healthCondition }) => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
             <img 
-              src={selectedItem.image} 
+              src={selectedItem.image || '/uploads/placeholders/food-placeholder.jpg'} 
               alt={selectedItem.name} 
               className="object-cover w-full rounded-lg h-60 shadow-md"
             />
@@ -138,28 +224,72 @@ const HealthRecommendations = ({ healthCondition }) => {
                 {formatCurrency(selectedItem.price)}
               </p>
               
-              <div className="flex items-center mt-3 space-x-2">
-                <span className="px-3 py-1 text-xs font-medium text-white bg-green-500 rounded-full">
-                  {selectedItem.healthTag}
-                </span>
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                  </svg>
-                  <span className="ml-1 text-sm font-medium text-gray-600">{selectedItem.rating}</span>
-                </span>
+              <div className="flex items-center mt-3 space-x-2 flex-wrap gap-2">
+                {selectedItem.healthAttributes && Object.entries(selectedItem.healthAttributes)
+                  .filter(([_, value]) => value === true)
+                  .map(([key]) => {
+                    // Convert camelCase to readable format
+                    const label = key
+                      .replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, str => str.toUpperCase())
+                      .replace('Is ', '');
+                    
+                    return (
+                      <Badge key={key} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        {label}
+                      </Badge>
+                    );
+                  })
+                }
+                
+                {selectedItem.isVegetarian && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Vegetarian
+                  </Badge>
+                )}
+                
+                {selectedItem.isVegan && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Vegan
+                  </Badge>
+                )}
+                
+                {selectedItem.isGlutenFree && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Gluten Free
+                  </Badge>
+                )}
               </div>
               
-              <p className="mt-4 text-sm text-gray-600">
-                From {selectedItem.restaurant} • {selectedItem.location}
-              </p>
+              <p className="mt-4 text-sm text-gray-600">{selectedItem.description}</p>
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-3">Customization Options</h3>
+                
+                {selectedItem.isCustomizable ? (
+                  <div className="text-sm text-gray-600">
+                    <p>This item can be customized to better suit your dietary needs.</p>
+                    <p className="mt-2">You'll be able to:</p>
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li>Add or remove ingredients</li>
+                      <li>Adjust serving size</li>
+                      <li>Select cooking method</li>
+                      <li>Add special instructions</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    This item has limited customization options. Please view the restaurant for more details.
+                  </p>
+                )}
+              </div>
               
               <div className="flex gap-3 mt-6">
                 <Button 
                   onClick={() => handleAddToCart(selectedItem)}
-                  className="flex-1"
+                  className="flex-1 gap-2"
                 >
-                  Add to Cart
+                  <FaShoppingCart className="w-4 h-4" /> Add to Cart
                 </Button>
                 <Button 
                   variant="outline"
@@ -173,42 +303,18 @@ const HealthRecommendations = ({ healthCondition }) => {
           </div>
           
           <div>
-            <NutritionSummary nutritionalInfo={selectedItem.nutritionalInfo} />
+            <NutritionSummary 
+              nutritionalInfo={nutritionalInfo} 
+              healthProfile={user?.healthProfile}
+              showHealthTips={true}
+            />
             
             <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
               <h3 className="mb-3 text-lg font-semibold">Health Benefits</h3>
               <ul className="pl-5 mt-2 space-y-2 list-disc">
-                {healthCondition === 'Diabetes' && (
-                  <>
-                    <li>Low glycemic index to help manage blood sugar</li>
-                    <li>High in fiber to slow sugar absorption</li>
-                    <li>Balanced macronutrients for steady energy</li>
-                  </>
-                )}
-                
-                {healthCondition === 'Heart Condition' && (
-                  <>
-                    <li>Low in saturated fats and cholesterol</li>
-                    <li>Rich in heart-healthy omega-3 fatty acids</li>
-                    <li>Reduced sodium content</li>
-                  </>
-                )}
-                
-                {healthCondition === 'Hypertension' && (
-                  <>
-                    <li>Very low sodium content</li>
-                    <li>Rich in potassium to help regulate blood pressure</li>
-                    <li>Antioxidants to support vascular health</li>
-                  </>
-                )}
-                
-                {(!healthCondition || healthCondition === 'Healthy') && (
-                  <>
-                    <li>Well-balanced nutritional profile</li>
-                    <li>Rich in essential vitamins and minerals</li>
-                    <li>Good source of quality protein</li>
-                  </>
-                )}
+                {healthBenefits.map((benefit, index) => (
+                  <li key={index} className="text-gray-700">{benefit}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -217,22 +323,51 @@ const HealthRecommendations = ({ healthCondition }) => {
     );
   }
 
+  // Show tabs if we have both types of recommendations
+  const showTabs = personalizedRecommendations.length > 0 && recommendations.length > 0;
+  
+  // Filter recommendations to show only up to maxItems
+  const filteredHealthRecs = recommendations.slice(0, maxItems);
+  const filteredPersonalizedRecs = personalizedRecommendations.slice(0, maxItems);
+  
+  // Determine which recommendations to display based on active tab
+  const displayedRecommendations = activeTab === 'personalized' && personalizedRecommendations.length > 0 
+    ? filteredPersonalizedRecs 
+    : filteredHealthRecs;
+  
   // Show the list of recommendations
   return (
     <Card className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">{getHealthConditionTitle()}</h2>
+        <h2 className="text-2xl font-bold">
+          {activeTab === 'personalized' ? 'Personalized Recommendations' : getHealthConditionTitle()}
+        </h2>
         <Button variant="outline" size="sm" onClick={fetchRecommendations} className="gap-2">
           <FaSyncAlt className="w-3 h-3" /> Refresh
         </Button>
       </div>
       
-      <p className="mb-6 text-gray-600">
-        <strong>Health insights:</strong> These recommendations are based on your health condition: {healthCondition || 'Healthy'}
-      </p>
+      {user?.healthProfile && (
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-800">
+          <p className="font-medium">Your health preferences are being used for these recommendations.</p>
+          <p className="mt-1 text-blue-600">
+            {user.healthProfile.dietaryPreferences?.filter(p => p !== 'None').join(', ')} • 
+            {user.healthProfile.healthConditions?.filter(c => c !== 'None').join(', ')}
+          </p>
+        </div>
+      )}
+      
+      {showTabs && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="personalized">Personalized</TabsTrigger>
+            <TabsTrigger value="health">Health-Focused</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
       
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {recommendations.map((item) => (
+        {displayedRecommendations.map((item) => (
           <Card 
             key={item.id} 
             className="overflow-hidden transition-all duration-200 cursor-pointer hover:shadow-lg hover:-translate-y-1 border border-gray-100"
@@ -240,54 +375,94 @@ const HealthRecommendations = ({ healthCondition }) => {
           >
             <div className="relative">
               <img 
-                src={item.image} 
+                src={item.image || '/uploads/placeholders/food-placeholder.jpg'} 
                 alt={item.name} 
                 className="object-cover w-full h-40"
               />
-              <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-white bg-green-500 rounded-full shadow-sm">
-                {item.healthTag}
-              </span>
+              <div className="absolute top-2 right-2 flex flex-col gap-1">
+                {item.isCustomizable && (
+                  <Badge className="bg-blue-500 hover:bg-blue-600">
+                    Customizable
+                  </Badge>
+                )}
+                
+                {Object.entries(item.healthAttributes || {})
+                  .filter(([_, value]) => value === true)
+                  .slice(0, 1) // Only show the first health attribute as a badge
+                  .map(([key]) => {
+                    // Convert camelCase to readable format
+                    const label = key
+                      .replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, str => str.toUpperCase())
+                      .replace('Is ', '');
+                    
+                    return (
+                      <Badge key={key} className="bg-green-500 hover:bg-green-600">
+                        {label}
+                      </Badge>
+                    );
+                  })
+                }
+              </div>
+              
+              <button 
+                className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Implement favorite functionality
+                  console.log('Toggle favorite:', item.id);
+                }}
+              >
+                <FaRegHeart className="w-4 h-4 text-red-500" />
+              </button>
             </div>
             
             <div className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold truncate">{item.name}</h3>
-                <span className="text-sm font-medium text-gray-700">
-                  {formatCurrency(item.price)}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 truncate mb-3">
-                {item.restaurant} • {item.location}
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                  </svg>
-                  <span className="ml-1 text-xs font-medium">{item.rating}</span>
+              <h3 className="font-semibold text-lg leading-tight">{item.name}</h3>
+              <p className="mt-1 text-sm text-gray-600 line-clamp-2">{item.description}</p>
+              
+              <div className="mt-3 flex items-center justify-between">
+                <span className="font-medium text-gray-900">{formatCurrency(item.price)}</span>
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm text-gray-500">{item.calories} cal</span>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-xs px-2 py-1 hover:bg-gray-100"
-                >
-                  View
-                </Button>
               </div>
+              
+              <div className="mt-3 flex flex-wrap gap-1">
+                {item.healthBenefits && item.healthBenefits.slice(0, 2).map((benefit, idx) => (
+                  <span key={idx} className="inline-block px-2 py-1 text-xs bg-gray-100 rounded-full text-gray-800">
+                    {benefit}
+                  </span>
+                ))}
+              </div>
+              
+              <Button 
+                variant="outline" 
+                className="w-full mt-3 gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddToCart(item);
+                }}
+              >
+                <FaShoppingCart className="w-3 h-3" /> Add to Cart
+              </Button>
             </div>
           </Card>
         ))}
       </div>
+      
+      {displayedRecommendations.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No recommendations available. Try changing your filters.</p>
+        </div>
+      )}
     </Card>
   );
 };
 
 HealthRecommendations.propTypes = {
-  healthCondition: PropTypes.string
-};
-
-HealthRecommendations.defaultProps = {
-  healthCondition: 'Healthy'
+  healthCondition: PropTypes.string,
+  maxItems: PropTypes.number
 };
 
 export default HealthRecommendations; 

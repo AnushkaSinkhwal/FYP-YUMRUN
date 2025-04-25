@@ -545,4 +545,138 @@ router.get('/dashboard', auth, isDeliveryRider, async (req, res) => {
     }
 });
 
+// GET earnings data with period support (For delivery staff)
+router.get('/earnings', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const riderId = req.user._id;
+        const period = req.query.period || 'week';
+        
+        // Define the date range based on period
+        let startDate;
+        const now = new Date();
+        const endDate = now;
+        
+        switch(period) {
+            case 'week':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+                break;
+            case 'month':
+                startDate = new Date(now);
+                startDate.setMonth(now.getMonth() - 1);
+                break;
+            case 'year':
+                startDate = new Date(now);
+                startDate.setFullYear(now.getFullYear() - 1);
+                break;
+            default:
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+        }
+        
+        // Get all completed deliveries for the period
+        const deliveries = await Order.find({
+            deliveryPersonId: riderId,
+            status: 'DELIVERED',
+            actualDeliveryTime: { $gte: startDate, $lte: endDate }
+        }).sort({ actualDeliveryTime: -1 });
+        
+        // Get previous period deliveries for comparison
+        const previousStartDate = new Date(startDate);
+        const previousEndDate = new Date(startDate);
+        
+        if (period === 'week') {
+            previousStartDate.setDate(previousStartDate.getDate() - 7);
+        } else if (period === 'month') {
+            previousStartDate.setMonth(previousStartDate.getMonth() - 1);
+        } else if (period === 'year') {
+            previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
+        }
+        
+        const previousDeliveries = await Order.find({
+            deliveryPersonId: riderId,
+            status: 'DELIVERED',
+            actualDeliveryTime: { $gte: previousStartDate, $lte: previousEndDate }
+        });
+        
+        // Calculate total earnings
+        const basePayPerDelivery = 5; // $5 base pay per delivery
+        
+        const totalEarnings = deliveries.reduce((total, order) => {
+            return total + basePayPerDelivery + (order.tip || 0);
+        }, 0);
+        
+        const previousEarnings = previousDeliveries.reduce((total, order) => {
+            return total + basePayPerDelivery + (order.tip || 0);
+        }, 0);
+        
+        // Calculate change percentage
+        let earningsChange = 0;
+        if (previousEarnings > 0) {
+            earningsChange = ((totalEarnings - previousEarnings) / previousEarnings) * 100;
+        }
+        
+        // Calculate total distance
+        const totalDistance = deliveries.reduce((total, order) => {
+            return total + (order.distance || 0);
+        }, 0);
+        
+        // Group by days for the chart data
+        const dailyEarnings = {};
+        deliveries.forEach(delivery => {
+            const date = new Date(delivery.actualDeliveryTime);
+            const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            if (!dailyEarnings[dateString]) {
+                dailyEarnings[dateString] = {
+                    date: dateString,
+                    earnings: 0,
+                    deliveries: 0,
+                    distance: 0
+                };
+            }
+            
+            dailyEarnings[dateString].earnings += basePayPerDelivery + (delivery.tip || 0);
+            dailyEarnings[dateString].deliveries += 1;
+            dailyEarnings[dateString].distance += (delivery.distance || 0);
+        });
+        
+        // Convert daily earnings to array and sort by date
+        const earningsByDay = Object.values(dailyEarnings).sort((a, b) => {
+            return new Date(a.date) - new Date(b.date);
+        });
+        
+        // Calculate average earnings per delivery
+        const avgEarningsPerDelivery = deliveries.length > 0 ? totalEarnings / deliveries.length : 0;
+        
+        // Format transactions for the frontend
+        const recentTransactions = deliveries.slice(0, 5).map(delivery => ({
+            id: delivery._id,
+            orderNumber: delivery.orderNumber || delivery._id.toString().substring(0, 6),
+            date: delivery.actualDeliveryTime,
+            amount: basePayPerDelivery + (delivery.tip || 0),
+            status: 'completed'
+        }));
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                totalEarnings,
+                totalDeliveries: deliveries.length,
+                earningsChange: Math.round(earningsChange * 100) / 100, // Round to 2 decimal places
+                totalDistance,
+                avgEarningsPerDelivery,
+                earningsByDay,
+                recentTransactions
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching earnings data:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error fetching earnings data' 
+        });
+    }
+});
+
 module.exports = router; 
