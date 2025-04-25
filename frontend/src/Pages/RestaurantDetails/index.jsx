@@ -4,7 +4,7 @@ import { Container, Button, Spinner, Alert } from '../../components/ui';
 import { FaStar, FaMapMarkerAlt, FaUtensils, FaPhone, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
-import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { getFullImageUrl, getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const RestaurantDetails = () => {
   const { id } = useParams();
@@ -67,8 +67,7 @@ const RestaurantDetails = () => {
               description: item.description || 'No description available',
               price: item.price || item.item_price || 0,
               category: item.category || 'Uncategorized',
-              image: item.image,
-              imageUrl: item.imageUrl || item.image,
+              image: getBestImageUrl(item),
               isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
               isVegetarian: item.isVegetarian || false,
               isVegan: item.isVegan || false,
@@ -267,9 +266,8 @@ const RestaurantDetails = () => {
                     <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
                       <div className="relative">
                         <img 
-                          src={item.image ? getFullImageUrl(item.image) : 
-                              item.imageUrl ? getFullImageUrl(item.imageUrl) : PLACEHOLDERS.FOOD} 
-                          alt={item.name} 
+                          src={getBestImageUrl(item)} 
+                          alt={item.name}
                           className="object-cover w-full h-48 cursor-pointer"
                           onClick={() => navigate(`/product/${item.id}`)}
                           onError={(e) => {
@@ -281,6 +279,13 @@ const RestaurantDetails = () => {
                           <div className="absolute top-0 left-0 m-2">
                             <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
                               Popular
+                            </span>
+                          </div>
+                        )}
+                        {!item.isAvailable && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                            <span className="px-2 py-1 text-sm font-bold text-white bg-red-500 rounded">
+                              Unavailable
                             </span>
                           </div>
                         )}

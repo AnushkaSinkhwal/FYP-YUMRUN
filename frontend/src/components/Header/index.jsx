@@ -78,7 +78,7 @@ const Header = () => {
   //     // Turn off animation after 5 seconds
   //     setTimeout(() => {
   //       setCartActive(false);
-  //     }, 5000);
+  //     }, 7000);
   //   }, 3000);
   //   
   //   return () => clearTimeout(timer);

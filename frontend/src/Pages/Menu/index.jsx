@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Spinner, Button, Badge } from '../../components/ui';
+import { Container, Spinner, Button } from '../../components/ui';
 import { FaFilter, FaSearch, FaShoppingCart, FaStar } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
-import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const Menu = () => {
   const { addToCart } = useCart();
@@ -61,7 +61,7 @@ const Menu = () => {
                 id: restaurantId,
                 name: item.restaurant?.name || 'Restaurant'
               },
-              image: item.image ? getFullImageUrl(item.image) : PLACEHOLDERS.FOOD,
+              image: getBestImageUrl(item),
               isPopular: !!item.isPopular || item.numberOfRatings > 2 || item.averageRating > 4
             };
           });
@@ -302,15 +302,30 @@ const Menu = () => {
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedItems.map(item => (
-                <div key={item.id} className="overflow-hidden bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col">
-                  <Link to={`/product/${item.id}`} className="block">
+                <div key={item.id} className="overflow-hidden transition-transform bg-white border rounded-lg shadow-sm hover:shadow-md hover:scale-[1.01]">
+                  <div className="relative">
                     <img 
-                      src={item.image} 
+                      src={getBestImageUrl(item)} 
                       alt={item.name} 
                       className="object-cover w-full h-48"
-                      onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDERS.FOOD }}
+                      onError={(e) => {
+                        console.error(`Image load error for ${item.name}:`, e);
+                        e.target.src = PLACEHOLDERS.FOOD;
+                      }}
                     />
-                  </Link>
+                    {item.offerDetails && (
+                      <div className="absolute top-0 right-0 p-2 bg-yumrun-orange text-white rounded-bl-lg">
+                        <span className="font-semibold">{item.offerDetails.percentage}% OFF</span>
+                      </div>
+                    )}
+                    {item.isPopular && (
+                      <div className="absolute top-0 left-0 m-2">
+                        <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
+                          POPULAR
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex flex-col flex-grow p-4">
                     <h3 className="mb-2 text-lg font-semibold text-gray-800 truncate">
                       <Link to={`/product/${item.id}`} className="hover:text-yumrun-orange">
@@ -328,7 +343,6 @@ const Menu = () => {
                       <div className="text-right">
                         {item.offerDetails ? (
                           <>
-                            <Badge variant="destructive" className="mb-1 text-xs">{item.offerDetails.percentage}% OFF</Badge>
                             <div>
                               <span className="text-sm text-gray-500 line-through mr-1.5">
                                 ${item.originalPrice.toFixed(2)}

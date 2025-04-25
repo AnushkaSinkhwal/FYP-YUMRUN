@@ -108,7 +108,7 @@ const Checkout = () => {
     if (hasMultipleRestaurants) {
       addToast('Error: Items from multiple restaurants detected in cart', { 
         type: 'error',
-        duration: 5000
+        duration: 7000
       });
       navigate('/cart');
       return;

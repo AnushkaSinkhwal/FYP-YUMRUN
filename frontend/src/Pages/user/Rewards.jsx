@@ -66,7 +66,7 @@ const UserRewards = () => {
       tier: "Gold",
       nextTier: "Platinum",
       pointsToNextTier: 750,
-      totalPoints: 5000,
+      totalPoints: 7000,
       rewards: [
         {
           id: 1,

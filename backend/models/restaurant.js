@@ -42,6 +42,10 @@ const restaurantSchema = new mongoose.Schema({
         default: 'pending_approval',
         required: true,
     },
+    isOpen: {
+        type: Boolean,
+        default: true,
+    },
     cuisine: {
         type: [String],
         default: [],

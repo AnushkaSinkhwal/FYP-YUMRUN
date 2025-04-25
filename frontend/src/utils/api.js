@@ -303,6 +303,69 @@ export const adminAPI = {
     const payload = riderId ? { status, riderId } : { status };
     return api.patch(`/admin/orders/${orderId}/status`, payload);
   },
+  
+  // Get all delivery riders
+  getRiders: async () => {
+    return api.get('/delivery/staff');
+  },
+  
+  // Approve or reject a rider
+  updateRiderApproval: async (riderId, approved) => {
+    try {
+      console.log(`API call: Update rider ${riderId} approval status to: ${approved}`);
+      
+      // Check that riderId is valid
+      if (!riderId) {
+        console.error('Invalid riderId provided to updateRiderApproval');
+        return {
+          data: {
+            success: false,
+            message: 'Invalid rider ID'
+          }
+        };
+      }
+      
+      // Make the API call with explicit content type and payload
+      const response = await api.put(`/admin/riders/${riderId}/approve`, { 
+        approved: approved 
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Log response for debugging
+      console.log('Rider approval API response:', response.data);
+      
+      return response;
+    } catch (error) {
+      console.error('Error in updateRiderApproval:', error);
+      
+      // Log more details about the error
+      if (error.response) {
+        console.error('Response error data:', error.response.data);
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        return error.response;
+      } else if (error.request) {
+        console.error('Request made but no response received:', error.request);
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+      
+      return {
+        data: {
+          success: false,
+          message: 'Failed to update rider approval status'
+        }
+      };
+    }
+  },
+  
+  // Get restaurant approvals
+  getRestaurantApprovals: async () => {
+    return api.get('/admin/restaurant-approvals');
+  },
 
   // Get available drivers (admin only)
   getAvailableDrivers: async () => {

@@ -48,6 +48,33 @@ export const getFullImageUrl = (path) => {
   return fullUrl;
 };
 
+/**
+ * Gets the best image from an item that might have both image and imageUrl fields
+ * @param {Object} item - The item to get the image from
+ * @returns {string} - The URL to the image
+ */
+export const getBestImageUrl = (item) => {
+  console.log('getBestImageUrl called for item:', item ? item.name || item.item_name : 'Unknown item');
+  
+  if (!item) {
+    console.log('No item provided, returning default placeholder');
+    return PLACEHOLDERS.FOOD;
+  }
+  
+  // Log available image fields for debugging
+  if (item.image) console.log('- image field:', item.image);
+  if (item.imageUrl) console.log('- imageUrl field:', item.imageUrl);
+  
+  // Use imageUrl first if available, then image, then default placeholder
+  const imagePath = item.imageUrl || item.image;
+  const fullUrl = getFullImageUrl(imagePath);
+  
+  console.log('Selected image path:', imagePath);
+  console.log('Full image URL:', fullUrl);
+  
+  return fullUrl;
+};
+
 // Common placeholder images
 export const PLACEHOLDERS = {
   FOOD: `${getBackendUrl()}/uploads/placeholders/food-placeholder.jpg`,
@@ -58,5 +85,6 @@ export const PLACEHOLDERS = {
 
 export default {
   getFullImageUrl,
+  getBestImageUrl,
   PLACEHOLDERS
 }; 

@@ -52,8 +52,7 @@ import AdminDeliveries from "./Pages/admin/Deliveries";
 import AdminProfile from "./Pages/admin/Profile";
 import AdminSettings from "./Pages/admin/Settings";
 import AdminNotifications from "./Pages/admin/Notifications";
-import RestaurantApprovals from "./Pages/admin/RestaurantApprovals";
-import AdminRiders from "./Pages/Admin/Riders";
+import AdminRiders from "./Pages/admin/Riders";
 
 // Restaurant imports
 import RestaurantLayout from "./components/restaurant/RestaurantLayout";
@@ -244,7 +243,6 @@ function App() {
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="notifications" element={<AdminNotifications />} />
-                    <Route path="restaurant-approvals" element={<RestaurantApprovals />} />
                   </Route>
                   
                   {/* User Routes */}
@@ -472,6 +470,10 @@ function App() {
                     <Route path="profile" element={<DeliveryProfile />} />
                     <Route path="earnings" element={<DeliveryEarnings />} />
                     <Route path="notifications" element={<DeliveryNotifications />} />
+                    <Route path="favorites" element={<UserFavorites />} />
+                    <Route path="reviews" element={<UserReviews />} />
+                    <Route path="rewards" element={<UserRewards />} />
+                    <Route path="settings" element={<UserSettings />} />
                   </Route>
 
                   {/* User Routes */}

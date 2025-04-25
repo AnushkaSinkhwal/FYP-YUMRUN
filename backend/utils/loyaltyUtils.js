@@ -4,7 +4,7 @@
  */
 const BRONZE = 0;      // Starting tier
 const SILVER = 1000;   // 1,000 points
-const GOLD = 5000;     // 5,000 points
+const GOLD = 7000;     // 5,000 points
 const PLATINUM = 10000; // 10,000 points
 
 /**
@@ -14,7 +14,7 @@ const PLATINUM = 10000; // 10,000 points
 const LOYALTY_TIERS = {
     BRONZE: 0,
     SILVER: 1000,
-    GOLD: 5000,
+    GOLD: 7000,
     PLATINUM: 10000
 };
 

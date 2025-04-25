@@ -29,7 +29,7 @@ const ForgotPassword = () => {
       if (response.data?.success) {
           setMessage('Password reset instructions have been sent to your email.');
           // Optional: Redirect after a delay or keep user on page
-          // setTimeout(() => navigate('/signin'), 5000); 
+          // setTimeout(() => navigate('/signin'), 7000); 
       } else {
           // Handle specific errors from backend if available
           const errorMsg = response.data?.message || response.data?.error?.message || 'Failed to send reset instructions. Please try again.';

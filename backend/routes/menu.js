@@ -173,28 +173,124 @@ router.get('/related/:id', async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const { restaurantId } = req.query;
-        let restaurantFilter = { status: 'approved' }; // Filter for approved restaurants
-
-        // If a specific restaurantId is requested, add it to the filter
+        console.log('GET /api/menu - Request query params:', req.query);
+        
+        // If a specific restaurantId is requested, find menu items for that restaurant directly
         if (restaurantId) {
             if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
                 return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
             }
-            restaurantFilter._id = restaurantId;
+            
+            console.log(`Finding menu items for restaurant ID: ${restaurantId}`);
+            const menuItems = await MenuItem.find({ restaurant: restaurantId })
+                .populate({
+                    path: 'restaurant',
+                    select: 'name logo location cuisine status'
+                })
+                .lean();
+            
+            console.log(`Found ${menuItems.length} menu items for restaurant ${restaurantId}`);
+            
+            // Format the response
+            const formattedItems = menuItems.map(item => ({
+                id: item._id,
+                name: item.item_name,
+                description: item.description,
+                price: item.item_price,
+                image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
+                restaurant: item.restaurant ? {
+                    id: item.restaurant._id,
+                    name: item.restaurant.name
+                } : null,
+                category: item.category || 'Main Course',
+                isVegetarian: item.isVegetarian,
+                isVegan: item.isVegan,
+                isGlutenFree: item.isGlutenFree,
+                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                averageRating: item.averageRating || 0,
+                numberOfRatings: item.numberOfRatings || 0
+            }));
+            
+            return res.status(200).json({
+                success: true,
+                data: formattedItems
+            });
         }
 
+        // Define the filter for approved restaurants
+        const restaurantFilter = { isApproved: true, status: 'active' };
+        
         // Find approved restaurant IDs matching the filter
-        const approvedRestaurants = await mongoose.model('Restaurant').find(restaurantFilter).select('_id').lean();
+        console.log('Finding approved restaurants with filter:', restaurantFilter);
+        const Restaurant = mongoose.model('Restaurant');
+        const approvedRestaurants = await Restaurant.find(restaurantFilter).select('_id name').lean();
+        console.log(`Found ${approvedRestaurants.length} approved restaurants:`, 
+            approvedRestaurants.map(r => ({ id: r._id, name: r.name })));
+        
         const approvedRestaurantIds = approvedRestaurants.map(r => r._id);
 
         if (approvedRestaurantIds.length === 0) {
-            // If no approved restaurants match (or specific one wasn't approved), return empty list
+            // If no approved restaurants match (or specific one wasn't approved), check for User model restaurants
+            console.log('No approved restaurants found in Restaurant model, checking User model for restaurant owners...');
+            
+            const User = mongoose.model('User');
+            const restaurantOwners = await User.find({ 
+                role: 'restaurant',
+                isRestaurantOwner: true,
+                'restaurantDetails.isApproved': true
+            }).select('_id restaurantDetails.name').lean();
+            
+            console.log(`Found ${restaurantOwners.length} restaurant owners in User model`);
+            
+            if (restaurantOwners.length > 0) {
+                // If we found restaurant owners, use their IDs instead
+                const ownerIds = restaurantOwners.map(o => o._id);
+                
+                console.log('Querying menu items directly by restaurant owner IDs:', ownerIds);
+                
+                // Query by owner IDs instead
+                const menuItemsByOwner = await MenuItem.find({ 
+                    restaurant: { $in: ownerIds }
+                }).populate({
+                    path: 'restaurant',
+                    model: 'User',
+                    select: 'restaurantDetails.name restaurantDetails.logo'
+                }).lean();
+                
+                console.log(`Found ${menuItemsByOwner.length} menu items by restaurant owner query`);
+                
+                if (menuItemsByOwner.length > 0) {
+                    // Format these items
+                    const formattedItems = menuItemsByOwner.map(item => {
+                        return {
+                            id: item._id,
+                            name: item.item_name,
+                            description: item.description,
+                            price: item.item_price,
+                            image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                            imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
+                            restaurant: item.restaurant ? {
+                                id: item.restaurant._id,
+                                name: item.restaurant.restaurantDetails?.name || 'Unknown Restaurant'
+                            } : null
+                        };
+                    });
+                    
+                    return res.status(200).json({
+                        success: true,
+                        data: formattedItems
+                    });
+                }
+            }
+            
+            // If we still don't have items, return empty array
+            console.log('No approved restaurants found, returning empty array');
             return res.status(200).json({ success: true, data: [] });
         }
 
         // Build the menu item query based on approved restaurants
         let menuItemQuery = { restaurant: { $in: approvedRestaurantIds } };
-
         console.log('Query for menu items from approved restaurants:', menuItemQuery);
 
         // Fetch menu items belonging to approved restaurants
@@ -212,6 +308,11 @@ router.get('/', async (req, res) => {
         }).lean();
 
         console.log(`Fetched ${menuItemsFromApproved.length} menu items from approved restaurants.`);
+        console.log('First few menu items:', menuItemsFromApproved.slice(0, 3).map(item => ({
+            id: item._id,
+            name: item.item_name,
+            restaurant: item.restaurant ? { id: item.restaurant._id, name: item.restaurant.name } : 'None'
+        })));
         console.log(`Fetched ${activeOffers.length} active offers.`);
 
         // Format the response including offer calculations
@@ -253,7 +354,8 @@ router.get('/', async (req, res) => {
                 name: item.item_name,
                 description: item.description,
                 price: item.item_price, // Keep original price accessible
-                imageUrl: item.imageUrl, // Use imageUrl
+                image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
                 restaurant: item.restaurant ? {
                     id: item.restaurant._id,
                     name: item.restaurant.name
@@ -351,7 +453,8 @@ router.get('/restaurant/:id', async (req, res) => {
             name: item.item_name,
             description: item.description,
             price: item.item_price,
-            image: item.image,
+            image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+            imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
             restaurant: {
                 id: restaurant._id,
                 name: restaurant.name
@@ -632,23 +735,39 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
         console.log('Creating new menu item with data:', req.body);
         console.log('User from token:', req.user);
         
-        let imageUrl = null;
+        let imagePath = null;
         if (req.file) {
-            imageUrl = `uploads/menu/${req.file.filename}`;
-            console.log('Uploaded image saved to:', imageUrl);
+            imagePath = `uploads/menu/${req.file.filename}`;
+            console.log('Uploaded image saved to:', imagePath);
+        } else {
+            imagePath = 'uploads/placeholders/food-placeholder.jpg';
+            console.log('No image uploaded, using default placeholder');
         }
         
-        // Get restaurant ID from token
-        const restaurantId = req.user.id || req.user._id || req.user.userId;
-        if (!restaurantId) {
-            console.log('Missing restaurant ID in request');
+        // Get owner ID from token
+        const ownerId = req.user.id || req.user._id || req.user.userId;
+        if (!ownerId) {
+            console.log('Missing owner ID in request');
             return res.status(400).json({
                 success: false,
-                message: 'Restaurant ID is missing.'
+                message: 'Owner ID is missing.'
             });
         }
         
-        console.log('Creating menu item for restaurant ID:', restaurantId);
+        // Always find the restaurant ID first, don't use owner ID
+        const Restaurant = mongoose.model('Restaurant');
+        const restaurant = await Restaurant.findOne({ owner: ownerId });
+        
+        if (!restaurant) {
+            console.log(`No restaurant found for owner ID: ${ownerId}`);
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found. You must have a registered restaurant to add menu items.'
+            });
+        }
+        
+        const restaurantId = restaurant._id;
+        console.log(`Creating menu item for restaurant ID: ${restaurantId} (owner ID: ${ownerId})`);
         
         // Create a new menu item
         const menuItemData = {
@@ -656,12 +775,10 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
             item_price: req.body.price, // Map from price (API) to item_price (model)
             description: req.body.description,
             category: req.body.category,
-            restaurant: restaurantId
+            restaurant: restaurantId, // Use restaurant ID, never owner ID
+            image: imagePath,
+            imageUrl: imagePath
         };
-        
-        if (imageUrl) {
-            menuItemData.image = imageUrl; // Store the image URL
-        }
         
         // Optional fields
         if (req.body.calories) menuItemData.calories = parseFloat(req.body.calories);
@@ -673,7 +790,7 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
         menuItemData.isVegetarian = req.body.isVegetarian === 'true';
         menuItemData.isVegan = req.body.isVegan === 'true';
         menuItemData.isGlutenFree = req.body.isGlutenFree === 'true';
-        menuItemData.isAvailable = req.body.isAvailable === 'true';
+        menuItemData.isAvailable = req.body.isAvailable !== undefined ? (req.body.isAvailable === 'true') : true;
         
         console.log('Final menu item data to save:', menuItemData);
         
@@ -690,6 +807,7 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
             description: savedItem.description,
             category: savedItem.category,
             image: savedItem.image,
+            imageUrl: savedItem.imageUrl,
             calories: savedItem.calories,
             protein: savedItem.protein,
             carbs: savedItem.carbs,
@@ -782,11 +900,12 @@ router.put('/:id', [
         
         // Update image if provided
         if (req.file) {
-            // Delete old image if it exists
-            if (menuItem.image && fs.existsSync(menuItem.image.substring(1))) {
-                fs.unlinkSync(menuItem.image.substring(1));
-            }
-            menuItem.image = '/' + req.file.path;
+            const imagePath = `uploads/menu/${req.file.filename}`;
+            console.log('New image uploaded, saved to:', imagePath);
+            
+            // Update both image and imageUrl for consistency
+            menuItem.image = imagePath;
+            menuItem.imageUrl = imagePath;
         }
         
         // Update optional fields
@@ -813,6 +932,7 @@ router.put('/:id', [
                 description: menuItem.description,
                 price: menuItem.item_price,
                 image: menuItem.image,
+                imageUrl: menuItem.imageUrl,
                 category: menuItem.category,
                 calories: menuItem.calories,
                 protein: menuItem.protein,

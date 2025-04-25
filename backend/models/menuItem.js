@@ -56,11 +56,14 @@ const menuItemSchema = mongoose.Schema({
     },
     description: {
         type: String,
-        required: true,
+        default: '',
+    },
+    image: {
+        type: String,
+        default: 'uploads/placeholders/food-placeholder.jpg',
     },
     imageUrl: {
         type: String,
-        default: '',
     },
     restaurant: {
         type: mongoose.Schema.Types.ObjectId,
@@ -88,19 +91,15 @@ const menuItemSchema = mongoose.Schema({
     },
     calories: {
         type: Number,
-        default: 0,
     },
     protein: {
         type: Number,
-        default: 0,
     },
     carbs: {
         type: Number,
-        default: 0,
     },
     fat: {
         type: Number,
-        default: 0,
     },
     sodium: {
         type: Number,
@@ -190,7 +189,11 @@ const menuItemSchema = mongoose.Schema({
         type: Number,
         default: 0,
     },
-    dateCreated: {
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    updatedAt: {
         type: Date,
         default: Date.now,
     }
@@ -198,6 +201,47 @@ const menuItemSchema = mongoose.Schema({
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
+});
+
+// Pre-save hook to ensure restaurant ID is valid
+menuItemSchema.pre('save', async function(next) {
+    try {
+        // Skip validation if restaurant field is not modified
+        if (!this.isModified('restaurant')) {
+            return next();
+        }
+
+        // Get Restaurant model
+        const Restaurant = mongoose.model('Restaurant');
+        
+        // Check if the restaurant exists
+        const restaurant = await Restaurant.findById(this.restaurant);
+        
+        // If not found, check if this might be a User ID instead of a Restaurant ID
+        if (!restaurant) {
+            const User = mongoose.model('User');
+            const user = await User.findById(this.restaurant);
+            
+            if (user && user.role === 'restaurant') {
+                // Get the actual restaurant owned by this user
+                const actualRestaurant = await Restaurant.findOne({ owner: this.restaurant });
+                
+                if (actualRestaurant) {
+                    // Set the correct restaurant ID
+                    console.log(`Fixing menu item: changing restaurant from user ID ${this.restaurant} to restaurant ID ${actualRestaurant._id}`);
+                    this.restaurant = actualRestaurant._id;
+                    return next();
+                }
+            }
+            
+            // If we can't fix it, throw an error
+            return next(new Error('Invalid restaurant ID. Please provide a valid restaurant ID.'));
+        }
+        
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
 
 menuItemSchema.virtual('id').get(function () {

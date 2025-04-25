@@ -83,7 +83,7 @@ export const CartProvider = ({ children }) => {
       if (existingRestaurantId && restaurantId && existingRestaurantId !== restaurantId) {
         addToast('Cannot add items from different restaurants to cart. Please clear your cart first.', { 
           type: 'error',
-          duration: 5000 
+          duration: 7000 
         });
         return;
       }

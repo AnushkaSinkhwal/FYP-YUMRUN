@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FiUsers, FiSettings, FiBell, FiUser, FiLogOut, FiMenu, FiX, FiHome, FiShoppingCart, FiTruck, FiCheckSquare, FiCoffee } from 'react-icons/fi';
+import { FiUsers, FiSettings, FiBell, FiUser, FiLogOut, FiMenu, FiX, FiHome, FiShoppingCart, FiTruck, FiCoffee } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { Badge } from '../components/ui';
 
@@ -24,7 +24,7 @@ const AdminLayout = () => {
     { name: 'Restaurants', href: '/admin/restaurants', icon: <FiCoffee /> },
     { name: 'Orders', href: '/admin/orders', icon: <FiShoppingCart /> },
     { name: 'Deliveries', href: '/admin/deliveries', icon: <FiTruck /> },
-    { name: 'Approvals', href: '/admin/approvals', icon: <FiCheckSquare /> },
+    { name: 'Riders', href: '/admin/riders', icon: <FiTruck /> },
     { name: 'Settings', href: '/admin/settings', icon: <FiSettings /> }
   ];
 

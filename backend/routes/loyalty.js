@@ -282,7 +282,7 @@ router.post('/add', protect, async (req, res) => {
  */
 function calculateTier(lifetimePoints) {
   if (lifetimePoints >= 10000) return 'PLATINUM';
-  if (lifetimePoints >= 5000) return 'GOLD';
+  if (lifetimePoints >= 7000) return 'GOLD';
   if (lifetimePoints >= 1000) return 'SILVER';
   return 'BRONZE';
 }

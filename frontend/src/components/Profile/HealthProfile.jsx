@@ -309,7 +309,7 @@ const HealthProfile = () => {
                 value={healthProfile.dailyCalorieGoal}
                 onChange={handleNumberChange}
                 min="1000"
-                max="5000"
+                max="7000"
                 className="w-32"
               />
               <span className="text-gray-500">calories</span>

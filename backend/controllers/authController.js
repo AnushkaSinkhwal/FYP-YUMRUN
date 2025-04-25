@@ -508,9 +508,17 @@ exports.resendOTP = async (req, res) => {
 // Get current user
 exports.getCurrentUser = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        // Fetch user and explicitly populate deliveryRiderDetails if role is delivery_rider
+        let query = User.findById(req.user.userId || req.user._id).select('-password'); // Use userId or _id from token
+
+        // No need to populate based on role check; Mongoose handles nested schemas
+        // However, we need to ensure all fields are selected, especially nested ones.
+        // Selecting `-password` should include everything else by default.
+
+        const user = await query.exec();
         
         if (!user) {
+            console.error(`[getCurrentUser] User not found for ID: ${req.user.userId || req.user._id}`);
             return res.status(404).json({
                 success: false,
                 error: {
@@ -520,28 +528,21 @@ exports.getCurrentUser = async (req, res) => {
             });
         }
         
+        // Log the fetched user data, especially the delivery details
+        console.log(`[getCurrentUser] Fetched user data for ${user._id}:`, JSON.stringify(user, null, 2));
+        console.log(`[getCurrentUser] Delivery Rider Details from DB:`, JSON.stringify(user.deliveryRiderDetails, null, 2));
+        
+        // Return the full user object (excluding password) which includes deliveryRiderDetails
         return res.status(200).json({
             success: true,
-            data: {
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    phone: user.phone,
-                    healthCondition: user.healthCondition,
-                    isAdmin: user.isAdmin,
-                    isRestaurantOwner: user.isRestaurantOwner,
-                    isDeliveryStaff: user.isDeliveryStaff,
-                    role: user.role
-                }
-            }
+            user: user // Return the full user document
         });
     } catch (error) {
-        console.error('Get current user error:', error);
+        console.error('[getCurrentUser] Error:', error);
         return res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error fetching user data.',
                 code: 'SERVER_ERROR'
             }
         });

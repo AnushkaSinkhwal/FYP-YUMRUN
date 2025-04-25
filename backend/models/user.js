@@ -100,6 +100,29 @@ const deliveryRiderDetailsSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isAvailable: {
+      type: Boolean,
+      default: false,
+    },
+    currentLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        default: [85.324, 27.7172], // Default to Kathmandu coordinates
+      },
+    },
+    ratings: {
+      average: { type: Number, default: 5 },
+      count: { type: Number, default: 0 },
+    },
+    completedDeliveries: {
+      type: Number,
+      default: 0,
+    },
   },
   { _id: false }
 );
@@ -323,37 +346,7 @@ const userSchema = new mongoose.Schema(
       default: null
     },
     // If user is a delivery rider
-    deliveryRiderDetails: {
-      vehicleType: {
-        type: String,
-        enum: ["bicycle", "motorcycle", "car", "scooter"],
-        default: "motorcycle",
-      },
-      licenseNumber: String,
-      isAvailable: {
-        type: Boolean,
-        default: false,
-      },
-      currentLocation: {
-        type: {
-          type: String,
-          enum: ["Point"],
-          default: "Point",
-        },
-        coordinates: {
-          type: [Number],
-          default: [85.324, 27.7172], // Default to Kathmandu coordinates
-        },
-      },
-      ratings: {
-        average: { type: Number, default: 5 },
-        count: { type: Number, default: 0 },
-      },
-      completedDeliveries: {
-        type: Number,
-        default: 0,
-      },
-    },
+    deliveryRiderDetails: deliveryRiderDetailsSchema,
     // Add fields for password reset
     resetPasswordToken: String,
     resetPasswordExpire: Date,

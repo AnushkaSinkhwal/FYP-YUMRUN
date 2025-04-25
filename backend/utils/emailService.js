@@ -427,7 +427,7 @@ const emailTemplates = {
             </div>
 
             {/* Ensure the link uses the correct base URL */}
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}/user/orders/${order._id}" class="button">View Order Details</a>
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:7000'}/user/orders/${order._id}" class="button">View Order Details</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>Enjoy your meal!</p>
