@@ -16,7 +16,6 @@ import SignIn from "./Pages/SignIn";
 import SignUp from "./Pages/SignUp";
 import Listing from "./Pages/Listing";
 import ProductDetails from "./Pages/ProductDetails";
-import Profile from "./Pages/Profile";
 import BackToTop from "./components/BackToTop";
 import RestaurantDetails from './Pages/RestaurantDetails';
 import About from './Pages/About';
@@ -63,6 +62,7 @@ import RestaurantProfile from "./Pages/restaurant/Profile";
 import RestaurantAnalytics from "./Pages/restaurant/Analytics";
 import RestaurantNotifications from "./Pages/restaurant/Notifications";
 import RestaurantOffers from "./Pages/restaurant/Offers";
+import RestaurantReviews from './Pages/restaurant/RestaurantReviews';
 
 // Delivery imports
 import DeliveryLayout from "./components/delivery/DeliveryLayout";
@@ -79,10 +79,10 @@ import UserDashboard from "./Pages/user/Dashboard";
 import UserOrders from "./Pages/user/Orders";
 import UserProfile from "./Pages/user/Profile";
 import UserFavorites from "./Pages/user/Favorites";
-import UserReviews from "./Pages/user/Reviews";
 import UserRewards from "./Pages/user/Rewards";
 import UserNotifications from "./Pages/user/Notifications";
 import UserSettings from "./Pages/user/Settings";
+import MyReviews from './Pages/user/MyReviews';
 
 // Placeholder pages
 const PlaceholderPage = ({ title }) => (
@@ -304,6 +304,7 @@ function App() {
                     <Route path="dashboard" element={<RestaurantDashboard />} />
                     <Route path="menu" element={<RestaurantMenu />} />
                     <Route path="orders" element={<RestaurantOrders />} />
+                    <Route path="reviews" element={<RestaurantReviews />} />
                     <Route path="profile" element={<RestaurantProfile />} />
                     <Route path="analytics" element={<RestaurantAnalytics />} />
                     <Route path="notifications" element={<RestaurantNotifications />} />
@@ -444,18 +445,20 @@ function App() {
                   } />
 
                   <Route path="/profile" element={
-                    <>
-                      {isHeaderFooterShow && <Header />}
-                      <main id="main-content">
-                        <ProtectedRoute>
-                          <Profile />
-                        </ProtectedRoute>
-                      </main>
-                      {isHeaderFooterShow && <Footer />}
-                      {isOpenProductModel && <ProductModel productId={productId} />}
-                      <BackToTop />
-                    </>
-                  } />
+                    <ProtectedRoute allowedRoles={['user']}>
+                      <LayoutWrapper><UserLayout /></LayoutWrapper>
+                    </ProtectedRoute>
+                  }>
+                    <Route index element={<UserDashboard />} />
+                    <Route path="dashboard" element={<UserDashboard />} />
+                    <Route path="orders" element={<UserOrders />} />
+                    <Route path="info" element={<UserProfile />} />
+                    <Route path="favorites" element={<UserFavorites />} />
+                    <Route path="reviews" element={<MyReviews />} />
+                    <Route path="rewards" element={<UserRewards />} />
+                    <Route path="notifications" element={<UserNotifications />} />
+                    <Route path="settings" element={<UserSettings />} />
+                  </Route>
 
                   {/* Delivery Routes */}
                   <Route path="/delivery" element={
@@ -470,15 +473,11 @@ function App() {
                     <Route path="profile" element={<DeliveryProfile />} />
                     <Route path="earnings" element={<DeliveryEarnings />} />
                     <Route path="notifications" element={<DeliveryNotifications />} />
-                    <Route path="favorites" element={<UserFavorites />} />
-                    <Route path="reviews" element={<UserReviews />} />
-                    <Route path="rewards" element={<UserRewards />} />
-                    <Route path="settings" element={<UserSettings />} />
                   </Route>
 
-                  {/* User Routes */}
+                  {/* User Routes - Adding the missing route */}
                   <Route path="/user" element={
-                    <ProtectedRoute allowedRoles={['customer', 'delivery_rider']}>
+                    <ProtectedRoute allowedRoles={['customer']}>
                       <UserLayout />
                     </ProtectedRoute>
                   }>
@@ -486,12 +485,15 @@ function App() {
                     <Route path="dashboard" element={<UserDashboard />} />
                     <Route path="orders" element={<UserOrders />} />
                     <Route path="profile" element={<UserProfile />} />
-                    <Route path="settings" element={<UserSettings />} />
                     <Route path="favorites" element={<UserFavorites />} />
-                    <Route path="reviews" element={<UserReviews />} />
                     <Route path="rewards" element={<UserRewards />} />
                     <Route path="notifications" element={<UserNotifications />} />
+                    <Route path="settings" element={<UserSettings />} />
+                    <Route path="reviews" element={<MyReviews />} />
                   </Route>
+
+                  {/* Other Public/Shared Routes */}
+                  <Route path="/order/:orderId" element={<LayoutWrapper><OrderDetail /></LayoutWrapper>} />
 
                   {/* Payment Verify Route */}
                   <Route path="/payment-verify" element={
@@ -521,19 +523,6 @@ function App() {
                   {/* Ensure other top-level pages use LayoutWrapper */} 
                   <Route path="/restaurants" element={<LayoutWrapper><Restaurants /></LayoutWrapper>} />
                   <Route path="/menu" element={<LayoutWrapper><Menu /></LayoutWrapper>} />
-
-                  <Route path="/orders/:orderId" element={
-                    <>
-                      {isHeaderFooterShow && <Header />}
-                      <main id="main-content">
-                        <ProtectedRoute allowedRoles={['customer', 'admin', 'restaurant', 'delivery_rider']}>
-                          <OrderDetail />
-                        </ProtectedRoute>
-                      </main>
-                      {isHeaderFooterShow && <Footer />}
-                      <BackToTop />
-                    </>
-                  } />
 
                   {/* Forgot Password Route */}
                   <Route path="/forgot-password" element={

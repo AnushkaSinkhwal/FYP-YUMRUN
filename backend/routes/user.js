@@ -783,7 +783,8 @@ router.get('/notifications', protect, async (req, res) => {
         const Notification = require('../models/notification');
         
         const notifications = await Notification.find({
-            userId: req.user._id
+            userId: req.user._id,
+            isAdminNotification: { $ne: true } // Exclude admin notifications
         }).sort({ createdAt: -1 });
         
         return res.status(200).json({

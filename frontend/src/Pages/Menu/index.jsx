@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import { Container, Spinner, Button } from '../../components/ui';
 import { FaFilter, FaSearch, FaShoppingCart, FaStar } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 import axios from 'axios';
 import { getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { isValidObjectId, cleanObjectId } from '../../utils/validationUtils';
 
 const Menu = () => {
   const { addToCart } = useCart();
+  const { addToast } = useToast();
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,14 +43,49 @@ const Menu = () => {
         const response = await axios.get(`${API_URL}/menu`);
         console.log('Menu API response:', response.data);
         
+        // *** ADDED LOGGING: Log raw data immediately after fetch ***
+        console.log('[Menu Page] Raw data received from API:', response?.data?.data);
+        // ***********************************************************
+
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform the API data to match our frontend format
           const formattedItems = response.data.data.map(item => {
-            const restaurantId = item.restaurant?.id || item.restaurant?._id || 
-              (typeof item.restaurant === 'string' ? item.restaurant : null);
+            // Get menu item ID
+            const menuItemId = item._id || item.id;
+            
+            // Get restaurant ID from various possible sources
+            let restaurantId = null;
+            if (item.restaurant?.id) {
+              restaurantId = item.restaurant.id;
+            } else if (item.restaurant?._id) {
+              restaurantId = item.restaurant._id;
+            } else if (typeof item.restaurant === 'string') {
+              restaurantId = item.restaurant;
+            }
+            
+            // Clean and validate both IDs
+            const cleanedMenuItemId = cleanObjectId(menuItemId);
+            const cleanedRestaurantId = restaurantId ? cleanObjectId(restaurantId) : null;
+            
+            // Check if menu item ID and restaurant ID are the same (invalid configuration)
+            if (cleanedMenuItemId && cleanedRestaurantId && cleanedMenuItemId === cleanedRestaurantId) {
+              console.warn(`Menu item ID and restaurant ID are the same for item "${item.name || 'Unknown'}"`);
+              // *** ADDED LOGGING: Confirming this block is hit ***
+              console.log(`[Menu Mapping] Nullifying restaurantId for item ${cleanedMenuItemId} because it matched restaurantId ${cleanedRestaurantId}`);
+              // ***************************************************
+              restaurantId = null; // Invalidate the restaurant ID so it gets filtered out
+            }
+            // Further validate the restaurant ID
+            else if (restaurantId) {
+              restaurantId = cleanedRestaurantId;
+              if (!isValidObjectId(restaurantId)) {
+                console.warn(`Invalid restaurant ID format for menu item ${item.name || item.item_name}: ${restaurantId}`);
+                restaurantId = null;
+              }
+            }
             
             return {
-              id: item._id || item.id || `item-${Math.random().toString(36).substring(2, 9)}`,
+              id: cleanedMenuItemId || `item-${Math.random().toString(36).substring(2, 9)}`,
               name: item.name || item.item_name || 'Unnamed Item',
               description: item.description || 'No description available',
               price: parseFloat(item.price || item.item_price || 0),
@@ -61,16 +99,30 @@ const Menu = () => {
                 id: restaurantId,
                 name: item.restaurant?.name || 'Restaurant'
               },
+              restaurantId: restaurantId, // Add explicit restaurantId field
               image: getBestImageUrl(item),
               isPopular: !!item.isPopular || item.numberOfRatings > 2 || item.averageRating > 4
             };
           });
           
           console.log('Formatted menu items:', formattedItems);
-          setMenuItems(formattedItems);
+          // Filter out items with no valid restaurantId
+          const validItems = formattedItems.filter(item => {
+            if (!item.restaurantId) {
+              return false;
+            }
+            // Double-check that menu item ID and restaurant ID are different
+            if (item.id === item.restaurantId) {
+              console.warn(`Filtering out menu item ${item.name} - ID and restaurant ID are the same`);
+              return false;
+            }
+            return true;
+          });
+          console.log(`Filtered out ${formattedItems.length - validItems.length} items with missing/invalid restaurant IDs`);
+          setMenuItems(validItems);
           
           // Extract all unique categories from the menu items
-          const uniqueCategories = [...new Set(formattedItems.map(item => item.category))];
+          const uniqueCategories = [...new Set(validItems.map(item => item.category))];
           // Create the categories array with 'all' and 'popular' at the beginning
           setCategories([
             { id: 'all', name: 'All Items' },
@@ -168,14 +220,43 @@ const Menu = () => {
 
   // Handle add to cart
   const handleAddToCart = (item) => {
+    // *** ADDED LOGGING: Inspect item object received by handler ***
+    console.log('[Menu handleAddToCart] Item received:', JSON.stringify(item, null, 2));
+    // ***************************************************************
+    
+    // First, clean the IDs
+    const cleanedItemId = cleanObjectId(item.id);
+    const cleanedRestaurantId = cleanObjectId(item.restaurantId);
+    
+    // Verify we have a valid restaurant ID
+    if (!cleanedRestaurantId || !isValidObjectId(cleanedRestaurantId)) {
+      console.error(`Cannot add to cart: Missing or invalid restaurant ID for ${item.name}`);
+      addToast('Cannot add this item to cart due to missing restaurant information', { type: 'error' });
+      return;
+    }
+    
+    // Verify menu item ID is valid
+    if (!cleanedItemId || !isValidObjectId(cleanedItemId)) {
+      console.error(`Cannot add to cart: Invalid menu item ID for ${item.name}`);
+      addToast('Cannot add this item to cart due to invalid item information', { type: 'error' });
+      return;
+    }
+    
+    // Verify menu item ID and restaurant ID are not the same (critical check)
+    if (cleanedItemId === cleanedRestaurantId) {
+      console.error(`Cannot add to cart: Menu item ID and restaurant ID are the same for ${item.name}`);
+      addToast('Cannot add this item due to incorrect data configuration', { type: 'error' });
+      return;
+    }
+    
     const priceToAdd = item.discountedPrice !== undefined ? item.discountedPrice : item.price;
     addToCart({
-      id: item.id,
+      id: cleanedItemId,
       name: item.name,
       price: priceToAdd,
       image: item.image,
       quantity: 1,
-      restaurantId: item.restaurant.id,
+      restaurantId: cleanedRestaurantId,
       restaurantName: item.restaurant.name
     });
     console.log(`Added ${item.name} to cart at price ${priceToAdd}`);
@@ -314,7 +395,7 @@ const Menu = () => {
                       }}
                     />
                     {item.offerDetails && (
-                      <div className="absolute top-0 right-0 p-2 bg-yumrun-orange text-white rounded-bl-lg">
+                      <div className="absolute top-0 right-0 p-2 text-white rounded-bl-lg bg-yumrun-orange">
                         <span className="font-semibold">{item.offerDetails.percentage}% OFF</span>
                       </div>
                     )}
@@ -332,7 +413,7 @@ const Menu = () => {
                         {item.name}
                       </Link>
                     </h3>
-                    <p className="mb-3 text-sm text-gray-600 flex-grow line-clamp-2">
+                    <p className="flex-grow mb-3 text-sm text-gray-600 line-clamp-2">
                       {item.description}
                     </p>
                     <div className="flex items-center justify-between mb-3">

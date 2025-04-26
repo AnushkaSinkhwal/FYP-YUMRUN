@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Container, Card, CardContent, CardHeader, CardTitle, CardDescription, Spinner, Alert } from '../../components/ui';
 import LazyImage from '../../components/LazyImage';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const Shop = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -63,14 +64,18 @@ const Shop = () => {
             <Link key={restaurant._id || restaurant.id} to={`/restaurant/${restaurant._id || restaurant.id}`} className="block group">
               <Card className="overflow-hidden transition-shadow duration-300 hover:shadow-lg">
                 <CardHeader className="p-0">
-                  {restaurant.logo && (
+                  {(restaurant.coverImage || restaurant.logo) && (
                     <LazyImage
-                      src={restaurant.logo}
-                      alt={`${restaurant.name} logo`}
+                      src={
+                        restaurant.coverImage
+                          ? getFullImageUrl(restaurant.coverImage)
+                          : getFullImageUrl(restaurant.logo)
+                      }
+                      alt={`${restaurant.name}`}
                       className="object-cover w-full h-48 transition-transform duration-300 group-hover:scale-105"
                     />
                   )}
-                  {!restaurant.logo && (
+                  {!restaurant.coverImage && !restaurant.logo && (
                     <div className="flex items-center justify-center w-full h-48 text-gray-400 bg-gray-100">
                       <span>No Image</span>
                     </div>

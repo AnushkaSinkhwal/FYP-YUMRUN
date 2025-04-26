@@ -1,7 +1,7 @@
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { CiHeart } from "react-icons/ci";
 import { FiShoppingCart } from "react-icons/fi";
-import { FaMapMarkerAlt, FaHeart, FaStore } from "react-icons/fa";
+import { FaMapMarkerAlt, FaHeart, FaStore, FaTag } from "react-icons/fa";
 import { useContext, useState, useEffect } from 'react';
 import { MyContext } from '../../context/UIContext.js';
 import PropTypes from 'prop-types';
@@ -19,16 +19,19 @@ import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 const ProductItem = ({ 
     itemView = "four", 
     id = "1", 
-    discount = "", 
+    discount = "",
     name = "Fire And Ice Pizzeria", 
-    location = "", 
+    location = "",
     rating = 0, 
-    oldPrice = "", 
-    newPrice = "520", 
+    oldPrice = "",
+    newPrice = "0",
+    price = 0,
     image = "",
-    imgSrc = "", 
+    imgSrc = "",
     isRestaurant = false,
-    linkTo = ""
+    linkTo = "",
+    offerDetails = null,
+    restaurant = null
 }) => {
     const context = useContext(MyContext);
     const { addToCart } = useCart();
@@ -41,11 +44,30 @@ const ProductItem = ({
     const itemLink = linkTo || (isRestaurant ? `/restaurant/${id}` : `/product/${id}`);
 
     // Process the image URL using getFullImageUrl and appropriate placeholder
-    // Accept either image or imgSrc prop (for backward compatibility)
     const finalImage = image || imgSrc || '';
     const processedImageUrl = finalImage 
         ? getFullImageUrl(finalImage) 
         : isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
+
+    // Calculate display prices based on offerDetails or props
+    let displayPrice = parseFloat(newPrice) || 0;
+    let displayOldPrice = parseFloat(oldPrice) || null;
+    const hasOffer = offerDetails && offerDetails.percentage > 0;
+
+    if (hasOffer && price > 0) {
+        // Use price prop as the base when offerDetails is present
+        const calculatedDiscountedPrice = parseFloat((price * (1 - offerDetails.percentage / 100)).toFixed(2));
+        displayPrice = calculatedDiscountedPrice;
+        displayOldPrice = parseFloat(price.toFixed(2)); // Original price from 'price' prop
+    } else if (!hasOffer && oldPrice && parseFloat(oldPrice) > parseFloat(newPrice)) {
+        // Fallback to using oldPrice/newPrice props if no offerDetails
+        displayPrice = parseFloat(newPrice);
+        displayOldPrice = parseFloat(oldPrice);
+    } else {
+         // Default case: use price or newPrice as the main price
+         displayPrice = price > 0 ? parseFloat(price.toFixed(2)) : parseFloat(newPrice);
+         displayOldPrice = null; // No old price to show
+    }
 
     // Check if item is in favorites on component mount
     useEffect(() => {
@@ -57,7 +79,8 @@ const ProductItem = ({
             if (!token) return; // Not logged in
             
             try {
-                const response = await fetch(`/api/favorites/${id}/check`, {
+                // Ensure fetch URL is correctly formed
+                const response = await fetch(`/api/user/favorites/${id}/check`, { 
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -66,9 +89,14 @@ const ProductItem = ({
                 const data = await response.json();
                 if (data.success) {
                     setFavoriteActive(data.data.isFavorite);
+                } else {
+                    // Handle case where item might not exist in favorites yet or other errors
+                    console.warn(`Favorite check failed for item ${id}: ${data.message || 'Unknown error'}`);
+                    setFavoriteActive(false); // Assume not favorite if check fails
                 }
             } catch (error) {
                 console.error('Error checking favorite status:', error);
+                setFavoriteActive(false); // Assume not favorite on network error
             }
         };
         
@@ -78,7 +106,8 @@ const ProductItem = ({
     const viewProductDetails = () => {
         if (isRestaurant) {
             // Navigate to restaurant page instead of opening modal
-            window.location.href = itemLink;
+             // Use react-router Link/navigate if possible, otherwise fallback
+            window.location.href = itemLink; 
         } else {
             context.setProductId(id);
             context.setIsOpenProductModel(true);
@@ -103,48 +132,64 @@ const ProductItem = ({
             setCartButtonClass('');
         }, 800);
 
-        // Ensure we have proper restaurant info
-        let restaurantId = '';
-        let restaurantName = typeof location === 'string' ? location : '';
-        
-        // First try to get restaurant ID from product ID
-        if (id) {
-            const parts = id.split(':');
-            if (parts.length === 2) {
-                restaurantId = parts[0];
+        // Determine restaurant info: Prioritize restaurant prop, then location prop, then fallback
+        let finalRestaurantId = '';
+        let finalRestaurantName = 'Restaurant'; // Default name
+
+        if (restaurant && restaurant.id) {
+            finalRestaurantId = restaurant.id;
+            finalRestaurantName = restaurant.name || finalRestaurantName;
+        } else if (typeof location === 'object' && location !== null && location.id) {
+            finalRestaurantId = location.id;
+            finalRestaurantName = location.name || finalRestaurantName;
+        } else if (typeof location === 'string' && location) {
+            // If location is just a string, use it as name, ID might be unknown or derived from item ID
+            finalRestaurantName = location;
+            // Attempt to derive ID from item ID as a last resort
+            if (!finalRestaurantId && id) {
+                 const parts = id.split(':'); // Assuming format like restaurantId:itemId
+                 if (parts.length > 1) {
+                     finalRestaurantId = parts[0];
+                 } else {
+                     // Fallback if ID format isn't as expected
+                     finalRestaurantId = id.split('_')[0]; 
+                 }
             }
+        } else if (!finalRestaurantId && id) {
+             // Last fallback if location is not useful and no restaurant prop
+              const parts = id.split(':'); 
+                 if (parts.length > 1) {
+                     finalRestaurantId = parts[0];
+                 } else {
+                     finalRestaurantId = id.split('_')[0]; 
+                 }
         }
         
-        // If no restaurant ID from product ID, try location object
-        if (!restaurantId && typeof location === 'object' && location !== null) {
-            restaurantId = location._id || location.id || '';
-            restaurantName = location.name || restaurantName;
+        // Add an explicit check for a valid-looking ID
+        const isValidMongoId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+        
+        if (!finalRestaurantId || finalRestaurantId === 'UNKNOWN' || !isValidMongoId(finalRestaurantId)) {
+            console.error(`[ProductItem] Invalid or missing finalRestaurantId ('${finalRestaurantId}') for item ${name}. Cannot add to cart.`);
+            // Optionally show a user-facing error toast here
+            // addToast('Could not add item: Missing restaurant information.', { type: 'error' });
+            return; // Prevent adding to cart
         }
-
-        // If still no restaurant ID, use a fallback from the product ID
-        if (!restaurantId && id) {
-            restaurantId = id.split('_')[0]; // Try underscore separator as fallback
-        }
-
-        // If no restaurant name found yet, use a default
-        if (!restaurantName) {
-            restaurantName = 'Restaurant';
-        }
-
+        
         // Add the item to cart using the CartContext
+        // Use the calculated displayPrice (which is discounted if applicable)
         addToCart({
             id,
             name,
-            price: parseFloat(newPrice),
+            price: displayPrice, // Use the final calculated price for one unit
             image: processedImageUrl,
             rating,
-            restaurantId,
+            restaurantId: finalRestaurantId, // Pass the validated ID
             restaurant: {
-                id: restaurantId,
-                name: restaurantName,
-                _id: restaurantId // Add this as some parts of the code check for _id
+                id: finalRestaurantId,
+                name: finalRestaurantName,
+                _id: finalRestaurantId // Ensure _id is also present
             }
-        }, 1);
+        }, 1); // Add quantity 1 for ProductItem click
         
         // Show success briefly
         setTimeout(() => {
@@ -289,6 +334,14 @@ const ProductItem = ({
                         />
                     </Link>
                     
+                    {/* Offer Badge */}
+                    {offerDetails && offerDetails.percentage > 0 && (
+                      <div className="absolute top-2 right-2 p-1.5 bg-yumrun-red text-white rounded-md text-xs font-semibold flex items-center gap-1">
+                         <FaTag className="w-3 h-3"/>
+                         <span>{offerDetails.percentage}% OFF</span>
+                      </div>
+                    )}
+                    
                     {!isRestaurant && discount && parseFloat(discount) > 0 && (
                         <Badge className="absolute text-white top-2 left-2 bg-yumrun-accent" variant="secondary">
                             {discount}% OFF
@@ -351,11 +404,21 @@ const ProductItem = ({
                     <Link to={itemLink} className="block transition-colors hover:text-yumrun-primary">
                         <h3 className="text-lg font-medium line-clamp-1">{name}</h3>
                         
-                        {location && (
-                            <div className="flex items-center mt-1 text-sm text-gray-500">
-                                <FaMapMarkerAlt className="w-3 h-3 mr-1 text-yumrun-secondary" />
-                                <span>{location}</span>
-                            </div>
+                        {/* Display location string or restaurant name */}
+                        {isRestaurant ? (
+                            location && typeof location === 'string' && (
+                                <div className="flex items-center mt-1 text-sm text-gray-500">
+                                    <FaMapMarkerAlt className="w-3 h-3 mr-1 text-yumrun-secondary" />
+                                    <span>{location}</span>
+                                </div>
+                            )
+                        ) : (
+                            restaurant && restaurant.name && (
+                                <div className="flex items-center mt-1 text-sm text-gray-500">
+                                    <FaStore className="w-3 h-3 mr-1 text-yumrun-secondary" />
+                                    <span>{restaurant.name}</span>
+                                </div>
+                            )
                         )}
                     </Link>
                     
@@ -367,10 +430,13 @@ const ProductItem = ({
                         {!isRestaurant ? (
                             <>
                                 <div className="price-container">
-                                    {oldPrice && parseFloat(oldPrice) > parseFloat(newPrice) ? (
-                                        <span className="mr-2 text-sm text-gray-500 line-through">Rs.{oldPrice}</span>
+                                    {/* Use calculated displayOldPrice and displayPrice */}
+                                    {displayOldPrice && displayOldPrice > displayPrice ? (
+                                        <span className="mr-2 text-sm text-gray-500 line-through">Rs.{displayOldPrice.toFixed(2)}</span>
                                     ) : null}
-                                    <span className="font-medium text-yumrun-accent">Rs.{newPrice}</span>
+                                    <span className={`font-medium ${hasOffer ? 'text-yumrun-red' : 'text-yumrun-accent'}`}>
+                                        Rs.{displayPrice.toFixed(2)}
+                                    </span>
                                 </div>
                                 
                                 <Button 
@@ -425,17 +491,30 @@ const ProductItem = ({
 // Prop validation
 ProductItem.propTypes = {
     itemView: PropTypes.string,
-    id: PropTypes.string,
+    id: PropTypes.string.isRequired,
     discount: PropTypes.string,
-    name: PropTypes.string,
-    location: PropTypes.string,
+    name: PropTypes.string.isRequired,
+    location: PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.shape({ id: PropTypes.string, name: PropTypes.string })
+    ]),
     rating: PropTypes.number,
     oldPrice: PropTypes.string,
     newPrice: PropTypes.string,
+    price: PropTypes.number,
     image: PropTypes.string,
     imgSrc: PropTypes.string,
     isRestaurant: PropTypes.bool,
-    linkTo: PropTypes.string
+    linkTo: PropTypes.string,
+    offerDetails: PropTypes.shape({
+        percentage: PropTypes.number,
+        title: PropTypes.string,
+        id: PropTypes.string
+    }),
+    restaurant: PropTypes.shape({
+        id: PropTypes.string,
+        name: PropTypes.string
+    })
 };
 
 export default ProductItem;

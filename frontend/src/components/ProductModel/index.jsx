@@ -78,11 +78,13 @@ const ProductModel = ({ productId }) => {
             id: product.id,
             name: product.name,
             price: product.price,
+            basePrice: product.price,
             image: product.image,
+            quantity: quantity,
             rating: product.rating || 0,
-            restaurant: product.restaurant?.name || '',
+            restaurantName: product.restaurant?.name || '',
             restaurantId: restaurantId
-        }, quantity);
+        });
         
         // Close the modal after adding to cart
         context.setIsOpenProductModel(false);

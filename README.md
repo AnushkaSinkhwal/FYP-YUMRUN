@@ -286,7 +286,7 @@ Communication between layers is secured using JWT authentication and proper data
    JWT_COOKIE_EXPIRE=30
    
    # CORS Configuration
-   FRONTEND_URL=http://localhost:7000
+   FRONTEND_URL=http://localhost:4000
    
    # File Upload Limits
    MAX_FILE_SIZE=5000000
@@ -316,7 +316,7 @@ Communication between layers is secured using JWT authentication and proper data
    yarn dev
    ```
    This starts both frontend and backend concurrently.
-   - Frontend: Vite dev server on port 7000
+   - Frontend: Vite dev server on port 4000
    - Backend: Express server on port 8000
 
 2. **Code changes**
@@ -335,7 +335,7 @@ MongoDB will be created automatically when the server first connects. You can in
 
 ## Usage
 
-Access the application at `http://localhost:7000` after starting the development servers.
+Access the application at `http://localhost:4000` after starting the development servers.
 
 ### Default Accounts
 

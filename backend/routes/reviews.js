@@ -4,18 +4,23 @@ const {
     createReview, 
     getMenuItemReviews, 
     getUserReviews, 
+    getRestaurantReviews,
     updateReview, 
     deleteReview 
 } = require('../controllers/reviewController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, authorize, restaurant } = require('../middleware/authMiddleware');
 
 // Public routes
 router.get('/menuItem/:menuItemId', getMenuItemReviews);
 
 // Protected routes
-router.post('/', protect, createReview);
-router.get('/user', protect, getUserReviews);
-router.put('/:reviewId', protect, updateReview);
-router.delete('/:reviewId', protect, deleteReview);
+router.use(protect);
+
+router.post('/', authorize('user'), createReview);
+router.get('/my', authorize('user'), getUserReviews);
+router.get('/restaurant', restaurant, getRestaurantReviews);
+router.route('/:reviewId')
+    .put(authorize('user'), updateReview)
+    .delete(authorize('user', 'admin'), deleteReview);
 
 module.exports = router; 

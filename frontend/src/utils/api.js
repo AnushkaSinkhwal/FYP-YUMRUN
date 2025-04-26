@@ -440,7 +440,7 @@ export const adminAPI = {
     return api.get('/admin/notifications/unread-count');
   },
   processNotification: async (notificationId, action, data) => {
-    return api.patch(`/admin/notifications/${notificationId}/process`, { action, ...data });
+    return api.post(`/admin/notifications/${notificationId}/process`, { action, ...data });
   },
   approveNotification: async (notificationId, data = {}) => {
     return api.patch(`/admin/notifications/${notificationId}/approve`, data);
@@ -465,7 +465,7 @@ export const adminAPI = {
 export const restaurantAPI = {
   // Get restaurant profile
   getProfile: async () => {
-    return api.get('/restaurant/profile');
+    return api.get('/restaurants/profile');
   },
   
   // Get dashboard data
@@ -475,7 +475,7 @@ export const restaurantAPI = {
   
   // Update restaurant profile
   updateProfile: async (profileData) => {
-    return api.put('/restaurant/profile', profileData);
+    return api.put('/restaurants/profile', profileData);
   },
   
   // Submit profile changes for approval
@@ -601,6 +601,46 @@ export const restaurantAPI = {
   getAnalytics: async (period = 'week') => {
     return api.get(`/restaurant/analytics?period=${period}`);
   },
+  // Add check for pending admin update notification
+  hasPendingUpdate: async () => {
+     return api.get('/restaurant/pending-update-check');
+  },
+  
+  // Get restaurant details to verify it exists
+  getRestaurantDetails: async (restaurantId) => {
+    try {
+      // Ensure we have a valid restaurant ID
+      if (!restaurantId) {
+        console.error('Restaurant validation failed: Missing restaurantId');
+        return { 
+          data: { 
+            success: false, 
+            message: 'Missing restaurant ID' 
+          } 
+        };
+      }
+
+      // Clean the restaurantId - ensure it's a string and trim any whitespace or quotes
+      const cleanedId = String(restaurantId).trim().replace(/^["']|["']$/g, '');
+      
+      console.log(`Validating restaurant with ID: ${cleanedId}`);
+      
+      // Use the restaurants endpoint to verify restaurant exists
+      const response = await api.get(`/restaurants/${cleanedId}`);
+      return response;
+    } catch (error) {
+      console.error('Error validating restaurant:', error);
+      
+      // Return structured error response
+      const errorMessage = error.response?.data?.message || error.message;
+      return { 
+        data: { 
+          success: false, 
+          message: errorMessage 
+        } 
+      };
+    }
+  },
 };
 
 // User API methods
@@ -632,6 +672,12 @@ export const userAPI = {
       console.error('Error fetching order details:', error);
       throw error;
     }
+  },
+  
+  // Get restaurant details to verify it exists
+  getRestaurantDetails: async (restaurantId) => {
+    // Use the restaurant API's implementation
+    return restaurantAPI.getRestaurantDetails(restaurantId);
   },
   
   // Create a new order
@@ -877,6 +923,42 @@ export const deliveryAPI = {
   },
 
 };
+
+// --- NEW: Review API methods ---
+export const reviewAPI = {
+  // Create a new review
+  createReview: async (reviewData) => {
+    // reviewData should contain: { orderId, menuItemId, rating, comment }
+    return api.post('/reviews', reviewData);
+  },
+
+  // Get reviews for a specific menu item (public)
+  getMenuItemReviews: async (menuItemId) => {
+    return api.get(`/reviews/menuItem/${menuItemId}`);
+  },
+
+  // Get reviews written by the logged-in user
+  getMyReviews: async () => {
+    return api.get('/reviews/my');
+  },
+
+  // Get reviews for the logged-in restaurant owner
+  getMyRestaurantReviews: async () => {
+    return api.get('/reviews/restaurant');
+  },
+
+  // Update a specific review
+  updateReview: async (reviewId, updateData) => {
+    // updateData should contain: { rating, comment }
+    return api.put(`/reviews/${reviewId}`, updateData);
+  },
+
+  // Delete a specific review
+  deleteReview: async (reviewId) => {
+    return api.delete(`/reviews/${reviewId}`);
+  }
+};
+// --- END: Review API methods ---
 
 // General Public API methods (examples)
 export const publicAPI = {

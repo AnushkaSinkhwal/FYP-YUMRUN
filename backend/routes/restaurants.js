@@ -9,6 +9,7 @@ const Restaurant = require('../models/restaurant');
 const MenuItem = require('../models/menuItem');
 const mongoose = require('mongoose');
 const Notification = require('../models/notification');
+const Offer = require('../models/offer');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -69,11 +70,10 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
                 email: user.email, // Get email from User model
                 openingHours: restaurant.openingHours || {},
                 cuisine: restaurant.cuisine || [],
-                // isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true, // Maybe use isActive?
-                isActive: restaurant.isActive, // Use the isActive field from Restaurant model
-                // deliveryRadius: restaurant.deliveryRadius || 5, // If these exist on Restaurant model
-                // minimumOrder: restaurant.minimumOrder || 0,
-                // deliveryFee: restaurant.deliveryFee || 0,
+                isOpen: restaurant.isOpen,
+                deliveryRadius: restaurant.deliveryRadius,
+                minimumOrder: restaurant.minimumOrder,
+                deliveryFee: restaurant.deliveryFee,
                 logo: restaurant.logo || null,
                 coverImage: restaurant.coverImage || null,
                 status: restaurant.status // Include the restaurant status
@@ -101,64 +101,116 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
             return res.status(404).json({ success: false, message: 'Restaurant profile not found for this user.' });
         }
         
-        // Prepare the submitted data
-        const submittedData = { ...req.body }; // Copy request body
-        let logoPath = null;
-        let coverImagePath = null;
+        // Check for existing pending update to prevent duplicates
+        const existingNotification = await Notification.findOne({
+             'data.restaurantId': restaurant._id,
+             type: 'RESTAURANT_UPDATE',
+             status: 'PENDING'
+        });
+        if (existingNotification) {
+            return res.status(409).json({ // 409 Conflict
+                success: false, 
+                message: 'You already have profile changes pending approval. Please wait for the current request to be processed.'
+            });
+        }
 
-        // Handle file uploads - store paths temporarily
-        if (req.files) {
-            if (req.files.logo?.[0]) {
-                logoPath = '/' + req.files.logo[0].path;
-                submittedData.logo = logoPath; // Include new logo path in submitted data
+        // --- Process Submitted Data --- 
+        const submittedData = { ...req.body }; // Copy text fields from req.body
+        const files = req.files || {}; // Get uploaded files
+
+        // Parse JSON fields safely
+        try {
+            if (submittedData.openingHours && typeof submittedData.openingHours === 'string') {
+                submittedData.openingHours = JSON.parse(submittedData.openingHours);
             }
-            if (req.files.coverImage?.[0]) {
-                coverImagePath = '/' + req.files.coverImage[0].path;
-                submittedData.coverImage = coverImagePath; // Include new cover path
+            if (submittedData.cuisine && typeof submittedData.cuisine === 'string') {
+                submittedData.cuisine = JSON.parse(submittedData.cuisine);
+            }
+        } catch (parseError) {
+            console.error('Error parsing JSON fields:', parseError);
+            return res.status(400).json({ success: false, message: 'Invalid format for opening hours or cuisine data.'});
+        }
+
+        // Convert boolean strings/values (using isOpen from model)
+        if (submittedData.isOpen !== undefined) {
+            submittedData.isOpen = submittedData.isOpen === 'true' || submittedData.isOpen === true;
+        } else {
+            // If not submitted, default to current value or true?
+             submittedData.isOpen = restaurant.isOpen; // Keep current if not sent
+        }
+
+        // Convert numbers, ensuring they are valid floats
+        const numericFields = ['deliveryRadius', 'minimumOrder', 'deliveryFee'];
+        for (const field of numericFields) {
+            if (submittedData[field] !== undefined && submittedData[field] !== null && submittedData[field] !== '') {
+                 const parsedValue = parseFloat(submittedData[field]);
+                 if (!isNaN(parsedValue) && parsedValue >= 0) {
+                    submittedData[field] = parsedValue;
+                 } else {
+                     // Handle invalid number input
+                     return res.status(400).json({ success: false, message: `Invalid value provided for ${field}. Must be a non-negative number.`});
+                 }
+            } else {
+                 delete submittedData[field]; // Remove if empty or undefined to avoid overwriting with NaN/null
             }
         }
-
-        // Clean up submitted data (e.g., parse JSON strings if needed)
-        if (submittedData.openingHours && typeof submittedData.openingHours === 'string') {
-            try { submittedData.openingHours = JSON.parse(submittedData.openingHours); } catch (e) { /* ignore parse error */ }
+        
+        // Handle file paths
+        if (files.logo?.[0]) {
+            submittedData.logo = '/' + files.logo[0].path.replace(/\\/g, '/'); // Normalize path
         }
-         if (submittedData.cuisine && typeof submittedData.cuisine === 'string') {
-            try { submittedData.cuisine = JSON.parse(submittedData.cuisine); } catch (e) { /* ignore parse error */ }
+        if (files.coverImage?.[0]) {
+            submittedData.coverImage = '/' + files.coverImage[0].path.replace(/\\/g, '/'); // Normalize path
         }
-        // Convert boolean strings
-        if (submittedData.isOpen !== undefined) submittedData.isOpen = submittedData.isOpen === 'true' || submittedData.isOpen === true;
-        // Convert numbers
-        if (submittedData.deliveryRadius) submittedData.deliveryRadius = parseFloat(submittedData.deliveryRadius);
-        if (submittedData.minimumOrder) submittedData.minimumOrder = parseFloat(submittedData.minimumOrder);
-        if (submittedData.deliveryFee) submittedData.deliveryFee = parseFloat(submittedData.deliveryFee);
 
-        // **Compare submittedData with current restaurant data to find actual changes**
+        // --- Compare with Current Data --- 
         const currentData = {
             name: restaurant.name,
             description: restaurant.description,
-            // address: restaurant.address, // Need careful comparison for objects/strings
-            // phone: user.phone, // Phone might be on User model
+            address: restaurant.address, // Compare the whole address object
             openingHours: restaurant.openingHours,
             cuisine: restaurant.cuisine,
-            isActive: restaurant.isActive, // Assuming isOpen maps to isActive
-            // deliveryRadius: restaurant.deliveryRadius,
-            // minimumOrder: restaurant.minimumOrder,
-            // deliveryFee: restaurant.deliveryFee,
+            isOpen: restaurant.isOpen,
+            deliveryRadius: restaurant.deliveryRadius,
+            minimumOrder: restaurant.minimumOrder,
+            deliveryFee: restaurant.deliveryFee,
             logo: restaurant.logo,
             coverImage: restaurant.coverImage
         };
         
         const changes = {};
-        for (const key in submittedData) {
-             // Simple comparison - needs improvement for nested objects like address/openingHours
-             // Also need to consider User model fields like phone
-            if (submittedData.hasOwnProperty(key) && JSON.stringify(submittedData[key]) !== JSON.stringify(currentData[key])) {
-                changes[key] = { from: currentData[key], to: submittedData[key] };
-            }
+        // Iterate over keys in submittedData that are also in currentData model fields
+        const relevantKeys = Object.keys(currentData);
+        for (const key of relevantKeys) {
+             // Handle address object comparison: Frontend sends simple string `address`
+             // We will update only the `street` field for simplicity in this update request.
+             // Admin can edit full address if needed.
+             if (key === 'address' && submittedData.address !== undefined) {
+                 if (submittedData.address !== (currentData.address?.street || '')) {
+                     changes[key] = { from: currentData.address?.street || 'N/A', to: submittedData.address };
+                     changes['address.street'] = { from: currentData.address?.street || 'N/A', to: submittedData.address }; // Indicate specific field for admin
+                 }
+             } else if (submittedData.hasOwnProperty(key)) {
+                 // Use JSON stringify for robust comparison of objects/arrays (like openingHours, cuisine)
+                 if (JSON.stringify(submittedData[key]) !== JSON.stringify(currentData[key])) {
+                     changes[key] = { from: currentData[key], to: submittedData[key] };
+                 }
+             }
+        }
+        
+        // Check if only files were changed
+        let filesChanged = false;
+        if (submittedData.logo && submittedData.logo !== currentData.logo) {
+             changes.logo = { from: currentData.logo, to: submittedData.logo };
+             filesChanged = true;
+        }
+         if (submittedData.coverImage && submittedData.coverImage !== currentData.coverImage) {
+             changes.coverImage = { from: currentData.coverImage, to: submittedData.coverImage };
+             filesChanged = true;
         }
 
-        // If no actual changes detected (excluding file uploads for now)
-        if (Object.keys(changes).length === 0 && !logoPath && !coverImagePath) {
+        // If no actual changes detected
+        if (Object.keys(changes).length === 0) {
              return res.status(200).json({
                 success: true,
                 message: 'No changes detected in profile data.',
@@ -167,49 +219,58 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
         }
 
         // --- Changes detected - Create Notification for Admin --- 
-
-        // Find existing pending update notification for this restaurant, if any
-        const existingNotification = await Notification.findOne({
-             'data.restaurantId': restaurant._id,
-             type: 'RESTAURANT_UPDATE',
-             status: 'PENDING'
+        const notification = new Notification({
+            type: 'PROFILE_UPDATE_REQUEST',
+            title: 'Restaurant Profile Update Request',
+            message: `Restaurant "${restaurant.name}" (ID: ${restaurant._id}) submitted profile changes for review.`,
+            userId: req.user.userId,
+            relatedEntityId: restaurant._id,
+            relatedEntityType: 'Restaurant',
+            data: { 
+                changeRequestId: new mongoose.Types.ObjectId(),
+                submittedAt: new Date(),
+                submittedBy: req.user.userId,
+                restaurantId: restaurant._id,
+                changes: {
+                    name: submittedData.name,
+                    description: submittedData.description,
+                    address: submittedData.address,
+                    phone: submittedData.phone,
+                    cuisine: submittedData.cuisine,
+                    openingHours: submittedData.openingHours,
+                    priceRange: submittedData.priceRange,
+                    minimumOrder: submittedData.minimumOrder,
+                    deliveryFee: submittedData.deliveryFee,
+                    logo: submittedData.logo,
+                    coverImage: submittedData.coverImage
+                } 
+            }
         });
-
-        if (existingNotification) {
-            // Update existing notification with the latest requested changes
-            existingNotification.data.requestedChanges = changes;
-            existingNotification.data.submittedData = submittedData; // Store all submitted data
-            existingNotification.updatedAt = Date.now();
-            await existingNotification.save();
-             console.log(`Updated existing pending notification ${existingNotification._id} for restaurant ${restaurant._id}`);
-        } else {
-            // Create a new notification
-            const notification = new Notification({
-                userId: userId, // The owner who submitted the request
-                type: 'RESTAURANT_UPDATE',
-                title: `Restaurant Update Request: ${restaurant.name}`,
-                message: `Restaurant owner requested updates for ${restaurant.name}. Please review.`, 
-                status: 'PENDING',
-                data: {
-                    restaurantId: restaurant._id,
-                    restaurantName: restaurant.name,
-                    requestedChanges: changes, // Store the detected changes
-                    submittedData: submittedData // Store all submitted data for admin context
-                }
-            });
-            await notification.save();
-            console.log(`Created new pending notification ${notification._id} for restaurant ${restaurant._id}`);
-        }
+        await notification.save();
+        console.log(`Created new pending notification ${notification._id} for restaurant ${restaurant._id}`);
+        
 
         // Respond to the restaurant owner
         return res.status(202).json({ // 202 Accepted: Request received, pending processing
             success: true,
             message: 'Profile update request submitted successfully. Changes require admin approval.',
-            data: { status: 'pending_approval' } // Indicate pending status
+            data: { 
+                status: 'pending_approval',
+                notificationId: notification._id // Optionally return notification ID
+            }
         });
 
     } catch (error) {
         console.error('Error submitting restaurant profile update:', error);
+        // Handle potential multer errors (e.g., file size limit)
+        if (error instanceof multer.MulterError) {
+            return res.status(400).json({ success: false, message: `File upload error: ${error.message}` });
+        }
+         // Handle Mongoose validation errors during notification save (less likely)
+         if (error.name === 'ValidationError') {
+             const messages = Object.values(error.errors).map(val => val.message);
+             return res.status(400).json({ success: false, message: `Validation Error: ${messages.join(', ')}` });
+         }
         return res.status(500).json({ 
             success: false, 
             message: 'Server error submitting profile update.' 
@@ -220,35 +281,43 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
 // GET all restaurants
 router.get('/', async (req, res) => {
     try {
-        const restaurants = await Restaurant.find({ status: 'approved' }).select('-__v');
-        
-        const formattedRestaurants = restaurants.map(restaurant => ({
-            id: restaurant._id,
-            name: restaurant.name,
-            description: restaurant.description,
-            logo: restaurant.logo,
-            coverImage: restaurant.coverImage,
-            address: restaurant.address,
-            location: restaurant.location,
-            cuisine: restaurant.cuisine,
-            priceRange: restaurant.priceRange,
-            rating: restaurant.rating,
-            totalRatings: restaurant.totalRatings,
-            reviewCount: restaurant.reviewCount,
-            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true,
-            createdAt: restaurant.createdAt
-        }));
-        
-        res.status(200).json({
-            success: true,
-            data: formattedRestaurants
+        const restaurants = await Restaurant.find({ status: 'approved' }).lean(); // Only fetch approved restaurants
+
+        // Fetch all active 'All Menu' offers
+        const now = new Date();
+        const activeOffers = await Offer.find({
+            isActive: true,
+            appliesTo: 'All Menu', // Find offers applicable to the whole menu
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).select('restaurant discountPercentage title').lean();
+
+        // Create a map of restaurantId -> best offer details
+        const restaurantOfferMap = {};
+        activeOffers.forEach(offer => {
+            const restaurantId = offer.restaurant.toString();
+            if (!restaurantOfferMap[restaurantId] || offer.discountPercentage > restaurantOfferMap[restaurantId].percentage) {
+                restaurantOfferMap[restaurantId] = {
+                    percentage: offer.discountPercentage,
+                    title: offer.title,
+                    id: offer._id
+                };
+            }
         });
+
+        // Add offer details to each restaurant
+        const restaurantsWithOffers = restaurants.map(r => {
+            const offerDetails = restaurantOfferMap[r._id.toString()];
+            return {
+                ...r,
+                offerDetails: offerDetails || null // Add null if no offer
+            };
+        });
+
+        res.status(200).json({ success: true, data: restaurantsWithOffers });
     } catch (error) {
-        console.error('Error getting all restaurants:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error. Please try again.'
-        });
+        console.error('Error fetching restaurants:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
@@ -268,6 +337,12 @@ router.get('/featured', async (req, res) => {
                 logo = restaurant.owner.restaurantDetails.logo;
             }
             
+            // Get cover image similarly
+            let coverImage = restaurant.coverImage;
+            if (restaurant.owner && restaurant.owner.restaurantDetails && restaurant.owner.restaurantDetails.coverImage) {
+                coverImage = restaurant.owner.restaurantDetails.coverImage;
+            }
+            
             return {
                 id: restaurant._id,
                 name: restaurant.name,
@@ -275,6 +350,7 @@ router.get('/featured', async (req, res) => {
                 location: restaurant.location,
                 address: restaurant.location, // For consistency with frontend
                 logo: logo,
+                coverImage: coverImage, // Include coverImage in response
                 image: logo, // Provide both logo and image fields for flexibility
                 cuisine: restaurant.cuisine || [],
                 rating: restaurant.rating || 4.5, // Default rating if not available
@@ -306,72 +382,53 @@ router.put('/:id', (req, res) => {
     res.status(200).json({ message: `Update restaurant with ID: ${req.params.id}` });
 });
 
-// GET restaurant by ID
+/**
+ * @route   GET /api/restaurants/:id
+ * @desc    Get restaurant by ID
+ * @access  Public
+ */
 router.get('/:id', async (req, res) => {
-    try {
-        const restaurant = await Restaurant.findById(req.params.id)
-            .populate('owner', 'email phone')
-            .lean();
-        
-        if (!restaurant) {
-            return res.status(404).json({
-                success: false,
-                message: 'Restaurant not found'
-            });
-        }
-        
-        // Check if restaurant has menu items
-        const menu = await MenuItem.find({ restaurant: restaurant._id })
-            .select('_id item_name item_price category description image imageUrl isAvailable isVegetarian averageRating numberOfRatings')
-            .lean();
-        
-        // Format menu items
-        const formattedMenu = menu.map(item => ({
-            id: item._id,
-            name: item.item_name,
-            price: item.item_price,
-            category: item.category,
-            description: item.description,
-            imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-            isVegetarian: item.isVegetarian || false,
-            rating: item.averageRating || 0,
-            reviews: item.numberOfRatings || 0
-        }));
-        
-        // Format restaurant response
-        const response = {
-            id: restaurant._id,
-            name: restaurant.name,
-            description: restaurant.description,
-            logo: restaurant.logo,
-            coverImage: restaurant.coverImage,
-            address: restaurant.address || restaurant.location,
-            location: restaurant.location,
-            cuisine: restaurant.cuisine,
-            priceRange: restaurant.priceRange,
-            rating: restaurant.rating,
-            totalReviews: restaurant.totalRatings || restaurant.reviewCount || 0,
-            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true,
-            owner: restaurant.owner ? {
-                id: restaurant.owner._id,
-                email: restaurant.owner.email,
-                phone: restaurant.owner.phone
-            } : null,
-            menu: formattedMenu
-        };
-        
-        return res.status(200).json({
-            success: true,
-            data: response
-        });
-    } catch (error) {
-        console.error('Error fetching restaurant:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error. Please try again.'
-        });
+  try {
+    const { id } = req.params;
+    console.log(`[Restaurants API] GET request for restaurant ID: ${id}`);
+    
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log(`[Restaurants API] Invalid ObjectId format: ${id}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid restaurant ID format' 
+      });
     }
+
+    // Try to find the restaurant
+    const restaurant = await Restaurant.findById(id)
+      .populate('popularItems')
+      .populate('menuItems')
+      .populate('reviews');
+    
+    if (!restaurant) {
+      console.log(`[Restaurants API] Restaurant not found with ID: ${id}`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Restaurant not found' 
+      });
+    }
+
+    // Return success response
+    console.log(`[Restaurants API] Found restaurant: ${restaurant.name} (${restaurant._id})`);
+    return res.status(200).json({
+      success: true,
+      data: restaurant
+    });
+  } catch (error) {
+    console.error('[Restaurants API] Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
 });
 
 // DELETE restaurant

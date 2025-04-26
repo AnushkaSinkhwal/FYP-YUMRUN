@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaStar, FaRegStar, FaStarHalfAlt, FaShoppingCart, FaPlus, FaMinus, FaArrowLeft } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaStar, FaRegStar, FaStarHalfAlt, FaShoppingCart, FaPlus, FaMinus, FaArrowLeft, FaTag } from 'react-icons/fa';
 import ProductZoom from '../../components/ProductZoom';
 import ProductFeatures from '../../components/ProductFeatures';
 import RelatedProducts from './RelatedProducts';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { Container, Button, Alert, Spinner, Badge, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
+import { Container, Button, Alert, Spinner, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import IngredientCustomizer from '../../components/MenuItemCustomization/IngredientCustomizer';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 const ProductDetails = () => {
     const { id: productId } = useParams();
@@ -35,6 +37,7 @@ const ProductDetails = () => {
     const [reviewSubmitError, setReviewSubmitError] = useState(null);
     const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
 
     // --- Fetch Product Data ---
     useEffect(() => {
@@ -92,7 +95,7 @@ const ProductDetails = () => {
         const checkFavoriteStatus = async () => {
             if (!isAuthenticated || !productId) return;
             try {
-                const response = await axios.get(`/api/favorites/check/${productId}`);
+                const response = await axios.get(`/api/user/favorites/${productId}/check`);
                 if (response.data.success) {
                     setIsFavorite(response.data.data.isFavorite);
                 }
@@ -113,27 +116,78 @@ const ProductDetails = () => {
     };
 
     // UPDATED: Use discounted price if available and process image URL
-    const handleAddToCartClick = () => {
+    const handleAddToCartOrCustomize = () => {
         if (!product) return;
         
-        const priceToAdd = product.discountedPrice !== undefined ? product.discountedPrice : product.price;
-        const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+        const hasAddOns = product.customizationOptions?.availableAddOns && product.customizationOptions.availableAddOns.length > 0;
 
-        const cartItem = {
-            id: product.id, // Use product.id which is already formatted
-            name: product.name,
-            price: priceToAdd, // Use discounted or original price
-            image: imageUrlForCart, // Use processed image URL
-            quantity: quantity,
-            specialInstructions: specialInstructions.trim() || undefined,
-            restaurantId: product.restaurant?.id,
-            restaurantName: product.restaurant?.name || 'Restaurant'
-        };
-        
-        addToCart(cartItem);
-        console.log(`Added ${product.name} to cart at price ${priceToAdd}`);
-        // Optional: Add toast notification
+        if (hasAddOns) {
+            // Open the customization modal
+            setIsCustomizeModalOpen(true);
+        } else {
+            // Add directly to cart (simple add)
+            // Calculate unit price and base price based on offers/discounts
+            let unitPriceToAdd;
+            let basePriceToAdd = product.price; // Base price is usually the non-discounted price
+
+            // 1. Check for active offerDetails
+            if (product.offerDetails && product.offerDetails.percentage > 0 && product.price > 0) {
+                unitPriceToAdd = parseFloat((product.price * (1 - product.offerDetails.percentage / 100)).toFixed(2));
+                // basePriceToAdd remains product.price
+            } 
+            // 2. Check for discountedPrice prop (could be a manual discount)
+            else if (product.discountedPrice !== undefined && product.discountedPrice < product.price) {
+                unitPriceToAdd = product.discountedPrice;
+                // basePriceToAdd remains product.price
+            } 
+            // 3. Default to the standard price
+            else {
+                unitPriceToAdd = product.price;
+                basePriceToAdd = product.price; // In this case, base and unit are the same
+            }
+
+            const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+            const finalPriceForQuantity = parseFloat((unitPriceToAdd * quantity).toFixed(2));
+
+            const cartItem = {
+                id: product.id, 
+                name: product.name,
+                price: finalPriceForQuantity, // Total price for the initial quantity
+                unitPrice: unitPriceToAdd,     // Calculated price per single unit
+                basePrice: basePriceToAdd,     // Original base price before any discount
+                image: imageUrlForCart,
+                quantity: quantity,
+                selectedAddOns: [], // No add-ons for simple add
+                customizationDetails: { specialInstructions: specialInstructions.trim() || undefined },
+                restaurantId: product.restaurant?.id,
+                restaurantName: product.restaurant?.name || 'Restaurant'
+            };
+            
+            addToCart(cartItem);
+            console.log(`Added simple ${product.name} to cart. Unit Price: ${unitPriceToAdd}, Base Price: ${basePriceToAdd}, Quantity: ${quantity}, Total: ${finalPriceForQuantity}`);
+            // Optional: Add toast notification
+        }
     };
+
+    // Function called by the customizer component when user confirms adding to cart
+    const handleConfirmAddToCartFromModal = (customizedItemData) => {
+        console.log("Adding customized item to cart from ProductDetails:", customizedItemData);
+        addToCart({
+          ...customizedItemData, // Includes id, name, quantity, selectedAddOns, finalPrice etc.
+          restaurantId: product.restaurant?.id, // Get restaurant info from fetched product
+          restaurantName: product.restaurant?.name || 'Restaurant',
+          // Ensure special instructions from the main page are included if applicable
+          customizationDetails: {
+             ...customizedItemData.customizationDetails,
+             specialInstructions: customizedItemData.customizationDetails?.specialInstructions || specialInstructions.trim() || undefined
+          }
+        });
+        setIsCustomizeModalOpen(false);
+        // Reset quantity/instructions on main page if needed?
+        // setQuantity(1);
+        // setSpecialInstructions('');
+        // Add toast notification maybe
+     };
 
     // Function to toggle favorite status
     const toggleFavorite = async () => {
@@ -249,6 +303,10 @@ const ProductDetails = () => {
 
     // Process image URL with fallback
     const imageUrl = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+    const displayPrice = product.discountedPrice !== undefined ? product.discountedPrice : product.price;
+    const originalPrice = product.discountedPrice !== undefined ? product.price : null;
+    const hasOffer = product.offerDetails && product.offerDetails.percentage > 0;
+    const hasAddOns = product.customizationOptions?.availableAddOns && product.customizationOptions.availableAddOns.length > 0;
 
     return (
         <div className="py-10 bg-gray-50">
@@ -264,9 +322,24 @@ const ProductDetails = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
                     {/* Product Image Section */}
-                    <div className="bg-white p-4 rounded-lg shadow">
-                        {/* Ensure ProductZoom gets the processed URL */}
+                    <div className="relative">
                         <ProductZoom imageUrl={imageUrl} altText={product.name || 'Product Image'} />
+                        {hasOffer && (
+                          <div className="absolute top-4 right-4 p-1.5 bg-yumrun-red text-white rounded-md text-xs font-semibold flex items-center gap-1 z-10">
+                             <FaTag className="w-3 h-3"/>
+                             <span>{product.offerDetails.percentage}% OFF</span>
+                          </div>
+                        )}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="absolute top-4 left-4 z-10 bg-white rounded-full shadow"
+                            onClick={toggleFavorite}
+                            disabled={favoriteLoading}
+                            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                            {favoriteLoading ? <Spinner size="sm" /> : (isFavorite ? <FaHeart className="text-red-500" /> : <FaRegHeart />)}
+                        </Button>
                     </div>
 
                     {/* Product Details Section */}
@@ -287,25 +360,11 @@ const ProductDetails = () => {
                             <span className="ml-2 text-gray-600">({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})</span>
                         </div>
 
-                        {/* Price - UPDATED */}
-                        <div className="mb-4">
-                            {product.offerDetails ? (
-                                <>
-                                    <Badge variant="destructive" className="mb-1 text-sm">{product.offerDetails.percentage}% OFF</Badge>
-                                    <div>
-                                        <span className="text-xl text-gray-500 line-through mr-2">
-                                            ${(product.originalPrice || product.price)?.toFixed(2) ?? 'N/A'} 
-                                        </span>
-                                        <span className="text-3xl font-bold text-yumrun-red">
-                                            ${(product.discountedPrice)?.toFixed(2) ?? 'N/A'}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-1">Offer: {product.offerDetails.title}</p>
-                                </> 
-                            ) : (
-                                <span className="text-3xl font-bold text-gray-900">
-                                    ${product.price?.toFixed(2) ?? 'N/A'}
-                                </span>
+                        {/* Price Display - USE displayPrice and originalPrice */}
+                        <div className="text-3xl font-bold">
+                            <span className={originalPrice ? "text-yumrun-red" : "text-gray-900"}>Rs.{displayPrice.toFixed(2)}</span>
+                            {originalPrice && (
+                                <span className="ml-3 text-xl text-gray-400 line-through">Rs.{originalPrice.toFixed(2)}</span>
                             )}
                         </div>
                         
@@ -352,23 +411,14 @@ const ProductDetails = () => {
                         {/* Action Buttons */}
                         <div className="flex items-center space-x-4 mt-auto">
                             <Button 
-                                onClick={handleAddToCartClick} 
+                                onClick={handleAddToCartOrCustomize} 
                                 variant="primary" 
                                 size="lg" 
                                 className="flex-1"
                                 disabled={!product} // Disable if product hasn't loaded
                             >
-                                <FaShoppingCart className="mr-2" /> Add to Cart
-                            </Button>
-                            <Button 
-                                variant="outline"
-                                size="lg"
-                                onClick={toggleFavorite}
-                                disabled={favoriteLoading || !product} // Disable if product hasn't loaded
-                                className="p-2 rounded-full hover:bg-red-100"
-                                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                            >
-                                {favoriteLoading ? <Spinner size="sm" /> : isFavorite ? <FaHeart className="text-red-500" /> : <FaRegHeart className="text-gray-600" />}
+                                <FaShoppingCart className="mr-2" />
+                                {product.isAvailable ? (hasAddOns ? 'Customize & Add to Cart' : 'Add to Cart') : 'Unavailable'}
                             </Button>
                         </div>
                     </div>
@@ -376,7 +426,6 @@ const ProductDetails = () => {
 
                 {/* Separator */}
                 <Separator className="my-10" />
-                
                  {/* Product Features / Ingredients / Allergens (Optional Component) */}
                  {/* Add null check for product before rendering features */} 
                  {product && <ProductFeatures product={product} />} 
@@ -464,6 +513,26 @@ const ProductDetails = () => {
                 {product && <RelatedProducts currentProductId={productId} />} 
 
             </Container>
+
+            {/* Customization Modal */}
+             <Dialog open={isCustomizeModalOpen} onOpenChange={setIsCustomizeModalOpen}>
+                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                     <DialogHeader>
+                         <DialogTitle>Customize {product?.name}</DialogTitle>
+                         <DialogDescription>
+                             Select your preferred options and add-ons.
+                         </DialogDescription>
+                     </DialogHeader>
+                     
+                     {product && (
+                        <IngredientCustomizer 
+                           menuItem={product} // Pass product data as menuItem prop
+                           onChange={handleConfirmAddToCartFromModal} // Pass the function to call on confirm
+                        />
+                     )}
+                 </DialogContent>
+             </Dialog>
+
         </div>
     );
 };

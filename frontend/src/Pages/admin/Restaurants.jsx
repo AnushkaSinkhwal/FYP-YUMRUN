@@ -229,17 +229,28 @@ const Restaurants = () => {
           {paginatedRestaurants.map((restaurant) => (
             <Card key={restaurant.id} className="overflow-hidden transition-shadow duration-300 shadow-lg hover:shadow-xl">
               <img 
-                src={getFullImageUrl(restaurant.logo, PLACEHOLDERS.RESTAURANT)} 
-                alt={`${restaurant.name} Logo`} 
+                src={
+                  restaurant.coverImage 
+                    ? getFullImageUrl(restaurant.coverImage, PLACEHOLDERS.RESTAURANT)
+                    : getFullImageUrl(restaurant.logo, PLACEHOLDERS.RESTAURANT)
+                } 
+                alt={`${restaurant.name}`} 
                 className="object-cover w-full h-40" 
               />
               <div className="p-4">
                 <h3 className="mb-1 text-lg font-semibold truncate">{restaurant.name}</h3>
                 <p className="mb-1 text-sm text-gray-600 truncate">Owner: {restaurant.ownerName}</p>
                 <p className="mb-2 text-sm text-gray-600 truncate">Email: {restaurant.email}</p>
-                <Badge variant={getBadgeVariant(restaurant.status)} className="mb-3">
-                  {formatStatusDisplay(restaurant.status)}
-                </Badge>
+                <div className="flex items-center mb-3 space-x-2">
+                  <Badge variant={getBadgeVariant(restaurant.status)}>
+                    {formatStatusDisplay(restaurant.status)}
+                  </Badge>
+                  {restaurant.status === 'approved' && restaurant.hasPendingUpdate && (
+                    <Badge variant="warning" title="This restaurant has submitted changes that require your review.">
+                      Pending Changes
+                    </Badge>
+                  )}
+                </div>
                 
                 <div className="flex justify-end mt-2 space-x-2">
                   <Button variant="outline" size="sm" onClick={() => openViewModal(restaurant)} aria-label="View" disabled={isProcessing}>

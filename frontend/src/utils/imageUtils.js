@@ -3,7 +3,9 @@
 // Get the base URL for backend server
 const getBackendUrl = () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-  console.log('Backend URL:', backendUrl);
+  if (!backendUrl) {
+    console.warn('Warning: VITE_BACKEND_URL is not set. Using default: http://localhost:8000');
+  }
   return backendUrl;
 };
 
@@ -13,18 +15,18 @@ const getBackendUrl = () => {
  * @returns {string} - The full URL including the backend server
  */
 export const getFullImageUrl = (path) => {
-  console.log('getFullImageUrl called with path:', path);
+  // console.log('getFullImageUrl called with path:', path); // Removed
   
   // If the path already includes http or https, return it as is
   if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
-    console.log('Path already contains http/https, returning as is');
+    // console.log('Path already contains http/https, returning as is'); // Removed
     return path;
   }
   
   // If path is null/undefined or empty, return a default placeholder
   if (!path) {
     const defaultUrl = `${getBackendUrl()}/uploads/placeholders/food-placeholder.jpg`;
-    console.log('No path provided, returning default placeholder:', defaultUrl);
+    // console.log('No path provided, returning default placeholder:', defaultUrl); // Removed
     return defaultUrl;
   }
   
@@ -37,14 +39,14 @@ export const getFullImageUrl = (path) => {
     // Check if it's just a filename like "abc.jpg"
     if (formattedPath.match(/^\/[^/]+\.(jpg|jpeg|png|gif|webp)$/i)) {
       const fullPath = `${getBackendUrl()}/uploads/menu${formattedPath}`;
-      console.log('Simple filename detected, adding uploads/menu prefix:', fullPath);
+      // console.log('Simple filename detected, adding uploads/menu prefix:', fullPath); // Removed
       return fullPath;
     }
   }
   
   // Return full URL
   const fullUrl = `${getBackendUrl()}${formattedPath}`;
-  console.log('Final image URL:', fullUrl);
+  // console.log('Final image URL:', fullUrl); // Removed
   return fullUrl;
 };
 

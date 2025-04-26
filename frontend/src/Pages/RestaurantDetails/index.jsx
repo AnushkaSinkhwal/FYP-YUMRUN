@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Button, Spinner, Alert } from '../../components/ui';
-import { FaStar, FaMapMarkerAlt, FaUtensils, FaPhone, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
+import { Container, Button, Spinner, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui';
+import { FaStar, FaMapMarkerAlt, FaUtensils, FaPhone, FaEnvelope, FaArrowLeft, FaShoppingCart, FaTag } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 import axios from 'axios';
 import { getFullImageUrl, getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import IngredientCustomizer from '../../components/MenuItemCustomization/IngredientCustomizer';
+import { Link } from 'react-router-dom';
 
 const RestaurantDetails = () => {
   const { id } = useParams();
@@ -18,6 +20,8 @@ const RestaurantDetails = () => {
   const [error, setError] = useState(null);
   const [menuError, setMenuError] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
+  const [itemToCustomize, setItemToCustomize] = useState(null);
 
   // Fetch restaurant details
   useEffect(() => {
@@ -77,6 +81,9 @@ const RestaurantDetails = () => {
               totalReviews: item.numberOfRatings || 0,
               calories: item.nutritionInfo?.calories || null,
               allergens: item.allergens || [],
+              customizationOptions: {
+                 availableAddOns: item.customizationOptions?.availableAddOns || []
+              },
               restaurant: item.restaurant || {
                 id: restaurant?.id || restaurant?._id,
                 name: restaurant?.name
@@ -113,19 +120,43 @@ const RestaurantDetails = () => {
     ? menuItems 
     : menuItems.filter(item => item.category === activeCategory);
 
-  // Handle add to cart
-  const handleAddToCart = (item) => {
+  // Open customization modal
+  const handleOpenCustomizeModal = (item) => {
+    console.log("Opening customize modal for:", item);
+    setItemToCustomize(item);
+    setIsCustomizeModalOpen(true);
+  };
+
+  // Function called by the customizer component when user confirms adding to cart
+  const handleConfirmAddToCart = (customizedItemData) => {
+     console.log("Adding customized item to cart:", customizedItemData);
+     addToCart({
+       ...customizedItemData, // Includes id, name, quantity, selectedAddOns, finalPrice etc. from customizer
+       restaurantId: restaurant.id || restaurant._id,
+       restaurantName: restaurant.name,
+       // Base price might be needed separately in cart context if not included in finalPrice calculation details
+       basePrice: itemToCustomize.price 
+     });
+     setIsCustomizeModalOpen(false);
+     setItemToCustomize(null);
+     // Add toast notification maybe
+  };
+
+  // Handle simple add to cart (for items without customization)
+  const handleSimpleAddToCart = (item) => {
     if (!restaurant) return;
-    
+    console.log("Adding simple item to cart:", item);
     addToCart({
       id: item.id,
       name: item.name,
-      price: item.price,
+      price: item.price, // Use item's base price
       image: item.image,
       quantity: 1,
       restaurantId: restaurant.id || restaurant._id,
-      restaurantName: restaurant.name
+      restaurantName: restaurant.name,
+      selectedAddOns: [] // No add-ons for simple add
     });
+     // Add toast notification maybe
   };
 
   return (
@@ -154,7 +185,13 @@ const RestaurantDetails = () => {
             <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-md">
               <div className="relative h-64">
                 <img 
-                  src={restaurant.logo ? getFullImageUrl(restaurant.logo) : PLACEHOLDERS.RESTAURANT} 
+                  src={
+                    restaurant.coverImage 
+                      ? getFullImageUrl(restaurant.coverImage) 
+                      : restaurant.logo 
+                        ? getFullImageUrl(restaurant.logo) 
+                        : PLACEHOLDERS.RESTAURANT
+                  } 
                   alt={restaurant.name} 
                   className="object-cover w-full h-full"
                 />
@@ -192,7 +229,18 @@ const RestaurantDetails = () => {
                     <div className="space-y-2">
                       <div className="flex items-center text-gray-600">
                         <FaMapMarkerAlt className="mr-2 text-gray-400" />
-                        <span>{restaurant.address || restaurant.location || 'Address not available'}</span>
+                        <span>
+                          {typeof (restaurant.address || restaurant.location) === 'object' 
+                            ? [
+                                (restaurant.address || restaurant.location).street, 
+                                (restaurant.address || restaurant.location).city, 
+                                (restaurant.address || restaurant.location).state, 
+                                (restaurant.address || restaurant.location).zipCode,
+                                (restaurant.address || restaurant.location).country
+                              ].filter(Boolean).join(', ') // Join parts with comma, filtering out empty ones
+                            : (restaurant.address || restaurant.location || 'Address not available') // Render as string if already a string or null
+                          }
+                        </span>
                       </div>
                       <div className="flex items-center text-gray-600">
                         <FaPhone className="mr-2 text-gray-400" />
@@ -262,80 +310,131 @@ const RestaurantDetails = () => {
                 </div>
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredMenuItems.map(item => (
-                    <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
-                      <div className="relative">
-                        <img 
-                          src={getBestImageUrl(item)} 
-                          alt={item.name}
-                          className="object-cover w-full h-48 cursor-pointer"
-                          onClick={() => navigate(`/product/${item.id}`)}
-                          onError={(e) => {
-                            console.error(`Image load error for ${item.name}:`, e);
-                            e.target.src = PLACEHOLDERS.FOOD;
-                          }}
-                        />
-                        {item.isPopular && (
-                          <div className="absolute top-0 left-0 m-2">
-                            <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
-                              Popular
-                            </span>
-                          </div>
-                        )}
-                        {!item.isAvailable && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                            <span className="px-2 py-1 text-sm font-bold text-white bg-red-500 rounded">
-                              Unavailable
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 
-                            className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-yumrun-orange"
-                            onClick={() => navigate(`/product/${item.id}`)}
-                          >
-                            {item.name}
-                          </h3>
-                          <span className="font-bold text-yumrun-orange">£{parseFloat(item.price).toFixed(2)}</span>
+                  {filteredMenuItems.map(item => {
+                    const hasAddOns = item.customizationOptions?.availableAddOns && item.customizationOptions.availableAddOns.length > 0;
+                    const hasOffer = item.offerDetails && item.offerDetails.percentage > 0;
+                    
+                    return (
+                      <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02] flex flex-col">
+                        <div className="relative">
+                          <Link to={`/product/${item.id}`} className="block h-48">
+                            <img 
+                              src={getBestImageUrl(item)} 
+                              alt={item.name}
+                              className="object-cover w-full h-48"
+                              onError={(e) => {
+                                console.error(`Image load error for ${item.name}:`, e);
+                                e.target.src = PLACEHOLDERS.FOOD;
+                              }}
+                            />
+                          </Link>
+                          
+                          {hasOffer && (
+                            <div className="absolute top-2 right-2 p-1.5 bg-yumrun-red text-white rounded-md text-xs font-semibold flex items-center gap-1 z-10">
+                               <FaTag className="w-3 h-3"/>
+                               <span>{item.offerDetails.percentage}% OFF</span>
+                            </div>
+                          )}
+                          
+                          {item.isPopular && (
+                            <div className="absolute top-2 left-2 m-0 z-10">
+                              <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
+                                Popular
+                              </span>
+                            </div>
+                          )}
+                          
+                          {!item.isAvailable && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
+                              <span className="px-2 py-1 text-sm font-bold text-white bg-red-500 rounded">
+                                Unavailable
+                              </span>
+                            </div>
+                          )}
                         </div>
                         
-                        <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
-                        
-                        <div className="flex items-center mb-3">
-                          <div className="flex items-center">
-                            {item.rating > 0 ? (
-                              <>
-                                <FaStar className="mr-1 text-yellow-500" />
-                                <span className="text-sm font-medium">{item.rating}</span>
-                                <span className="ml-1 text-sm text-gray-500">({item.totalReviews || 0} reviews)</span>
-                              </>
-                            ) : (
-                              <span className="text-sm text-gray-500">No ratings yet</span>
-                            )}
-                          </div>
+                        <div className="p-4 flex flex-col flex-grow">
+                           <h3 className="mb-1 text-lg font-semibold truncate">{item.name}</h3>
+                           <p className="mb-3 text-sm text-gray-600 flex-grow line-clamp-2">{item.description}</p>
+                           
+                           <div className="flex items-center justify-between mt-auto">
+                              <div className="text-left">
+                                  {hasOffer ? (
+                                    <>
+                                      <div>
+                                        <span className="text-sm text-gray-500 line-through mr-1.5">
+                                          Rs.{parseFloat(item.price).toFixed(2)} 
+                                        </span>
+                                        <span className="text-lg font-bold text-yumrun-red">
+                                          Rs.{parseFloat(item.discountedPrice).toFixed(2)}
+                                        </span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <span className="text-lg font-semibold text-gray-800">
+                                       Rs.{parseFloat(item.price).toFixed(2)}
+                                    </span>
+                                  )}
+                              </div>
+                              
+                              {item.isAvailable ? (
+                                hasAddOns ? (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleOpenCustomizeModal(item)}
+                                    className="gap-1"
+                                  >
+                                     <FaUtensils className="w-3 h-3"/> Customize
+                                  </Button>
+                                ) : (
+                                  <Button 
+                                    size="sm" 
+                                    variant="primary" 
+                                    onClick={() => handleSimpleAddToCart(item)}
+                                    className="gap-1"
+                                  >
+                                     <FaShoppingCart className="w-3 h-3"/> Add
+                                  </Button>
+                                )
+                              ) : (
+                                 <span className="text-sm font-semibold text-red-500">Unavailable</span>
+                              )}
+                           </div>
                         </div>
-                        
-                        <Button 
-                          onClick={() => handleAddToCart(item)}
-                          className="w-full"
-                        >
-                          Add to Cart
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           </>
         ) : (
-          <div className="py-12 text-center">
-            <p className="text-gray-500">Restaurant not found</p>
+          <div className="py-8 text-center">
+             <p className="text-gray-500">Restaurant not found.</p>
           </div>
         )}
+
+        {/* Customization Modal */}
+        <Dialog open={isCustomizeModalOpen} onOpenChange={setIsCustomizeModalOpen}>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Customize {itemToCustomize?.name}</DialogTitle>
+                    <DialogDescription>
+                        Select your preferred options and add-ons.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                {itemToCustomize && (
+                   <IngredientCustomizer 
+                      menuItem={itemToCustomize} 
+                      onChange={handleConfirmAddToCart} // Pass the function to call on confirm
+                      onClose={() => setIsCustomizeModalOpen(false)} // Pass function to close modal
+                   />
+                )}
+            </DialogContent>
+        </Dialog>
+
       </Container>
     </div>
   );

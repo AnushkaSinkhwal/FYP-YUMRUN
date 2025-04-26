@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 7000,
+    port: 4000,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
@@ -23,7 +23,7 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: 7000
+      port: 4000
     },
   },
   optimizeDeps: {

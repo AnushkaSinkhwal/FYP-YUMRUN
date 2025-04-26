@@ -74,7 +74,24 @@ app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/menu', menuRoutes);
-app.use('/api/orders', orderRoutes);
+
+// Register orders routes with both auth middlewares
+const { protect } = require('./middleware/authMiddleware');
+const { auth } = require('./middleware/auth');
+
+// Apply both auth middlewares to ensure compatibility
+app.use('/api/orders', (req, res, next) => {
+  // Try protect middleware first, if it fails, fall back to auth middleware
+  protect(req, res, (err) => {
+    if (err) {
+      // protect failed, try auth instead
+      return auth(req, res, next);
+    }
+    // protect succeeded
+    next();
+  });
+}, orderRoutes);
+
 app.use('/api/offers', offerRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/reviews', reviewsRoutes);

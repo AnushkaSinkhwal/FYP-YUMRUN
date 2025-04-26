@@ -10,6 +10,7 @@ const notificationSchema = new mongoose.Schema({
       'RESTAURANT_REGISTRATION', 
       'RESTAURANT_APPROVAL',
       'RESTAURANT_REJECTION',
+      'PROFILE_UPDATE_REQUEST',
       'SYSTEM', 
       'ORDER', 
       'REWARD'
@@ -28,6 +29,11 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  isAdminNotification: {
+    type: Boolean,
+    default: false,
+    index: true
   },
   status: {
     type: String,

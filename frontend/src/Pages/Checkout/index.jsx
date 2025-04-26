@@ -4,6 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { userAPI } from '../../utils/api';
+import { isValidObjectId, cleanObjectId } from '../../utils/validationUtils';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
 import {
   Container,
@@ -31,7 +32,7 @@ const Checkout = () => {
     phone: currentUser?.phone || '',
     email: currentUser?.email || '',
     address: currentUser?.address || '',
-    city: 'Bhaktapur',
+    city: '',
     additionalInfo: '',
   });
   const [orderRestaurantId, setOrderRestaurantId] = useState(null);
@@ -51,13 +52,13 @@ const Checkout = () => {
       return;
     }
 
-    // Get restaurantId from first cart item
+    // Get restaurantId from first cart item - now more explicit about which ID we want
     const firstItem = cartItems[0];
     console.log('First cart item:', firstItem);
     
     let restaurantId = null;
     
-    // Try to get restaurantId from different possible locations
+    // Try to get restaurantId from different possible locations (priority order)
     if (firstItem.restaurantId) {
       restaurantId = firstItem.restaurantId;
       console.log('Found restaurantId directly:', restaurantId);
@@ -67,56 +68,48 @@ const Checkout = () => {
     } else if (firstItem.restaurant?._id) {
       restaurantId = firstItem.restaurant._id;
       console.log('Found restaurantId from restaurant._id:', restaurantId);
-    } else if (firstItem.id && firstItem.id.includes(':')) {
-      // Try to extract restaurant ID from item ID if it follows pattern restaurant_id:product_id
-      const parts = firstItem.id.split(':');
-      if (parts.length === 2) {
-        restaurantId = parts[0];
-        console.log('Extracted restaurantId from id:', restaurantId);
-      }
-    }
-
-    // If still no restaurantId, try to use restaurant name to find it
-    if (!restaurantId && firstItem.restaurant?.name) {
-      console.log('No restaurantId found, trying to find by restaurant name:', firstItem.restaurant.name);
-      // This would require an API call to look up the restaurant by name
-      // For now, we'll log a warning and redirect
-      addToast('Unable to determine restaurant for order', { type: 'error' });
-      navigate('/cart');
-      return;
     }
 
     // Validate we have a restaurantId
     if (!restaurantId) {
-      console.error('No restaurantId found in cart items:', cartItems);
+      console.error('No restaurantId found in cart items. Item data:', firstItem);
       addToast('Unable to create order: Restaurant information is missing', { type: 'error' });
       navigate('/cart');
       return;
     }
 
-    // Validate all items are from same restaurant if restaurantId exists
-    const hasMultipleRestaurants = cartItems.some(item => {
-      const itemRestaurantId = 
-        item.restaurantId || 
-        item.restaurant?.id || 
-        item.restaurant?._id || 
-        (item.id && item.id.includes(':') ? item.id.split(':')[0] : null);
-      
-      return itemRestaurantId && itemRestaurantId !== restaurantId;
+    // Debug log: Print all variations of the restaurant ID to help diagnose
+    console.log('Restaurant ID debugging:', {
+      original: restaurantId,
+      asString: String(restaurantId),
+      trimmed: String(restaurantId).trim(),
+      standardized: cleanObjectId(restaurantId)
     });
 
-    if (hasMultipleRestaurants) {
-      addToast('Error: Items from multiple restaurants detected in cart', { 
-        type: 'error',
-        duration: 7000
-      });
+    // Standardize the restaurantId format (remove quotes, trim whitespace)
+    const cleanedRestaurantId = cleanObjectId(restaurantId);
+    
+    // Validate the restaurantId is in a valid MongoDB ObjectId format (24 hex chars)
+    if (!isValidObjectId(cleanedRestaurantId)) {
+      console.error('Invalid restaurant ID format:', cleanedRestaurantId);
+      addToast('Unable to create order: Invalid restaurant ID format', { type: 'error' });
       navigate('/cart');
       return;
     }
-
-    console.log('Setting order restaurantId:', restaurantId);
-    // Set restaurant ID for the order
-    setOrderRestaurantId(restaurantId);
+    
+    // Check if the restaurantId is actually a menu item ID (common error case)
+    const menuItemId = firstItem.menuItemId || firstItem.id;
+    if (menuItemId && cleanedRestaurantId === cleanObjectId(menuItemId)) {
+      console.error('Restaurant ID is the same as menu item ID - this is a data error:', {
+        restaurantId: cleanedRestaurantId,
+        menuItemId: cleanObjectId(menuItemId)
+      });
+      addToast('Unable to create order: Item configuration error. Please clear your cart and try again.', { type: 'error' });
+      navigate('/cart');
+      return;
+    }
+    
+    setOrderRestaurantId(cleanedRestaurantId);
   }, [cartItems, navigate, addToast]);
 
   // Update form when user data changes
@@ -171,6 +164,10 @@ const Checkout = () => {
       newErrors.address = 'Delivery address is required';
     }
     
+    if (!deliveryAddress.city) {
+      newErrors.city = 'Please select a city';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -198,26 +195,23 @@ const Checkout = () => {
       orderNumber: orderNumber,
       userId: currentUser?._id || "67fb33ee85f505c7e9c02a7d",
       items: cartItems.map(item => ({
-        productId: item.id,
+        menuItemId: item.menuItemId || item.id, // Prefer menuItemId if available
         name: item.name,
-        price: item.price,
+        price: item.basePrice || item.unitPrice || (item.price / item.quantity),
         quantity: item.quantity,
-        options: item.options || []
+        selectedAddOns: (item.selectedAddOns || []).map(addOn => ({ id: addOn.id }))
       })),
       restaurantId: orderRestaurantId,
-      totalPrice: cartStats.subTotal,
+      totalPrice: cartStats.total,
+      subTotal: cartStats.subTotal,
       deliveryFee: cartStats.shipping,
-      tax: 0,
-      grandTotal: cartStats.total,
-      status: 'PENDING',
-      paymentMethod: paymentMethod === 'cod' ? 'CASH' : 'KHALTI',
-      paymentStatus: 'PENDING',
-      isPaid: false,
+      discount: 0, // Add discount if needed
       deliveryAddress: {
-        fullAddress: deliveryAddress.address + (deliveryAddress.city ? `, ${deliveryAddress.city}` : '') + ', Nepal',
-        street: deliveryAddress.address,
-        city: deliveryAddress.city || 'Bhaktapur',
-        country: 'Nepal'
+        fullName: deliveryAddress.fullName,
+        phone: deliveryAddress.phone,
+        email: deliveryAddress.email,
+        address: deliveryAddress.address,
+        additionalInfo: deliveryAddress.additionalInfo || ''
       },
       specialInstructions: deliveryAddress.additionalInfo || ''
     };
@@ -225,6 +219,38 @@ const Checkout = () => {
     console.log('Order payload prepared:', orderPayload);
 
     try {
+      // Debug check: Pre-verify that restaurant exists
+      console.log('Validating restaurant existence...', orderRestaurantId);
+      console.log(`[Checkout] Attempting to validate restaurant with cleaned ID: '${orderRestaurantId}' (Type: ${typeof orderRestaurantId})`);
+      
+      const validateResponse = await userAPI.getRestaurantDetails(orderRestaurantId);
+      console.log('Restaurant validation response:', validateResponse);
+      
+      // Only proceed if restaurant was found
+      if (!validateResponse?.data?.success) {
+        console.error('Restaurant validation failed:', validateResponse?.data?.message || 'Unknown error');
+        
+        // Display a user-friendly error message based on specific error type
+        if (validateResponse?.data?.message === 'Invalid restaurant ID format') {
+          addToast('Invalid restaurant information. Please clear your cart and try again.', { type: 'error' });
+        } else if (validateResponse?.data?.message === 'Restaurant not found') {
+          // Check if this might be a case of menu item ID being used as restaurant ID
+          const firstItem = cartItems[0];
+          const menuItemId = firstItem.menuItemId || firstItem.id;
+          if (menuItemId && orderRestaurantId === cleanObjectId(menuItemId)) {
+            addToast('Unable to process order: The restaurant information is incorrectly configured. Please clear your cart and try again.', { type: 'error' });
+          } else {
+            addToast('The selected restaurant is no longer available. Please try ordering from another restaurant.', { type: 'error' });
+          }
+        } else {
+          addToast('Unable to place order: Restaurant validation failed. Please try again.', { type: 'error' });
+        }
+        
+        setIsLoading(false);
+        navigate('/cart'); // Return to cart
+        return;
+      }
+      
       // STEP 1: Create the order in the database *first*
       console.log('Attempting to create order in DB...');
       const orderCreationResponse = await userAPI.createOrder(orderPayload);
@@ -261,21 +287,42 @@ const Checkout = () => {
           setIsLoading(false); // Khalti component handles its own loading
           return;
         }
-
       } else {
         // Order creation failed
         const errorMsg = orderCreationResponse?.data?.message || 'Failed to create order in database';
         console.error('Order creation failed:', errorMsg);
-        addToast(errorMsg, { type: 'error' });
+        
+        // Special case for "Restaurant not found" error
+        if (errorMsg === 'Restaurant not found') {
+          addToast('Restaurant not found. Please try adding items from an active restaurant.', { type: 'error' });
+          navigate('/cart'); // Return to cart
+        } else if (errorMsg === 'Invalid restaurant ID format') {
+          addToast('Invalid restaurant information. Please clear your cart and try again.', { type: 'error' });
+          navigate('/cart'); // Return to cart
+        } else {
+          addToast(errorMsg, { type: 'error' });
+        }
         setIsLoading(false);
       }
     } catch (error) {
       console.error('Error during order placement or payment initiation:', error);
-      let errorMessage = 'Failed to place order. Please try again.';
+      
+      // Check for specific axios error responses
       if (error.response) {
-         errorMessage = error.response.data?.message || errorMessage;
+        console.log('Error response data:', error.response.data);
+        console.log('Error response status:', error.response.status);
+        
+        // Special handling for 404 (Restaurant not found)
+        if (error.response.status === 404 && error.response.data?.message === 'Restaurant not found') {
+          addToast('Restaurant not found. Please try adding items from an active restaurant.', { type: 'error' });
+          navigate('/cart');
+        } else {
+          addToast(error.response.data?.message || 'Error processing your order. Please try again.', { type: 'error' });
+        }
+      } else {
+        addToast('Error processing your order. Please try again.', { type: 'error' });
       }
-      addToast(errorMessage, { type: 'error' });
+      
       setIsLoading(false);
     }
   };
@@ -395,17 +442,29 @@ const Checkout = () => {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <Label htmlFor="city" className="mb-1.5">
-                        City
+                        City <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="city"
-                        name="city"
-                        value={deliveryAddress.city}
-                        onChange={handleInputChange}
-                        placeholder="City"
-                        disabled
-                      />
-                      <p className="mt-1 text-sm text-gray-500">Currently we only deliver in Bhaktapur</p>
+                      <div className="relative">
+                        <select
+                          id="city"
+                          name="city"
+                          value={deliveryAddress.city}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setDeliveryAddress(prev => ({ ...prev, city: value }));
+                            if (errors.city) {
+                              setErrors(prev => ({ ...prev, city: null }));
+                            }
+                          }}
+                          className={`w-full rounded-md border ${errors.city ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yumrun-primary`}
+                        >
+                          <option value="" disabled>Select city</option>
+                          <option value="Bhaktapur">Bhaktapur</option>
+                          <option value="Kathmandu">Kathmandu</option>
+                          <option value="Lalitpur">Lalitpur</option>
+                        </select>
+                      </div>
+                      {errors.city && <p className="mt-1 text-sm text-red-500">{errors.city}</p>}
                     </div>
                     
                     <div>

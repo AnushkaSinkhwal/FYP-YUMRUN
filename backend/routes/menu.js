@@ -5,8 +5,28 @@ let MenuItem;
 try {
     MenuItem = require('../models/menuItem');
     console.log('MenuItem model loaded successfully');
+    
+    // Add pre-save hook to prevent self-referencing restaurant ID
+    if (MenuItem.schema) {
+        MenuItem.schema.pre('save', function(next) {
+            // If this is a new document being created (no ID yet), just continue
+            if (this.isNew) {
+                return next();
+            }
+            
+            // Check if restaurant ID equals menu item ID (self-reference)
+            if (this.restaurant && this._id && this.restaurant.toString() === this._id.toString()) {
+                console.error(`Prevented saving menu item ${this._id} with self-referencing restaurant ID`);
+                // Set restaurant to null to prevent the save with invalid data
+                this.restaurant = null;
+            }
+            
+            next();
+        });
+        console.log('Added pre-save validation hook to MenuItem model');
+    }
 } catch (error) {
-    console.error('Error loading MenuItem model:', error);
+    console.error('Error loading MenuItem model or adding hooks:', error);
 }
 
 const { auth, isRestaurantOwner } = require('../middleware/auth');
@@ -47,6 +67,26 @@ const fixMenuItemsWithNoRestaurant = async () => {
             
             console.log(`Fixed ${updateResult.modifiedCount} menu items with null restaurant reference`);
         }
+        
+        // NEW CODE: Check for menu items where restaurant ID equals menu item ID
+        const allMenuItems = await MenuItem.find({});
+        let invalidRestaurantCount = 0;
+        
+        for (const item of allMenuItems) {
+            // Check if ID equals restaurant ID (if restaurant is not null)
+            if (item.restaurant && item._id.toString() === item.restaurant.toString()) {
+                console.log(`Found menu item with its own ID as restaurant ID: ${item._id} (${item.item_name})`);
+                invalidRestaurantCount++;
+                
+                // Fix this item by setting its restaurant ID to primary restaurant
+                item.restaurant = primaryRestaurant._id;
+                await item.save();
+                
+                console.log(`Fixed menu item ${item._id}: changed restaurant from self-ID to ${primaryRestaurant._id}`);
+            }
+        }
+        
+        console.log(`Fixed ${invalidRestaurantCount} menu items that used their own ID as restaurant ID`);
         
         return true;
     } catch (error) {
@@ -191,27 +231,120 @@ router.get('/', async (req, res) => {
             
             console.log(`Found ${menuItems.length} menu items for restaurant ${restaurantId}`);
             
-            // Format the response
-            const formattedItems = menuItems.map(item => ({
-                id: item._id,
-                name: item.item_name,
-                description: item.description,
-                price: item.item_price,
-                image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
-                imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
-                restaurant: item.restaurant ? {
-                    id: item.restaurant._id,
-                    name: item.restaurant.name
-                } : null,
-                category: item.category || 'Main Course',
-                isVegetarian: item.isVegetarian,
-                isVegan: item.isVegan,
-                isGlutenFree: item.isGlutenFree,
-                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-                averageRating: item.averageRating || 0,
-                numberOfRatings: item.numberOfRatings || 0
-            }));
+            // Filter out items with null or self-referencing restaurant IDs
+            const validItems = menuItems.filter(item => {
+                // Log the item being checked
+                // console.log(`[Menu Filter Debug] Checking item: ${item._id}, Restaurant field:`, item.restaurant);
+
+                // Check 1: Ensure restaurant field exists
+                // The 'restaurant' field directly on the lean object holds the ID before population
+                const rawRestaurantId = item.restaurant; 
+                
+                if (!rawRestaurantId) {
+                    console.error(`[Menu API Filter] Excluding item ${item._id} (${item.item_name || 'N/A'}) due to missing raw restaurant ID field.`);
+                    return false; // Exclude item if restaurant ID field is missing
+                }
+
+                // Check 2: Ensure restaurant ID is not the same as the menu item ID using the raw ID
+                // Convert both to string for safe comparison
+                const itemIdStr = item._id.toString();
+                const restaurantIdStr = rawRestaurantId.toString();
+
+                if (itemIdStr === restaurantIdStr) {
+                    console.error(`[Menu API Filter] Excluding item ${itemIdStr} (${item.item_name || 'N/A'}) due to self-referencing raw restaurant ID: ${restaurantIdStr}`);
+                    return false; // Exclude self-referencing items
+                }
+                
+                // Check 3: Also verify the populated structure just in case (double check)
+                // Note: This check might be redundant if the raw check works, but adds safety.
+                // We access populated data via item.restaurant._id AFTER population runs.
+                // Let's assume population happened correctly for items passing the raw check.
+
+                // If all checks pass, include the item
+                return true; 
+            });
             
+            console.log(`[Menu API] Found ${menuItems.length} items total. Filtered down to ${validItems.length} valid items.`);
+
+            // Fetch all active offers (can be optimized if needed)
+            const now = new Date();
+            const activeOffers = await Offer.find({
+                isActive: true,
+                startDate: { $lte: now },
+                endDate: { $gte: now }
+            }).lean();
+            
+            console.log(`Fetched ${activeOffers.length} active offers.`);
+
+            // Format the response including offer calculations
+            const formattedItems = validItems.map(item => {
+                const itemRestaurantId = item.restaurant?._id?.toString();
+                let bestOffer = null;
+                let discountedPrice = item.item_price; // Default to original price
+
+                if (itemRestaurantId) {
+                    // Find offers applicable to this item
+                    const applicableOffers = activeOffers.filter(offer => {
+                        const offerRestaurantId = offer.restaurant?.toString();
+                        // Check if offer is for the same restaurant
+                        if (offerRestaurantId !== itemRestaurantId) {
+                            return false;
+                        }
+                        // Check if offer applies to all items or this specific item
+                        if (offer.appliesTo === 'All Menu') {
+                            return true;
+                        } else if (offer.appliesTo === 'Selected Items') {
+                            // Ensure menuItems is an array and includes the current item's ID
+                            return Array.isArray(offer.menuItems) && offer.menuItems.some(offerItemId => offerItemId.toString() === item._id.toString());
+                        }
+                        return false;
+                    });
+
+                    // Find the best offer (highest discount percentage) among applicable ones
+                    if (applicableOffers.length > 0) {
+                        bestOffer = applicableOffers.reduce((maxOffer, currentOffer) => 
+                            (currentOffer.discountPercentage > maxOffer.discountPercentage) ? currentOffer : maxOffer, 
+                            applicableOffers[0]
+                        );
+                    }
+                }
+
+                // Calculate discounted price if there's an applicable offer
+                let discount = 0;
+                if (bestOffer) {
+                    discount = bestOffer.discountPercentage;
+                    discountedPrice = Math.round((item.item_price * (100 - discount)) / 100);
+                }
+
+                // Format the item with complete information
+                return {
+                    id: item._id,
+                    name: item.item_name,
+                    description: item.description,
+                    price: item.item_price,
+                    discountedPrice: discountedPrice,
+                    discount: discount,
+                    image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                    imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
+                    restaurant: item.restaurant ? {
+                        id: item.restaurant._id,
+                        name: item.restaurant.name || 'Unknown Restaurant'
+                    } : {
+                        id: null,
+                        name: 'Unknown Restaurant'
+                    },
+                    category: item.category || 'Main Course',
+                    isVegetarian: item.isVegetarian || false,
+                    isVegan: item.isVegan || false,
+                    isGlutenFree: item.isGlutenFree || false,
+                    isAvailable: item.isAvailable !== false, // default to true
+                    averageRating: item.averageRating || 0,
+                    numberOfRatings: item.numberOfRatings || 0,
+                    isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4)
+                };
+            });
+
+            // Return the formatted menu items
             return res.status(200).json({
                 success: true,
                 data: formattedItems
@@ -229,7 +362,42 @@ router.get('/', async (req, res) => {
             
         console.log(`Found ${allMenuItems.length} menu items total`);
         
-        // Fetch all active offers (can be optimized if needed)
+        // Filter out items with null or self-referencing restaurant IDs
+        const validItems = allMenuItems.filter(item => {
+            // Log the item being checked
+            // console.log(`[Menu Filter Debug] Checking item: ${item._id}, Restaurant field:`, item.restaurant);
+
+            // Check 1: Ensure restaurant field exists
+            // The 'restaurant' field directly on the lean object holds the ID before population
+            const rawRestaurantId = item.restaurant; 
+            
+            if (!rawRestaurantId) {
+                console.error(`[Menu API Filter] Excluding item ${item._id} (${item.item_name || 'N/A'}) due to missing raw restaurant ID field.`);
+                return false; // Exclude item if restaurant ID field is missing
+            }
+
+            // Check 2: Ensure restaurant ID is not the same as the menu item ID using the raw ID
+            // Convert both to string for safe comparison
+            const itemIdStr = item._id.toString();
+            const restaurantIdStr = rawRestaurantId.toString();
+
+            if (itemIdStr === restaurantIdStr) {
+                console.error(`[Menu API Filter] Excluding item ${itemIdStr} (${item.item_name || 'N/A'}) due to self-referencing raw restaurant ID: ${restaurantIdStr}`);
+                return false; // Exclude self-referencing items
+            }
+            
+            // Check 3: Also verify the populated structure just in case (double check)
+            // Note: This check might be redundant if the raw check works, but adds safety.
+            // We access populated data via item.restaurant._id AFTER population runs.
+            // Let's assume population happened correctly for items passing the raw check.
+
+            // If all checks pass, include the item
+            return true; 
+        });
+        
+        console.log(`[Menu API] Found ${allMenuItems.length} items total. Filtered down to ${validItems.length} valid items.`);
+        
+        // Fetch active offers
         const now = new Date();
         const activeOffers = await Offer.find({
             isActive: true,
@@ -240,7 +408,7 @@ router.get('/', async (req, res) => {
         console.log(`Fetched ${activeOffers.length} active offers.`);
 
         // Format the response including offer calculations
-        const formattedItems = allMenuItems.map(item => {
+        const formattedItems = validItems.map(item => {
             const itemRestaurantId = item.restaurant?._id?.toString();
             let bestOffer = null;
             let discountedPrice = item.item_price; // Default to original price
@@ -348,46 +516,88 @@ router.get('/restaurant/:id', async (req, res) => {
             console.log(`Fixed ${updateResult.modifiedCount} menu items with missing restaurant reference`);
         }
         
-        // Find menu items and populate restaurant with all necessary data
+        // Find menu items and populate restaurant
         const menuItems = await MenuItem.find({ restaurant: req.params.id }).populate({
             path: 'restaurant',
             select: 'name logo location cuisine'
-        });
+        }).lean(); // Use lean
         
         console.log(`Found ${menuItems.length} menu items for restaurant ${restaurant.name}`);
         
-        // If items found, log the first one for debugging
-        if (menuItems.length > 0) {
-            console.log('First menu item debug:');
-            console.log('- Item name:', menuItems[0].item_name);
-            console.log('- Restaurant data:', JSON.stringify(menuItems[0].restaurant, null, 2));
-        }
-        
-        // Format the response with restaurant data from our verified restaurant object
-        const formattedItems = menuItems.map(item => ({
-            id: item._id,
-            name: item.item_name,
-            description: item.description,
-            price: item.item_price,
-            image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
-            imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
-            restaurant: {
-                id: restaurant._id,
-                name: restaurant.name
-            },
-            category: item.category || 'Main Course',
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-            isVegetarian: item.isVegetarian,
-            isVegan: item.isVegan,
-            isGlutenFree: item.isGlutenFree,
-            isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-            averageRating: item.averageRating || 0,
-            numberOfRatings: item.numberOfRatings || 0,
-            isPopular: item.numberOfRatings > 2 || item.averageRating > 4
-        }));
+        // Fetch active offers for this restaurant
+        const now = new Date();
+        const activeOffers = await Offer.find({
+            restaurant: req.params.id, 
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).lean();
+        console.log(`Found ${activeOffers.length} active offers for this restaurant.`);
+
+        // Format the response including offer calculations
+        const formattedItems = menuItems.map(item => {
+            let bestOffer = null;
+            let discountedPrice = item.item_price; // Default to original price
+
+            // Find applicable offers for this specific item
+            const applicableOffers = activeOffers.filter(offer => {
+                if (offer.appliesTo === 'All Menu') {
+                    return true;
+                } else if (offer.appliesTo === 'Selected Items') {
+                    return Array.isArray(offer.menuItems) && offer.menuItems.some(offerItemId => offerItemId.toString() === item._id.toString());
+                }
+                return false;
+            });
+
+            // Find the best offer (highest discount percentage)
+            if (applicableOffers.length > 0) {
+                bestOffer = applicableOffers.reduce((maxOffer, currentOffer) => 
+                    (currentOffer.discountPercentage > maxOffer.discountPercentage) ? currentOffer : maxOffer, 
+                    applicableOffers[0]
+                );
+            }
+
+            // Prepare base item structure
+            const formattedItem = {
+                id: item._id,
+                name: item.item_name,
+                description: item.description,
+                price: item.item_price,
+                image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                imageUrl: item.imageUrl || item.image || 'uploads/placeholders/food-placeholder.jpg',
+                restaurant: {
+                    id: restaurant._id,
+                    name: restaurant.name
+                },
+                category: item.category || 'Main Course',
+                calories: item.calories,
+                protein: item.protein,
+                carbs: item.carbs,
+                fat: item.fat,
+                isVegetarian: item.isVegetarian,
+                isVegan: item.isVegan,
+                isGlutenFree: item.isGlutenFree,
+                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                averageRating: item.averageRating || 0,
+                numberOfRatings: item.numberOfRatings || 0,
+                isPopular: item.numberOfRatings > 2 || item.averageRating > 4,
+                // Include customization options needed by RestaurantDetails page
+                customizationOptions: item.customizationOptions
+            };
+
+            // Add offer details if applicable
+            if (bestOffer && bestOffer.discountPercentage > 0) {
+                formattedItem.originalPrice = item.item_price;
+                formattedItem.discountedPrice = parseFloat((item.item_price * (1 - bestOffer.discountPercentage / 100)).toFixed(2));
+                formattedItem.offerDetails = {
+                    percentage: bestOffer.discountPercentage,
+                    title: bestOffer.title,
+                    id: bestOffer._id
+                };
+            }
+
+            return formattedItem;
+        });
         
         res.status(200).json({
             success: true,
@@ -407,46 +617,37 @@ router.get('/restaurant', auth, async (req, res) => {
     try {
         console.log('Retrieving menu items for restaurant owner. req.user:', JSON.stringify(req.user));
         
-        // Determine role and check if user is a restaurant owner
-        const role = req.user.role || 'unknown';
-        const isRestaurantByRole = role === 'restaurant';
-        const isRestaurantByFlag = !!req.user.isRestaurantOwner;
+        const userId = req.user.userId; // Use the consistent userId from auth middleware
         
-        console.log(`User role: ${role}, isRestaurantByRole: ${isRestaurantByRole}, isRestaurantByFlag: ${isRestaurantByFlag}`);
-        
-        if (!isRestaurantByRole && !isRestaurantByFlag) {
-            console.log('Access denied - User is not a restaurant owner');
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied. Restaurant owner permissions required.'
-            });
-        }
-        
-        // Find some ID value to use as restaurantId
-        let restaurantId = null;
-        
-        // Try different possible sources in order of preference
-        if (req.user.userId) {
-            restaurantId = req.user.userId;
-            console.log('Using userId for restaurantId:', restaurantId);
-        } else if (req.user.id) {
-            restaurantId = req.user.id;
-            console.log('Using id for restaurantId:', restaurantId);
-        } else if (req.user._id) {
-            restaurantId = req.user._id;
-            console.log('Using _id for restaurantId:', restaurantId);
-        }
-        
-        if (!restaurantId) {
-            console.log('Error: No valid ID found in token payload', req.user);
+        if (!userId) {
+            console.log('Error: No valid userId found in token payload', req.user);
             return res.status(400).json({
                 success: false,
-                message: 'Restaurant ID not found. Please contact support.'
+                message: 'User ID not found in token. Please log in again.'
             });
         }
+
+        // Find the Restaurant document associated with this user
+        const Restaurant = mongoose.model('Restaurant'); // Ensure Restaurant model is loaded
+        const userRestaurant = await Restaurant.findOne({ owner: userId });
+
+        if (!userRestaurant) {
+            console.log(`No restaurant found for owner ID: ${userId}`);
+            // If the user is a restaurant owner but has no restaurant entry yet, return empty list
+            return res.status(200).json({
+                success: true,
+                message: 'No restaurant profile found for this owner.',
+                data: [] 
+            });
+        }
+
+        const restaurantId = userRestaurant._id;
+        console.log(`Found restaurant ID: ${restaurantId} for owner ${userId}`);
         
+        // Now query MenuItems using the correct restaurantId
         console.log('Looking for items with restaurant ID:', restaurantId);
         
+        // Ensure MenuItem model is available
         if (!MenuItem) {
             console.error('MenuItem model is undefined');
             return res.status(500).json({
@@ -455,17 +656,17 @@ router.get('/restaurant', auth, async (req, res) => {
             });
         }
         
-        // Check if the collection exists by examining the model
+        // Check if the collection exists (optional, but can prevent errors if empty)
         if (!mongoose.connection.collections['menuitems']) {
             console.log('The menuitems collection does not exist yet');
-            // Return empty array since there are no menu items yet
             return res.status(200).json({
                 success: true,
                 data: []
             });
         }
         
-        const menuItems = await MenuItem.find({ restaurant: restaurantId });
+        // Fetch menu items belonging to this specific restaurant
+        const menuItems = await MenuItem.find({ restaurant: restaurantId }).lean(); // Use .lean() for performance
         console.log('Found menu items:', menuItems ? menuItems.length : 'none');
         
         // Debug the first menu item thoroughly if any exist
@@ -481,10 +682,10 @@ router.get('/restaurant', auth, async (req, res) => {
         // Format the response, correctly mapping model field names to API response names
         const formattedItems = menuItems ? menuItems.map(item => {
             // Determine which image field to use, with fallbacks
-            let imagePath = item.image || null;
+            let imagePath = item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg'; // Add fallback
             
             // Debug the image path
-            console.log(`Processing image path for item ${item._id}: ${imagePath}`);
+            // console.log(`Processing image path for item ${item._id}: ${imagePath}`); // Can be verbose
             
             return {
                 id: item._id,
@@ -492,22 +693,20 @@ router.get('/restaurant', auth, async (req, res) => {
                 description: item.description,
                 price: item.item_price, // Map item_price to price
                 image: imagePath, // Use the determined image path
-                restaurant: item.restaurant ? {
-                    id: item.restaurant._id,
-                    name: item.restaurant.name || 'Unknown Restaurant'
-                } : {
+                // Ensure restaurant info is included, even if not populated
+                restaurant: { 
                     id: restaurantId,
-                    name: 'Your Restaurant'
+                    name: userRestaurant.name || 'Your Restaurant' // Use actual name if available
                 },
                 category: item.category || 'Main Course',
                 calories: item.calories,
                 protein: item.protein,
                 carbs: item.carbs,
                 fat: item.fat,
-                isVegetarian: item.isVegetarian,
-                isVegan: item.isVegan,
-                isGlutenFree: item.isGlutenFree,
-                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                isVegetarian: item.isVegetarian || false, // Default to false if undefined
+                isVegan: item.isVegan || false, // Default to false if undefined
+                isGlutenFree: item.isGlutenFree || false, // Default to false if undefined
+                isAvailable: item.isAvailable !== undefined ? item.isAvailable : true, // Default to true if undefined
                 averageRating: item.averageRating || 0,
                 numberOfRatings: item.numberOfRatings || 0,
                 isPopular: item.numberOfRatings > 2 || item.averageRating > 4
@@ -615,10 +814,10 @@ router.get('/:id', async (req, res) => {
             averageRating: menuItem.averageRating || 0,
             numberOfRatings: menuItem.numberOfRatings || 0,
             isPopular: menuItem.numberOfRatings > 2 || menuItem.averageRating > 4,
-            dateCreated: menuItem.dateCreated
-            // Add ingredients and customization options if needed
-            // ingredients: menuItem.ingredients,
-            // customizationOptions: menuItem.customizationOptions
+            dateCreated: menuItem.dateCreated,
+            // Add ingredients and customization options
+            ingredients: menuItem.ingredients, // Include base ingredients if needed
+            customizationOptions: menuItem.customizationOptions // Include full customization options
         };
 
         // Add offer details if applicable
@@ -695,13 +894,53 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
             image: imagePath,
             imageUrl: imagePath
         };
-        
+
         // Optional fields
         if (req.body.calories) menuItemData.calories = parseFloat(req.body.calories);
         if (req.body.protein) menuItemData.protein = parseFloat(req.body.protein);
         if (req.body.carbs) menuItemData.carbs = parseFloat(req.body.carbs);
         if (req.body.fat) menuItemData.fat = parseFloat(req.body.fat);
-        
+        if (req.body.sodium) menuItemData.sodium = parseFloat(req.body.sodium); // Added Sodium
+        if (req.body.sugar) menuItemData.sugar = parseFloat(req.body.sugar);     // Added Sugar
+        if (req.body.fiber) menuItemData.fiber = parseFloat(req.body.fiber);     // Added Fiber
+
+        // Handle ingredients and customizationOptions (availableAddOns)
+        try {
+            if (req.body.ingredients && typeof req.body.ingredients === 'string') {
+                 menuItemData.ingredients = JSON.parse(req.body.ingredients);
+                 console.log('Parsed ingredients:', menuItemData.ingredients);
+            } else if (Array.isArray(req.body.ingredients)) {
+                 menuItemData.ingredients = req.body.ingredients;
+            }
+
+            if (req.body.availableAddOns && typeof req.body.availableAddOns === 'string') {
+                const parsedAddOns = JSON.parse(req.body.availableAddOns);
+                if (Array.isArray(parsedAddOns)) {
+                     menuItemData.customizationOptions = {
+                         ...menuItemData.customizationOptions, // Preserve other potential options
+                         availableAddOns: parsedAddOns
+                     };
+                     console.log('Parsed availableAddOns:', menuItemData.customizationOptions.availableAddOns);
+                }
+            } else if (Array.isArray(req.body.availableAddOns)) {
+                 menuItemData.customizationOptions = {
+                      ...menuItemData.customizationOptions,
+                      availableAddOns: req.body.availableAddOns
+                 };
+            }
+            // Ensure customizationOptions object exists if adding addons
+            if (menuItemData.customizationOptions && !req.body.customizationOptions) {
+                 // If we added addons but the main object wasn't passed, initialize it
+                 if (!menuItem.customizationOptions) menuItem.customizationOptions = {};
+            }
+
+        } catch (parseError) {
+            console.error("Error parsing ingredients or add-ons JSON:", parseError);
+            // Decide if this should be a blocking error or just log and continue
+            // For now, log and continue without these fields
+        }
+
+
         // Boolean fields (convert string values to boolean)
         menuItemData.isVegetarian = req.body.isVegetarian === 'true';
         menuItemData.isVegan = req.body.isVegan === 'true';
@@ -813,23 +1052,57 @@ router.put('/:id', [
         menuItem.description = description;
         menuItem.item_price = parseFloat(price);
         menuItem.category = category || menuItem.category;
-        
+
         // Update image if provided
         if (req.file) {
             const imagePath = `uploads/menu/${req.file.filename}`;
             console.log('New image uploaded, saved to:', imagePath);
-            
+
             // Update both image and imageUrl for consistency
             menuItem.image = imagePath;
             menuItem.imageUrl = imagePath;
         }
-        
+
         // Update optional fields
         if (calories !== undefined) menuItem.calories = parseFloat(calories) || 0;
         if (protein !== undefined) menuItem.protein = parseFloat(protein) || 0;
         if (carbs !== undefined) menuItem.carbs = parseFloat(carbs) || 0;
         if (fat !== undefined) menuItem.fat = parseFloat(fat) || 0;
-        
+        if (req.body.sodium !== undefined) menuItem.sodium = parseFloat(req.body.sodium) || 0; // Added Sodium
+        if (req.body.sugar !== undefined) menuItem.sugar = parseFloat(req.body.sugar) || 0; // Added Sugar
+        if (req.body.fiber !== undefined) menuItem.fiber = parseFloat(req.body.fiber) || 0; // Added Fiber
+
+        // Update ingredients and customizationOptions (availableAddOns)
+         try {
+            if (req.body.ingredients) {
+                 const parsedIngredients = (typeof req.body.ingredients === 'string')
+                     ? JSON.parse(req.body.ingredients)
+                     : req.body.ingredients;
+                 if (Array.isArray(parsedIngredients)) {
+                     menuItem.ingredients = parsedIngredients;
+                     console.log('Updated ingredients:', menuItem.ingredients);
+                 }
+            }
+
+            if (req.body.availableAddOns) {
+                 const parsedAddOns = (typeof req.body.availableAddOns === 'string')
+                     ? JSON.parse(req.body.availableAddOns)
+                     : req.body.availableAddOns;
+                 if (Array.isArray(parsedAddOns)) {
+                     if (!menuItem.customizationOptions) {
+                         menuItem.customizationOptions = {}; // Ensure object exists
+                     }
+                     menuItem.customizationOptions.availableAddOns = parsedAddOns;
+                     // Mark the path as modified if it's a mixed type or nested schema
+                     menuItem.markModified('customizationOptions');
+                     console.log('Updated availableAddOns:', menuItem.customizationOptions.availableAddOns);
+                 }
+            }
+         } catch (parseError) {
+             console.error("Error parsing ingredients or add-ons JSON during update:", parseError);
+             // Decide if this should be a blocking error or just log and continue
+         }
+
         // Update boolean flags
         menuItem.isVegetarian = isVegetarian === 'true' || isVegetarian === true;
         menuItem.isVegan = isVegan === 'true' || isVegan === true;

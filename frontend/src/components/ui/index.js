@@ -39,3 +39,7 @@ export { Switch } from "./switch";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Textarea } from "./textarea";
 export { Toast, ToastContainer } from "./toast"; 
+
+// Manually added exports for shadcn components
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from "./table";
+export { ScrollArea, ScrollBar } from "./scroll-area"; 

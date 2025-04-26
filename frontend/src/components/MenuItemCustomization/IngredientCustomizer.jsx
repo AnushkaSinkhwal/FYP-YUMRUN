@@ -1,15 +1,16 @@
-import { useState, useEffect, useContext } from 'react';
-import { Button, Checkbox, Card, Label, Slider, RadioGroup, RadioGroupItem } from '../ui';
+import { useState, useEffect } from 'react';
+import { Button, Checkbox, Card, Label, RadioGroup, RadioGroupItem } from '../ui';
 import NutritionSummary from '../NutritionTracker/NutritionSummary';
 import { useAuth } from '../../context/AuthContext';
+import { FaPlus, FaMinus, FaShoppingCart } from 'react-icons/fa';
+import PropTypes from 'prop-types';
 
 /**
  * A component for customizing menu item ingredients at a detailed level
  */
 const IngredientCustomizer = ({ 
   menuItem, 
-  onChange,
-  onClose
+  onChange
 }) => {
   const { user } = useAuth(); // Get the current user to access health profile
   
@@ -27,11 +28,11 @@ const IngredientCustomizer = ({
   const [currentPrice, setCurrentPrice] = useState(basePrice);
   const [removedIngredients, setRemovedIngredients] = useState([]);
   const [addedIngredients, setAddedIngredients] = useState([]);
-  const [portionSizes, setPortionSizes] = useState({});
   const [servingSize, setServingSize] = useState('Regular');
   const [currentNutrition, setCurrentNutrition] = useState({...baseNutrition});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cookingMethod, setCookingMethod] = useState(null);
+  const [quantity, setQuantity] = useState(1);
   
   // Available cooking methods and their nutritional impacts
   const cookingMethods = [
@@ -72,39 +73,27 @@ const IngredientCustomizer = ({
       
       // Initialize default cooking method
       setCookingMethod('default');
-      
-      // Initialize portion sizes for each ingredient (100% by default)
-      if (menuItem.ingredients) {
-        const initialPortionSizes = {};
-        menuItem.ingredients.forEach(ingredient => {
-          initialPortionSizes[ingredient.name] = 100;
-        });
-        setPortionSizes(initialPortionSizes);
-      }
     }
   }, [menuItem]);
   
   // Recalculate nutrition and price whenever customizations change
   useEffect(() => {
     let updatedNutrition = {...baseNutrition};
-    let updatedPrice = basePrice;
+    let itemPrice = basePrice;
     
     // Subtract removed ingredients based on portion size
     removedIngredients.forEach(ingredient => {
-      const portionFactor = portionSizes[ingredient.name] !== undefined ? 
-        (100 - portionSizes[ingredient.name]) / 100 : 1;
-        
-      updatedNutrition.calories -= (ingredient.calories || 0) * portionFactor;
-      updatedNutrition.protein -= (ingredient.protein || 0) * portionFactor;
-      updatedNutrition.carbs -= (ingredient.carbs || 0) * portionFactor;
-      updatedNutrition.fat -= (ingredient.fat || 0) * portionFactor;
-      updatedNutrition.sodium -= (ingredient.sodium || 0) * portionFactor;
-      updatedNutrition.fiber -= (ingredient.fiber || 0) * portionFactor;
-      updatedNutrition.sugar -= (ingredient.sugar || 0) * portionFactor;
+      updatedNutrition.calories -= (ingredient.calories || 0);
+      updatedNutrition.protein -= (ingredient.protein || 0);
+      updatedNutrition.carbs -= (ingredient.carbs || 0);
+      updatedNutrition.fat -= (ingredient.fat || 0);
+      updatedNutrition.sodium -= (ingredient.sodium || 0);
+      updatedNutrition.fiber -= (ingredient.fiber || 0);
+      updatedNutrition.sugar -= (ingredient.sugar || 0);
       
       // Adjust price if ingredient removal affects price
       if (ingredient.price) {
-        updatedPrice -= ingredient.price * portionFactor;
+        itemPrice -= ingredient.price;
       }
     });
     
@@ -119,7 +108,7 @@ const IngredientCustomizer = ({
       updatedNutrition.sugar += ingredient.sugar || 0;
       
       // Adjust price for add-ons
-      updatedPrice += ingredient.price || 0;
+      itemPrice += ingredient.price || 0;
     });
     
     // Apply cooking method impacts if selected
@@ -161,32 +150,18 @@ const IngredientCustomizer = ({
       updatedNutrition[key] = Math.max(0, Math.round(updatedNutrition[key] * sizeFactor));
     });
     
-    // Apply price adjustment
-    updatedPrice = Math.max(0, updatedPrice * (1 + priceAdjustment));
-    updatedPrice = Math.round(updatedPrice * 100) / 100; // Round to 2 decimal places
+    // Apply price adjustment based on serving size
+    itemPrice = Math.max(0, itemPrice * (1 + priceAdjustment));
+    
+    // Calculate FINAL price including quantity
+    const finalPrice = Math.max(0, itemPrice * quantity);
+    const roundedFinalPrice = Math.round(finalPrice * 100) / 100; // Round to 2 decimal places
     
     setCurrentNutrition(updatedNutrition);
-    setCurrentPrice(updatedPrice);
+    setCurrentPrice(roundedFinalPrice);
     
-    // Notify parent component of changes
-    if (onChange) {
-      onChange({
-        removedIngredients: removedIngredients.map(i => ({
-          name: i.name,
-          portionRemoved: portionSizes[i.name] !== undefined ? 100 - portionSizes[i.name] : 100
-        })),
-        addedIngredients: addedIngredients.map(i => ({
-          name: i.name,
-          price: i.price || 0
-        })),
-        cookingMethod: cookingMethod !== 'default' ? cookingMethods.find(m => m.id === cookingMethod)?.name : undefined,
-        servingSize,
-        specialInstructions,
-        nutritionalInfo: updatedNutrition,
-        updatedPrice: updatedPrice
-      });
-    }
-  }, [baseNutrition, basePrice, removedIngredients, addedIngredients, portionSizes, cookingMethod, servingSize, specialInstructions, onChange]);
+    // DO NOT Notify parent component here anymore
+  }, [baseNutrition, basePrice, removedIngredients, addedIngredients, cookingMethod, servingSize, specialInstructions, quantity]);
   
   const handleIngredientToggle = (ingredient, isRemoved) => {
     if (isRemoved) {
@@ -197,38 +172,64 @@ const IngredientCustomizer = ({
         setRemovedIngredients(prev => [...prev, ingredient]);
       }
     } else {
-      // Toggle addition of an ingredient
-      if (addedIngredients.find(i => i.name === ingredient.name)) {
-        setAddedIngredients(prev => prev.filter(i => i.name !== ingredient.name));
+      // Toggle addition of an ADD-ON ingredient
+      // Expect `ingredient` here to be an object from availableAddOns (including _id)
+      const ingredientId = ingredient._id || ingredient.id; // Get the ID
+      if (!ingredientId) {
+        console.error("Add-on ingredient missing ID:", ingredient);
+        return; 
+      }
+
+      if (addedIngredients.find(i => (i._id || i.id) === ingredientId)) {
+        // Remove if already added
+        setAddedIngredients(prev => prev.filter(i => (i._id || i.id) !== ingredientId));
       } else {
-        setAddedIngredients(prev => [...prev, ingredient]);
+        // Add the add-on object (which includes the ID)
+        setAddedIngredients(prev => [...prev, ingredient]); 
       }
     }
   };
   
-  const handlePortionChange = (ingredientName, value) => {
-    setPortionSizes(prev => ({
-      ...prev,
-      [ingredientName]: value
-    }));
-    
-    // Update removed ingredients if portion is adjusted
-    const ingredient = menuItem.ingredients.find(i => i.name === ingredientName);
-    if (ingredient) {
-      if (value < 100) {
-        // Add to removed ingredients if not already there
-        if (!removedIngredients.find(i => i.name === ingredientName)) {
-          setRemovedIngredients(prev => [...prev, ingredient]);
-        }
-      } else {
-        // Remove from removed ingredients if portion is back to 100%
-        setRemovedIngredients(prev => prev.filter(i => i.name !== ingredientName));
+  const handleQuantityChange = (amount) => {
+     setQuantity(prev => Math.max(1, prev + amount)); // Ensure quantity is at least 1
+  };
+
+  // Function to call when the user confirms adding the customized item
+  const handleConfirm = () => {
+    if (!menuItem) return;
+
+    // Construct the data object expected by the cart context
+    const cartItemData = {
+      id: menuItem.id || menuItem._id, // Ensure we have the ID
+      name: menuItem.name || menuItem.item_name,
+      image: menuItem.image || menuItem.imageUrl, // Get the best image
+      quantity: quantity,
+      price: currentPrice, // This is the FINAL calculated price for the quantity
+      basePrice: basePrice, // Store the original single item base price
+      selectedAddOns: addedIngredients.map(addOn => ({
+         id: addOn._id || addOn.id, // Map to the expected structure { id: '...' }
+         name: addOn.name, // Include name and price for display in cart perhaps
+         price: addOn.price 
+      })),
+      // Include other customization details if needed by the cart/order summary
+      customizationDetails: {
+        removedIngredients: removedIngredients.map(i => i.name), // Just send names maybe
+        servingSize: servingSize,
+        cookingMethod: cookingMethod,
+        specialInstructions: specialInstructions
       }
+    };
+
+    console.log('Confirming add to cart with data:', cartItemData);
+    
+    // Call the onChange prop (passed from RestaurantDetails) with the data
+    if (onChange) {
+      onChange(cartItemData);
     }
   };
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <h3 className="text-xl font-semibold">Customize Your Order</h3>
       
       {/* Health-based customization recommendations */}
@@ -256,61 +257,28 @@ const IngredientCustomizer = ({
           <h4 className="mb-4 text-lg font-medium">Ingredients</h4>
           <div className="space-y-4">
             {menuItem.ingredients.map(ingredient => (
-              <div key={ingredient.name} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id={`ingredient-${ingredient.name}`}
-                      checked={!removedIngredients.find(i => i.name === ingredient.name) || 
-                              (portionSizes[ingredient.name] === 100)}
-                      onCheckedChange={(checked) => {
-                        if (!checked) {
-                          handleIngredientToggle(ingredient, true);
-                          // Set portion to 0 if removing completely
-                          handlePortionChange(ingredient.name, 0);
-                        } else {
-                          handleIngredientToggle(ingredient, true);
-                          // Reset portion to 100% if re-adding
-                          handlePortionChange(ingredient.name, 100);
-                        }
-                      }}
-                      disabled={!ingredient.isRemovable}
-                    />
-                    <label htmlFor={`ingredient-${ingredient.name}`} className="text-sm">
-                      {ingredient.name}
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">
-                      {ingredient.calories > 0 ? `${ingredient.calories} cal` : ''}
-                    </span>
-                    {ingredient.protein > 0 && (
-                      <span className="text-xs text-gray-500">
-                        {ingredient.protein}g protein
-                      </span>
-                    )}
-                  </div>
+              <div key={ingredient.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id={`ingredient-${ingredient.name}`}
+                    checked={!removedIngredients.find(i => i.name === ingredient.name)}
+                    onCheckedChange={() => handleIngredientToggle(ingredient, true)}
+                    disabled={!ingredient.isRemovable}
+                  />
+                  <label htmlFor={`ingredient-${ingredient.name}`} className="text-sm">
+                    {ingredient.name}
+                  </label>
                 </div>
-                
-                {/* Portion slider for adjusting ingredient amount */}
-                {ingredient.isRemovable && (
-                  <div className="pl-6">
-                    <div className="flex items-center justify-between mb-1">
-                      <label htmlFor={`portion-${ingredient.name}`} className="text-xs text-gray-500">
-                        Portion Size: {portionSizes[ingredient.name] || 0}%
-                      </label>
-                    </div>
-                    <Slider
-                      id={`portion-${ingredient.name}`}
-                      min={0}
-                      max={100}
-                      step={10}
-                      value={[portionSizes[ingredient.name] || 0]}
-                      onValueChange={(values) => handlePortionChange(ingredient.name, values[0])}
-                      disabled={!ingredient.isRemovable}
-                    />
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {ingredient.calories > 0 ? `${ingredient.calories} cal` : ''}
+                  </span>
+                  {ingredient.protein > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {ingredient.protein}g protein
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -323,46 +291,59 @@ const IngredientCustomizer = ({
         <Card className="p-4">
           <h4 className="mb-4 text-lg font-medium">Additional Ingredients</h4>
           <div className="space-y-2">
-            {menuItem.customizationOptions.availableAddOns.map(ingredient => (
-              <div key={ingredient.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox 
-                    id={`addon-${ingredient.name}`}
-                    checked={!!addedIngredients.find(i => i.name === ingredient.name)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        handleIngredientToggle(ingredient, false);
-                      } else {
-                        handleIngredientToggle(ingredient, false);
-                      }
-                    }}
-                  />
-                  <label htmlFor={`addon-${ingredient.name}`} className="flex flex-col text-sm">
-                    <span>{ingredient.name}</span>
-                    {/* Show health tags if applicable */}
-                    {ingredient.protein > 5 && (
-                      <span className="text-xs text-green-600 dark:text-green-400">High Protein</span>
-                    )}
-                    {ingredient.fiber > 3 && (
-                      <span className="text-xs text-green-600 dark:text-green-400">High Fiber</span>
-                    )}
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    {ingredient.calories > 0 ? `${ingredient.calories} cal` : ''}
-                  </span>
-                  {ingredient.price > 0 && (
-                    <span className="text-xs font-medium text-gray-700">
-                      +Rs.{ingredient.price.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+            {menuItem.customizationOptions.availableAddOns.map(addOn => {
+                const addOnId = addOn._id || addOn.id;
+                const isChecked = !!addedIngredients.find(i => (i._id || i.id) === addOnId);
+                return (
+                    <div key={addOnId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                        <Checkbox 
+                            id={`addon-${addOnId}`}
+                            checked={isChecked}
+                            onCheckedChange={() => handleIngredientToggle(addOn, false)} // Pass the addOn object
+                        />
+                        <label htmlFor={`addon-${addOnId}`} className="flex flex-col text-sm">
+                            <span>{addOn.name}</span>
+                            {/* Optional: Show health tags */}
+                        </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                        {/* Optional: Show calorie info */}
+                        {addOn.price > 0 && (
+                            <span className="text-xs font-medium text-gray-700">
+                            +Rs.{addOn.price.toFixed(2)}
+                            </span>
+                        )}
+                        </div>
+                    </div>
+                );
+            })}
           </div>
         </Card>
       )}
+      
+      {/* Quantity Selector */}
+      <Card className="p-4">
+           <h4 className="mb-4 text-lg font-medium">Quantity</h4>
+            <div className="flex items-center justify-center space-x-4">
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => handleQuantityChange(-1)} 
+                    disabled={quantity <= 1}
+                >
+                    <FaMinus />
+                </Button>
+                <span className="text-xl font-semibold w-12 text-center">{quantity}</span>
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => handleQuantityChange(1)}
+                 >
+                    <FaPlus />
+                </Button>
+            </div>
+      </Card>
       
       {/* Cooking Method Selection */}
       <Card className="p-4">
@@ -455,34 +436,59 @@ const IngredientCustomizer = ({
         />
       </div>
       
-      {/* Action buttons */}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={() => {
-          onChange({
-            removedIngredients: removedIngredients.map(i => ({
-              name: i.name,
-              portionRemoved: portionSizes[i.name] !== undefined ? 100 - portionSizes[i.name] : 100
-            })),
-            addedIngredients: addedIngredients.map(i => ({
-              name: i.name,
-              price: i.price || 0
-            })),
-            cookingMethod: cookingMethod !== 'default' ? cookingMethods.find(m => m.id === cookingMethod)?.name : undefined,
-            servingSize,
-            specialInstructions,
-            nutritionalInfo: currentNutrition,
-            updatedPrice: currentPrice
-          });
-          onClose();
-        }}>
-          Add to Cart - Rs.{currentPrice.toFixed(2)}
-        </Button>
+      {/* Price summary and Add to Cart button - Sticky Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 p-4 bg-white border-t shadow-lg dark:bg-gray-800 sm:relative sm:bottom-auto sm:left-auto sm:right-auto sm:shadow-none sm:border-t-0 sm:p-0 sm:mt-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-0">
+              <div>
+                  <h4 className="text-lg font-semibold">Total Price:</h4>
+                  <span className="text-xl font-bold text-yumrun-orange">Rs.{currentPrice.toFixed(2)}</span>
+              </div>
+              <Button onClick={handleConfirm} size="lg" className="gap-2">
+                  <FaShoppingCart className="w-5 h-5" /> Add to Cart
+              </Button>
+          </div>
       </div>
     </div>
   );
+};
+
+// Basic Prop Types Validation
+IngredientCustomizer.propTypes = {
+  menuItem: PropTypes.shape({
+    id: PropTypes.string,
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    item_name: PropTypes.string,
+    image: PropTypes.string,
+    imageUrl: PropTypes.string,
+    price: PropTypes.number,
+    item_price: PropTypes.number,
+    calories: PropTypes.number,
+    protein: PropTypes.number,
+    carbs: PropTypes.number,
+    fat: PropTypes.number,
+    sodium: PropTypes.number,
+    fiber: PropTypes.number,
+    sugar: PropTypes.number,
+    ingredients: PropTypes.array,
+    customizationOptions: PropTypes.shape({
+      availableAddOns: PropTypes.arrayOf(PropTypes.shape({
+        _id: PropTypes.string,
+        id: PropTypes.string,
+        name: PropTypes.string.isRequired,
+        price: PropTypes.number,
+        calories: PropTypes.number,
+        protein: PropTypes.number,
+        carbs: PropTypes.number,
+        fat: PropTypes.number,
+        sodium: PropTypes.number,
+        fiber: PropTypes.number,
+        sugar: PropTypes.number
+      })),
+      servingSizeOptions: PropTypes.arrayOf(PropTypes.string)
+    })
+  }).isRequired,
+  onChange: PropTypes.func.isRequired, // Callback function when adding to cart
 };
 
 export default IngredientCustomizer; 

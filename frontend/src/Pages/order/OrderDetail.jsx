@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { userAPI } from '../../utils/api';
-import { Alert, Spinner, Badge, Card } from '../../components/ui';
+import { userAPI, reviewAPI } from '../../utils/api';
+import { Alert, Spinner, Badge, Card, Button } from '../../components/ui';
 import { FaMapMarkerAlt, FaReceipt } from 'react-icons/fa';
+import ReviewForm from '../../components/reviews/ReviewForm';
 
 // Helper function to format currency (reuse from admin)
 const formatCurrency = (amount) => {
@@ -39,32 +40,74 @@ const OrderDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // State for review modal
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewItem, setReviewItem] = useState(null); // { menuItemId, foodName }
+  const [reviewedItemIds, setReviewedItemIds] = useState(new Set()); // Track reviewed items in this session
+
   useEffect(() => {
-    const fetchOrder = async () => {
+    const fetchOrderAndReviews = async () => {
       setIsLoading(true);
       setError(null);
+      setReviewedItemIds(new Set());
+      let orderResponse = null; // Declare outside try
+      let reviewsResponse = null;
       try {
-        console.log(`OrderDetail: Fetching order ${orderId} using userAPI.getOrder`);
-        const response = await userAPI.getOrder(orderId);
-        console.log('OrderDetail: API Response:', response);
+        // Fetch order details and user reviews concurrently
+        [orderResponse, reviewsResponse] = await Promise.all([
+          userAPI.getOrder(orderId),
+          reviewAPI.getMyReviews()
+        ]);
 
-        if (response.data && response.data.success) {
-          // The data is already formatted by the backend route GET /orders/:id
-          setOrder(response.data.data);
-          console.log('OrderDetail: Order data set:', response.data.data);
+        // Process order
+        if (orderResponse.data && orderResponse.data.success) {
+          setOrder(orderResponse.data.data);
         } else {
-          throw new Error(response.data?.message || 'Failed to fetch order details');
+          throw new Error(orderResponse?.data?.message || 'Failed to fetch order details');
         }
+
+        // Process reviews
+        if (reviewsResponse.data && reviewsResponse.data.success) {
+          const currentOrderReviews = reviewsResponse.data.data.reviews.filter(
+            review => review.orderId === orderId
+          );
+          const alreadyReviewedIds = new Set(
+            currentOrderReviews.map(review => review.menuItem?._id || review.menuItem)
+          );
+          setReviewedItemIds(alreadyReviewedIds);
+        } else {
+          console.error('Failed to fetch user reviews:', reviewsResponse?.data?.message);
+        }
+
       } catch (err) {
-        console.error("Error fetching order details:", err);
+        console.error("Error fetching order details or reviews:", err);
         setError(err.response?.data?.message || err.message || 'Could not load order details.');
+        // Check the declared orderResponse variable here
+        if (!orderResponse?.data?.success) setOrder(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchOrder();
+    fetchOrderAndReviews();
   }, [orderId]);
+
+  // Handlers for review modal
+  const handleOpenReviewModal = (item) => {
+    // Use item.productId which should be the MenuItem._id
+    setReviewItem({ menuItemId: item.productId, foodName: item.name });
+    setIsReviewModalOpen(true);
+  };
+
+  const handleCloseReviewModal = () => {
+    setIsReviewModalOpen(false);
+    setReviewItem(null);
+  };
+
+  const handleReviewSubmitted = (submittedMenuItemId) => {
+    setReviewedItemIds(prev => new Set(prev).add(submittedMenuItemId));
+    // Maybe trigger a toast notification here
+  };
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Spinner size="lg" /></div>;
@@ -121,12 +164,32 @@ const OrderDetail = () => {
         <h2 className="text-xl font-semibold p-4 border-b">Items Ordered</h2>
         <ul className="divide-y">
           {order.items && order.items.map((item, index) => (
-            <li key={item.productId || index} className="flex justify-between items-center p-4">
-              <div>
-                <p className="font-medium">{item.name}</p>
-                <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+            <li key={item.productId || index} className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium">{item.name}</p>
+                  <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                  {/* TODO: Display selected options/customizations if available in item data */}
+                </div>
+                <p className="font-medium text-right">{formatCurrency(item.price * item.quantity)}</p>
               </div>
-              <p className="font-medium">{formatCurrency(item.price * item.quantity)}</p>
+              {/* Add Review Button - Check order status AND if item hasn't been reviewed */}
+              {order.status === 'DELIVERED' && item.productId && !reviewedItemIds.has(item.productId) && (
+                 <div className="mt-2 text-right">
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => handleOpenReviewModal(item)}
+                     aria-label={`Write a review for ${item.name}`}
+                   >
+                     Write a Review
+                   </Button>
+                 </div>
+              )}
+               {/* Indicate if review was previously submitted OR just submitted */}
+               {item.productId && reviewedItemIds.has(item.productId) && (
+                    <p className="mt-2 text-sm text-gray-500 text-right">Reviewed</p>
+               )}
             </li>
           ))}
         </ul>
@@ -187,6 +250,18 @@ const OrderDetail = () => {
           &larr; Back to My Orders
         </Link>
       </div>
+
+      {/* Review Modal */}
+      {reviewItem && (
+        <ReviewForm
+          open={isReviewModalOpen}
+          handleClose={handleCloseReviewModal}
+          orderId={order._id} // Pass the main order ID
+          menuItemId={reviewItem.menuItemId}
+          foodName={reviewItem.foodName}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
     </div>
   );
 };

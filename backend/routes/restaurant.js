@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
 const MenuItem = require('../models/menuItem');
 const Order = require('../models/order');
 const Offer = require('../models/offer');
+const Restaurant = require('../models/restaurant');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -387,7 +388,8 @@ router.get('/notifications/unread-count', auth, async (req, res) => {
         
         const count = await Notification.countDocuments({ 
             userId: userId,
-            isRead: false
+            isRead: false,
+            isAdminNotification: { $ne: true }
         });
         
         console.log('[Notifications] Found unread count:', count);
@@ -443,7 +445,8 @@ router.get('/notifications', auth, async (req, res) => {
         console.log('[Notifications] Looking for notifications for user ID:', userId);
         
         const notifications = await Notification.find({ 
-            userId: userId 
+            userId: userId,
+            isAdminNotification: { $ne: true }
         }).sort({ createdAt: -1 });
         
         console.log('[Notifications] Found notifications:', notifications ? notifications.length : 'none');
@@ -1214,6 +1217,44 @@ router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error fetching analytics data'
+        });
+    }
+});
+
+/**
+ * @route   GET /api/restaurant/pending-update-check
+ * @desc    Check if there is an active admin notification for a pending restaurant profile update
+ * @access  Private/RestaurantOwner
+ */
+router.get('/pending-update-check', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        // Find the restaurant ID associated with the owner
+        const restaurant = await Restaurant.findOne({ owner: userId }).select('_id');
+        if (!restaurant) {
+             // If no restaurant found for owner, technically no pending update exists for them
+             // Although this case might indicate another issue
+            return res.status(200).json({ success: true, hasPendingUpdate: false });
+        }
+        
+        // Check for a pending admin notification for this restaurant
+        const pendingAdminNotification = await Notification.findOne({
+            isAdminNotification: true,
+            type: 'RESTAURANT_UPDATE',
+            status: 'PENDING',
+            'data.restaurantId': restaurant._id 
+        });
+
+        return res.status(200).json({
+            success: true,
+            hasPendingUpdate: !!pendingAdminNotification // Convert result to boolean
+        });
+
+    } catch (error) {
+        console.error('Error checking for pending restaurant update notification:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Server error checking pending update status.' 
         });
     }
 });

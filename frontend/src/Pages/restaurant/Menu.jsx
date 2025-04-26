@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Input, Textarea, Label, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui';
-import { FaPlus, FaTrash, FaTimes, FaSave, FaUtensils } from 'react-icons/fa';
+import { Card, Button, Input, Textarea, Label, Alert, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Badge } from '../../components/ui';
+import { FaPlus, FaTrash, FaTimes, FaSave, FaUtensils, FaPencilAlt } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
@@ -45,14 +45,14 @@ const initialFormData = {
   isVegetarian: false,
   isVegan: false,
   isGlutenFree: false,
-  isAvailable: true
+  isAvailable: true,
+  availableAddOns: []
 };
 
 const RestaurantMenu = () => {
   // eslint-disable-next-line no-unused-vars
   const { currentUser, isRestaurantOwner } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
-  const [menuItemsByCategory, setMenuItemsByCategory] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -111,21 +111,6 @@ const RestaurantMenu = () => {
         
         // Store the flat list of items
         setMenuItems(mappedItems);
-        
-        // Organize items by category
-        const categorized = {};
-        mappedItems.forEach(item => {
-          const category = item.category || 'Other';
-          if (!categorized[category]) {
-            categorized[category] = [];
-          }
-          categorized[category].push(item);
-        });
-        
-        console.log('Categories found:', Object.keys(categorized));
-        
-        // Set the categorized items separately
-        setMenuItemsByCategory(categorized);
       } else {
         console.error('Failed to fetch menu items:', response.data?.message || 'Unknown error');
         toast.error('Failed to load menu items');
@@ -192,6 +177,10 @@ const RestaurantMenu = () => {
     
     console.log('Image preview URL:', imagePreview);
     
+    // Extract availableAddOns, ensure it's an array
+    const currentAddOns = item.customizationOptions?.availableAddOns || [];
+    console.log('Current Add Ons for edit:', currentAddOns);
+    
     setFormData({
       name: item.name || item.item_name,
       description: item.description,
@@ -206,7 +195,11 @@ const RestaurantMenu = () => {
       fat: item.fat?.toString() || '',
       isVegetarian: item.isVegetarian || false,
       isVegan: item.isVegan || false,
-      isGlutenFree: item.isGlutenFree || false
+      isGlutenFree: item.isGlutenFree || false,
+      availableAddOns: Array.isArray(currentAddOns) ? currentAddOns.map(addon => ({ // Ensure structure and handle potential missing fields
+        name: addon.name || '', 
+        price: addon.price?.toString() || '0'
+      })) : []
     });
     setIsEditDialogOpen(true);
   };
@@ -246,6 +239,20 @@ const RestaurantMenu = () => {
       if (formData.image instanceof File) {
         formDataObj.append('image', formData.image);
         console.log('Image file being uploaded:', formData.image.name, formData.image.type, formData.image.size);
+      }
+      
+      // Add availableAddOns as a JSON string
+      if (formData.availableAddOns && formData.availableAddOns.length > 0) {
+        // Filter out empty add-ons before stringifying
+        const validAddOns = formData.availableAddOns.filter(addon => addon.name && addon.price);
+        if (validAddOns.length > 0) {
+           formDataObj.append('availableAddOns', JSON.stringify(validAddOns));
+           console.log('Appending availableAddOns:', JSON.stringify(validAddOns));
+        } else {
+          console.log('No valid add-ons to append.');
+        }
+      } else {
+         console.log('No availableAddOns in form data.');
       }
       
       // Configure the request with the correct content type for FormData
@@ -322,6 +329,20 @@ const RestaurantMenu = () => {
         data.append('image', formData.image);
       }
       
+      // Add availableAddOns as a JSON string
+      if (formData.availableAddOns && formData.availableAddOns.length > 0) {
+        // Filter out empty add-ons before stringifying
+        const validAddOns = formData.availableAddOns.filter(addon => addon.name && addon.price);
+         if (validAddOns.length > 0) {
+            data.append('availableAddOns', JSON.stringify(validAddOns));
+            console.log('Appending availableAddOns for update:', JSON.stringify(validAddOns));
+         } else {
+            console.log('No valid add-ons to append for update.');
+         }
+      } else {
+          console.log('No availableAddOns in form data for update.');
+      }
+      
       const response = await axios.put(`${API_URL}/menu/${itemId}`, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
@@ -372,6 +393,24 @@ const RestaurantMenu = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddOnChange = (index, field, value) => {
+    const updatedAddOns = [...formData.availableAddOns];
+    updatedAddOns[index][field] = value;
+    setFormData(prev => ({ ...prev, availableAddOns: updatedAddOns }));
+  };
+
+  const addAddOn = () => {
+    setFormData(prev => ({ 
+      ...prev, 
+      availableAddOns: [...prev.availableAddOns, { name: '', price: '' }] 
+    }));
+  };
+
+  const removeAddOn = (index) => {
+    const updatedAddOns = formData.availableAddOns.filter((_, i) => i !== index);
+    setFormData(prev => ({ ...prev, availableAddOns: updatedAddOns }));
   };
 
   const renderForm = (submitHandler) => (
@@ -561,82 +600,89 @@ const RestaurantMenu = () => {
           </div>
         </div>
       </div>
+      
+      {/* Available Add-ons Section */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="mb-3 font-medium text-gray-700 dark:text-gray-300">Available Add-ons (Optional)</h3>
+        {formData.availableAddOns.map((addOn, index) => (
+          <div key={index} className="flex items-center space-x-2 mb-2">
+            <Input
+              type="text"
+              placeholder="Add-on Name"
+              value={addOn.name}
+              onChange={(e) => handleAddOnChange(index, 'name', e.target.value)}
+              className="flex-grow"
+            />
+            <Input
+              type="number"
+              placeholder="Price"
+              step="0.01"
+              value={addOn.price}
+              onChange={(e) => handleAddOnChange(index, 'price', e.target.value)}
+              className="w-24"
+            />
+            <Button 
+              type="button" 
+              variant="destructive" 
+              size="icon" 
+              onClick={() => removeAddOn(index)}
+            >
+              <FaTrash className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={addAddOn}
+          className="mt-2"
+        >
+          <FaPlus className="mr-2 h-4 w-4" /> Add Add-on
+        </Button>
+      </div>
     </form>
   );
 
   const renderMenuItem = (item) => {
-    // Ensure we have a valid item object to work with
-    if (!item) {
-      console.error('Invalid menu item received:', item);
-      return null;
-    }
-    
-    // Log the item details for debugging
-    console.log('Rendering menu item:', { 
-      id: item.id || item._id,
-      name: item.name,
-      image: item.image,
-      price: item.price
-    });
-    
-    // Get the image URL or use placeholder if not available
-    let imageUrl = '';
-    
-    if (item.image && typeof item.image === 'string' && item.image.trim() !== "") {
-      imageUrl = getFullImageUrl(item.image);
-      console.log(`Using image URL for ${item.name}:`, imageUrl);
-    } else if (item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.trim() !== "") {
-      imageUrl = getFullImageUrl(item.imageUrl);
-      console.log(`Using imageUrl for ${item.name}:`, imageUrl);
-    } else {
-      imageUrl = PLACEHOLDERS.FOOD;
-      console.log(`Using placeholder for ${item.name}:`, imageUrl);
-    }
-    
-    // Generate a unique key using id or _id
-    const itemKey = item.id || item._id || `menu-item-${Math.random().toString(36).substr(2, 9)}`;
-    
+    const imageUrl = getFullImageUrl(item.image, PLACEHOLDERS.food);
+    const priceFormatted = item.price ? `${parseFloat(item.price).toFixed(2)}` : 'N/A';
+
     return (
-      <div key={itemKey} className="p-4 bg-white rounded-lg shadow">
-        <div className="relative h-48 mb-4">
-          <img
-            src={imageUrl}
-            alt={item.name || item.item_name || 'Menu item'}
-            className="object-cover w-full h-full rounded"
-            onError={(e) => {
-              console.error(`Error loading image for ${item.name}:`, e);
-              e.target.src = PLACEHOLDERS.FOOD;
-            }}
-          />
+      <Card key={item.id} className="flex flex-col overflow-hidden h-full">
+        <img 
+          src={imageUrl} 
+          alt={item.name} 
+          className="w-full h-48 object-cover"
+          onError={(e) => e.target.src = PLACEHOLDERS.food} // Fallback image
+        />
+        <div className="p-4 flex flex-col flex-grow">
+          <h3 className="text-lg font-semibold mb-1">{item.name}</h3>
+          <p className="text-sm text-gray-600 mb-2 flex-grow">{item.description}</p>
+          
+          {/* Category Badge */}
+          <div className="mb-2">
+            <Badge variant="secondary">{item.category || 'Uncategorized'}</Badge> 
+          </div>
+
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-lg font-bold text-green-600">{priceFormatted}</span>
+            <div className="space-x-1">
+              {item.isVegetarian && <Badge variant="outline" color="green">Veg</Badge>}
+              {item.isVegan && <Badge variant="outline" color="lime">Vegan</Badge>}
+              {item.isGlutenFree && <Badge variant="outline" color="orange">GF</Badge>}
+            </div>
+          </div>
+
+          <div className="mt-auto flex justify-end space-x-2 pt-2 border-t border-gray-200">
+            <Button variant="outline" size="sm" onClick={() => openEditDialog(item)}>
+              <FaPencilAlt className="mr-1 h-4 w-4" /> Edit
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(item)}>
+              <FaTrash className="mr-1 h-4 w-4" /> Delete
+            </Button>
+          </div>
         </div>
-        <h3 className="text-xl font-semibold">{item.name || item.item_name || 'Unnamed item'}</h3>
-        <p className="my-2 text-gray-600">{item.description || 'No description available'}</p>
-        <p className="font-bold text-red-500">
-          £{parseFloat(item.price || item.item_price || 0).toFixed(2)}
-        </p>
-        <div className="flex flex-wrap gap-2 mt-2 mb-3">
-          {item.isVegan && (
-            <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded">Vegan</span>
-          )}
-          {item.isGlutenFree && (
-            <span className="px-2 py-1 text-xs text-blue-800 bg-blue-100 rounded">Gluten Free</span>
-          )}
-        </div>
-        <div className="flex gap-2 mt-2">
-          <button 
-            onClick={() => openEditDialog(item)} 
-            className="px-3 py-1 text-white transition bg-blue-500 rounded hover:bg-blue-600"
-          >
-            Edit
-          </button>
-          <button 
-            onClick={() => openDeleteDialog(item)} 
-            className="px-3 py-1 text-white transition bg-red-500 rounded hover:bg-red-600"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
+      </Card>
     );
   };
 
@@ -649,46 +695,36 @@ const RestaurantMenu = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Menu Management</h1>
-        <Button className="flex items-center gap-2" onClick={openAddDialog}>
-          <FaPlus size={16} />
-          Add Menu Item
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Menu Management</h1>
+        <Button onClick={openAddDialog}>
+          <FaPlus className="mr-2" /> Add Menu Item
         </Button>
       </div>
 
-      {error && (
-        <Alert variant="error" className="mb-4">
-          {error}
-        </Alert>
+      {error && <Alert variant="destructive" className="mb-4">{error}</Alert>}
+      {success && <Alert variant="success" className="mb-4">{success}</Alert>}
+
+      {!isLoading && menuItems.length === 0 && (
+        <div className="text-center py-16 bg-gray-50 rounded-lg">
+          <FaUtensils className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Menu Items</h2>
+          <p className="text-gray-600 mb-4">You haven&apos;t added any menu items yet.</p>
+          <Button onClick={openAddDialog}>
+            Add Your First Menu Item
+          </Button>
+        </div>
       )}
 
-      {success && (
-        <Alert variant="success" className="mb-4" onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
+      {/* Render items in a grid */}
+      {!isLoading && menuItems.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {menuItems.map(renderMenuItem)} 
+        </div>
       )}
 
-      {menuItems.length === 0 ? (
-        <Card className="p-6 text-center">
-          <FaUtensils className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="mb-2 text-lg font-semibold">No Menu Items</h3>
-          <p className="mb-4 text-gray-600">You haven&apos;t added any menu items yet.</p>
-          <Button onClick={openAddDialog}>Add Your First Menu Item</Button>
-        </Card>
-      ) : (
-        Object.entries(menuItemsByCategory).map(([category, items]) => (
-        <div key={category} className="mb-8">
-            <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-100">{category}</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {items.map(item => renderMenuItem(item))}
-            </div>
-          </div>
-        ))
-      )}
-
-      {/* Add Menu Item Dialog */}
+      {/* Add Item Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" aria-describedby="add-menu-item-description">
           <DialogHeader>

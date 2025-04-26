@@ -2,6 +2,9 @@ const Review = require('../models/review');
 const MenuItem = require('../models/menuItem');
 const User = require('../models/user');
 const mongoose = require('mongoose');
+const Order = require('../models/order');
+const Restaurant = require('../models/restaurant');
+const ErrorResponse = require('../utils/errorResponse');
 
 /**
  * Create a review for a menu item
@@ -10,20 +13,19 @@ const mongoose = require('mongoose');
  */
 exports.createReview = async (req, res) => {
     try {
-        const { menuItemId, rating, comment, orderId } = req.body;
-        const userId = req.user._id;
-        
-        // Validate input
-        if (!rating || !orderId) {
+        const { orderId, menuItemId, rating, comment } = req.body;
+        const userId = req.user.id; // From protect middleware
+
+        // Basic validation
+        if (!orderId || !menuItemId || !rating) {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'Rating and order ID are required',
+                    message: 'OrderId, menuItemId, and rating are required',
                     code: 'VALIDATION_ERROR'
                 }
             });
         }
-        
         if (rating < 1 || rating > 5) {
             return res.status(400).json({
                 success: false,
@@ -34,10 +36,8 @@ exports.createReview = async (req, res) => {
             });
         }
 
-        // Verify order exists and is completed
-        const Order = require('../models/order');
+        // 1. Verify the order exists, belongs to the user, and is delivered
         const order = await Order.findById(orderId);
-        
         if (!order) {
             return res.status(404).json({
                 success: false,
@@ -47,132 +47,85 @@ exports.createReview = async (req, res) => {
                 }
             });
         }
-        
-        // Verify order belongs to the user
-        if (order.user.toString() !== userId.toString()) {
+        if (order.userId.toString() !== userId) {
             return res.status(403).json({
                 success: false,
                 error: {
-                    message: 'Not authorized to review this order',
+                    message: 'You can only review items from your own orders',
                     code: 'FORBIDDEN'
                 }
             });
         }
-        
-        // Verify order is completed
-        if (order.status !== 'DELIVERED' && order.status !== 'COMPLETED') {
+        // Allow review for DELIVERED or maybe COMPLETED status
+        if (order.status !== 'DELIVERED') {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'You can only review completed orders',
+                    message: 'You can only review items after the order is delivered',
                     code: 'VALIDATION_ERROR'
                 }
             });
         }
 
-        let reviewData = {
-            user: userId,
-            rating,
-            comment: comment || '',
-            orderId
-        };
-
-        // If menuItemId is provided, verify it exists and use it
-        if (menuItemId) {
-            // Verify menu item exists
-            const menuItem = await MenuItem.findById(menuItemId);
-            
-            if (!menuItem) {
-                return res.status(404).json({
-                    success: false,
-                    error: {
-                        message: 'Menu item not found',
-                        code: 'NOT_FOUND'
-                    }
-                });
-            }
-
-            // Verify this menu item was part of the completed order
-            const orderContainsItem = order.items.some(item => 
-                item.menuItemId.toString() === menuItemId.toString()
-            );
-            
-            if (!orderContainsItem) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: 'You can only review items you have ordered',
-                        code: 'VALIDATION_ERROR'
-                    }
-                });
-            }
-
-            reviewData.menuItem = menuItemId;
-            reviewData.restaurant = menuItem.restaurant;
-            
-            // Check if user has already reviewed this menu item for this order
-            const existingReview = await Review.findOne({
-                user: userId,
-                menuItem: menuItemId,
-                orderId
-            });
-            
-            if (existingReview) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: 'You have already reviewed this item for this order',
-                        code: 'ALREADY_EXISTS'
-                    }
-                });
-            }
-        } else {
-            // If menuItemId is not provided, just review the order itself
-            // Check if user has already reviewed this order
-            const existingReview = await Review.findOne({
-                user: userId,
-                orderId
-            });
-            
-            if (existingReview) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: 'You have already reviewed this order',
-                        code: 'ALREADY_EXISTS'
-                    }
-                });
-            }
-
-            // Use restaurant ID from the order
-            if (order && order.restaurantId) {
-                reviewData.restaurant = order.restaurantId;
-            }
-        }
-        
-        // Create new review
-        const review = new Review(reviewData);
-        
-        await review.save();
-        
-        return res.status(201).json({
-            success: true,
-            message: 'Review created successfully',
-            data: {
-                review: {
-                    id: review._id,
-                    rating: review.rating,
-                    comment: review.comment,
-                    date: review.date
+        // 2. Verify the menuItem exists in that order
+        const orderItem = order.items.find(item => item.productId && item.productId.toString() === menuItemId);
+        if (!orderItem) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: `Menu item ${menuItemId} not found in order ${orderId}`,
+                    code: 'NOT_FOUND'
                 }
+            });
+        }
+
+        // 3. Get the restaurantId from the menuItem
+        const menuItem = await MenuItem.findById(menuItemId);
+        if (!menuItem) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: 'Menu item details not found',
+                    code: 'NOT_FOUND'
+                }
+            });
+        }
+        const restaurantId = menuItem.restaurant;
+
+        // 4. Check if a review already exists for this user, order, and menuItem
+        const existingReview = await Review.findOne({ user: userId, orderId: orderId, menuItem: menuItemId });
+        if (existingReview) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'You have already reviewed this item for this order',
+                    code: 'ALREADY_EXISTS'
+                }
+            });
+        }
+
+        // 5. Create the review
+        const newReview = await Review.create({
+            rating,
+            comment,
+            user: userId,
+            menuItem: menuItemId,
+            restaurant: restaurantId,
+            orderId: orderId
+        });
+
+        res.status(201).json({
+            success: true,
+            data: {
+                review: newReview
             }
         });
-    } catch (error) {
-        console.error('Error creating review:', error);
-        return res.status(500).json({
+    } catch (err) {
+        console.error("Error creating review:", err);
+        res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error while creating review',
                 code: 'SERVER_ERROR'
             }
         });
@@ -186,77 +139,34 @@ exports.createReview = async (req, res) => {
  */
 exports.getMenuItemReviews = async (req, res) => {
     try {
-        const { menuItemId } = req.params;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-        
-        // Validate menu item ID
-        if (!mongoose.Types.ObjectId.isValid(menuItemId)) {
+        const menuItemId = req.params.menuItemId;
+        if (!menuItemId) {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'Invalid menu item ID',
+                    message: 'Menu item ID is required',
                     code: 'VALIDATION_ERROR'
                 }
             });
         }
-        
-        // Find all reviews for the menu item
+
         const reviews = await Review.find({ menuItem: menuItemId })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate('user', 'fullName')
-            .lean();
-        
-        // Get total count
-        const total = await Review.countDocuments({ menuItem: menuItemId });
-        
-        // Calculate average rating
-        const avgRating = await Review.aggregate([
-            { $match: { menuItem: new mongoose.Types.ObjectId(menuItemId) } },
-            { $group: { _id: null, avgRating: { $avg: '$rating' } } }
-        ]);
-        
-        const averageRating = avgRating.length > 0 ? avgRating[0].avgRating : 0;
-        
-        // Transform reviews for client - handle case where user might be undefined
-        const formattedReviews = reviews.map(review => ({
-            id: review._id,
-            rating: review.rating,
-            comment: review.comment,
-            date: review.createdAt,
-            user: review.user ? {
-                id: review.user._id,
-                name: review.user.fullName || 'Anonymous User'
-            } : {
-                id: null,
-                name: 'Anonymous User'
-            },
-            helpful: review.helpful || 0,
-            isVerified: review.isVerified || false
-        }));
-        
-        return res.status(200).json({
+            .populate('user', 'name profileImage')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
             success: true,
+            results: reviews.length,
             data: {
-                reviews: formattedReviews,
-                meta: {
-                    total,
-                    page,
-                    limit,
-                    pages: Math.ceil(total / limit),
-                    averageRating: Number(averageRating.toFixed(1))
-                }
+                reviews
             }
         });
-    } catch (error) {
-        console.error('Error fetching menu item reviews:', error);
-        return res.status(500).json({
+    } catch (err) {
+        console.error("Error fetching menu item reviews:", err);
+        res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error while fetching reviews',
                 code: 'SERVER_ERROR'
             }
         });
@@ -265,63 +175,31 @@ exports.getMenuItemReviews = async (req, res) => {
 
 /**
  * Get reviews by user
- * @route GET /api/reviews/user
+ * @route GET /api/reviews/my
  * @access Private
  */
 exports.getUserReviews = async (req, res) => {
     try {
-        const userId = req.user._id;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-        
-        // Find all reviews by the user
+        const userId = req.user.id;
+
         const reviews = await Review.find({ user: userId })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate('menuItem', 'name item_name image')
-            .populate('restaurant', 'name restaurantDetails')
-            .lean();
-        
-        // Get total count
-        const total = await Review.countDocuments({ user: userId });
-        
-        // Transform reviews for client
-        const formattedReviews = reviews.map(review => ({
-            id: review._id,
-            rating: review.rating,
-            comment: review.comment,
-            date: review.createdAt,
-            menuItem: {
-                id: review.menuItem?._id,
-                name: review.menuItem?.name || review.menuItem?.item_name,
-                image: review.menuItem?.image
-            },
-            restaurant: {
-                id: review.restaurant?._id,
-                name: review.restaurant?.name || review.restaurant?.restaurantDetails?.name || 'Restaurant'
-            }
-        }));
-        
-        return res.status(200).json({
+            .populate('menuItem', 'item_name image')
+            .populate('restaurant', 'name logo')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
             success: true,
+            results: reviews.length,
             data: {
-                reviews: formattedReviews,
-                meta: {
-                    total,
-                    page,
-                    limit,
-                    pages: Math.ceil(total / limit)
-                }
+                reviews
             }
         });
-    } catch (error) {
-        console.error('Error fetching user reviews:', error);
-        return res.status(500).json({
+    } catch (err) {
+        console.error("Error fetching user reviews:", err);
+        res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error while fetching reviews',
                 code: 'SERVER_ERROR'
             }
         });
@@ -335,12 +213,20 @@ exports.getUserReviews = async (req, res) => {
  */
 exports.updateReview = async (req, res) => {
     try {
-        const { reviewId } = req.params;
+        const reviewId = req.params.reviewId;
+        const userId = req.user.id;
         const { rating, comment } = req.body;
-        const userId = req.user._id;
-        
-        // Validate input
-        if (!rating || rating < 1 || rating > 5) {
+
+        if (!rating && !comment) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Please provide rating or comment to update',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
+        if (rating && (rating < 1 || rating > 5)) {
             return res.status(400).json({
                 success: false,
                 error: {
@@ -349,10 +235,13 @@ exports.updateReview = async (req, res) => {
                 }
             });
         }
-        
-        // Find review by ID
+
+        const updateData = {};
+        if (rating) updateData.rating = rating;
+        if (comment) updateData.comment = comment;
+
         const review = await Review.findById(reviewId);
-        
+
         if (!review) {
             return res.status(404).json({
                 success: false,
@@ -362,42 +251,36 @@ exports.updateReview = async (req, res) => {
                 }
             });
         }
-        
-        // Check if user owns the review
-        if (review.user.toString() !== userId.toString()) {
+
+        // Check if the logged-in user is the author of the review
+        if (review.user.toString() !== userId) {
             return res.status(403).json({
                 success: false,
                 error: {
-                    message: 'Not authorized to update this review',
+                    message: 'You are not authorized to update this review',
                     code: 'FORBIDDEN'
                 }
             });
         }
-        
-        // Update review
-        review.rating = rating;
-        review.comment = comment || '';
-        
-        await review.save();
-        
-        return res.status(200).json({
+
+        // Perform the update
+        const updatedReview = await Review.findByIdAndUpdate(reviewId, updateData, {
+            new: true, // Return the updated document
+            runValidators: true // Run schema validators on update
+        });
+
+        res.status(200).json({
             success: true,
-            message: 'Review updated successfully',
             data: {
-                review: {
-                    id: review._id,
-                    rating: review.rating,
-                    comment: review.comment,
-                    date: review.createdAt
-                }
+                review: updatedReview
             }
         });
-    } catch (error) {
-        console.error('Error updating review:', error);
-        return res.status(500).json({
+    } catch (err) {
+        console.error("Error updating review:", err);
+        res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error while updating review',
                 code: 'SERVER_ERROR'
             }
         });
@@ -411,12 +294,12 @@ exports.updateReview = async (req, res) => {
  */
 exports.deleteReview = async (req, res) => {
     try {
-        const { reviewId } = req.params;
-        const userId = req.user._id;
-        
-        // Find review by ID
+        const reviewId = req.params.reviewId;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+
         const review = await Review.findById(reviewId);
-        
+
         if (!review) {
             return res.status(404).json({
                 success: false,
@@ -426,33 +309,92 @@ exports.deleteReview = async (req, res) => {
                 }
             });
         }
-        
-        // Check if user owns the review or is admin
-        const user = await User.findById(userId);
-        
-        if (review.user.toString() !== userId.toString() && user.role !== 'admin') {
+
+        // Check if the logged-in user is the author OR an admin
+        if (review.user.toString() !== userId && userRole !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: {
-                    message: 'Not authorized to delete this review',
+                    message: 'You are not authorized to delete this review',
                     code: 'FORBIDDEN'
                 }
             });
         }
-        
-        // Delete review
+
         await Review.findByIdAndDelete(reviewId);
-        
-        return res.status(200).json({
+
+        res.status(200).json({
             success: true,
-            message: 'Review deleted successfully'
+            message: 'Review deleted successfully',
+            data: null
         });
-    } catch (error) {
-        console.error('Error deleting review:', error);
-        return res.status(500).json({
+    } catch (err) {
+        console.error("Error deleting review:", err);
+        res.status(500).json({
             success: false,
             error: {
-                message: 'Server error. Please try again.',
+                message: 'Server error while deleting review',
+                code: 'SERVER_ERROR'
+            }
+        });
+    }
+};
+
+/**
+ * Get reviews for a restaurant (for restaurant owners)
+ * @route GET /api/reviews/restaurant
+ * @access Private (restaurant owners only)
+ */
+exports.getRestaurantReviews = async (req, res) => {
+    try {
+        const ownerId = req.user.id;
+        const userRole = req.user.role;
+
+        // Ensure the user is a restaurant owner
+        if (userRole !== 'restaurant') {
+            return res.status(403).json({
+                success: false,
+                error: {
+                    message: 'Access denied. Only restaurant owners can view these reviews.',
+                    code: 'FORBIDDEN'
+                }
+            });
+        }
+
+        // Find the restaurant owned by the logged-in user
+        const restaurant = await Restaurant.findOne({ owner: ownerId });
+
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: 'No restaurant found associated with this owner account',
+                    code: 'NOT_FOUND'
+                }
+            });
+        }
+
+        const restaurantId = restaurant._id;
+
+        // Find reviews for any menu item belonging to this restaurant
+        const reviews = await Review.find({ restaurant: restaurantId })
+            .populate('user', 'name profileImage')
+            .populate('menuItem', 'item_name image')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            results: reviews.length,
+            data: {
+                reviews
+            }
+        });
+    } catch (err) {
+        console.error("Error fetching restaurant reviews:", err);
+        res.status(500).json({
+            success: false,
+            error: {
+                message: 'Server error while fetching restaurant reviews',
                 code: 'SERVER_ERROR'
             }
         });

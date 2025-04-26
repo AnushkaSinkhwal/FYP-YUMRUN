@@ -967,20 +967,31 @@ router.get('/statistics', auth, isAdmin, async (req, res) => {
  */
 router.get('/restaurants', auth, isAdmin, async (req, res) => {
     try {
-        // Fetch ALL restaurants, including those marked as deleted
-        // const restaurantDocuments = await Restaurant.find({ status: { $ne: 'deleted' } })
+        // Fetch ALL restaurants
         const restaurantDocuments = await Restaurant.find()
-            .populate('owner', 'name email') // Populate owner info
-            .sort({ createdAt: -1 }); // Sort by creation date
+            .populate('owner', 'name email')
+            .sort({ createdAt: -1 });
 
+        // Fetch IDs of restaurants with PENDING update notifications
+        const pendingNotifications = await Notification.find({
+            type: 'RESTAURANT_UPDATE',
+            status: 'PENDING',
+            'data.restaurantId': { $exists: true } // Ensure the field exists
+        }).select('data.restaurantId');
+
+        const pendingRestaurantIds = new Set(
+            pendingNotifications.map(n => n.data.restaurantId.toString())
+        );
+
+        // Map restaurant data and add the pending update flag
         const restaurants = restaurantDocuments.map(restaurant => {
-            // Basic validation for owner existence
             const ownerName = restaurant.owner ? restaurant.owner.name : 'N/A';
             const ownerEmail = restaurant.owner ? restaurant.owner.email : 'N/A';
-            
-            // Safely access nested properties
             const address = restaurant.address || {};
             const contactInfo = restaurant.contactInfo || {};
+
+            // Check if this restaurant has a pending update
+            const hasPendingUpdate = pendingRestaurantIds.has(restaurant._id.toString());
 
             return {
                 id: restaurant._id,
@@ -988,14 +999,16 @@ router.get('/restaurants', auth, isAdmin, async (req, res) => {
                 ownerName: ownerName,
                 ownerEmail: ownerEmail,
                 ownerId: restaurant.owner ? restaurant.owner._id : null,
-                email: contactInfo.email || 'N/A', // Assuming this is restaurant contact email
-                phone: contactInfo.phone || 'N/A', // Assuming this is restaurant contact phone
+                email: contactInfo.email || 'N/A',
+                phone: contactInfo.phone || 'N/A',
                 address: address.street ? `${address.street}, ${address.city}, ${address.state}` : 'N/A',
-                cuisine: restaurant.cuisine && restaurant.cuisine.length > 0 ? restaurant.cuisine.join(', ') : 'N/A',
+                cuisine: restaurant.cuisine?.join(', ') || 'N/A',
                 joined: restaurant.createdAt.toLocaleDateString(),
-                rating: restaurant.rating || 'N/A',
-                logo: restaurant.logo, // Include logo for display
-                status: restaurant.status || 'N/A' // Return raw status
+                rating: restaurant.rating ?? 'N/A',
+                logo: restaurant.logo,
+                coverImage: restaurant.coverImage,
+                status: restaurant.status || 'N/A',
+                hasPendingUpdate // Add the flag
             };
         });
 
@@ -1015,24 +1028,36 @@ router.get('/restaurants', auth, isAdmin, async (req, res) => {
 // GET route for detailed restaurant view (if needed by admin panel)
 router.get('/restaurants/:id', auth, isAdmin, async (req, res) => {
     try {
-        const restaurant = await Restaurant.findById(req.params.id)
+        const restaurantId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+             return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
+        }
+
+        const restaurant = await Restaurant.findById(restaurantId)
                                       .populate('owner', 'name email');
 
-        // If the restaurant document is not found at all, return 404
         if (!restaurant) { 
             return res.status(404).json({ success: false, message: 'Restaurant not found' });
         }
 
-        // Map to a detailed view model if necessary, similar to the list view
-        // For now, returning the full restaurant object (excluding sensitive data if any)
-        res.status(200).json({ success: true, restaurant }); 
+        // Fetch pending update notification for this restaurant
+        const pendingNotification = await Notification.findOne({
+            type: 'RESTAURANT_UPDATE',
+            status: 'PENDING',
+            'data.restaurantId': restaurant._id // Match the restaurant ID
+        });
+
+        // Return restaurant data along with pending notification details if found
+        res.status(200).json({ 
+            success: true, 
+            restaurant: restaurant.toObject(), // Convert to plain object 
+            pendingNotification: pendingNotification ? pendingNotification.toObject() : null // Include pending notification if exists
+        }); 
 
     } catch (error) {
         console.error('Error fetching restaurant details for admin:', error);
         // Handle CastError specifically for invalid ID format
-        if (error.name === 'CastError') {
-             return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
-        }
+        // (Already handled by the check above)
         res.status(500).json({ success: false, message: 'Server error fetching restaurant details' });
     }
 });

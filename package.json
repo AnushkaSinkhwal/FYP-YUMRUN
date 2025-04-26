@@ -29,7 +29,8 @@
     "concurrently": "^8.2.2",
     "dotenv": "^16.5.0",
     "mkdirp": "^3.0.1",
-    "mongoose": "^8.13.2"
+    "mongoose": "^8.13.2",
+    "multer": "^1.4.5-lts.2"
   },
   "devDependencies": {
     "canvas": "^3.1.0"

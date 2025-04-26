@@ -19,6 +19,7 @@ import { FaStar, FaMapMarkerAlt } from "react-icons/fa";
 import { publicAPI } from "../../utils/api";
 import { ArrowPathIcon as RefreshIcon, InformationCircleIcon, NoSymbolIcon as BanIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { PLACEHOLDERS } from '../../utils/imageUtils';
+import { getFullImageUrl } from '../../utils/imageUtils';
 
 // Function to format health condition for display
 const formatHealthCondition = (condition) => {
@@ -669,7 +670,15 @@ const Home = () => {
                                                             </div>
                                                         ) : null}
                                                         <img 
-                                                            src={restaurant.logo || restaurant.image || defaultRestaurantImage}
+                                                            src={
+                                                                restaurant.coverImage
+                                                                    ? getFullImageUrl(restaurant.coverImage)
+                                                                    : restaurant.logo
+                                                                        ? getFullImageUrl(restaurant.logo)
+                                                                        : restaurant.image
+                                                                            ? getFullImageUrl(restaurant.image)
+                                                                            : defaultRestaurantImage
+                                                            }
                                                             alt={restaurant.name}
                                                             className="object-cover w-full h-full transition-transform duration-300"
                                                             onLoad={(e) => {
@@ -683,7 +692,7 @@ const Home = () => {
                                                             }}
                                                             onError={(e) => {
                                                                 e.target.onerror = null;
-                                                                e.target.src = '/uploads/placeholders/restaurant-placeholder.jpg';
+                                                                e.target.src = getFullImageUrl(PLACEHOLDERS.RESTAURANT);
                                                                 // Hide spinner after fallback image is set
                                                                 if (e.target.parentElement) {
                                                                     const spinner = e.target.parentElement.querySelector('[class*="animate-spin"]');

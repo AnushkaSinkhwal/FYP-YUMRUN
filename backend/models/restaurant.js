@@ -73,10 +73,10 @@ const restaurantSchema = new mongoose.Schema({
     },
     panNumber: {
         type: String,
-        required: true,
+        required: false,
         validate: {
             validator: function(v) {
-                return /^[0-9]{9}$/.test(v);
+                return v === null || v === undefined || v === '' || /^[0-9]{9}$/.test(v);
             },
             message: props => `${props.value} is not a valid PAN number! Must be 9 digits.`
         }
@@ -89,6 +89,21 @@ const restaurantSchema = new mongoose.Schema({
         friday: { open: String, close: String },
         saturday: { open: String, close: String },
         sunday: { open: String, close: String }
+    },
+    deliveryRadius: {
+        type: Number,
+        default: 5,
+        min: 0
+    },
+    minimumOrder: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    deliveryFee: {
+        type: Number,
+        default: 0,
+        min: 0
     },
     featuredItems: {
         type: [mongoose.Schema.Types.ObjectId],
