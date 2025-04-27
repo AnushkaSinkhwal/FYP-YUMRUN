@@ -211,6 +211,14 @@ menuItemSchema.pre('save', async function(next) {
             return next();
         }
 
+        // If the restaurant ID is the same as the menu item ID (self-reference), fix it 
+        if (this.restaurant && this._id && this.restaurant.toString() === this._id.toString()) {
+            console.error(`Detected self-referencing restaurant ID in menu item ${this._id}`);
+            // Set restaurant to null for now - it will need to be fixed later
+            this.restaurant = null;
+            return next(new Error('Menu item cannot reference itself as restaurant'));
+        }
+
         // Get Restaurant model
         const Restaurant = mongoose.model('Restaurant');
         

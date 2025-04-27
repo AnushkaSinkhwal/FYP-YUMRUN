@@ -1259,5 +1259,30 @@ router.get('/pending-update-check', auth, isRestaurantOwner, async (req, res) =>
     }
 });
 
+// NEW: Get available delivery riders
+router.get('/available-riders', auth, isRestaurantOwner, async (req, res) => {
+    try {
+        // Find available riders
+        const availableRiders = await User.find({
+            role: 'delivery_rider',
+            'deliveryRiderDetails.approved': true,
+            'deliveryRiderDetails.isAvailable': true
+        }).select('firstName lastName fullName phone deliveryRiderDetails.vehicleType deliveryRiderDetails.ratings');
+
+        // Return the list of available riders
+        return res.status(200).json({
+            success: true,
+            data: availableRiders
+        });
+    } catch (error) {
+        console.error('Error fetching available riders:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.',
+            error: error.message
+        });
+    }
+});
+
 // Export the router
 module.exports = router; 

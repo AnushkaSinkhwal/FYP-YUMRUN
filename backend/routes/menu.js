@@ -340,7 +340,9 @@ router.get('/', async (req, res) => {
                     isAvailable: item.isAvailable !== false, // default to true
                     averageRating: item.averageRating || 0,
                     numberOfRatings: item.numberOfRatings || 0,
-                    isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4)
+                    isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4),
+                    // Include customization options needed by IngredientCustomizer
+                    customizationOptions: item.customizationOptions
                 };
             });
 
@@ -471,7 +473,9 @@ router.get('/', async (req, res) => {
                 isAvailable: item.isAvailable !== false, // default to true
                 averageRating: item.averageRating || 0,
                 numberOfRatings: item.numberOfRatings || 0,
-                isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4)
+                isPopular: (item.numberOfRatings > 2) || (item.averageRating >= 4),
+                // Include customization options needed by IngredientCustomizer
+                customizationOptions: item.customizationOptions
             };
         });
 
@@ -709,7 +713,9 @@ router.get('/restaurant', auth, async (req, res) => {
                 isAvailable: item.isAvailable !== undefined ? item.isAvailable : true, // Default to true if undefined
                 averageRating: item.averageRating || 0,
                 numberOfRatings: item.numberOfRatings || 0,
-                isPopular: item.numberOfRatings > 2 || item.averageRating > 4
+                isPopular: item.numberOfRatings > 2 || item.averageRating > 4,
+                // Include customization options for owner view
+                customizationOptions: item.customizationOptions
             };
         }) : [];
         
@@ -1151,36 +1157,67 @@ router.put('/:id', [
 // DELETE menu item
 router.delete('/:id', auth, isRestaurantOwner, async (req, res) => {
     try {
-        // Find menu item and ensure it belongs to the restaurant owner
-        const menuItem = await MenuItem.findOne({ 
+        // Step 1: Find the restaurant owned by this user
+        const Restaurant = mongoose.model('Restaurant');
+        // Use any potential user ID field from the token
+        const ownerId = req.user._id || req.user.userId || req.user.id; 
+        if (!ownerId) {
+             return res.status(401).json({ success: false, message: 'Authentication error: User ID not found.' });
+        }
+        const restaurant = await Restaurant.findOne({ owner: ownerId });
+
+        if (!restaurant) {
+            return res.status(403).json({
+                success: false,
+                message: "Permission denied: No restaurant found for this user."
+            });
+        }
+
+        // Step 2: Find menu item using the item ID and the owner's actual restaurant ID
+        const menuItem = await MenuItem.findOne({
             _id: req.params.id,
-            restaurant: req.user.restaurantId
+            restaurant: restaurant._id // Use the verified restaurant ID
         });
-        
+
         if (!menuItem) {
             return res.status(404).json({
                 success: false,
-                message: 'Menu item not found or you do not have permission to delete it'
+                message: 'Menu item not found or it does not belong to your restaurant' // More specific message
             });
         }
-        
-        // Delete image if it exists
-        if (menuItem.image && fs.existsSync(menuItem.image.substring(1))) {
-            fs.unlinkSync(menuItem.image.substring(1));
+
+        // Delete image if it exists and is not a placeholder
+        const placeholderPath = 'uploads/placeholders/food-placeholder.jpg';
+        if (menuItem.image && menuItem.image !== placeholderPath) {
+             const imagePath = path.join(__dirname, '..', menuItem.image); // Construct absolute path
+             if (fs.existsSync(imagePath)) {
+                 try {
+                     fs.unlinkSync(imagePath);
+                     console.log(`Deleted image file: ${imagePath}`);
+                 } catch (unlinkError) {
+                      console.error(`Error deleting image file ${imagePath}:`, unlinkError);
+                      // Decide if this should prevent item deletion or just log
+                 }
+             } else {
+                 console.warn(`Image file not found, skipping delete: ${imagePath}`);
+             }
+        } else if (menuItem.image === placeholderPath) {
+             console.log(`Skipping delete for placeholder image: ${menuItem.image}`);
         }
-        
+
+
         // Delete menu item
         await MenuItem.findByIdAndDelete(req.params.id);
-        
+
         res.status(200).json({
             success: true,
             message: 'Menu item deleted successfully'
         });
     } catch (error) {
         console.error('Error deleting menu item:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error. Please try again.' 
+        res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again.'
         });
     }
 });

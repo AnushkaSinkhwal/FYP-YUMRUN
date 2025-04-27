@@ -1,19 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Button, Checkbox, Card, Label, RadioGroup, RadioGroupItem } from '../ui';
-import NutritionSummary from '../NutritionTracker/NutritionSummary';
-import { useAuth } from '../../context/AuthContext';
-import { FaPlus, FaMinus, FaShoppingCart } from 'react-icons/fa';
+import { Button, Checkbox, Label, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui';
+import { FaPlus, FaMinus, FaShoppingCart, FaInfoCircle } from 'react-icons/fa';
 import PropTypes from 'prop-types';
 
 /**
  * A component for customizing menu item ingredients at a detailed level
+ * Now designed to work directly on the product page
  */
 const IngredientCustomizer = ({ 
   menuItem, 
   onChange
 }) => {
-  const { user } = useAuth(); // Get the current user to access health profile
-  
   const [baseNutrition, setBaseNutrition] = useState({
     calories: menuItem?.calories || 0,
     protein: menuItem?.protein || 0,
@@ -24,11 +21,11 @@ const IngredientCustomizer = ({
     sugar: menuItem?.sugar || 0
   });
   
-  const [basePrice, setBasePrice] = useState(menuItem?.item_price || 0);
+  const [basePrice, setBasePrice] = useState(menuItem?.price || menuItem?.item_price || 0);
   const [currentPrice, setCurrentPrice] = useState(basePrice);
   const [removedIngredients, setRemovedIngredients] = useState([]);
   const [addedIngredients, setAddedIngredients] = useState([]);
-  const [servingSize, setServingSize] = useState('Regular');
+  const [servingSize] = useState('Regular');
   const [currentNutrition, setCurrentNutrition] = useState({...baseNutrition});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cookingMethod, setCookingMethod] = useState(null);
@@ -68,11 +65,18 @@ const IngredientCustomizer = ({
       });
       
       // Set base and current price
-      setBasePrice(menuItem.item_price || 0);
-      setCurrentPrice(menuItem.item_price || 0);
+      const initialPrice = menuItem.price || menuItem.item_price || 0;
+      setBasePrice(initialPrice);
+      setCurrentPrice(initialPrice);
       
       // Initialize default cooking method
       setCookingMethod('default');
+      
+      // Reset other states when menu item changes
+      setAddedIngredients([]);
+      setRemovedIngredients([]);
+      setSpecialInstructions('');
+      setQuantity(1);
     }
   }, [menuItem]);
   
@@ -164,6 +168,9 @@ const IngredientCustomizer = ({
   }, [baseNutrition, basePrice, removedIngredients, addedIngredients, cookingMethod, servingSize, specialInstructions, quantity]);
   
   const handleIngredientToggle = (ingredient, isRemoved) => {
+    console.log('[handleIngredientToggle] Called for:', ingredient.name, 'isRemoved:', isRemoved);
+    console.log('[handleIngredientToggle] Current addedIngredients:', addedIngredients);
+
     if (isRemoved) {
       // Toggle removal of an ingredient
       if (removedIngredients.find(i => i.name === ingredient.name)) {
@@ -173,7 +180,6 @@ const IngredientCustomizer = ({
       }
     } else {
       // Toggle addition of an ADD-ON ingredient
-      // Expect `ingredient` here to be an object from availableAddOns (including _id)
       const ingredientId = ingredient._id || ingredient.id; // Get the ID
       if (!ingredientId) {
         console.error("Add-on ingredient missing ID:", ingredient);
@@ -185,7 +191,11 @@ const IngredientCustomizer = ({
         setAddedIngredients(prev => prev.filter(i => (i._id || i.id) !== ingredientId));
       } else {
         // Add the add-on object (which includes the ID)
-        setAddedIngredients(prev => [...prev, ingredient]); 
+        setAddedIngredients(prev => {
+           const newState = [...prev, ingredient];
+           console.log('[handleIngredientToggle] New addedIngredients state (added):', newState);
+           return newState;
+        }); 
       }
     }
   };
@@ -194,8 +204,8 @@ const IngredientCustomizer = ({
      setQuantity(prev => Math.max(1, prev + amount)); // Ensure quantity is at least 1
   };
 
-  // Function to call when the user confirms adding the customized item
-  const handleConfirm = () => {
+  // Function to call when adding to cart
+  const handleAddToCart = () => {
     if (!menuItem) return;
 
     // Construct the data object expected by the cart context
@@ -205,254 +215,229 @@ const IngredientCustomizer = ({
       image: menuItem.image || menuItem.imageUrl, // Get the best image
       quantity: quantity,
       price: currentPrice, // This is the FINAL calculated price for the quantity
+      unitPrice: currentPrice / quantity, // Unit price with customizations
       basePrice: basePrice, // Store the original single item base price
       selectedAddOns: addedIngredients.map(addOn => ({
-         id: addOn._id || addOn.id, // Map to the expected structure { id: '...' }
-         name: addOn.name, // Include name and price for display in cart perhaps
-         price: addOn.price 
+         id: addOn._id || addOn.id, 
+         name: addOn.name, 
+         price: addOn.price,
+         // Include nutrition information for each addon
+         nutrition: {
+           calories: addOn.calories || 0,
+           protein: addOn.protein || 0,
+           carbs: addOn.carbs || 0,
+           fat: addOn.fat || 0
+         }
       })),
       // Include other customization details if needed by the cart/order summary
       customizationDetails: {
-        removedIngredients: removedIngredients.map(i => i.name), // Just send names maybe
+        removedIngredients: removedIngredients.map(i => i.name),
         servingSize: servingSize,
         cookingMethod: cookingMethod,
-        specialInstructions: specialInstructions
+        specialInstructions: specialInstructions,
+        // Include total nutrition values for the customized item
+        nutrition: {...currentNutrition}
       }
     };
 
-    console.log('Confirming add to cart with data:', cartItemData);
-    
-    // Call the onChange prop (passed from RestaurantDetails) with the data
+    // Call the onChange prop (passed from ProductDetails)
     if (onChange) {
       onChange(cartItemData);
     }
   };
-  
+
+  // Updated compact layout for inline display
   return (
-    <div className="space-y-6 pb-20">
-      <h3 className="text-xl font-semibold">Customize Your Order</h3>
-      
-      {/* Health-based customization recommendations */}
-      {user?.healthProfile && (
-        <Card className="p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
-          <h4 className="mb-2 font-medium text-blue-700 text-md dark:text-blue-300">Health Recommendations</h4>
-          <p className="text-sm text-blue-600 dark:text-blue-200">
-            {user.healthProfile.healthConditions?.includes('Diabetes') && 
-              'Consider reducing carbs and sugar with your customizations.'}
-            {user.healthProfile.healthConditions?.includes('Heart Disease') && 
-              'Consider low-sodium options and heart-healthy cooking methods like grilled or steamed.'}
-            {user.healthProfile.healthConditions?.includes('Hypertension') && 
-              'Low sodium options are recommended for your health profile.'}
-            {user.healthProfile.weightManagementGoal === 'Lose' && 
-              'Choose smaller portions and grilled/steamed options to reduce calories.'}
-            {user.healthProfile.weightManagementGoal === 'Gain' && 
-              'You may want to add extra protein-rich ingredients.'}
-          </p>
-        </Card>
-      )}
-      
-      {/* Ingredients that can be removed */}
-      {menuItem?.ingredients && menuItem.ingredients.length > 0 && (
-        <Card className="p-4">
-          <h4 className="mb-4 text-lg font-medium">Ingredients</h4>
-          <div className="space-y-4">
-            {menuItem.ingredients.map(ingredient => (
-              <div key={ingredient.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+    <div className="space-y-4">
+      {/* Add-on ingredients (most important customization) */}
+      {menuItem?.customizationOptions?.availableAddOns && menuItem.customizationOptions.availableAddOns.length > 0 && (
+        <div>
+          <h4 className="font-medium mb-2">Additional Ingredients</h4>
+          <div className="space-y-2">
+            {menuItem.customizationOptions.availableAddOns.map(addOn => (
+              <div key={addOn._id || addOn.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                <div className="flex items-center gap-2 flex-1">
                   <Checkbox 
-                    id={`ingredient-${ingredient.name}`}
-                    checked={!removedIngredients.find(i => i.name === ingredient.name)}
-                    onCheckedChange={() => handleIngredientToggle(ingredient, true)}
-                    disabled={!ingredient.isRemovable}
+                    id={`addon-${addOn._id || addOn.id}`}
+                    checked={!!addedIngredients.find(i => (i._id || i.id) === (addOn._id || addOn.id))}
+                    onCheckedChange={() => handleIngredientToggle(addOn, false)}
                   />
-                  <label htmlFor={`ingredient-${ingredient.name}`} className="text-sm">
-                    {ingredient.name}
+                  <label htmlFor={`addon-${addOn._id || addOn.id}`} className="text-sm font-medium flex-1">
+                    {addOn.name}
+                    {addOn.price > 0 && <span className="ml-1 text-gray-500">+Rs.{addOn.price.toFixed(2)}</span>}
                   </label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    {ingredient.calories > 0 ? `${ingredient.calories} cal` : ''}
-                  </span>
-                  {ingredient.protein > 0 && (
-                    <span className="text-xs text-gray-500">
-                      {ingredient.protein}g protein
-                    </span>
-                  )}
-                </div>
+                
+                {/* Nutrition tooltip for addon */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="p-1 text-gray-400 hover:text-gray-600">
+                        <FaInfoCircle size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs p-1">
+                        <div className="font-semibold mb-1">Nutrition Info:</div>
+                        <div>Calories: +{addOn.calories || 0} kcal</div>
+                        <div>Protein: +{addOn.protein || 0}g</div>
+                        <div>Carbs: +{addOn.carbs || 0}g</div>
+                        <div>Fat: +{addOn.fat || 0}g</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             ))}
           </div>
-        </Card>
-      )}
-      
-      {/* Add-on ingredients */}
-      {menuItem?.customizationOptions?.availableAddOns && 
-       menuItem.customizationOptions.availableAddOns.length > 0 && (
-        <Card className="p-4">
-          <h4 className="mb-4 text-lg font-medium">Additional Ingredients</h4>
-          <div className="space-y-2">
-            {menuItem.customizationOptions.availableAddOns.map(addOn => {
-                const addOnId = addOn._id || addOn.id;
-                const isChecked = !!addedIngredients.find(i => (i._id || i.id) === addOnId);
-                return (
-                    <div key={addOnId} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                        <Checkbox 
-                            id={`addon-${addOnId}`}
-                            checked={isChecked}
-                            onCheckedChange={() => handleIngredientToggle(addOn, false)} // Pass the addOn object
-                        />
-                        <label htmlFor={`addon-${addOnId}`} className="flex flex-col text-sm">
-                            <span>{addOn.name}</span>
-                            {/* Optional: Show health tags */}
-                        </label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                        {/* Optional: Show calorie info */}
-                        {addOn.price > 0 && (
-                            <span className="text-xs font-medium text-gray-700">
-                            +Rs.{addOn.price.toFixed(2)}
-                            </span>
-                        )}
-                        </div>
-                    </div>
-                );
-            })}
-          </div>
-        </Card>
-      )}
-      
-      {/* Quantity Selector */}
-      <Card className="p-4">
-           <h4 className="mb-4 text-lg font-medium">Quantity</h4>
-            <div className="flex items-center justify-center space-x-4">
-                <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleQuantityChange(-1)} 
-                    disabled={quantity <= 1}
-                >
-                    <FaMinus />
-                </Button>
-                <span className="text-xl font-semibold w-12 text-center">{quantity}</span>
-                <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleQuantityChange(1)}
-                 >
-                    <FaPlus />
-                </Button>
-            </div>
-      </Card>
-      
-      {/* Cooking Method Selection */}
-      <Card className="p-4">
-        <h4 className="mb-4 text-lg font-medium">Cooking Method</h4>
-        <RadioGroup
-          value={cookingMethod}
-          onValueChange={setCookingMethod}
-          className="flex flex-col space-y-2"
-        >
-          {cookingMethods.map(method => (
-            <div key={method.id} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value={method.id} id={`cooking-${method.id}`} />
-                <Label htmlFor={`cooking-${method.id}`} className="text-sm">
-                  {method.name}
-                </Label>
-              </div>
-              {method.id !== 'default' && (
-                <div className="text-xs text-gray-500">
-                  {method.impact.calories > 0 ? `+${method.impact.calories}` : method.impact.calories} cal, 
-                  {method.impact.fat > 0 ? `+${method.impact.fat}` : method.impact.fat}g fat
+          
+          {/* Summary of selected addons */}
+          {addedIngredients.length > 0 && (
+            <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+              <p className="font-medium">Selected add-ons nutrition impact:</p>
+              <div className="grid grid-cols-4 gap-2 mt-1">
+                <div>
+                  <span className="text-xs text-gray-500">Cal</span><br />
+                  <span>+{addedIngredients.reduce((sum, addon) => sum + (addon.calories || 0), 0)} kcal</span>
                 </div>
-              )}
+                <div>
+                  <span className="text-xs text-gray-500">Protein</span><br />
+                  <span>+{addedIngredients.reduce((sum, addon) => sum + (addon.protein || 0), 0)}g</span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">Carbs</span><br />
+                  <span>+{addedIngredients.reduce((sum, addon) => sum + (addon.carbs || 0), 0)}g</span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">Fat</span><br />
+                  <span>+{addedIngredients.reduce((sum, addon) => sum + (addon.fat || 0), 0)}g</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Quantity selector */}
+      <div>
+        <h4 className="font-medium mb-2">Quantity</h4>
+        <div className="flex items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleQuantityChange(-1)}
+            disabled={quantity <= 1}
+            className="h-9 px-3"
+          >
+            <FaMinus className="h-3 w-3" />
+          </Button>
+          <div className="px-4 py-2 w-12 text-center font-medium">
+            {quantity}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleQuantityChange(1)}
+            className="h-9 px-3"
+          >
+            <FaPlus className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Cooking Method - important for health and taste */}
+      <div>
+        <h4 className="font-medium mb-2">Cooking Method</h4>
+        <RadioGroup value={cookingMethod} onValueChange={setCookingMethod} className="flex flex-wrap gap-2">
+          {cookingMethods.map(method => (
+            <div key={method.id} className="flex items-center">
+              <RadioGroupItem id={`cooking-${method.id}`} value={method.id} className="mr-1" />
+              <Label htmlFor={`cooking-${method.id}`} className="text-sm flex-1">
+                {method.name}
+                {method.id !== 'default' && method.impact.calories !== 0 && (
+                  <span className="ml-1 text-xs text-gray-500">
+                    {method.impact.calories > 0 ? '+' : ''}{method.impact.calories} cal,
+                    {method.impact.fat > 0 ? '+' : ''}{method.impact.fat}g fat
+                  </span>
+                )}
+              </Label>
             </div>
           ))}
         </RadioGroup>
-      </Card>
+      </div>
       
-      {/* Serving size selection */}
-      {menuItem?.customizationOptions?.servingSizeOptions && 
-       menuItem.customizationOptions.servingSizeOptions.length > 1 && (
-        <Card className="p-4">
-          <h4 className="mb-4 text-lg font-medium">Serving Size</h4>
-          <div className="flex flex-wrap gap-2">
-            {menuItem.customizationOptions.servingSizeOptions.map(size => (
-              <Button
-                key={size}
-                type="button"
-                variant={servingSize === size ? "default" : "outline"}
-                onClick={() => setServingSize(size)}
-                className="text-sm"
-              >
-                {size}
-                {size === 'Small' && ' (-20%)'}
-                {size === 'Large' && ' (+30%)'}
-                {size === 'Extra Large' && ' (+50%)'}
-              </Button>
-            ))}
-          </div>
-        </Card>
-      )}
-      
-      {/* Special instructions */}
-      <Card className="p-4">
-        <h4 className="mb-2 text-lg font-medium">Special Instructions</h4>
-        <p className="mb-2 text-sm text-gray-500">
-          Add any special requests or preparation instructions here
-        </p>
+      {/* Optional: Special instructions if not already handled by parent */}
+      <div>
+        <h4 className="font-medium mb-2">Special Instructions</h4>
         <textarea
           value={specialInstructions}
-          onChange={e => setSpecialInstructions(e.target.value)}
-          className="w-full h-24 p-2 text-sm border rounded-md"
-          placeholder="E.g., Extra spicy, no onions, etc."
+          onChange={(e) => setSpecialInstructions(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded resize-none focus:ring-1 focus:ring-yumrun-primary focus:outline-none"
+          placeholder="Add any special requests or preparation instructions here"
+          rows={2}
         />
-      </Card>
+      </div>
       
-      {/* Price summary */}
-      <Card className="p-4 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <h4 className="text-lg font-medium">Total Price</h4>
-          <div>
-            <span className={`text-xl font-bold ${currentPrice !== basePrice ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-              Rs.{currentPrice.toFixed(2)}
-            </span>
-            {currentPrice !== basePrice && (
-              <span className="ml-2 text-sm text-gray-500 line-through">
-                Rs.{basePrice.toFixed(2)}
-              </span>
-            )}
+      {/* Price and Nutrition Summary */}
+      <div className="border-t border-gray-200 pt-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold">Total Price:</span>
+          <span className="text-xl font-bold text-yumrun-primary">Rs.{currentPrice.toFixed(2)}</span>
+        </div>
+        
+        {/* Expanded nutrition details */}
+        <div className="bg-gray-50 p-3 rounded">
+          <h4 className="font-medium text-sm mb-2">Nutritional Information (per serving)</h4>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <div className="text-gray-500">Calories</div>
+              <div className="font-medium">{currentNutrition.calories} kcal</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.calories / 2000 * 100)}% of daily value</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Protein</div>
+              <div className="font-medium">{currentNutrition.protein}g</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.protein / 50 * 100)}% of daily value</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Carbs</div>
+              <div className="font-medium">{currentNutrition.carbs}g</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.carbs / 275 * 100)}% of daily value</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Fat</div>
+              <div className="font-medium">{currentNutrition.fat}g</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.fat / 78 * 100)}% of daily value</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Sodium</div>
+              <div className="font-medium">{currentNutrition.sodium}mg</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.sodium / 2300 * 100)}% of daily value</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Sugar</div>
+              <div className="font-medium">{currentNutrition.sugar}g</div>
+              <div className="text-xs text-gray-500">{Math.round(currentNutrition.sugar / 50 * 100)}% of daily value</div>
+            </div>
           </div>
         </div>
-      </Card>
-      
-      {/* Nutritional information with user's health profile for context */}
-      <div className="mt-6">
-        <NutritionSummary 
-          nutritionalInfo={currentNutrition} 
-          healthProfile={user?.healthProfile}
-          showHealthTips={true}
-        />
       </div>
       
-      {/* Price summary and Add to Cart button - Sticky Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 p-4 bg-white border-t shadow-lg dark:bg-gray-800 sm:relative sm:bottom-auto sm:left-auto sm:right-auto sm:shadow-none sm:border-t-0 sm:p-0 sm:mt-6">
-          <div className="flex items-center justify-between mb-4 sm:mb-0">
-              <div>
-                  <h4 className="text-lg font-semibold">Total Price:</h4>
-                  <span className="text-xl font-bold text-yumrun-orange">Rs.{currentPrice.toFixed(2)}</span>
-              </div>
-              <Button onClick={handleConfirm} size="lg" className="gap-2">
-                  <FaShoppingCart className="w-5 h-5" /> Add to Cart
-              </Button>
-          </div>
-      </div>
+      {/* Add to Cart Button */}
+      <Button 
+        onClick={handleAddToCart} 
+        className="w-full mt-4" 
+        size="lg"
+        variant="primary"
+      >
+        <FaShoppingCart className="mr-2" />
+        Add to Cart
+      </Button>
     </div>
   );
 };
 
-// Basic Prop Types Validation
+// PropTypes remain the same
 IngredientCustomizer.propTypes = {
   menuItem: PropTypes.shape({
     id: PropTypes.string,
@@ -488,7 +473,7 @@ IngredientCustomizer.propTypes = {
       servingSizeOptions: PropTypes.arrayOf(PropTypes.string)
     })
   }).isRequired,
-  onChange: PropTypes.func.isRequired, // Callback function when adding to cart
+  onChange: PropTypes.func.isRequired,
 };
 
 export default IngredientCustomizer; 

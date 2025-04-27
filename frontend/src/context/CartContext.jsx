@@ -65,10 +65,10 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
     
-    // Recalculate total price for each item based on unit price and quantity
+    // CORRECTED: Calculate subTotal by summing the stored item.price 
+    // (which already includes quantity and customizations)
     const subTotal = cartItems.reduce((total, item) => {
-      const itemPrice = (item.unitPrice || 0) * item.quantity;
-      return total + itemPrice;
+      return total + (item.price || 0); // Use the stored total price for the line item
     }, 0);
     
     // Calculate shipping based on subtotal
@@ -93,7 +93,6 @@ export const CartProvider = ({ children }) => {
     // Extract necessary info from the item passed (from customizer or simple add)
     const { 
         id, name, image, quantity = 1, 
-        price = 0, // This may be per unit price from the product
         basePrice = 0, selectedAddOns = [], customizationDetails = {}, 
         restaurantId, restaurantName
     } = item;
@@ -149,19 +148,18 @@ export const CartProvider = ({ children }) => {
     // Modify cartItemId to include both menuItemId and restaurantId
     const cartItemId = generateCartItemId({...item, id: cleanedMenuItemId});
 
-    // Use either the provided price or basePrice as the unit price
-    // Make sure we're treating the input price as a unit price, not total
-    const unitPrice = price || basePrice || 0;
-    
-    // Calculate total price by multiplying unit price by quantity
-    const totalPrice = unitPrice * quantity;
+    // Directly use the unitPrice and price passed from the item argument.
+    // The 'price' field from the customizer IS the total price for the quantity.
+    // The 'unitPrice' field from the customizer IS the price for a single unit.
+    const finalUnitPrice = item.unitPrice || 0; // Use the provided unitPrice
+    const finalTotalPrice = item.price || 0;   // Use the provided total price
 
-    console.log('Adding to cart:', { 
+    console.log('Adding to cart:', {
       menuItemId: cleanedMenuItemId,
       restaurantId: cleanedRestaurantId,
-      unitPrice, 
+      unitPrice: finalUnitPrice, // Log the correct unit price
       quantity, 
-      totalPrice 
+      totalPrice: finalTotalPrice // Log the correct total price
     });
 
     setCartItems(prevItems => {
@@ -180,7 +178,7 @@ export const CartProvider = ({ children }) => {
         // Ensure we have a valid unitPrice
         const existingUnitPrice = existingItem.unitPrice || 
                                   (existingItem.price && existingItem.quantity ? 
-                                   existingItem.price / existingItem.quantity : unitPrice);
+                                   existingItem.price / existingItem.quantity : finalUnitPrice); // Fallback to correct unit price
         
         const newQuantity = existingItem.quantity + quantity; // Add the incoming quantity
         
@@ -191,7 +189,7 @@ export const CartProvider = ({ children }) => {
           ...existingItem,
           quantity: newQuantity,
           unitPrice: existingUnitPrice, // Preserve the unit price
-          price: Math.round(newTotalPrice * 100) / 100 // Update total price for this line item
+          price: Math.round(newTotalPrice * 100) / 100 // Update total price for this line item using correct unit price
         };
         message = `Updated ${name} quantity in cart`;
       } else {
@@ -203,8 +201,8 @@ export const CartProvider = ({ children }) => {
             name,
             image,
             quantity,
-            price: Math.round(totalPrice * 100) / 100, // Total price for quantity
-            unitPrice: Math.round(unitPrice * 100) / 100, // Store calculated price per unit
+            price: Math.round(finalTotalPrice * 100) / 100, // Use the total price passed in
+            unitPrice: Math.round(finalUnitPrice * 100) / 100, // Use the unit price passed in
             basePrice,
             selectedAddOns,
             customizationDetails,

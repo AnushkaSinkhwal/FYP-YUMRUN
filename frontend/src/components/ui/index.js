@@ -40,6 +40,14 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Textarea } from "./textarea";
 export { Toast, ToastContainer } from "./toast"; 
 
+// Add Tooltip exports
+export { 
+  Tooltip, 
+  TooltipProvider, 
+  TooltipTrigger, 
+  TooltipContent 
+} from "./tooltip";
+
 // Manually added exports for shadcn components
 export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from "./table";
 export { ScrollArea, ScrollBar } from "./scroll-area"; 

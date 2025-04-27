@@ -196,9 +196,17 @@ const RestaurantMenu = () => {
       isVegetarian: item.isVegetarian || false,
       isVegan: item.isVegan || false,
       isGlutenFree: item.isGlutenFree || false,
-      availableAddOns: Array.isArray(currentAddOns) ? currentAddOns.map(addon => ({ // Ensure structure and handle potential missing fields
+      // Map ALL fields for add-ons, including nutrition
+      availableAddOns: Array.isArray(currentAddOns) ? currentAddOns.map(addon => ({
         name: addon.name || '', 
-        price: addon.price?.toString() || '0'
+        price: addon.price?.toString() || '0',
+        calories: addon.calories?.toString() || '',
+        protein: addon.protein?.toString() || '',
+        carbs: addon.carbs?.toString() || '',
+        fat: addon.fat?.toString() || '',
+        sodium: addon.sodium?.toString() || '',
+        fiber: addon.fiber?.toString() || '',
+        sugar: addon.sugar?.toString() || ''
       })) : []
     });
     setIsEditDialogOpen(true);
@@ -243,8 +251,24 @@ const RestaurantMenu = () => {
       
       // Add availableAddOns as a JSON string
       if (formData.availableAddOns && formData.availableAddOns.length > 0) {
-        // Filter out empty add-ons before stringifying
-        const validAddOns = formData.availableAddOns.filter(addon => addon.name && addon.price);
+        // Filter out add-ons missing name or price, and ensure numeric fields are numbers
+        const validAddOns = formData.availableAddOns
+          .filter(addon => addon.name && addon.price)
+          .map(addon => ({
+            name: addon.name,
+            price: parseFloat(addon.price) || 0,
+            calories: parseFloat(addon.calories) || 0,
+            protein: parseFloat(addon.protein) || 0,
+            carbs: parseFloat(addon.carbs) || 0,
+            fat: parseFloat(addon.fat) || 0,
+            sodium: parseFloat(addon.sodium) || 0,
+            fiber: parseFloat(addon.fiber) || 0,
+            sugar: parseFloat(addon.sugar) || 0,
+             // Include isRemovable/isDefault if needed by schema, defaulting appropriately
+            isRemovable: true, 
+            isDefault: false // Add-ons are usually not default
+          }));
+
         if (validAddOns.length > 0) {
            formDataObj.append('availableAddOns', JSON.stringify(validAddOns));
            console.log('Appending availableAddOns:', JSON.stringify(validAddOns));
@@ -331,8 +355,24 @@ const RestaurantMenu = () => {
       
       // Add availableAddOns as a JSON string
       if (formData.availableAddOns && formData.availableAddOns.length > 0) {
-        // Filter out empty add-ons before stringifying
-        const validAddOns = formData.availableAddOns.filter(addon => addon.name && addon.price);
+        // Filter out add-ons missing name or price, and ensure numeric fields are numbers
+        const validAddOns = formData.availableAddOns
+          .filter(addon => addon.name && addon.price)
+          .map(addon => ({
+            name: addon.name,
+            price: parseFloat(addon.price) || 0,
+            calories: parseFloat(addon.calories) || 0,
+            protein: parseFloat(addon.protein) || 0,
+            carbs: parseFloat(addon.carbs) || 0,
+            fat: parseFloat(addon.fat) || 0,
+            sodium: parseFloat(addon.sodium) || 0,
+            fiber: parseFloat(addon.fiber) || 0,
+            sugar: parseFloat(addon.sugar) || 0,
+             // Include isRemovable/isDefault if needed by schema, defaulting appropriately
+            isRemovable: true, 
+            isDefault: false // Add-ons are usually not default
+          }));
+
          if (validAddOns.length > 0) {
             data.append('availableAddOns', JSON.stringify(validAddOns));
             console.log('Appending availableAddOns for update:', JSON.stringify(validAddOns));
@@ -397,6 +437,10 @@ const RestaurantMenu = () => {
 
   const handleAddOnChange = (index, field, value) => {
     const updatedAddOns = [...formData.availableAddOns];
+    // Ensure the addOn object exists at the index
+    if (!updatedAddOns[index]) {
+        updatedAddOns[index] = { name: '', price: '', calories: '', protein: '', carbs: '', fat: '', sodium: '', fiber: '', sugar: '' };
+    }
     updatedAddOns[index][field] = value;
     setFormData(prev => ({ ...prev, availableAddOns: updatedAddOns }));
   };
@@ -404,7 +448,8 @@ const RestaurantMenu = () => {
   const addAddOn = () => {
     setFormData(prev => ({ 
       ...prev, 
-      availableAddOns: [...prev.availableAddOns, { name: '', price: '' }] 
+      // Initialize with all fields, including nutrition
+      availableAddOns: [...prev.availableAddOns, { name: '', price: '', calories: '', protein: '', carbs: '', fat: '', sodium: '', fiber: '', sugar: '' }] 
     }));
   };
 
@@ -605,30 +650,71 @@ const RestaurantMenu = () => {
       <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
         <h3 className="mb-3 font-medium text-gray-700 dark:text-gray-300">Available Add-ons (Optional)</h3>
         {formData.availableAddOns.map((addOn, index) => (
-          <div key={index} className="flex items-center space-x-2 mb-2">
-            <Input
-              type="text"
-              placeholder="Add-on Name"
-              value={addOn.name}
-              onChange={(e) => handleAddOnChange(index, 'name', e.target.value)}
-              className="flex-grow"
-            />
-            <Input
-              type="number"
-              placeholder="Price"
-              step="0.01"
-              value={addOn.price}
-              onChange={(e) => handleAddOnChange(index, 'price', e.target.value)}
-              className="w-24"
-            />
-            <Button 
-              type="button" 
-              variant="destructive" 
-              size="icon" 
-              onClick={() => removeAddOn(index)}
-            >
-              <FaTrash className="h-4 w-4" />
-            </Button>
+          <div key={index} className="p-3 mb-3 space-y-2 border rounded-md bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            {/* Top Row: Inputs + Delete Button */}
+            <div className="flex items-start space-x-2"> {/* Use items-start for top alignment */}
+              {/* Input Group (Name & Price) */}
+              <div className="flex items-center flex-grow space-x-2"> {/* Inner flex for inputs */}
+                <Input
+                  type="text"
+                  placeholder="Add-on Name"
+                  value={addOn.name}
+                  onChange={(e) => handleAddOnChange(index, 'name', e.target.value)}
+                  className="flex-grow"
+                />
+                <Input
+                  type="number"
+                  placeholder="Price"
+                  step="0.01"
+                  min="0"
+                  value={addOn.price}
+                  onChange={(e) => handleAddOnChange(index, 'price', e.target.value)}
+                  className="w-24"
+                 />
+              </div>
+              {/* Delete Button */}
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={() => removeAddOn(index)}
+                className="flex-shrink-0" // Prevent button shrinking
+                aria-label="Remove Add-on"
+              >
+                <FaTrash className="w-4 h-4" />
+              </Button>
+            </div>
+            {/* Nutritional Info for Add-on */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 sm:grid-cols-4 dark:border-gray-600">
+              <Input
+                type="number" min="0" placeholder="Calories" aria-label="Add-on Calories"
+                value={addOn.calories || ''} onChange={(e) => handleAddOnChange(index, 'calories', e.target.value)}
+              />
+              <Input
+                 type="number" min="0" placeholder="Protein (g)" aria-label="Add-on Protein"
+                 value={addOn.protein || ''} onChange={(e) => handleAddOnChange(index, 'protein', e.target.value)}
+               />
+               <Input
+                 type="number" min="0" placeholder="Carbs (g)" aria-label="Add-on Carbs"
+                 value={addOn.carbs || ''} onChange={(e) => handleAddOnChange(index, 'carbs', e.target.value)}
+               />
+               <Input
+                 type="number" min="0" placeholder="Fat (g)" aria-label="Add-on Fat"
+                 value={addOn.fat || ''} onChange={(e) => handleAddOnChange(index, 'fat', e.target.value)}
+               />
+               <Input
+                 type="number" min="0" placeholder="Sodium (mg)" aria-label="Add-on Sodium"
+                 value={addOn.sodium || ''} onChange={(e) => handleAddOnChange(index, 'sodium', e.target.value)}
+               />
+               <Input
+                 type="number" min="0" placeholder="Fiber (g)" aria-label="Add-on Fiber"
+                 value={addOn.fiber || ''} onChange={(e) => handleAddOnChange(index, 'fiber', e.target.value)}
+               />
+               <Input
+                 type="number" min="0" placeholder="Sugar (g)" aria-label="Add-on Sugar"
+                 value={addOn.sugar || ''} onChange={(e) => handleAddOnChange(index, 'sugar', e.target.value)}
+               />
+            </div>
           </div>
         ))}
         <Button 
@@ -637,7 +723,7 @@ const RestaurantMenu = () => {
           onClick={addAddOn}
           className="mt-2"
         >
-          <FaPlus className="mr-2 h-4 w-4" /> Add Add-on
+          <FaPlus className="w-4 h-4 mr-2" /> Add Add-on
         </Button>
       </div>
     </form>
@@ -648,16 +734,16 @@ const RestaurantMenu = () => {
     const priceFormatted = item.price ? `${parseFloat(item.price).toFixed(2)}` : 'N/A';
 
     return (
-      <Card key={item.id} className="flex flex-col overflow-hidden h-full">
+      <Card key={item.id} className="flex flex-col h-full overflow-hidden">
         <img 
           src={imageUrl} 
           alt={item.name} 
-          className="w-full h-48 object-cover"
+          className="object-cover w-full h-48"
           onError={(e) => e.target.src = PLACEHOLDERS.food} // Fallback image
         />
-        <div className="p-4 flex flex-col flex-grow">
-          <h3 className="text-lg font-semibold mb-1">{item.name}</h3>
-          <p className="text-sm text-gray-600 mb-2 flex-grow">{item.description}</p>
+        <div className="flex flex-col flex-grow p-4">
+          <h3 className="mb-1 text-lg font-semibold">{item.name}</h3>
+          <p className="flex-grow mb-2 text-sm text-gray-600">{item.description}</p>
           
           {/* Category Badge */}
           <div className="mb-2">
@@ -673,12 +759,12 @@ const RestaurantMenu = () => {
             </div>
           </div>
 
-          <div className="mt-auto flex justify-end space-x-2 pt-2 border-t border-gray-200">
+          <div className="flex justify-end pt-2 mt-auto space-x-2 border-t border-gray-200">
             <Button variant="outline" size="sm" onClick={() => openEditDialog(item)}>
-              <FaPencilAlt className="mr-1 h-4 w-4" /> Edit
+              <FaPencilAlt className="w-4 h-4 mr-1" /> Edit
             </Button>
             <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(item)}>
-              <FaTrash className="mr-1 h-4 w-4" /> Delete
+              <FaTrash className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         </div>
@@ -695,8 +781,8 @@ const RestaurantMenu = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container p-4 mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Menu Management</h1>
         <Button onClick={openAddDialog}>
           <FaPlus className="mr-2" /> Add Menu Item
@@ -707,10 +793,10 @@ const RestaurantMenu = () => {
       {success && <Alert variant="success" className="mb-4">{success}</Alert>}
 
       {!isLoading && menuItems.length === 0 && (
-        <div className="text-center py-16 bg-gray-50 rounded-lg">
-          <FaUtensils className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No Menu Items</h2>
-          <p className="text-gray-600 mb-4">You haven&apos;t added any menu items yet.</p>
+        <div className="py-16 text-center rounded-lg bg-gray-50">
+          <FaUtensils className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <h2 className="mb-2 text-xl font-semibold">No Menu Items</h2>
+          <p className="mb-4 text-gray-600">You haven&apos;t added any menu items yet.</p>
           <Button onClick={openAddDialog}>
             Add Your First Menu Item
           </Button>
@@ -719,7 +805,7 @@ const RestaurantMenu = () => {
 
       {/* Render items in a grid */}
       {!isLoading && menuItems.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {menuItems.map(renderMenuItem)} 
         </div>
       )}

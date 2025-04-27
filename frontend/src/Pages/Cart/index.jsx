@@ -208,22 +208,22 @@ const Cart = () => {
                       <span className="font-medium">Rs.{(cartStats.subTotal || 0).toFixed(2)}</span>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-medium">
-                        {cartStats.shipping === 0 ? 'Free' : `Rs.${(cartStats.shipping || 0).toFixed(2)}`}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Estimated for</span>
-                      <span className="font-medium">Bhaktapur</span>
-                    </div>
+                    {/* Conditionally render Delivery Fee only if > 0 */}
+                    {cartStats.shipping > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="font-medium">
+                          {/* Display calculated shipping fee */}
+                          Rs.{(cartStats.shipping || 0).toFixed(2)} 
+                        </span>
+                      </div>
+                    )}
                     
                     <div className="h-px my-3 bg-gray-100"></div>
                     
                     <div className="flex items-center justify-between font-medium">
                       <span>Total</span>
+                      {/* Total already includes shipping calculated in CartContext */}
                       <span className="text-lg text-yumrun-accent">Rs.{(cartStats.total || 0).toFixed(2)}</span>
                     </div>
                     

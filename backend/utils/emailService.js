@@ -257,23 +257,37 @@ const emailTemplates = {
     `).join('');
 
     // Format delivery address
-    let formattedAddress = 'Address not provided';
+    let formattedAddress = 'Address details incomplete'; // Default fallback
     if (order.deliveryAddress) {
-        if (typeof order.deliveryAddress === 'object') {
-            // Attempt to build from common fields
-            formattedAddress = [
-                order.deliveryAddress.fullAddress,
-                order.deliveryAddress.street,
-                order.deliveryAddress.city,
-                order.deliveryAddress.state,
-                order.deliveryAddress.zipCode,
-                order.deliveryAddress.country
-            ].filter(Boolean).join(', '); 
-            // If still empty (e.g., empty object), use a default
-            if (!formattedAddress) formattedAddress = 'Address details incomplete';
-        } else if (typeof order.deliveryAddress === 'string') {
-            formattedAddress = order.deliveryAddress; // Use the string directly
+      if (typeof order.deliveryAddress === 'object' && order.deliveryAddress !== null) {
+        // Prioritize specific fields likely from checkout
+        const addressParts = [
+          order.deliveryAddress.fullName, // Add name if available
+          order.deliveryAddress.address,  // Main address line
+          order.deliveryAddress.city,     // City
+          order.deliveryAddress.state,    // State (if available)
+          order.deliveryAddress.zipCode,  // Zip code (if available)
+          order.deliveryAddress.country   // Country (if available)
+        ].filter(Boolean); // Remove any undefined/null/empty parts
+
+        if (addressParts.length > 0) {
+          formattedAddress = addressParts.join(', ');
+          // Optionally add phone number on a new line if available
+          if (order.deliveryAddress.phone) {
+            formattedAddress += `<br>Phone: ${order.deliveryAddress.phone}`;
+          }
+        } else if (order.deliveryAddress.fullAddress) {
+           // Fallback to fullAddress field if specific parts are missing
+           formattedAddress = order.deliveryAddress.fullAddress;
+        } else if (order.deliveryAddress.street) {
+          // Fallback for older structure
+          formattedAddress = order.deliveryAddress.street;
         }
+        // If still incomplete, keep the default message
+
+      } else if (typeof order.deliveryAddress === 'string' && order.deliveryAddress.trim() !== '') {
+        formattedAddress = order.deliveryAddress; // Use the string directly if it's not empty
+      }
     }
 
     // Safely get user name
@@ -369,7 +383,6 @@ const emailTemplates = {
             <div class="order-info">
               <p><strong>Order Number:</strong> ${order.orderNumber || order._id}</p>
               <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
-              {/* Use formatted address */}
               <p><strong>Delivery Address:</strong> ${formattedAddress}</p>
               <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
               <p><strong>Estimated Delivery:</strong> ${order.estimatedDeliveryTime || '30-45 minutes'}</p>
@@ -393,14 +406,12 @@ const emailTemplates = {
             <div class="order-summary">
               <div class="summary-row">
                 <span>Subtotal:</span>
-                 {/* Use totalPrice for Subtotal */}
                 <span>${formatCurrency(order.totalPrice)}</span>
               </div>
               <div class="summary-row">
                 <span>Delivery Fee:</span>
                 <span>${formatCurrency(order.deliveryFee)}</span>
               </div>
-              {/* Add Tax and Tip if they exist and are non-zero */}
               ${order.tax && order.tax > 0 ? `
               <div class="summary-row">
                 <span>Tax:</span>
@@ -421,13 +432,11 @@ const emailTemplates = {
               ` : ''}
               <div class="summary-row" style="font-weight: bold; margin-top: 10px; font-size: 18px;">
                 <span>Total:</span>
-                 {/* Use grandTotal for Total */}
                 <span>${formatCurrency(order.grandTotal)}</span>
               </div>
             </div>
 
-            {/* Ensure the link uses the correct base URL */}
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:4000'}/user/orders/${order._id}" class="button">View Order Details</a>
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:4000'}/order/${order._id}" class="button">View Order Details</a>
             
             <p style="margin-top: 20px;">If you have any questions or need assistance, please contact our support team.</p>
             <p>Enjoy your meal!</p>

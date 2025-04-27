@@ -11,7 +11,6 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 import IngredientCustomizer from '../../components/MenuItemCustomization/IngredientCustomizer';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 const ProductDetails = () => {
     const { id: productId } = useParams();
@@ -37,7 +36,6 @@ const ProductDetails = () => {
     const [reviewSubmitError, setReviewSubmitError] = useState(null);
     const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
-    const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
 
     // --- Fetch Product Data ---
     useEffect(() => {
@@ -115,79 +113,64 @@ const ProductDetails = () => {
         }
     };
 
-    // UPDATED: Use discounted price if available and process image URL
-    const handleAddToCartOrCustomize = () => {
+    // UPDATED: Handle direct add to cart with customization
+    const handleAddToCartOrCustomize = (customizedItemData) => {
         if (!product) return;
         
-        const hasAddOns = product.customizationOptions?.availableAddOns && product.customizationOptions.availableAddOns.length > 0;
-
-        if (hasAddOns) {
-            // Open the customization modal
-            setIsCustomizeModalOpen(true);
-        } else {
-            // Add directly to cart (simple add)
-            // Calculate unit price and base price based on offers/discounts
-            let unitPriceToAdd;
-            let basePriceToAdd = product.price; // Base price is usually the non-discounted price
-
-            // 1. Check for active offerDetails
-            if (product.offerDetails && product.offerDetails.percentage > 0 && product.price > 0) {
-                unitPriceToAdd = parseFloat((product.price * (1 - product.offerDetails.percentage / 100)).toFixed(2));
-                // basePriceToAdd remains product.price
-            } 
-            // 2. Check for discountedPrice prop (could be a manual discount)
-            else if (product.discountedPrice !== undefined && product.discountedPrice < product.price) {
-                unitPriceToAdd = product.discountedPrice;
-                // basePriceToAdd remains product.price
-            } 
-            // 3. Default to the standard price
-            else {
-                unitPriceToAdd = product.price;
-                basePriceToAdd = product.price; // In this case, base and unit are the same
-            }
-
-            const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
-            const finalPriceForQuantity = parseFloat((unitPriceToAdd * quantity).toFixed(2));
-
-            const cartItem = {
-                id: product.id, 
-                name: product.name,
-                price: finalPriceForQuantity, // Total price for the initial quantity
-                unitPrice: unitPriceToAdd,     // Calculated price per single unit
-                basePrice: basePriceToAdd,     // Original base price before any discount
-                image: imageUrlForCart,
-                quantity: quantity,
-                selectedAddOns: [], // No add-ons for simple add
-                customizationDetails: { specialInstructions: specialInstructions.trim() || undefined },
-                restaurantId: product.restaurant?.id,
-                restaurantName: product.restaurant?.name || 'Restaurant'
-            };
-            
-            addToCart(cartItem);
-            console.log(`Added simple ${product.name} to cart. Unit Price: ${unitPriceToAdd}, Base Price: ${basePriceToAdd}, Quantity: ${quantity}, Total: ${finalPriceForQuantity}`);
-            // Optional: Add toast notification
+        // If customizedItemData is provided, it means the customizer component has sent data
+        if (customizedItemData) {
+            console.log("Adding customized item to cart from ProductDetails:", customizedItemData);
+            addToCart({
+              ...customizedItemData,
+              restaurantId: product.restaurant?.id,
+              restaurantName: product.restaurant?.name || 'Restaurant',
+              // Ensure special instructions from the main page are included if applicable
+              customizationDetails: {
+                 ...customizedItemData.customizationDetails,
+                 specialInstructions: customizedItemData.customizationDetails?.specialInstructions || specialInstructions.trim() || undefined
+              }
+            });
+            return;
         }
-    };
 
-    // Function called by the customizer component when user confirms adding to cart
-    const handleConfirmAddToCartFromModal = (customizedItemData) => {
-        console.log("Adding customized item to cart from ProductDetails:", customizedItemData);
-        addToCart({
-          ...customizedItemData, // Includes id, name, quantity, selectedAddOns, finalPrice etc.
-          restaurantId: product.restaurant?.id, // Get restaurant info from fetched product
-          restaurantName: product.restaurant?.name || 'Restaurant',
-          // Ensure special instructions from the main page are included if applicable
-          customizationDetails: {
-             ...customizedItemData.customizationDetails,
-             specialInstructions: customizedItemData.customizationDetails?.specialInstructions || specialInstructions.trim() || undefined
-          }
-        });
-        setIsCustomizeModalOpen(false);
-        // Reset quantity/instructions on main page if needed?
-        // setQuantity(1);
-        // setSpecialInstructions('');
-        // Add toast notification maybe
-     };
+        // If there's no customization data, use simple add with just quantity and special instructions
+        let unitPriceToAdd;
+        let basePriceToAdd = product.price; // Base price is usually the non-discounted price
+
+        // 1. Check for active offerDetails
+        if (product.offerDetails && product.offerDetails.percentage > 0 && product.price > 0) {
+            unitPriceToAdd = parseFloat((product.price * (1 - product.offerDetails.percentage / 100)).toFixed(2));
+        } 
+        // 2. Check for discountedPrice prop (could be a manual discount)
+        else if (product.discountedPrice !== undefined && product.discountedPrice < product.price) {
+            unitPriceToAdd = product.discountedPrice;
+        } 
+        // 3. Default to the standard price
+        else {
+            unitPriceToAdd = product.price;
+            basePriceToAdd = product.price; // In this case, base and unit are the same
+        }
+
+        const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+        const finalPriceForQuantity = parseFloat((unitPriceToAdd * quantity).toFixed(2));
+
+        const cartItem = {
+            id: product.id, 
+            name: product.name,
+            price: finalPriceForQuantity, // Total price for the initial quantity
+            unitPrice: unitPriceToAdd,     // Calculated price per single unit
+            basePrice: basePriceToAdd,     // Original base price before any discount
+            image: imageUrlForCart,
+            quantity: quantity,
+            selectedAddOns: [], // No add-ons for simple add
+            customizationDetails: { specialInstructions: specialInstructions.trim() || undefined },
+            restaurantId: product.restaurant?.id,
+            restaurantName: product.restaurant?.name || 'Restaurant'
+        };
+        
+        addToCart(cartItem);
+        console.log(`Added simple ${product.name} to cart. Unit Price: ${unitPriceToAdd}, Base Price: ${basePriceToAdd}, Quantity: ${quantity}, Total: ${finalPriceForQuantity}`);
+    };
 
     // Function to toggle favorite status
     const toggleFavorite = async () => {
@@ -306,7 +289,6 @@ const ProductDetails = () => {
     const displayPrice = product.discountedPrice !== undefined ? product.discountedPrice : product.price;
     const originalPrice = product.discountedPrice !== undefined ? product.price : null;
     const hasOffer = product.offerDetails && product.offerDetails.percentage > 0;
-    const hasAddOns = product.customizationOptions?.availableAddOns && product.customizationOptions.availableAddOns.length > 0;
 
     return (
         <div className="py-10 bg-gray-50">
@@ -370,56 +352,74 @@ const ProductDetails = () => {
                         
                         <p className="text-gray-600 mb-5 leading-relaxed">{product.description || 'No description available.'}</p>
                         
-                        {/* Quantity Selector */}
-                        <div className="flex items-center mb-5">
-                            <span className="mr-4 font-semibold text-gray-700">Quantity:</span>
-                            <div className="flex items-center border border-gray-300 rounded">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon-sm" 
-                                    onClick={() => handleQuantityChange('decrease')} 
-                                    className="px-3 py-1 rounded-r-none"
-                                    disabled={quantity <= 1}
-                                >
-                                    <FaMinus />
-                                </Button>
-                                <span className="px-4 py-1 text-center w-12 font-semibold">{quantity}</span>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon-sm" 
-                                    onClick={() => handleQuantityChange('increase')}
-                                    className="px-3 py-1 rounded-l-none"
-                                >
-                                    <FaPlus />
-                                </Button>
-                            </div>
-                        </div>
+                        {/* Quantity Selector - Only show if NOT customizing */}
+                        {!product.customizationOptions?.availableAddOns?.length > 0 && (
+                          <div className="flex items-center mb-5">
+                              <span className="mr-4 font-semibold text-gray-700">Quantity:</span>
+                              <div className="flex items-center border border-gray-300 rounded">
+                                  <Button 
+                                      variant="ghost" 
+                                      size="icon-sm" 
+                                      onClick={() => handleQuantityChange('decrease')} 
+                                      className="px-3 py-1 rounded-r-none"
+                                      disabled={quantity <= 1}
+                                  >
+                                      <FaMinus />
+                                  </Button>
+                                  <span className="px-4 py-1 text-center w-12 font-semibold">{quantity}</span>
+                                  <Button 
+                                      variant="ghost" 
+                                      size="icon-sm" 
+                                      onClick={() => handleQuantityChange('increase')}
+                                      className="px-3 py-1 rounded-l-none"
+                                  >
+                                      <FaPlus />
+                                  </Button>
+                              </div>
+                          </div>
+                        )}
 
-                        {/* Special Instructions */}
-                        <div className="mb-5">
-                            <label htmlFor="specialInstructions" className="block mb-1 font-semibold text-gray-700">Special Instructions:</label>
-                            <textarea
-                                id="specialInstructions"
-                                rows="2"
-                                value={specialInstructions}
-                                onChange={(e) => setSpecialInstructions(e.target.value)}
-                                placeholder="Any specific requests? (e.g., no onions, extra spicy)"
-                                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
-                            ></textarea>
-                        </div>
+                        {/* Special Instructions - Only show if NOT customizing (Customizer has its own) */}
+                        {!product.customizationOptions?.availableAddOns?.length > 0 && (
+                          <div className="mb-5">
+                              <label htmlFor="specialInstructions" className="block mb-1 font-semibold text-gray-700">Special Instructions:</label>
+                              <textarea
+                                  id="specialInstructions"
+                                  rows="2"
+                                  value={specialInstructions}
+                                  onChange={(e) => setSpecialInstructions(e.target.value)}
+                                  placeholder="Any specific requests? (e.g., no onions, extra spicy)"
+                                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-yumrun-orange"
+                              ></textarea>
+                          </div>
+                        )}
+
+                        {/* Customization Options - Now directly on the page */}
+                        {product && product.customizationOptions?.availableAddOns?.length > 0 && (
+                            <Card className="p-4 mb-5">
+                                <h3 className="text-lg font-semibold mb-4">Customize Your Order</h3>
+                                <IngredientCustomizer
+                                    menuItem={product}
+                                    onChange={handleAddToCartOrCustomize}
+                                />
+                            </Card>
+                        )}
 
                         {/* Action Buttons */}
                         <div className="flex items-center space-x-4 mt-auto">
-                            <Button 
-                                onClick={handleAddToCartOrCustomize} 
-                                variant="primary" 
-                                size="lg" 
-                                className="flex-1"
-                                disabled={!product} // Disable if product hasn't loaded
-                            >
-                                <FaShoppingCart className="mr-2" />
-                                {product.isAvailable ? (hasAddOns ? 'Customize & Add to Cart' : 'Add to Cart') : 'Unavailable'}
-                            </Button>
+                            {/* Only show Add to Cart directly if there are no customization options */}
+                            {!product.customizationOptions?.availableAddOns?.length > 0 && (
+                                <Button 
+                                    onClick={() => handleAddToCartOrCustomize()} 
+                                    variant="primary" 
+                                    size="lg" 
+                                    className="flex-1"
+                                    disabled={!product || !product.isAvailable} 
+                                >
+                                    <FaShoppingCart className="mr-2" />
+                                    {product.isAvailable ? 'Add to Cart' : 'Unavailable'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -513,26 +513,6 @@ const ProductDetails = () => {
                 {product && <RelatedProducts currentProductId={productId} />} 
 
             </Container>
-
-            {/* Customization Modal */}
-             <Dialog open={isCustomizeModalOpen} onOpenChange={setIsCustomizeModalOpen}>
-                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                     <DialogHeader>
-                         <DialogTitle>Customize {product?.name}</DialogTitle>
-                         <DialogDescription>
-                             Select your preferred options and add-ons.
-                         </DialogDescription>
-                     </DialogHeader>
-                     
-                     {product && (
-                        <IngredientCustomizer 
-                           menuItem={product} // Pass product data as menuItem prop
-                           onChange={handleConfirmAddToCartFromModal} // Pass the function to call on confirm
-                        />
-                     )}
-                 </DialogContent>
-             </Dialog>
-
         </div>
     );
 };

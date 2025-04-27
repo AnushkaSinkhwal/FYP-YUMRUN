@@ -403,9 +403,9 @@ router.get('/:id', async (req, res) => {
 
     // Try to find the restaurant
     const restaurant = await Restaurant.findById(id)
-      .populate('popularItems')
-      .populate('menuItems')
-      .populate('reviews');
+      // .populate('popularItems') // Removed: Causes StrictPopulateError
+      // .populate('menuItems') // Removed: Invalid path for Restaurant schema
+      // .populate('reviews'); // Removed: Invalid path for Restaurant schema
     
     if (!restaurant) {
       console.log(`[Restaurants API] Restaurant not found with ID: ${id}`);

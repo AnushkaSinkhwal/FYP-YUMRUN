@@ -597,10 +597,26 @@ export const restaurantAPI = {
     return api.post(`/orders/${orderId}/status`, payload);
   },
   
+  // NEW: Assign rider to an order
+  assignRider: async (orderId, riderId) => {
+    return api.post(`/orders/${orderId}/assign-rider`, { riderId });
+  },
+  
+  // NEW: Get available riders
+  getAvailableRiders: async () => {
+    return api.get('/restaurant/available-riders');
+  },
+  
+  // NEW: Get order status history
+  getOrderStatusHistory: async (orderId) => {
+    return api.get(`/orders/${orderId}/status-history`);
+  },
+  
   // Get analytics data
   getAnalytics: async (period = 'week') => {
     return api.get(`/restaurant/analytics?period=${period}`);
   },
+  
   // Add check for pending admin update notification
   hasPendingUpdate: async () => {
      return api.get('/restaurant/pending-update-check');
@@ -852,7 +868,12 @@ export const userAPI = {
   // Remove item from favorites
   removeFavorite: async (itemId) => {
     return api.delete(`/favorites/${itemId}`);
-  }
+  },
+  
+  // Update order status
+  updateOrderStatus: async (orderId, status) => {
+    return api.patch(`/orders/${orderId}/status`, { status });
+  },
 };
 
 // Delivery Rider API methods

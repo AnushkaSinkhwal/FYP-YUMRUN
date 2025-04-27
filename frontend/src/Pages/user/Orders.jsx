@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, Alert, Badge,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription 
 } from '../../components/ui';
 import { 
   FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync,
@@ -27,6 +27,10 @@ const UserOrders = () => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  
+  // State for status update
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('');
   
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -192,8 +196,16 @@ const UserOrders = () => {
     if (order?.restaurantId?.name) {
       return order.restaurantId.name;
     }
+    // Handle case where restaurantId is a direct object with id and name
+    if (order?.restaurantId && typeof order.restaurantId === 'object' && order.restaurantId.id && order.restaurantId.name) {
+      return order.restaurantId.name;
+    }
+    // Check for direct restaurant object
+    if (order?.restaurant && typeof order.restaurant === 'object' && order.restaurant.name) {
+      return order.restaurant.name;
+    }
     // Fallback to potential direct restaurant name string or default
-    return order?.restaurant || 'Restaurant';
+    return typeof order?.restaurant === 'string' ? order.restaurant : 'Restaurant';
   };
 
   const getId = (order) => {
@@ -223,6 +235,46 @@ const UserOrders = () => {
       toast.error('Unable to load order details. Please try again later.');
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (orderId) => {
+    if (!selectedStatus) {
+      toast.warning('Please select a status');
+      return;
+    }
+    
+    setUpdatingStatus(true);
+    try {
+      const response = await userAPI.updateOrderStatus(orderId, selectedStatus);
+      
+      if (response.data && response.data.success) {
+        toast.success(`Order status updated to ${selectedStatus}`);
+        
+        // Update the selected order details with new status
+        if (selectedOrderDetails) {
+          setSelectedOrderDetails({
+            ...selectedOrderDetails,
+            status: selectedStatus
+          });
+        }
+        
+        // Update order in the list
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order._id === orderId || order.id === orderId
+              ? { ...order, status: selectedStatus }
+              : order
+          )
+        );
+      } else {
+        throw new Error(response.data?.message || 'Failed to update order status');
+      }
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      toast.error(err.response?.data?.message || 'Failed to update order status');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -543,6 +595,9 @@ const UserOrders = () => {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
+            <DialogDescription className="sr-only">
+              Detailed information about your order including items, costs, and delivery details.
+            </DialogDescription>
             <DialogClose asChild>
               <Button variant="ghost" size="icon" className="absolute top-4 right-4">
                 <FaTimes className="w-4 h-4" />
@@ -551,7 +606,7 @@ const UserOrders = () => {
           </DialogHeader>
           
           {detailLoading && (
-            <div className="flex justify-center items-center py-10">
+            <div className="flex items-center justify-center py-10">
               <Spinner size="lg" />
             </div>
           )}
@@ -585,17 +640,96 @@ const UserOrders = () => {
                 </div>
                 <div className="flex items-start col-span-1 sm:col-span-2">
                   <FaMapMarkerAlt className="flex-shrink-0 mr-2 text-gray-500 mt-0.5" />
-                  <span>Delivery: {selectedOrderDetails.deliveryAddress?.street || selectedOrderDetails.deliveryAddress || 'N/A'}</span>
+                  <span>Delivery: {
+                    typeof selectedOrderDetails.deliveryAddress === 'object' ? 
+                      (selectedOrderDetails.deliveryAddress?.street || 
+                       selectedOrderDetails.deliveryAddress?.address || 
+                       JSON.stringify(selectedOrderDetails.deliveryAddress).replace(/[{}"]/g, '')) : 
+                      (selectedOrderDetails.deliveryAddress || 'N/A')
+                  }</span>
                 </div>
               </div>
 
               <div className="pt-4 border-t">
                 <h4 className="mb-2 font-medium">Items</h4>
-                <div className="space-y-1 text-sm">
+                <div className="space-y-3 text-sm">
                   {selectedOrderDetails.items?.map((item, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{item.quantity}x {item.name}</span>
-                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                    <div key={index} className="space-y-1">
+                      <div className="flex justify-between">
+                        <span>{item.quantity || 1}x {item.name || 'Item'}</span>
+                        <span>${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Display customization details */}
+                      {item.customization && (
+                        <div className="pl-4 text-xs text-gray-500">
+                          {/* Added ingredients */}
+                          {item.customization.addedIngredients && item.customization.addedIngredients.length > 0 && (
+                            <div>
+                              <span className="font-medium">Add-ons: </span>
+                              {item.customization.addedIngredients.map((ingredient, idx) => (
+                                <div key={idx} className="pl-2">
+                                  • {ingredient.name} (+${(ingredient.price || 0).toFixed(2)})
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Display serving size if available */}
+                          {item.customization.servingSize && (
+                            <div className="mt-1">
+                              <span className="font-medium">Size: </span>
+                              {item.customization.servingSize}
+                            </div>
+                          )}
+                          
+                          {/* Display cooking method if available */}
+                          {item.customization.cookingMethod && (
+                            <div className="mt-1">
+                              <span className="font-medium">Method: </span>
+                              {item.customization.cookingMethod}
+                            </div>
+                          )}
+                          
+                          {/* Display special instructions if available */}
+                          {item.customization.specialInstructions && (
+                            <div className="mt-1">
+                              <span className="font-medium">Instructions: </span>
+                              {item.customization.specialInstructions}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Check for selectedAddOns in legacy format */}
+                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                        <div className="pl-4 text-xs text-gray-500">
+                          <span className="font-medium">Add-ons: </span>
+                          {item.selectedAddOns.map((addOn, idx) => (
+                            <div key={idx} className="pl-2">
+                              • {addOn.name} (+${(addOn.price || 0).toFixed(2)})
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Check for customizationDetails in legacy format */}
+                      {item.customizationDetails && (
+                        <div className="pl-4 text-xs text-gray-500">
+                          {item.customizationDetails.servingSize && (
+                            <div className="mt-1">
+                              <span className="font-medium">Size: </span>
+                              {item.customizationDetails.servingSize}
+                            </div>
+                          )}
+                          {item.customizationDetails.cookingMethod && (
+                            <div className="mt-1">
+                              <span className="font-medium">Method: </span>
+                              {item.customizationDetails.cookingMethod}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -604,19 +738,19 @@ const UserOrders = () => {
               <div className="pt-4 space-y-1 text-sm border-t">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>${selectedOrderDetails.totalPrice?.toFixed(2)}</span>
+                  <span>${(selectedOrderDetails.totalPrice || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Delivery Fee:</span>
-                  <span>${selectedOrderDetails.deliveryFee?.toFixed(2)}</span>
+                  <span>${(selectedOrderDetails.deliveryFee || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tax:</span>
-                  <span>${selectedOrderDetails.tax?.toFixed(2)}</span>
+                  <span>${(selectedOrderDetails.tax || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-semibold">
                   <span>Total:</span>
-                  <span>${selectedOrderDetails.grandTotal?.toFixed(2)}</span>
+                  <span>${(selectedOrderDetails.grandTotal || selectedOrderDetails.total || 0).toFixed(2)}</span>
                 </div>
               </div>
               
@@ -626,6 +760,40 @@ const UserOrders = () => {
                   <p className="text-sm text-gray-600">{selectedOrderDetails.specialInstructions}</p>
                 </div>
               )}
+
+              {/* Add status update section */}
+              <div className="pt-4 border-t">
+                <h4 className="mb-2 font-medium">Update Status</h4>
+                <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
+                  <Select 
+                    value={selectedStatus} 
+                    onValueChange={setSelectedStatus}
+                    disabled={updatingStatus}
+                  >
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Select new status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                      <SelectItem value="PREPARING">Preparing</SelectItem>
+                      <SelectItem value="READY">Ready</SelectItem>
+                      <SelectItem value="OUT_FOR_DELIVERY">Out For Delivery</SelectItem>
+                      <SelectItem value="DELIVERED">Delivered</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button 
+                    onClick={() => handleUpdateStatus(selectedOrderDetails._id)}
+                    disabled={!selectedStatus || updatingStatus}
+                    className="flex items-center justify-center"
+                  >
+                    {updatingStatus ? <Spinner size="sm" className="mr-2" /> : null}
+                    Update Status
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
           

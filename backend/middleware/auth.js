@@ -85,7 +85,7 @@ const isAdmin = (req, res, next) => {
  * Restaurant owner access middleware
  * Checks if the authenticated user is a restaurant owner
  */
-const isRestaurantOwner = (req, res, next) => {
+const isRestaurantOwner = async (req, res, next) => {
   console.log('[Auth Middleware] Checking restaurant owner access, req.user:', JSON.stringify(req.user));
   
   if (!req.user.role || req.user.role !== 'restaurant') {
@@ -96,22 +96,22 @@ const isRestaurantOwner = (req, res, next) => {
     });
   }
   
-  // Find some ID value to use as restaurantId
-  let idToUse = null;
+  // Find some ID value to use as userId
+  let userId = null;
   
   // Try different possible sources in order of preference
   if (req.user.userId) {
-    idToUse = req.user.userId;
-    console.log('[Auth Middleware] Using userId for restaurantId:', idToUse);
+    userId = req.user.userId;
+    console.log('[Auth Middleware] Using userId:', userId);
   } else if (req.user.id) {
-    idToUse = req.user.id;
-    console.log('[Auth Middleware] Using id for restaurantId:', idToUse);
+    userId = req.user.id;
+    console.log('[Auth Middleware] Using id:', userId);
   } else if (req.user._id) {
-    idToUse = req.user._id;
-    console.log('[Auth Middleware] Using _id for restaurantId:', idToUse);
+    userId = req.user._id;
+    console.log('[Auth Middleware] Using _id:', userId);
   }
   
-  if (!idToUse) {
+  if (!userId) {
     console.log('[Auth Middleware] Error: No valid ID found in token payload', req.user);
     return res.status(500).json({
       success: false,
@@ -119,12 +119,33 @@ const isRestaurantOwner = (req, res, next) => {
     });
   }
   
-  // Set the restaurantId and ensure userId is also set
-  req.user.restaurantId = idToUse;
-  req.user.userId = idToUse; // Ensure userId is set for consistency
+  // Set the userId for consistency
+  req.user.userId = userId;
   
-  console.log('[Auth Middleware] Restaurant owner access granted for role:', req.user.role, 'restaurantId set to:', req.user.restaurantId);
-  next();
+  try {
+    // Try to find a restaurant document first
+    const Restaurant = require('../models/restaurant');
+    const restaurant = await Restaurant.findOne({ owner: userId });
+    
+    if (restaurant) {
+      // If we found a restaurant document, use its ID
+      req.user.restaurantId = restaurant._id.toString();
+      console.log('[Auth Middleware] Found restaurant document with ID:', req.user.restaurantId);
+    } else {
+      // If no restaurant document, use the user ID as a fallback
+      req.user.restaurantId = userId;
+      console.log('[Auth Middleware] No restaurant document found, using user ID as restaurantId:', req.user.restaurantId);
+    }
+    
+    console.log('[Auth Middleware] Restaurant owner access granted for role:', req.user.role, 'restaurantId set to:', req.user.restaurantId);
+    next();
+  } catch (error) {
+    console.error('[Auth Middleware] Error finding restaurant:', error.message);
+    // Continue with user ID as a fallback
+    req.user.restaurantId = userId;
+    console.log('[Auth Middleware] Error occurred, using user ID as restaurantId:', req.user.restaurantId);
+    next();
+  }
 };
 
 /**
