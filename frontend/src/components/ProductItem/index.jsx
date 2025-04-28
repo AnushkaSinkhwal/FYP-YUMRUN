@@ -14,7 +14,7 @@ import {
 } from '../ui';
 import { cn } from "../../lib/utils";
 import { useCart } from '../../context/CartContext';
-import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { getFullImageUrl, PLACEHOLDERS, getBestImageUrl } from '../../utils/imageUtils';
 
 const ProductItem = ({ 
     itemView = "four", 
