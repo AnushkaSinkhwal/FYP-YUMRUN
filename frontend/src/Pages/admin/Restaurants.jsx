@@ -13,6 +13,7 @@ import {
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 import RestaurantViewModal from '../../components/admin/RestaurantViewModal';
 import RestaurantEditModal from '../../components/admin/RestaurantEditModal';
+import { useNavigate } from 'react-router-dom';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -30,6 +31,7 @@ const Restaurants = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddRestaurantModal, setShowAddRestaurantModal] = useState(false);
+  const navigate = useNavigate();
   
   const fetchRestaurants = useCallback(async () => {
     setIsLoading(true);
@@ -203,9 +205,14 @@ const Restaurants = () => {
           <FaSearch className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
         </div>
         
-        <Button onClick={openAddRestaurantModal} className="w-full md:w-auto">
-          <FaPlus className="mr-2" /> Add Restaurant
-        </Button>
+        <div className="flex gap-3 w-full md:w-auto">
+          <Button onClick={openAddRestaurantModal} className="w-full md:w-auto">
+            <FaPlus className="mr-2" /> Add Restaurant
+          </Button>
+          <Button onClick={() => navigate('/admin/restaurant-approvals')} variant="outline" className="w-full md:w-auto">
+            Pending Approvals
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => {setActiveTab(value); setCurrentPage(1);}} className="mb-6">
@@ -251,6 +258,19 @@ const Restaurants = () => {
                     </Badge>
                   )}
                 </div>
+                
+                {restaurant.status === 'approved' && restaurant.hasPendingUpdate && (
+                  <div className="p-2 mb-3 text-sm bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700">
+                    This restaurant has profile changes awaiting approval.
+                    <Button 
+                      variant="link" 
+                      className="ml-1 text-yellow-700 underline"
+                      onClick={() => navigate('/admin/restaurant-approvals')}
+                    >
+                      Review Changes
+                    </Button>
+                  </div>
+                )}
                 
                 <div className="flex justify-end mt-2 space-x-2">
                   <Button variant="outline" size="sm" onClick={() => openViewModal(restaurant)} aria-label="View" disabled={isProcessing}>

@@ -52,6 +52,7 @@ import AdminProfile from "./Pages/admin/Profile";
 import AdminSettings from "./Pages/admin/Settings";
 import AdminNotifications from "./Pages/admin/Notifications";
 import AdminRiders from "./Pages/admin/Riders";
+import AdminRestaurantApprovals from "./Pages/admin/RestaurantApprovals";
 
 // Restaurant imports
 import RestaurantLayout from "./components/restaurant/RestaurantLayout";
@@ -237,6 +238,7 @@ function App() {
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="users" element={<AdminUsers />} />
                     <Route path="restaurants" element={<AdminRestaurants />} />
+                    <Route path="restaurant-approvals" element={<AdminRestaurantApprovals />} />
                     <Route path="riders" element={<AdminRiders />} />
                     <Route path="orders" element={<AdminOrders />} />
                     <Route path="deliveries" element={<AdminDeliveries />} />

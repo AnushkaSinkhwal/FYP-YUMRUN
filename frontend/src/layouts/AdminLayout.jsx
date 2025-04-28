@@ -22,6 +22,7 @@ const AdminLayout = () => {
     { name: 'Dashboard', href: '/admin/dashboard', icon: <FiHome /> },
     { name: 'Users', href: '/admin/users', icon: <FiUsers /> },
     { name: 'Restaurants', href: '/admin/restaurants', icon: <FiCoffee /> },
+    { name: 'Restaurant Approvals', href: '/admin/restaurant-approvals', icon: <FiCoffee /> },
     { name: 'Orders', href: '/admin/orders', icon: <FiShoppingCart /> },
     { name: 'Deliveries', href: '/admin/deliveries', icon: <FiTruck /> },
     { name: 'Riders', href: '/admin/riders', icon: <FiTruck /> },

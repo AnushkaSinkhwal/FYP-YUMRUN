@@ -23,18 +23,24 @@ const RestaurantApprovals = () => {
         setIsLoading(true);
         setMessage(null);
         try {
+            console.log('Fetching pending restaurant approvals...');
             // Fetch both types of approvals in parallel
             const [registrationsRes, updatesRes] = await Promise.all([
                 adminAPI.getPendingRestaurants(),
                 adminAPI.getRestaurantApprovals()
             ]);
             
+            console.log('Restaurant registrations response:', registrationsRes.data);
+            console.log('Restaurant updates response:', updatesRes.data);
+            
             if (registrationsRes.data?.success) {
                 setPendingRestaurants(registrationsRes.data.data || []);
+                console.log(`Found ${registrationsRes.data.data?.length || 0} pending restaurant registrations`);
             }
             
             if (updatesRes.data?.success) {
                 setPendingUpdates(updatesRes.data.data || []);
+                console.log(`Found ${updatesRes.data.data?.length || 0} pending restaurant updates`);
             }
             
             if (!registrationsRes.data?.success && !updatesRes.data?.success) {
@@ -45,6 +51,7 @@ const RestaurantApprovals = () => {
             }
         } catch (error) {
             console.error("Error fetching pending approvals:", error);
+            console.error("Error details:", error.response?.data || error.message);
             setMessage({
                 type: 'error',
                 text: 'An error occurred while fetching data. ' + (error.response?.data?.message || error.message)
@@ -235,8 +242,8 @@ const RestaurantApprovals = () => {
         );
     }
 
-    const hasPendingRestaurants = pendingRestaurants.length > 0;
-    const hasPendingUpdates = pendingUpdates.length > 0;
+    const hasPendingRestaurants = pendingRestaurants && pendingRestaurants.length > 0;
+    const hasPendingUpdates = pendingUpdates && pendingUpdates.length > 0;
 
     return (
         <Container className="py-8">
@@ -247,13 +254,38 @@ const RestaurantApprovals = () => {
 
             {message && (
                 <Alert variant={message.type} className="mb-6" dismissible onDismiss={() => setMessage(null)}>
-                    {message.text}
+                    <div className="flex flex-col gap-2">
+                        <p>{message.text}</p>
+                        {message.type === 'info' && (
+                            <ul className="list-disc pl-5 text-sm mt-1">
+                                <li>Restaurant owners can update their profile in Restaurant Dashboard → Profile</li>
+                                <li>After submitting changes, they appear here for admin approval</li>
+                                <li>New restaurant registrations also appear here pending approval</li>
+                            </ul>
+                        )}
+                    </div>
                 </Alert>
             )}
 
             {!isLoading && !hasPendingRestaurants && !hasPendingUpdates && (
                 <Card className="p-6 text-center">
                     <p className="text-gray-600 dark:text-gray-400">No pending approvals found.</p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+                        <Button variant="outline" onClick={fetchPendingApprovals}>
+                            Refresh Approvals
+                        </Button>
+                        <Button 
+                            variant="secondary"
+                            onClick={() => {
+                                setMessage({
+                                    type: 'info',
+                                    text: 'Please go to the restaurant dashboard and update a restaurant profile to create a pending approval.'
+                                });
+                            }}
+                        >
+                            How to Test Approvals
+                        </Button>
+                    </div>
                 </Card>
             )}
 
