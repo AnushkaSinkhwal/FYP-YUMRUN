@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { adminAPI, restaurantAPI, userAPI } from '../utils/api';
+import { adminAPI, restaurantAPI, userAPI, deliveryAPI } from '../utils/api';
 import { useAuth } from './AuthContext';
 import { NOTIFICATION_TYPES } from './types/notification';
 
@@ -56,8 +56,7 @@ export const NotificationProvider = ({ children }) => {
           response = await restaurantAPI.getNotifications();
           break;
         case 'delivery_rider':
-          // Temp placeholder until delivery API is implemented
-          response = { data: { success: true, notifications: [] } };
+          response = await deliveryAPI.getNotifications();
           break;
         default:
           response = await userAPI.getNotifications();
@@ -100,7 +99,7 @@ export const NotificationProvider = ({ children }) => {
           response = await restaurantAPI.markNotificationAsRead(notificationId);
           break;
         case 'delivery_rider':
-          response = { data: { success: true } };
+          response = await deliveryAPI.markNotificationAsRead(notificationId);
           break;
         default:
           response = await userAPI.markNotificationAsRead(notificationId);
@@ -140,19 +139,19 @@ export const NotificationProvider = ({ children }) => {
           response = await restaurantAPI.markAllNotificationsAsRead();
           break;
         case 'delivery_rider':
-          response = { data: { success: true } };
+          response = await deliveryAPI.markAllNotificationsAsRead();
           break;
         default:
           response = await userAPI.markAllNotificationsAsRead();
       }
 
       if (response?.data?.success) {
-          setNotifications(prevNotifications => 
-            prevNotifications.map(notification => ({ ...notification, isRead: true }))
-          );
-          setUnreadCount(0);
+        setNotifications(prevNotifications => 
+          prevNotifications.map(notification => ({ ...notification, isRead: true }))
+        );
+        setUnreadCount(0);
       } else {
-          console.error('Failed to mark all notifications as read (API Error)');
+        console.error('Failed to mark all notifications as read (API Error)');
       }
 
     } catch (err) {

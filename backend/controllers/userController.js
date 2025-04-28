@@ -51,8 +51,10 @@ exports.getUnreadNotificationsCount = async (req, res) => {
  */
 exports.getUserProfile = async (req, res) => {
   try {
-    // Fetch user, excluding password related fields
-    const user = await User.findById(req.user._id).select('-password -resetPasswordToken -resetPasswordExpire -emailVerificationOTP -emailVerificationOTPExpires');
+    // Fetch user, excluding password related fields and populate restaurantId
+    const user = await User.findById(req.user._id)
+      .select('-password -resetPasswordToken -resetPasswordExpire -emailVerificationOTP -emailVerificationOTPExpires')
+      .populate('restaurantId', '_id name status address');
     
     if (!user) {
       return res.status(404).json({
@@ -81,27 +83,10 @@ exports.getUserProfile = async (req, res) => {
       loyaltyPoints,
       createdAt: user.createdAt,
       notifications: user.notifications,
-      deliveryRiderDetails: user.deliveryRiderDetails
+      deliveryRiderDetails: user.deliveryRiderDetails,
+      // Include the populated restaurantId directly
+      restaurantId: user.restaurantId
     };
-
-    // If user is a restaurant owner, fetch and attach their restaurant details
-    if (user.role === 'restaurant') {
-      console.log(`User ${user._id} is a restaurant owner. Fetching restaurant details...`);
-      const restaurant = await Restaurant.findOne({ owner: user._id });
-      if (restaurant) {
-        console.log(`Found restaurant details for user ${user._id}: ID ${restaurant._id}`);
-        // Selectively add relevant restaurant details
-        userProfile.restaurantDetails = {
-          _id: restaurant._id,
-          name: restaurant.name,
-          status: restaurant.status,
-          address: restaurant.address,
-        };
-      } else {
-         console.warn(`No restaurant document found for owner ID: ${user._id}`);
-         userProfile.restaurantDetails = null;
-      }
-    }
 
     return res.status(200).json({
       success: true,
@@ -112,7 +97,7 @@ exports.getUserProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: {
-        message: 'Server error. Please try again.',
+        message: 'Server error while fetching user profile',
         code: 'SERVER_ERROR'
       }
     });

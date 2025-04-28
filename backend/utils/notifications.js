@@ -198,10 +198,38 @@ const createRestaurantProfileUpdateNotification = async (restaurant, changes) =>
   }
 };
 
+/**
+ * Create a notification for a delivery rider
+ * @param {Object} options - Notification options
+ * @param {String} options.riderId - ID of the rider
+ * @param {String} options.title - Notification title
+ * @param {String} options.message - Notification message
+ * @param {String} options.type - Notification type
+ * @param {Object} options.data - Additional data
+ * @returns {Promise<Object>} The created notification
+ */
+const createDeliveryNotification = async (options) => {
+  try {
+    const { riderId, title, message, type = 'DELIVERY_ASSIGNMENT', data = {} } = options;
+    
+    return await createNotification({
+      userId: riderId,
+      title,
+      message,
+      type,
+      data
+    });
+  } catch (error) {
+    console.error('Error creating delivery notification:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   createNotification,
   createSystemNotificationForAll,
   createOrderNotification,
   createRestaurantOrderNotification,
-  createRestaurantProfileUpdateNotification
+  createRestaurantProfileUpdateNotification,
+  createDeliveryNotification
 }; 

@@ -15,39 +15,35 @@ const getBackendUrl = () => {
  * @returns {string} - The full URL including the backend server
  */
 export const getFullImageUrl = (path) => {
-  // console.log('getFullImageUrl called with path:', path); // Removed
-  
   // If the path already includes http or https, return it as is
   if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
-    // console.log('Path already contains http/https, returning as is'); // Removed
     return path;
   }
   
-  // If path is null/undefined or empty, return a default placeholder
-  if (!path) {
-    const defaultUrl = `${getBackendUrl()}/uploads/placeholders/food-placeholder.jpg`;
-    // console.log('No path provided, returning default placeholder:', defaultUrl); // Removed
-    return defaultUrl;
+  // If path is null/undefined/empty or just "undefined" string, return default placeholder
+  if (!path || path === 'undefined' || path === 'null') {
+    return PLACEHOLDERS.FOOD;
   }
   
   // Handle case when path is uploads/menu/file.jpg (without leading slash)
   // or /uploads/menu/file.jpg (with leading slash)
   const formattedPath = path.startsWith('/') ? path : `/${path}`;
   
-  // If path doesn't start with /uploads and doesn't have http/https, it might be just a filename
+  // Special case for menu item images
   if (!formattedPath.includes('/uploads/') && !formattedPath.includes('/images/')) {
-    // Check if it's just a filename like "abc.jpg"
+    // If it's just a filename like "abc.jpg" without a path
     if (formattedPath.match(/^\/[^/]+\.(jpg|jpeg|png|gif|webp)$/i)) {
-      const fullPath = `${getBackendUrl()}/uploads/menu${formattedPath}`;
-      // console.log('Simple filename detected, adding uploads/menu prefix:', fullPath); // Removed
-      return fullPath;
+      return `${getBackendUrl()}/uploads/menu${formattedPath}`;
+    }
+    
+    // If it's just "food-placeholder.jpg" without uploads prefix
+    if (formattedPath.includes('placeholder')) {
+      return `${getBackendUrl()}/uploads/placeholders${formattedPath}`;
     }
   }
   
-  // Return full URL
-  const fullUrl = `${getBackendUrl()}${formattedPath}`;
-  // console.log('Final image URL:', fullUrl); // Removed
-  return fullUrl;
+  // Return full URL with backend
+  return `${getBackendUrl()}${formattedPath}`;
 };
 
 /**
@@ -56,25 +52,27 @@ export const getFullImageUrl = (path) => {
  * @returns {string} - The URL to the image
  */
 export const getBestImageUrl = (item) => {
-  console.log('getBestImageUrl called for item:', item ? item.name || item.item_name : 'Unknown item');
-  
   if (!item) {
-    console.log('No item provided, returning default placeholder');
     return PLACEHOLDERS.FOOD;
   }
   
-  // Log available image fields for debugging
-  if (item.image) console.log('- image field:', item.image);
-  if (item.imageUrl) console.log('- imageUrl field:', item.imageUrl);
+  // Prioritize image fields: imageUrl, image, then fallback to default
+  let imagePath = null;
   
-  // Use imageUrl first if available, then image, then default placeholder
-  const imagePath = item.imageUrl || item.image;
-  const fullUrl = getFullImageUrl(imagePath);
+  // For menu items, check both properties
+  if (item.imageUrl && item.imageUrl !== 'undefined') {
+    imagePath = item.imageUrl;
+  } else if (item.image && item.image !== 'undefined') {
+    imagePath = item.image;
+  }
   
-  console.log('Selected image path:', imagePath);
-  console.log('Full image URL:', fullUrl);
+  // If no valid image found, return placeholder
+  if (!imagePath || imagePath === 'undefined') {
+    return PLACEHOLDERS.FOOD;
+  }
   
-  return fullUrl;
+  // Convert the path to a full URL
+  return getFullImageUrl(imagePath);
 };
 
 // Common placeholder images

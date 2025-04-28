@@ -11,6 +11,7 @@ export const NOTIFICATION_TYPES = {
   ADMIN_USER_PROFILE_CHANGE: 'admin_user_profile_change',
   ADMIN_PAYMENT_ISSUE: 'admin_payment_issue',
   ADMIN_SYSTEM_ALERT: 'admin_system_alert',
+  ADMIN_RESTAURANT_UPDATE: 'admin_restaurant_update',
   
   // Restaurant-specific notification types
   RESTAURANT_NEW_ORDER: 'restaurant_new_order',
@@ -27,5 +28,12 @@ export const NOTIFICATION_TYPES = {
   // Delivery-specific notification types
   DELIVERY_NEW_ASSIGNMENT: 'delivery_new_assignment',
   DELIVERY_ORDER_UPDATE: 'delivery_order_update',
-  DELIVERY_SCHEDULE_CHANGE: 'delivery_schedule_change'
+  DELIVERY_SCHEDULE_CHANGE: 'delivery_schedule_change',
+  
+  // Backend system notification types (matching database values)
+  PROFILE_UPDATE: 'PROFILE_UPDATE',
+  RESTAURANT_UPDATE: 'RESTAURANT_UPDATE', 
+  RESTAURANT_REGISTRATION: 'RESTAURANT_REGISTRATION',
+  PROFILE_UPDATE_REQUEST: 'PROFILE_UPDATE_REQUEST',
+  SYSTEM: 'SYSTEM'
 }; 

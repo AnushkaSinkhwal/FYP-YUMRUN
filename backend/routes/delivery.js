@@ -5,6 +5,7 @@ const Order = require('../models/order');
 const User = require('../models/user');
 const { createDeliveryNotification } = require('../utils/notifications');
 const { sendEmail, emailTemplates } = require('../utils/emailService');
+const Notification = require('../models/notification');
 
 // GET all delivery staff (Admin only)
 router.get('/staff', auth, isAdmin, async (req, res) => {
@@ -675,6 +676,113 @@ router.get('/earnings', auth, isDeliveryRider, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Server error fetching earnings data' 
+        });
+    }
+});
+
+// GET notifications for the delivery rider
+router.get('/notifications', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        
+        // Find notifications for this delivery rider
+        const notifications = await Notification.find({
+            userId: userId,
+            isAdminNotification: { $ne: true }
+        }).sort({ createdAt: -1 });
+        
+        res.status(200).json({
+            success: true,
+            notifications
+        });
+    } catch (error) {
+        console.error('Error fetching delivery rider notifications:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch notifications'
+        });
+    }
+});
+
+// GET count of unread notifications
+router.get('/notifications/unread-count', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        
+        // Count unread notifications
+        const count = await Notification.countDocuments({
+            userId: userId,
+            isRead: false,
+            isAdminNotification: { $ne: true }
+        });
+        
+        res.status(200).json({
+            success: true,
+            count
+        });
+    } catch (error) {
+        console.error('Error counting unread notifications:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to count unread notifications'
+        });
+    }
+});
+
+// MARK notification as read
+router.put('/notifications/:id/read', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const notificationId = req.params.id;
+        
+        // Find and update the notification
+        const notification = await Notification.findOneAndUpdate(
+            { _id: notificationId, userId: userId },
+            { isRead: true },
+            { new: true }
+        );
+        
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: 'Notification marked as read'
+        });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark notification as read'
+        });
+    }
+});
+
+// MARK all notifications as read
+router.put('/notifications/mark-all-read', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        
+        // Update all notifications for this user
+        const result = await Notification.updateMany(
+            { userId: userId, isRead: false },
+            { isRead: true }
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: 'All notifications marked as read',
+            count: result.nModified || 0
+        });
+    } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark all notifications as read'
         });
     }
 });

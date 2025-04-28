@@ -43,8 +43,20 @@ const upload = multer({
 // GET restaurant profile information
 router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId);
+        const userId = req.user.userId;
         
+        // Find the restaurant owned by this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Restaurant not found for this user' 
+            });
+        }
+        
+        // Get user for contact details
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ 
                 success: false, 
@@ -54,25 +66,27 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
         
         // Check for pending approval changes
         const pendingApproval = await RestaurantApproval.findOne({
-            restaurantId: req.user.userId,
+            restaurantId: restaurant._id,
             status: 'pending'
         });
         
         // Prepare the profile data with current values
         const profileData = {
-            name: user.restaurantDetails?.name || '',
-            description: user.restaurantDetails?.description || '',
-            address: user.restaurantDetails?.address || '',
+            name: restaurant.name || '',
+            description: restaurant.description || '',
+            address: restaurant.address || '',
             phone: user.phone || '',
             email: user.email || '',
-            openingHours: user.restaurantDetails?.openingHours || {},
-            cuisine: user.restaurantDetails?.cuisine || [],
-            isOpen: user.restaurantDetails?.isOpen !== undefined ? user.restaurantDetails.isOpen : true,
-            deliveryRadius: user.restaurantDetails?.deliveryRadius || 5,
-            minimumOrder: user.restaurantDetails?.minimumOrder || 0,
-            deliveryFee: user.restaurantDetails?.deliveryFee || 0,
-            logo: user.restaurantDetails?.logo || null,
-            coverImage: user.restaurantDetails?.coverImage || null
+            openingHours: restaurant.openingHours || {},
+            cuisine: restaurant.cuisine || [],
+            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : true,
+            deliveryRadius: restaurant.deliveryRadius || 5,
+            minimumOrder: restaurant.minimumOrder || 0,
+            deliveryFee: restaurant.deliveryFee || 0,
+            logo: restaurant.logo || null,
+            coverImage: restaurant.coverImage || null,
+            panNumber: restaurant.panNumber || '',
+            priceRange: restaurant.priceRange || '$$'
         };
         
         // Return restaurant profile information with pending changes if they exist
@@ -81,11 +95,7 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
             data: profileData,
             pendingChanges: pendingApproval ? {
                 hasPendingChanges: true,
-                name: pendingApproval.requestedData.name,
-                email: pendingApproval.requestedData.email,
-                phone: pendingApproval.requestedData.phone,
-                restaurantName: pendingApproval.requestedData.restaurantName,
-                restaurantAddress: pendingApproval.requestedData.restaurantAddress,
+                requestedData: pendingApproval.requestedData,
                 submittedAt: pendingApproval.createdAt
             } : {
                 hasPendingChanges: false
@@ -100,19 +110,34 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
     }
 });
 
-// PUT update restaurant profile
+// PUT update restaurant profile - Creates pending approval request
 router.put('/profile', [auth, isRestaurantOwner, upload.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'coverImage', maxCount: 1 }
 ])], async (req, res) => {
     try {
         const userId = req.user.userId;
-        const user = await User.findById(userId);
         
-        if (!user) {
+        // Find the restaurant owned by this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
             return res.status(404).json({ 
                 success: false, 
-                message: 'User not found' 
+                message: 'Restaurant not found for this user' 
+            });
+        }
+        
+        // Check if there's already a pending approval
+        const existingPendingApproval = await RestaurantApproval.findOne({
+            restaurantId: restaurant._id,
+            status: 'pending'
+        });
+        
+        if (existingPendingApproval) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'You already have pending changes awaiting approval' 
             });
         }
         
@@ -127,127 +152,125 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
             isOpen, 
             deliveryRadius, 
             minimumOrder, 
-            deliveryFee
+            deliveryFee,
+            panNumber,
+            priceRange
         } = req.body;
         
-        // Update restaurant details
-        if (!user.restaurantDetails) {
-            user.restaurantDetails = {};
+        // Handle file uploads
+        const files = req.files || {};
+        let logoPath = restaurant.logo;
+        let coverImagePath = restaurant.coverImage;
+        
+        if (files.logo && files.logo[0]) {
+            logoPath = files.logo[0].path;
         }
         
-        // Update fields if provided
-        if (name) user.restaurantDetails.name = name;
-        if (description) user.restaurantDetails.description = description;
-        if (address) user.restaurantDetails.address = address;
-        
-        // Handle phone number update with validation
-        if (phone && phone !== user.phone) {
-            // Validate phone number format (10 digits)
-            if (!/^\d{10}$/.test(phone)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Phone number must be exactly 10 digits'
-                });
-            }
-            user.phone = phone;
+        if (files.coverImage && files.coverImage[0]) {
+            coverImagePath = files.coverImage[0].path;
         }
         
-        // Handle JSON fields
-        if (openingHours) {
-            try {
-                user.restaurantDetails.openingHours = typeof openingHours === 'string' 
+        // Parse JSON fields
+        let parsedOpeningHours = restaurant.openingHours || {};
+        let parsedCuisine = restaurant.cuisine || [];
+        
+        try {
+            if (openingHours) {
+                parsedOpeningHours = typeof openingHours === 'string' 
                     ? JSON.parse(openingHours) 
                     : openingHours;
-            } catch (e) {
-                console.error('Error parsing openingHours:', e);
-            }
-        }
-        
-        if (cuisine) {
-            try {
-                user.restaurantDetails.cuisine = typeof cuisine === 'string' 
-                    ? JSON.parse(cuisine) 
-                    : cuisine;
-            } catch (e) {
-                console.error('Error parsing cuisine:', e);
-            }
-        }
-        
-        // Handle boolean/number fields
-        if (isOpen !== undefined) {
-            user.restaurantDetails.isOpen = isOpen === 'true' || isOpen === true;
-        }
-        
-        if (deliveryRadius) {
-            user.restaurantDetails.deliveryRadius = parseFloat(deliveryRadius);
-        }
-        
-        if (minimumOrder) {
-            user.restaurantDetails.minimumOrder = parseFloat(minimumOrder);
-        }
-        
-        if (deliveryFee) {
-            user.restaurantDetails.deliveryFee = parseFloat(deliveryFee);
-        }
-        
-        // Handle uploaded files
-        if (req.files) {
-            // Handle logo upload
-            if (req.files.logo && req.files.logo.length > 0) {
-                // Delete old logo if exists
-                if (user.restaurantDetails.logo && fs.existsSync(user.restaurantDetails.logo.substring(1))) {
-                    try {
-                        fs.unlinkSync(user.restaurantDetails.logo.substring(1));
-                    } catch (e) {
-                        console.error('Error deleting old logo:', e);
-                    }
-                }
-                
-                user.restaurantDetails.logo = '/' + req.files.logo[0].path;
             }
             
-            // Handle cover image upload
-            if (req.files.coverImage && req.files.coverImage.length > 0) {
-                // Delete old cover image if exists
-                if (user.restaurantDetails.coverImage && fs.existsSync(user.restaurantDetails.coverImage.substring(1))) {
-                    try {
-                        fs.unlinkSync(user.restaurantDetails.coverImage.substring(1));
-                    } catch (e) {
-                        console.error('Error deleting old cover image:', e);
-                    }
-                }
-                
-                user.restaurantDetails.coverImage = '/' + req.files.coverImage[0].path;
+            if (cuisine) {
+                parsedCuisine = typeof cuisine === 'string' 
+                    ? JSON.parse(cuisine) 
+                    : cuisine;
             }
+        } catch (e) {
+            console.error('Error parsing JSON fields:', e);
         }
         
-        // Explicitly save the user with a promise
-        const savedUser = await user.save();
+        // Get associated user for contact details
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User not found' 
+            });
+        }
         
-        // Log the successful update
-        console.log(`Restaurant profile updated successfully. User ID: ${savedUser._id}, Phone: ${savedUser.phone}`);
+        // Create approval request with current and requested data
+        const approvalRequest = new RestaurantApproval({
+            restaurantId: restaurant._id,
+            currentData: {
+                name: restaurant.name,
+                description: restaurant.description,
+                address: restaurant.address,
+                phone: user.phone,
+                cuisine: restaurant.cuisine,
+                openingHours: restaurant.openingHours,
+                isOpen: restaurant.isOpen,
+                deliveryRadius: restaurant.deliveryRadius,
+                minimumOrder: restaurant.minimumOrder,
+                deliveryFee: restaurant.deliveryFee,
+                logo: restaurant.logo,
+                coverImage: restaurant.coverImage,
+                panNumber: restaurant.panNumber,
+                priceRange: restaurant.priceRange
+            },
+            requestedData: {
+                name: name || restaurant.name,
+                description: description || restaurant.description,
+                address: address || restaurant.address,
+                phone: phone || user.phone,
+                cuisine: parsedCuisine,
+                openingHours: parsedOpeningHours,
+                isOpen: isOpen !== undefined ? isOpen : restaurant.isOpen,
+                deliveryRadius: deliveryRadius || restaurant.deliveryRadius,
+                minimumOrder: minimumOrder || restaurant.minimumOrder,
+                deliveryFee: deliveryFee || restaurant.deliveryFee,
+                logo: logoPath,
+                coverImage: coverImagePath,
+                panNumber: panNumber || restaurant.panNumber,
+                priceRange: priceRange || restaurant.priceRange
+            },
+            status: 'pending'
+        });
         
-        return res.status(200).json({
+        await approvalRequest.save();
+        
+        // Create notification for admin
+        try {
+            const notification = new Notification({
+                type: 'RESTAURANT_UPDATE',
+                title: 'Restaurant Profile Update Request',
+                message: `Restaurant "${restaurant.name}" has requested profile changes.`,
+                isAdminNotification: true,
+                isRead: false,
+                data: {
+                    restaurantId: restaurant._id,
+                    approvalId: approvalRequest._id
+                }
+            });
+            
+            await notification.save();
+        } catch (notificationError) {
+            console.error('Error creating notification:', notificationError);
+            // Continue processing even if notification creation fails
+        }
+        
+        // Return response with pending approval information
+        return res.status(202).json({
             success: true,
-            message: 'Restaurant profile updated successfully',
+            message: 'Profile update request submitted for approval',
             data: {
-                name: savedUser.restaurantDetails.name,
-                description: savedUser.restaurantDetails.description,
-                address: savedUser.restaurantDetails.address,
-                phone: savedUser.phone,
-                email: savedUser.email,
-                openingHours: savedUser.restaurantDetails.openingHours || {},
-                cuisine: savedUser.restaurantDetails.cuisine || [],
-                isOpen: savedUser.restaurantDetails.isOpen !== undefined ? savedUser.restaurantDetails.isOpen : true,
-                deliveryRadius: savedUser.restaurantDetails.deliveryRadius || 5,
-                minimumOrder: savedUser.restaurantDetails.minimumOrder || 0,
-                deliveryFee: savedUser.restaurantDetails.deliveryFee || 0,
-                logo: savedUser.restaurantDetails.logo || null,
-                coverImage: savedUser.restaurantDetails.coverImage || null
+                hasPendingChanges: true,
+                approvalId: approvalRequest._id,
+                submittedAt: approvalRequest.createdAt
             }
         });
     } catch (error) {
-        console.error('Error updating restaurant profile:', error);
+        console.error('Error submitting profile update request:', error);
         return res.status(500).json({ 
             success: false, 
             message: 'Server error: ' + error.message
@@ -332,8 +355,20 @@ router.get('/pending-changes', auth, async (req, res) => {
             });
         }
 
+        const userId = req.user.userId;
+        
+        // Find the restaurant associated with this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found for this user'
+            });
+        }
+
         const pendingChanges = await RestaurantApproval.findOne({
-            restaurantId: req.user._id,
+            restaurantId: restaurant._id,
             status: 'pending'
         });
 
@@ -342,6 +377,7 @@ router.get('/pending-changes', auth, async (req, res) => {
             pendingChanges
         });
     } catch (error) {
+        console.error('Error fetching pending changes:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -565,8 +601,20 @@ router.delete('/notifications/:id', auth, isRestaurantOwner, async (req, res) =>
  */
 router.get('/profile/changes/status', auth, isRestaurantOwner, async (req, res) => {
     try {
+        const userId = req.user.userId;
+        
+        // Find the restaurant associated with this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Restaurant not found for this user' 
+            });
+        }
+        
         const pendingApproval = await RestaurantApproval.findOne({
-            restaurantId: req.user.userId,
+            restaurantId: restaurant._id,
             status: 'pending'
         });
         
@@ -592,6 +640,17 @@ router.get('/profile/changes/status', auth, isRestaurantOwner, async (req, res) 
 router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
     try {
         const userId = req.user.userId;
+        
+        // Find the restaurant owned by this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Restaurant not found for this user' 
+            });
+        }
+        
         const user = await User.findById(userId);
         
         if (!user) {
@@ -603,7 +662,7 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         
         // Check if there's already a pending approval
         const existingPendingApproval = await RestaurantApproval.findOne({
-            restaurantId: userId,
+            restaurantId: restaurant._id,
             status: 'pending'
         });
         
@@ -615,7 +674,7 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         }
         
         // Extract fields from request body
-        const { name, email, phone, restaurantName, restaurantAddress } = req.body;
+        const { name, email, phone, description, address } = req.body;
         
         // Validate phone number if provided
         if (phone && !/^\d{10}$/.test(phone)) {
@@ -627,20 +686,20 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         
         // Create a new approval request
         const approvalRequest = new RestaurantApproval({
-            restaurantId: userId,
+            restaurantId: restaurant._id,
             currentData: {
-                name: user.name,
+                name: restaurant.name,
                 email: user.email,
                 phone: user.phone,
-                restaurantName: user.restaurantDetails?.name || '',
-                restaurantAddress: user.restaurantDetails?.address || ''
+                description: restaurant.description,
+                address: restaurant.address
             },
             requestedData: {
-                name: name || user.name,
+                name: name || restaurant.name,
                 email: email || user.email,
                 phone: phone || user.phone,
-                restaurantName: restaurantName || user.restaurantDetails?.name || '',
-                restaurantAddress: restaurantAddress || user.restaurantDetails?.address || ''
+                description: description || restaurant.description,
+                address: address || restaurant.address
             },
             status: 'pending'
         });
@@ -651,10 +710,11 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         const notification = new Notification({
             type: 'RESTAURANT_UPDATE',
             title: 'Restaurant Profile Update Request',
-            message: `Restaurant ${user.restaurantDetails?.name || 'owner'} has requested profile changes.`,
-            userId: userId,
+            message: `Restaurant ${restaurant.name} has requested profile changes.`,
+            isAdminNotification: true,
             isRead: false,
             data: {
+                restaurantId: restaurant._id,
                 approvalId: savedApproval._id,
                 changes: savedApproval.requestedData
             }
@@ -663,7 +723,7 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
         await notification.save();
         
         // Log the approval request
-        console.log(`Restaurant profile changes submitted for approval. Restaurant ID: ${userId}, Requested phone: ${phone || 'unchanged'}`);
+        console.log(`Restaurant profile changes submitted for approval. Restaurant ID: ${restaurant._id}, Requested phone: ${phone || 'unchanged'}`);
         
         return res.status(201).json({
             success: true,
@@ -695,58 +755,18 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
         const Offer = require('../models/offer');
         
         // Find the restaurant associated with this user
-        let restaurantId = null; // Initialize to null
-        let derivedFrom = null; // Track how ID was derived
-
-        // First check if user has restaurantDetails
-        const user = await User.findById(userId);
-        if (user && user.restaurantDetails && user.restaurantDetails._id) {
-            restaurantId = user.restaurantDetails._id;
-            derivedFrom = 'user.restaurantDetails._id';
-            console.log(`[Dashboard] Found restaurant ID (${restaurantId}) from user.restaurantDetails._id`);
-        } else {
-             console.log('[Dashboard] No restaurant ID found in user.restaurantDetails.');
-            // Check if a separate restaurant document exists
-            try {
-                // Use proper Restaurant model
-                const Restaurant = require('../models/restaurant');
-                console.log(`[Dashboard] Looking up Restaurant collection with owner: ${userId}`);
-                const restaurantDoc = await Restaurant.findOne({ owner: userId });
-                
-                if (restaurantDoc) {
-                    restaurantId = restaurantDoc._id;
-                    derivedFrom = 'Restaurant collection lookup';
-                    console.log(`[Dashboard] Found restaurant ID (${restaurantId}) from Restaurant collection.`);
-                } else {
-                    console.log('[Dashboard] No restaurant document found in Restaurant collection for this owner.');
-                     // Fallback: Use the user's ID directly IF they are a restaurant owner (as last resort)
-                     if (user && (user.role === 'restaurant' || user.isRestaurantOwner)) {
-                         restaurantId = userId;
-                         derivedFrom = 'fallback to userId';
-                         console.log(`[Dashboard] Falling back to using user ID (${restaurantId}) as restaurant ID.`);
-                     }
-                }
-            } catch (err) {
-                console.error('[Dashboard] Error looking up restaurant collection:', err);
-                // Fallback: Use the user's ID directly IF they are a restaurant owner
-                if (user && (user.role === 'restaurant' || user.isRestaurantOwner)) {
-                    restaurantId = userId;
-                    derivedFrom = 'fallback to userId after error';
-                    console.log(`[Dashboard] Falling back to using user ID (${restaurantId}) as restaurant ID after error.`);
-                }
-            }
-        }
+        const restaurant = await Restaurant.findOne({ owner: userId });
         
-        // Ensure we have a valid restaurantId before proceeding
-        if (!restaurantId) {
-            console.error(`[Dashboard] Could not determine a valid restaurant ID for user ${userId}.`);
+        if (!restaurant) {
+            console.error(`[Dashboard] No restaurant found for user ${userId}`);
             return res.status(404).json({
                 success: false,
-                message: 'Could not associate user with a restaurant.'
+                message: 'Restaurant not found for this user'
             });
         }
-
-        console.log(`[Dashboard] Final restaurant ID determined: ${restaurantId} (Derived from: ${derivedFrom})`);
+        
+        const restaurantId = restaurant._id;
+        console.log(`[Dashboard] Found restaurant with ID: ${restaurantId}`);
 
         // Fetch counts and aggregated data with try/catch for each operation
         let totalOrders = 0, pendingOrders = 0, menuItems = 0, activeOffers = 0;
@@ -823,7 +843,6 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
         try {
              const restaurantIdString = restaurantId.toString();
              console.log(`[Dashboard] Fetching recent menu updates for restaurant: ${restaurantIdString}`);
-            // Use the determined restaurantId directly (should be ObjectId)
             recentMenuUpdates = await MenuItem.find({ restaurant: restaurantId }) 
                 .sort('-updatedAt')
                 .limit(3)
@@ -877,159 +896,25 @@ router.get('/dashboard', auth, isRestaurantOwner, async (req, res) => {
 });
 
 /**
- * @route   POST /api/restaurant/test-order
- * @desc    Create a test order for the restaurant (temporary, for development)
- * @access  Private/RestaurantOwner
- */
-router.post('/test-order', auth, isRestaurantOwner, async (req, res) => {
-    try {
-        const restaurantId = req.user.userId;
-        const Order = require('../models/order');
-        
-        // Generate a unique order number
-        const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-        
-        // Create a sample order
-        const testOrder = new Order({
-            orderNumber,
-            userId: restaurantId, // Using restaurant owner as customer for simplicity
-            restaurantId: restaurantId,
-            items: [
-                {
-                    productId: new mongoose.Types.ObjectId(), // Generate a random ID
-                    name: "Test Food Item",
-                    price: 15.99,
-                    quantity: 2,
-                    options: [
-                        { name: "Size", value: "Large", price: 2.00 }
-                    ]
-                }
-            ],
-            totalPrice: 33.98, // 15.99 * 2 + 2.00
-            deliveryFee: 3.99,
-            tax: 3.80,
-            tip: 5.00,
-            grandTotal: 46.77, // Total + fee + tax + tip
-            status: 'PENDING',
-            paymentMethod: 'CREDIT_CARD',
-            paymentStatus: 'PAID',
-            deliveryAddress: {
-                street: "123 Test Street",
-                city: "Test City",
-                state: "TS",
-                zipCode: "12345",
-                country: "Test Country"
-            },
-            specialInstructions: "This is a test order for development",
-            statusUpdates: [
-                {
-                    status: 'PENDING',
-                    timestamp: new Date(),
-                    updatedBy: restaurantId
-                }
-            ]
-        });
-        
-        await testOrder.save();
-        
-        return res.status(200).json({
-            success: true,
-            message: 'Test order created successfully',
-            data: testOrder
-        });
-    } catch (error) {
-        console.error('Error creating test order:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error creating test order'
-        });
-    }
-});
-
-/**
- * @route   POST /api/restaurant/test-menu-item
- * @desc    Create a test menu item for the restaurant (temporary, for development)
- * @access  Private/RestaurantOwner
- */
-router.post('/test-menu-item', auth, isRestaurantOwner, async (req, res) => {
-    try {
-        const restaurantId = req.user.userId;
-        
-        // Create a sample menu item
-        const testMenuItem = new MenuItem({
-            item_name: "Test Food Item " + Math.floor(Math.random() * 100),
-            item_price: 15.99,
-            description: "This is a test menu item created for development",
-            restaurant: restaurantId,
-            category: 'Main Course',
-            isVegetarian: false,
-            isVegan: false,
-            isGlutenFree: false,
-            isAvailable: true
-        });
-        
-        await testMenuItem.save();
-        
-        return res.status(200).json({
-            success: true,
-            message: 'Test menu item created successfully',
-            data: testMenuItem
-        });
-    } catch (error) {
-        console.error('Error creating test menu item:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error creating test menu item'
-        });
-    }
-});
-
-/**
- * @route   POST /api/restaurant/test-offer
- * @desc    Create a test offer for the restaurant (temporary, for development)
- * @access  Private/RestaurantOwner
- */
-router.post('/test-offer', auth, isRestaurantOwner, async (req, res) => {
-    try {
-        const restaurantId = req.user.userId;
-        
-        // Create a sample offer
-        const testOffer = new Offer({
-            title: "Test Offer " + Math.floor(Math.random() * 100),
-            description: "This is a test offer created for development",
-            offerType: 'Discount',
-            discountPercentage: 20,
-            startDate: new Date(),
-            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-            isActive: true,
-            appliesTo: 'All Menu',
-            restaurant: restaurantId
-        });
-        
-        await testOffer.save();
-        
-        return res.status(200).json({
-            success: true,
-            message: 'Test offer created successfully',
-            data: testOffer
-        });
-    } catch (error) {
-        console.error('Error creating test offer:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error creating test offer'
-        });
-    }
-});
-
-/**
  * @route   GET /api/restaurant/analytics
  * @desc    Get restaurant analytics data
  * @access  Private/RestaurantOwner
  */
 router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
     try {
-        const restaurantId = req.user.userId;
+        const userId = req.user.userId;
+        
+        // Find the restaurant owned by this user
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
+        if (!restaurant) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Restaurant not found for this user' 
+            });
+        }
+        
+        const restaurantId = restaurant._id;
         const period = req.query.period || 'week';
         
         // Define the date range based on period
@@ -1229,8 +1114,10 @@ router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
 router.get('/pending-update-check', auth, isRestaurantOwner, async (req, res) => {
     try {
         const userId = req.user.userId;
+        
         // Find the restaurant ID associated with the owner
-        const restaurant = await Restaurant.findOne({ owner: userId }).select('_id');
+        const restaurant = await Restaurant.findOne({ owner: userId });
+        
         if (!restaurant) {
              // If no restaurant found for owner, technically no pending update exists for them
              // Although this case might indicate another issue
@@ -1241,7 +1128,6 @@ router.get('/pending-update-check', auth, isRestaurantOwner, async (req, res) =>
         const pendingAdminNotification = await Notification.findOne({
             isAdminNotification: true,
             type: 'RESTAURANT_UPDATE',
-            status: 'PENDING',
             'data.restaurantId': restaurant._id 
         });
 

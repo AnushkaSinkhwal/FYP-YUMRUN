@@ -367,6 +367,16 @@ export const adminAPI = {
     return api.get('/admin/restaurant-approvals');
   },
 
+  // Approve restaurant profile changes
+  approveRestaurantProfileChanges: async (approvalId) => {
+    return api.post(`/admin/restaurant-approvals/${approvalId}/approve`);
+  },
+  
+  // Reject restaurant profile changes
+  rejectRestaurantProfileChanges: async (approvalId, data) => {
+    return api.post(`/admin/restaurant-approvals/${approvalId}/reject`, data);
+  },
+
   // Get available drivers (admin only)
   getAvailableDrivers: async () => {
     // Assuming the endpoint exists, otherwise this will fail
@@ -417,20 +427,17 @@ export const adminAPI = {
   // approveRestaurant: async (restaurantId) => {
   //   return api.patch(`/admin/restaurants/${restaurantId}/approve`);
   // },
-  // rejectRestaurant: async (restaurantId, reason) => {
-  //   return api.patch(`/admin/restaurants/${restaurantId}/reject`, { reason });
-  // },
   // **DEPRECATED**: Old restaurant approval list (use getRestaurants with filtering)
   // getRestaurantApprovals: async () => {
   //   return api.get('/admin/approvals/restaurants');
   // },
   // **DEPRECATED**: Old pending restaurant list (use getRestaurants with filtering)
-  // getPendingRestaurants: async () => {
-  //   return api.get('/admin/restaurants/pending');
-  // },
+  getPendingRestaurants: async () => {
+    return api.get('/admin/pending-restaurants');
+  },
 
   // Notification Management
-  getNotifications: async (params) => {
+  getNotifications: async (params = {}) => {
     return api.get('/admin/notifications', { params });
   },
   getNotificationCounts: async () => {
@@ -458,6 +465,18 @@ export const adminAPI = {
   // **NEW** (from Restaurants.jsx - Add Restaurant functionality)
   createRestaurantAndOwner: async (newRestaurantData) => {
     return api.post('/admin/restaurants', newRestaurantData);
+  },
+
+  // Restaurant approvals and updates
+  getPendingRestaurantUpdates: async () => {
+    return api.get('/admin/restaurant-updates');
+  },
+  processRestaurantUpdate: async (updateId, action, reason) => {
+    const payload = { action };
+    if (action === 'reject' && reason) {
+      payload.reason = reason;
+    }
+    return api.post(`/admin/notifications/${updateId}/process`, payload);
   },
 };
 
@@ -943,6 +962,30 @@ export const deliveryAPI = {
     return userAPI.updateSettings(settingsData);
   },
 
+  // Get notifications
+  getNotifications: async () => {
+    return api.get('/delivery/notifications');
+  },
+  
+  // Get unread notification count
+  getUnreadNotificationCount: async () => {
+    return api.get('/delivery/notifications/unread-count');
+  },
+  
+  // Mark notification as read
+  markNotificationAsRead: async (notificationId) => {
+    return api.put(`/delivery/notifications/${notificationId}/read`);
+  },
+  
+  // Mark all notifications as read
+  markAllNotificationsAsRead: async () => {
+    return api.put('/delivery/notifications/mark-all-read');
+  },
+  
+  // Delete notification
+  deleteNotification: async (notificationId) => {
+    return api.delete(`/delivery/notifications/${notificationId}`);
+  },
 };
 
 // --- NEW: Review API methods ---

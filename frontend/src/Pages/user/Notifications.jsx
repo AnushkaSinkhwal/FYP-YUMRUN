@@ -4,11 +4,10 @@ import { FaSearch, FaBell, FaCheck, FaInfo, FaGift, FaShoppingBag } from 'react-
 import { userAPI } from '../../utils/api';
 
 const UserNotifications = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchNotifications();
@@ -16,28 +15,25 @@ const UserNotifications = () => {
 
   const fetchNotifications = async () => {
     try {
-      setIsLoading(true);
-      setError('');
+      setLoading(true);
       const response = await userAPI.getNotifications();
 
       if (response.data.success) {
         setNotifications(response.data.notifications || []);
       } else {
-        setError('Failed to load notifications: ' + (response.data.message || 'Unknown error'));
         setNotifications([]);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      setError('Failed to connect to the server. Please try again later.');
       setNotifications([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const filteredNotifications = notifications.filter(notification =>
-    notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    notification.message.toLowerCase().includes(searchQuery.toLowerCase())
+    (notification.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (notification.message || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getNotificationIcon = (type) => {
@@ -53,15 +49,16 @@ const UserNotifications = () => {
     }
   };
 
-  const getStatusColor = (isRead) => {
-    return !isRead ? 'bg-blue-100 dark:bg-blue-900/30' : '';
-  };
-
   const filterNotifications = (status) => {
     if (status === 'all') return filteredNotifications;
-    return filteredNotifications.filter(notification => 
-      status === 'unread' ? !notification.isRead : notification.isRead
-    );
+    
+    // Check for both properties since API might use either one
+    return filteredNotifications.filter(notification => {
+      const isUnread = status === 'unread';
+      // Some APIs use isRead, others use read
+      const notificationReadState = notification.isRead !== undefined ? notification.isRead : notification.read;
+      return isUnread ? !notificationReadState : notificationReadState;
+    });
   };
 
   const markAsRead = async (id) => {
@@ -96,7 +93,7 @@ const UserNotifications = () => {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Spinner size="lg" />
@@ -147,7 +144,10 @@ const UserNotifications = () => {
 
       <div className="space-y-4">
         {filterNotifications(activeTab).map(notification => (
-          <Card key={notification._id} className={`p-4 ${getStatusColor(!notification.isRead)}`}>
+          <Card 
+            key={notification._id} 
+            className={`p-4 ${!notification.isRead && !notification.read ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}
+          >
             <div className="flex items-start gap-4">
               <div className="mt-1">
                 {getNotificationIcon(notification.type)}
@@ -155,13 +155,13 @@ const UserNotifications = () => {
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold">{notification.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                    <h3 className="font-semibold">{notification.title || 'Notification'}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{notification.message || ''}</p>
                     <p className="text-xs text-gray-500 mt-2">
                       {new Date(notification.createdAt).toLocaleString()}
                     </p>
                   </div>
-                  {!notification.isRead && (
+                  {(!notification.isRead || !notification.read) && (
                     <Button
                       variant="ghost"
                       size="icon"

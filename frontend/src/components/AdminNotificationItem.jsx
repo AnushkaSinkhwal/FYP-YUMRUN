@@ -29,8 +29,12 @@ const AdminNotificationItem = ({ notification }) => {
     
     switch (notification.type) {
       case NOTIFICATION_TYPES.ADMIN_RESTAURANT_APPROVAL:
+      case NOTIFICATION_TYPES.RESTAURANT_UPDATE:
+      case NOTIFICATION_TYPES.RESTAURANT_REGISTRATION:
         return <FiCoffee {...iconProps} />;
       case NOTIFICATION_TYPES.ADMIN_USER_PROFILE_CHANGE:
+      case NOTIFICATION_TYPES.PROFILE_UPDATE:
+      case NOTIFICATION_TYPES.PROFILE_UPDATE_REQUEST:
         return <FiUser {...iconProps} />;
       case NOTIFICATION_TYPES.ADMIN_PAYMENT_ISSUE:
         return <FiShoppingBag {...iconProps} />;
@@ -70,13 +74,17 @@ const AdminNotificationItem = ({ notification }) => {
     // Navigate to relevant page based on notification type
     switch (notification.type) {
       case NOTIFICATION_TYPES.ADMIN_RESTAURANT_APPROVAL:
-        navigate('/admin/approvals');
+      case 'RESTAURANT_UPDATE':
+      case 'RESTAURANT_REGISTRATION':
+      case 'PROFILE_UPDATE_REQUEST':
+        navigate('/admin/restaurant-approvals');
         break;
       case NOTIFICATION_TYPES.ADMIN_USER_PROFILE_CHANGE:
-        navigate(`/admin/users/${notification.data.userId}`);
+      case 'PROFILE_UPDATE':
+        navigate(`/admin/users/${notification.data?.userId || ''}`);
         break;
       case NOTIFICATION_TYPES.ADMIN_PAYMENT_ISSUE:
-        navigate(`/admin/orders/${notification.data.orderId}`);
+        navigate(`/admin/orders/${notification.data?.orderId || ''}`);
         break;
       default:
         // Just mark as read without navigation

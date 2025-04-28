@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '../../utils/api';
 import { Card, Button, Alert, Spinner, Badge } from '../../components/ui';
 import PropTypes from 'prop-types';
+import { useNavigate } from 'react-router-dom';
 
-const NotificationItem = ({ notification, onProcess, onMarkAsRead }) => {
+const NotificationItem = ({ notification, onMarkAsRead }) => {
+  const navigate = useNavigate();
+  
   const getStatusBadge = (status) => {
     switch(status) {
       case 'PENDING':
@@ -31,10 +34,28 @@ const NotificationItem = ({ notification, onProcess, onMarkAsRead }) => {
         return 'Restaurant Update Request';
       case 'RESTAURANT_REGISTRATION':
         return 'New Restaurant Registration';
+      case 'PROFILE_UPDATE_REQUEST':
+        return 'Profile Update Request';
       case 'SYSTEM':
         return 'System Notification';
       default:
         return 'Notification';
+    }
+  };
+  
+  const handleViewDetails = () => {
+    onMarkAsRead(notification._id);
+    
+    // Determine the appropriate route based on notification type
+    if (notification.type === 'RESTAURANT_UPDATE' || 
+        notification.type === 'RESTAURANT_REGISTRATION' || 
+        notification.type === 'PROFILE_UPDATE_REQUEST') {
+      navigate('/admin/restaurant-approvals');
+    } else if (notification.type === 'PROFILE_UPDATE') {
+      navigate(`/admin/users/${notification.data?.userId || ''}`);
+    } else {
+      // Default to notification list if no specific location
+      navigate('/admin/notifications');
     }
   };
   
@@ -67,60 +88,15 @@ const NotificationItem = ({ notification, onProcess, onMarkAsRead }) => {
           </p>
         </div>
         
-        {notification.data && Object.keys(notification.data).length > 0 && (
-          <div className="p-2 mb-2 text-xs rounded-md bg-gray-50 dark:bg-gray-800">
-            <h4 className="mb-1 font-medium">Details:</h4>
-            <pre className="whitespace-pre-wrap">{JSON.stringify(notification.data, null, 2)}</pre>
-          </div>
-        )}
-        
-        <div className="flex items-center justify-between mt-2">
-          {notification.status === 'PENDING' ? (
-            <div className="flex space-x-2">
-              <Button 
-                variant="success" 
-                size="xs"
-                onClick={() => onProcess(notification._id, 'approve')}
-              >
-                Approve
-              </Button>
-              <Button 
-                variant="danger" 
-                size="xs"
-                onClick={() => onProcess(notification._id, 'reject')}
-              >
-                Reject
-              </Button>
-            </div>
-          ) : (
-            <div></div>
-          )}
-          
-          {!notification.isRead && (
-            <Button 
-              variant="outline" 
-              size="xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkAsRead(notification._id);
-              }}
-            >
-              Mark as Read
-            </Button>
-          )}
+        <div className="flex justify-end mt-2">
+          <Button 
+            size="sm"
+            variant="secondary"
+            onClick={handleViewDetails}
+          >
+            View Details
+          </Button>
         </div>
-        
-        {notification.status === 'REJECTED' && notification.rejectionReason && (
-          <div className="mt-3">
-            <p className="text-sm font-medium text-red-600">Rejection reason: {notification.rejectionReason}</p>
-          </div>
-        )}
-        
-        {notification.status !== 'PENDING' && notification.processedAt && (
-          <div className="mt-3 text-xs text-gray-500">
-            {notification.status === 'APPROVED' ? 'Approved' : 'Rejected'} on {formatDate(notification.processedAt)}
-          </div>
-        )}
       </div>
     </Card>
   );
@@ -139,7 +115,6 @@ NotificationItem.propTypes = {
     rejectionReason: PropTypes.string,
     data: PropTypes.object
   }).isRequired,
-  onProcess: PropTypes.func.isRequired,
   onMarkAsRead: PropTypes.func.isRequired,
 };
 
@@ -175,76 +150,27 @@ const AdminNotifications = () => {
     }
   };
   
-  const handleProcess = async (notificationId, action, data = {}) => {
-    let reason = data.reason;
-    if (action === 'reject' && !reason) {
-        reason = prompt("Please provide a reason for rejection (optional):");
-        if (reason === null) return;
-        data.reason = reason || 'Rejected by admin';
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setProcessSuccess(null);
-
-    try {
-      const response = await adminAPI.processNotification(notificationId, action, data);
-      
-      if (response.data.success) {
-        setNotifications(prevNotifications => 
-          prevNotifications.map(notif => 
-            notif._id === notificationId 
-              ? { ...notif, status: action === 'approve' ? 'APPROVED' : 'REJECTED', processedAt: new Date(), isRead: true, rejectionReason: action === 'reject' ? data.reason : undefined }
-              : notif
-          )
-        );
-        
-        setProcessSuccess(`Request has been ${action === 'approve' ? 'approved' : 'rejected'} successfully.`);
-        setTimeout(() => setProcessSuccess(null), 3000);
-
-        const event = new CustomEvent('notifications-updated');
-        window.dispatchEvent(event);
-
-      } else {
-        setError(response.data.message || `Failed to ${action} notification`);
-      }
-    } catch (error) {
-      console.error(`Error ${action}ing notification:`, error);
-      setError(`An error occurred while ${action}ing the notification: ${error?.response?.data?.message || error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   const handleMarkAsRead = async (notificationId) => {
     try {
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notif => 
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
-      );
+      setProcessSuccess(null);
+      setError(null);
       
       const response = await adminAPI.markNotificationAsRead(notificationId);
       
-      if (!response.data.success) {
+      if (response?.data?.success) {
         setNotifications(prevNotifications => 
-          prevNotifications.map(notif => 
-            notif._id === notificationId ? { ...notif, isRead: false } : notif
+          prevNotifications.map(notification => 
+            notification._id === notificationId 
+              ? { ...notification, isRead: true } 
+              : notification
           )
         );
-        setError(response.data.message || 'Failed to mark notification as read');
       } else {
-        const event = new CustomEvent('notifications-updated');
-        window.dispatchEvent(event);
+        setError('Failed to mark notification as read: ' + (response?.data?.message || ''));
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
-      setError('An error occurred while marking the notification as read.');
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notif => 
-          notif._id === notificationId ? { ...notif, isRead: false } : notif
-        )
-      );
+      setError('An error occurred while marking notification as read.');
     }
   };
   
@@ -287,7 +213,6 @@ const AdminNotifications = () => {
             <NotificationItem 
               key={notification._id}
               notification={notification}
-              onProcess={handleProcess}
               onMarkAsRead={handleMarkAsRead}
             />
           ))}

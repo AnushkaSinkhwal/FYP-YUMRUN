@@ -45,9 +45,10 @@ const ProductItem = ({
 
     // Process the image URL using getFullImageUrl and appropriate placeholder
     const finalImage = image || imgSrc || '';
-    const processedImageUrl = finalImage 
-        ? getFullImageUrl(finalImage) 
-        : isRestaurant ? PLACEHOLDERS.RESTAURANT : PLACEHOLDERS.FOOD;
+    const processedImageUrl = getBestImageUrl(isRestaurant ? 
+        { image: finalImage } : // For restaurants
+        { image: finalImage, imageUrl: finalImage } // For menu items
+    );
 
     // Calculate display prices based on offerDetails or props
     let displayPrice = parseFloat(newPrice) || 0;

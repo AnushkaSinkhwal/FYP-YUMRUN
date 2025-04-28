@@ -43,7 +43,7 @@ const UserProfile = () => {
       approved: false,
       isAvailable: false,
     },
-    restaurantDetails: null,
+    restaurantId: null,
     notifications: {
       orderUpdates: true,
       promotions: true,
@@ -94,7 +94,7 @@ const UserProfile = () => {
             approved: false,
             isAvailable: false,
           },
-          restaurantDetails: userData.restaurantDetails || null,
+          restaurantId: userData.restaurantId || null,
           notifications: userData.notifications || {
             orderUpdates: true,
             promotions: true,
@@ -129,7 +129,7 @@ const UserProfile = () => {
             approved: false,
             isAvailable: false,
           },
-          restaurantDetails: userData.restaurantDetails || null,
+          restaurantId: userData.restaurantId || null,
         });
       } else {
         console.warn("Profile data fetch returned non-success response:", response.data);
@@ -177,7 +177,7 @@ const UserProfile = () => {
         approved: false,
         isAvailable: false,
       },
-      restaurantDetails: null,
+      restaurantId: null,
       notifications: {
         orderUpdates: true,
         promotions: false,
@@ -874,25 +874,25 @@ const UserProfile = () => {
           )}
 
           {/* Restaurant Details (Conditional) */}
-          {profile.role === 'restaurant' && profile.restaurantDetails && (
+          {profile.role === 'restaurant' && profile.restaurantId && (
             <Card className="p-6">
               <h2 className="mb-4 text-lg font-semibold">Restaurant Information</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-sm font-medium text-gray-500">Restaurant Name</Label>
-                  <p>{profile.restaurantDetails.name || 'N/A'}</p>
+                  <p>{profile.restaurantId.name || 'N/A'}</p>
                 </div>
                  <div className="space-y-1">
                   <Label className="text-sm font-medium text-gray-500">Status</Label>
-                  <p className={`font-medium ${ profile.restaurantDetails.status === 'approved' ? 'text-green-600' : profile.restaurantDetails.status === 'pending_approval' ? 'text-orange-600' : 'text-red-600' }`}>
-                     {profile.restaurantDetails.status?.replace('_', ' ') || 'N/A'}
+                  <p className={`font-medium ${ profile.restaurantId.status === 'approved' ? 'text-green-600' : profile.restaurantId.status === 'pending_approval' ? 'text-orange-600' : 'text-red-600' }`}>
+                     {profile.restaurantId.status?.replace('_', ' ') || 'N/A'}
                   </p>
                 </div>
                  <div className="space-y-1 md:col-span-2">
                   <Label className="text-sm font-medium text-gray-500">Address</Label>
                   <p>{/* Format address object nicely */}
-                     {profile.restaurantDetails.address ? 
-                       `${profile.restaurantDetails.address.street || ''}, ${profile.restaurantDetails.address.city || ''}` 
+                     {profile.restaurantId.address ? 
+                       `${profile.restaurantId.address.street || ''}, ${profile.restaurantId.address.city || ''}` 
                        : 'N/A'}
                   </p>
                 </div>

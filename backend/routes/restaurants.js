@@ -220,12 +220,14 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
 
         // --- Changes detected - Create Notification for Admin --- 
         const notification = new Notification({
-            type: 'PROFILE_UPDATE_REQUEST',
+            type: 'RESTAURANT_UPDATE',
             title: 'Restaurant Profile Update Request',
             message: `Restaurant "${restaurant.name}" (ID: ${restaurant._id}) submitted profile changes for review.`,
             userId: req.user.userId,
             relatedEntityId: restaurant._id,
             relatedEntityType: 'Restaurant',
+            isAdminNotification: true,
+            status: 'PENDING',
             data: { 
                 changeRequestId: new mongoose.Types.ObjectId(),
                 submittedAt: new Date(),

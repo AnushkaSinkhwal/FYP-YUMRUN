@@ -664,37 +664,37 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
         }
 
         if (action === 'approve') {
-          // Apply the changes stored in notification.data.submittedData
-          const changesToApply = notification.data.submittedData;
-          if (!changesToApply) {
-               return res.status(400).json({ success: false, message: 'No changes found in notification data.' });
+          // Apply the changes stored in notification.data
+          const changes = notification.data.changes;
+          if (!changes) {
+            return res.status(400).json({ success: false, message: 'No changes found in notification data.' });
           }
 
-          console.log(`Approving changes for restaurant ${restaurantId}:`, changesToApply);
+          console.log(`Approving changes for restaurant ${restaurantId}:`, changes);
 
           // Apply fields selectively
-          if (changesToApply.name !== undefined) restaurant.name = changesToApply.name;
-          if (changesToApply.description !== undefined) restaurant.description = changesToApply.description;
-          if (changesToApply.address !== undefined) restaurant.address = changesToApply.address; // Assume direct assignment works for now
-          if (changesToApply.openingHours !== undefined) restaurant.openingHours = changesToApply.openingHours;
-          if (changesToApply.cuisine !== undefined) restaurant.cuisine = changesToApply.cuisine;
-          if (changesToApply.isOpen !== undefined) restaurant.isActive = changesToApply.isOpen; // Map isOpen to isActive
-          if (changesToApply.deliveryRadius !== undefined) restaurant.deliveryRadius = changesToApply.deliveryRadius;
-          if (changesToApply.minimumOrder !== undefined) restaurant.minimumOrder = changesToApply.minimumOrder;
-          if (changesToApply.deliveryFee !== undefined) restaurant.deliveryFee = changesToApply.deliveryFee;
-          if (changesToApply.logo !== undefined) {
-               // Optional: Delete old logo file before updating path
-               // if (restaurant.logo && restaurant.logo !== changesToApply.logo && fs.existsSync(restaurant.logo.substring(1))) {
-               //    fs.unlinkSync(restaurant.logo.substring(1));
-               // }
-               restaurant.logo = changesToApply.logo;
+          if (changes.name !== undefined) restaurant.name = changes.name;
+          if (changes.description !== undefined) restaurant.description = changes.description;
+          if (changes.address !== undefined) restaurant.address = changes.address; // Assume direct assignment works for now
+          if (changes.openingHours !== undefined) restaurant.openingHours = changes.openingHours;
+          if (changes.cuisine !== undefined) restaurant.cuisine = changes.cuisine;
+          if (changes.isOpen !== undefined) restaurant.isActive = changes.isOpen; // Map isOpen to isActive
+          if (changes.deliveryRadius !== undefined) restaurant.deliveryRadius = changes.deliveryRadius;
+          if (changes.minimumOrder !== undefined) restaurant.minimumOrder = changes.minimumOrder;
+          if (changes.deliveryFee !== undefined) restaurant.deliveryFee = changes.deliveryFee;
+          if (changes.logo !== undefined) {
+            // Optional: Delete old logo file before updating path
+            // if (restaurant.logo && restaurant.logo !== changes.logo && fs.existsSync(restaurant.logo.substring(1))) {
+            //    fs.unlinkSync(restaurant.logo.substring(1));
+            // }
+            restaurant.logo = changes.logo;
           }
-           if (changesToApply.coverImage !== undefined) {
-               // Optional: Delete old cover image file
-               // if (restaurant.coverImage && restaurant.coverImage !== changesToApply.coverImage && fs.existsSync(restaurant.coverImage.substring(1))) {
-               //    fs.unlinkSync(restaurant.coverImage.substring(1));
-               // }
-               restaurant.coverImage = changesToApply.coverImage;
+          if (changes.coverImage !== undefined) {
+            // Optional: Delete old cover image file
+            // if (restaurant.coverImage && restaurant.coverImage !== changes.coverImage && fs.existsSync(restaurant.coverImage.substring(1))) {
+            //    fs.unlinkSync(restaurant.coverImage.substring(1));
+            // }
+            restaurant.coverImage = changes.coverImage;
           }
           // Add other fields as needed
 
@@ -747,30 +747,30 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
           await notification.save();
 
           // **Important**: If files were uploaded during the rejected request, they should be deleted.
-          // Access file paths from notification.data.submittedData.logo / .coverImage IF they differ from original restaurant.logo / .coverImage
-          const rejectedData = notification.data.submittedData || {};
+          // Access file paths from notification.data.changes.logo / .coverImage IF they differ from original restaurant.logo / .coverImage
+          const rejectedData = notification.data.changes || {};
           const originalLogo = restaurant.logo;
           const originalCover = restaurant.coverImage;
 
           if (rejectedData.logo && rejectedData.logo !== originalLogo) {
-               try {
-                    if (fs.existsSync(rejectedData.logo.substring(1))) {
-                         fs.unlinkSync(rejectedData.logo.substring(1));
-                         console.log(`Deleted rejected logo file: ${rejectedData.logo}`);
-                    }
-               } catch (fileError) {
-                    console.error(`Error deleting rejected logo file ${rejectedData.logo}:`, fileError);
-               }
-          }
-           if (rejectedData.coverImage && rejectedData.coverImage !== originalCover) {
-              try {
-                   if (fs.existsSync(rejectedData.coverImage.substring(1))) {
-                        fs.unlinkSync(rejectedData.coverImage.substring(1));
-                        console.log(`Deleted rejected cover image file: ${rejectedData.coverImage}`);
-                   }
-              } catch (fileError) {
-                   console.error(`Error deleting rejected cover image file ${rejectedData.coverImage}:`, fileError);
+            try {
+              if (fs.existsSync(rejectedData.logo.substring(1))) {
+                fs.unlinkSync(rejectedData.logo.substring(1));
+                console.log(`Deleted rejected logo file: ${rejectedData.logo}`);
               }
+            } catch (fileError) {
+              console.error(`Error deleting rejected logo file ${rejectedData.logo}:`, fileError);
+            }
+          }
+          if (rejectedData.coverImage && rejectedData.coverImage !== originalCover) {
+            try {
+              if (fs.existsSync(rejectedData.coverImage.substring(1))) {
+                fs.unlinkSync(rejectedData.coverImage.substring(1));
+                console.log(`Deleted rejected cover image file: ${rejectedData.coverImage}`);
+              }
+            } catch (fileError) {
+              console.error(`Error deleting rejected cover image file ${rejectedData.coverImage}:`, fileError);
+            }
           }
           
           // Create a notification for the restaurant owner
@@ -1083,12 +1083,12 @@ router.get('/owners', auth, isAdmin, async (req, res) => {
 router.get('/restaurant-approvals', auth, isAdmin, async (req, res) => {
     try {
         const pendingApprovals = await RestaurantApproval.find({ status: 'pending' })
-            .populate('restaurantId', 'name email phone restaurantName restaurantAddress')
+            .populate('restaurantId', 'name email phone')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
-            pendingApprovals
+            data: pendingApprovals
         });
     } catch (error) {
         res.status(500).json({
@@ -1127,197 +1127,200 @@ router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (r
         if (!approval) {
             return res.status(404).json({
                 success: false,
-                error: 'Approval request not found'
+                message: 'Approval request not found'
             });
         }
 
         if (approval.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                error: 'This request has already been processed'
+                message: 'This request has already been processed'
             });
         }
 
-        // Update restaurant profile
-        const restaurant = await User.findById(approval.restaurantId);
+        // Find the restaurant to update
+        const restaurant = await Restaurant.findById(approval.restaurantId);
         if (!restaurant) {
             return res.status(404).json({
                 success: false,
-                error: 'Restaurant not found'
+                message: 'Restaurant not found'
             });
         }
 
-        console.log("Current restaurant data:", {
-            name: restaurant.name,
-            email: restaurant.email,
-            phone: restaurant.phone,
-            restaurantName: restaurant.restaurantDetails?.name,
-            restaurantAddress: restaurant.restaurantDetails?.address
-        });
-
-        console.log("Requested changes:", approval.requestedData);
+        // Get the restaurant owner's user record
+        const owner = await User.findById(restaurant.owner);
+        if (!owner) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant owner not found'
+            });
+        }
 
         // Track changes for logging
         const changes = {};
 
-        // Update restaurant data with validation
-        if (approval.requestedData.name && approval.requestedData.name !== restaurant.name) {
-            changes.name = { from: restaurant.name, to: approval.requestedData.name };
+        // Apply requested changes to the restaurant document
+        if (approval.requestedData.name !== approval.currentData.name) {
+            changes.name = { 
+                from: restaurant.name, 
+                to: approval.requestedData.name 
+            };
             restaurant.name = approval.requestedData.name;
         }
-        
-        if (approval.requestedData.email && approval.requestedData.email !== restaurant.email) {
-            // Check if email is already in use
-            const existingUser = await User.findOne({ 
-                email: approval.requestedData.email, 
-                _id: { $ne: approval.restaurantId } 
-            });
-            
-            if (existingUser) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Email is already in use by another account'
-                });
-            }
-            
-            changes.email = { from: restaurant.email, to: approval.requestedData.email };
-            restaurant.email = approval.requestedData.email;
-        }
-        
-        // Handle phone number with validation
-        if (approval.requestedData.phone && approval.requestedData.phone !== restaurant.phone) {
-            // Validate phone number format (10 digits)
-            if (!/^\d{10}$/.test(approval.requestedData.phone)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Phone number must be exactly 10 digits'
-                });
-            }
-            
-            changes.phone = { from: restaurant.phone, to: approval.requestedData.phone };
-            restaurant.phone = approval.requestedData.phone;
-        }
-        
-        // Ensure restaurant details exist
-        if (!restaurant.restaurantDetails) {
-            restaurant.restaurantDetails = {};
-        }
-        
-        // Update restaurant details
-        if (approval.requestedData.restaurantName) {
-            changes.restaurantName = { 
-                from: restaurant.restaurantDetails?.name || '', 
-                to: approval.requestedData.restaurantName 
+
+        if (approval.requestedData.description !== approval.currentData.description) {
+            changes.description = { 
+                from: restaurant.description, 
+                to: approval.requestedData.description 
             };
-            restaurant.restaurantDetails.name = approval.requestedData.restaurantName;
+            restaurant.description = approval.requestedData.description;
         }
-        
-        if (approval.requestedData.restaurantAddress) {
-            changes.restaurantAddress = { 
-                from: restaurant.restaurantDetails?.address || '', 
-                to: approval.requestedData.restaurantAddress 
+
+        if (JSON.stringify(approval.requestedData.address) !== JSON.stringify(approval.currentData.address)) {
+            changes.address = { 
+                from: restaurant.address, 
+                to: approval.requestedData.address 
             };
-            restaurant.restaurantDetails.address = approval.requestedData.restaurantAddress;
+            restaurant.address = approval.requestedData.address;
+        }
+
+        if (approval.requestedData.phone !== approval.currentData.phone) {
+            changes.phone = { 
+                from: owner.phone, 
+                to: approval.requestedData.phone 
+            };
+            owner.phone = approval.requestedData.phone;
+        }
+
+        if (JSON.stringify(approval.requestedData.cuisine) !== JSON.stringify(approval.currentData.cuisine)) {
+            changes.cuisine = { 
+                from: restaurant.cuisine, 
+                to: approval.requestedData.cuisine 
+            };
+            restaurant.cuisine = approval.requestedData.cuisine;
+        }
+
+        if (JSON.stringify(approval.requestedData.openingHours) !== JSON.stringify(approval.currentData.openingHours)) {
+            changes.openingHours = { 
+                from: restaurant.openingHours, 
+                to: approval.requestedData.openingHours 
+            };
+            restaurant.openingHours = approval.requestedData.openingHours;
+        }
+
+        if (approval.requestedData.isOpen !== approval.currentData.isOpen) {
+            changes.isOpen = { 
+                from: restaurant.isOpen, 
+                to: approval.requestedData.isOpen 
+            };
+            restaurant.isOpen = approval.requestedData.isOpen;
+        }
+
+        if (approval.requestedData.deliveryRadius !== approval.currentData.deliveryRadius) {
+            changes.deliveryRadius = { 
+                from: restaurant.deliveryRadius, 
+                to: approval.requestedData.deliveryRadius 
+            };
+            restaurant.deliveryRadius = approval.requestedData.deliveryRadius;
+        }
+
+        if (approval.requestedData.minimumOrder !== approval.currentData.minimumOrder) {
+            changes.minimumOrder = { 
+                from: restaurant.minimumOrder, 
+                to: approval.requestedData.minimumOrder 
+            };
+            restaurant.minimumOrder = approval.requestedData.minimumOrder;
+        }
+
+        if (approval.requestedData.deliveryFee !== approval.currentData.deliveryFee) {
+            changes.deliveryFee = { 
+                from: restaurant.deliveryFee, 
+                to: approval.requestedData.deliveryFee 
+            };
+            restaurant.deliveryFee = approval.requestedData.deliveryFee;
+        }
+
+        if (approval.requestedData.logo !== approval.currentData.logo) {
+            changes.logo = { 
+                from: restaurant.logo, 
+                to: approval.requestedData.logo 
+            };
+            restaurant.logo = approval.requestedData.logo;
+        }
+
+        if (approval.requestedData.coverImage !== approval.currentData.coverImage) {
+            changes.coverImage = { 
+                from: restaurant.coverImage, 
+                to: approval.requestedData.coverImage 
+            };
+            restaurant.coverImage = approval.requestedData.coverImage;
+        }
+
+        if (approval.requestedData.panNumber !== approval.currentData.panNumber) {
+            changes.panNumber = { 
+                from: restaurant.panNumber, 
+                to: approval.requestedData.panNumber 
+            };
+            restaurant.panNumber = approval.requestedData.panNumber;
+        }
+
+        if (approval.requestedData.priceRange !== approval.currentData.priceRange) {
+            changes.priceRange = { 
+                from: restaurant.priceRange, 
+                to: approval.requestedData.priceRange 
+            };
+            restaurant.priceRange = approval.requestedData.priceRange;
         }
 
         // Log changes before saving
-        console.log("Applying changes:", changes);
+        console.log("Applying changes to restaurant:", changes);
 
-        // First try to save without validation in case there are schema issues
-        try {
-            // Save changes with a promise and bypass validation
-            const savedRestaurant = await restaurant.save({ validateBeforeSave: false });
-            
-            // Log the update with specific changes
-            console.log(`Restaurant profile approved by admin. Restaurant ID: ${savedRestaurant._id}, Changes:`, changes);
-            
-            // Update approval status
-            approval.status = 'approved';
-            approval.processedBy = req.user.userId;
-            approval.processedAt = new Date();
-            await approval.save();
-            
-            // Create notification for restaurant owner
-            const notificationTitle = 'Restaurant Approved';
-            const notificationMessage = 'Your restaurant has been approved by the administrator.';
-            const notificationType = 'RESTAURANT_APPROVAL';
-                 
-            await createNotification({
-                userId: restaurant._id,
-                title: notificationTitle,
-                message: notificationMessage,
-                type: notificationType,
-                status: 'PENDING',
-                data: { 
-                    restaurantId: restaurant._id, 
-                    restaurantName: restaurant.name,
-                    reason: undefined 
-                }
-            });
-
-            // Double-check that changes were applied correctly
-            const updatedRestaurant = await User.findById(restaurant._id);
-            console.log("Updated restaurant data:", {
-                name: updatedRestaurant.name,
-                email: updatedRestaurant.email,
-                phone: updatedRestaurant.phone,
-                restaurantName: updatedRestaurant.restaurantDetails?.name,
-                restaurantAddress: updatedRestaurant.restaurantDetails?.address
-            });
-
-            return res.status(200).json({
-                success: true,
-                message: 'Profile changes approved successfully',
+        // Save the changes
+        const savedRestaurant = await restaurant.save();
+        
+        // Save owner updates if any
+        if (changes.phone) {
+            await owner.save();
+        }
+        
+        // Update approval status
+        approval.status = 'approved';
+        approval.processedBy = req.user.userId;
+        approval.processedAt = new Date();
+        await approval.save();
+        
+        // Create notification for restaurant owner
+        const notification = new Notification({
+            type: 'RESTAURANT_UPDATE_APPROVED',
+            title: 'Profile Changes Approved',
+            message: 'Your restaurant profile changes have been approved.',
+            userId: restaurant.owner,
+            isRead: false,
+            data: {
+                restaurantId: restaurant._id,
+                approvalId: approval._id
+            }
+        });
+        
+        await notification.save();
+        
+        // Return success response
+        return res.status(200).json({
+            success: true,
+            message: 'Restaurant profile changes approved successfully',
+            data: {
                 restaurant: {
                     id: savedRestaurant._id,
-                    name: savedRestaurant.name,
-                    email: savedRestaurant.email,
-                    phone: savedRestaurant.phone,
-                    restaurantDetails: savedRestaurant.restaurantDetails
-                }
-            });
-        } catch (saveError) {
-            console.error('Error saving restaurant profile:', saveError);
-            
-            // If there was an issue, try saving with individual field updates
-            console.log("Attempting alternative save approach...");
-            
-            // Update fields directly using findByIdAndUpdate
-            const updateFields = {};
-            
-            if (changes.name) updateFields.name = changes.name.to;
-            if (changes.email) updateFields.email = changes.email.to;
-            if (changes.phone) updateFields.phone = changes.phone.to;
-            
-            if (changes.restaurantName || changes.restaurantAddress) {
-                updateFields.restaurantDetails = restaurant.restaurantDetails;
+                    name: savedRestaurant.name
+                },
+                changesApplied: Object.keys(changes)
             }
-            
-            const updatedRestaurant = await User.findByIdAndUpdate(
-                restaurant._id,
-                { $set: updateFields },
-                { new: true, runValidators: true }
-            );
-            
-            console.log("Restaurant updated with alternative approach:", updatedRestaurant);
-            
-            // Update approval status
-            approval.status = 'approved';
-            approval.processedBy = req.user.userId;
-            approval.processedAt = new Date();
-            await approval.save();
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Profile changes approved successfully with alternative method',
-                restaurant: updatedRestaurant
-            });
-        }
+        });
     } catch (error) {
-        console.error('Error approving restaurant profile:', error);
+        console.error('Error approving restaurant profile changes:', error);
         return res.status(500).json({
             success: false,
-            error: error.message
+            message: 'Server error: ' + error.message
         });
     }
 });
@@ -1330,7 +1333,7 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         if (!reason) {
             return res.status(400).json({
                 success: false,
-                error: 'Rejection reason is required'
+                message: 'Rejection reason is required'
             });
         }
         
@@ -1339,14 +1342,23 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         if (!approval) {
             return res.status(404).json({
                 success: false,
-                error: 'Approval request not found'
+                message: 'Approval request not found'
             });
         }
 
         if (approval.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                error: 'This request has already been processed'
+                message: 'This request has already been processed'
+            });
+        }
+
+        // Find the restaurant for notification
+        const restaurant = await Restaurant.findById(approval.restaurantId);
+        if (!restaurant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found'
             });
         }
 
@@ -1358,34 +1370,38 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         await approval.save();
         
         // Create notification for restaurant owner
-        const notificationTitle = 'Restaurant Rejected';
-        const notificationMessage = `Your restaurant registration has been rejected by the administrator. Reason: ${reason}`;
-        const notificationType = 'RESTAURANT_REJECTION';
-                 
-        await createNotification({
-            userId: approval.restaurantId,
-            title: notificationTitle,
-            message: notificationMessage,
-            type: notificationType,
-            status: 'PENDING',
-            data: { 
-                restaurantId: approval.restaurantId, 
-                restaurantName: approval.restaurantName,
-                reason: reason 
+        const notification = new Notification({
+            type: 'RESTAURANT_UPDATE_REJECTED',
+            title: 'Profile Changes Rejected',
+            message: `Your restaurant profile changes have been rejected. Reason: ${reason}`,
+            userId: restaurant.owner,
+            isRead: false,
+            data: {
+                restaurantId: restaurant._id,
+                approvalId: approval._id,
+                reason: reason
             }
         });
         
-        console.log(`Restaurant profile changes rejected. Restaurant ID: ${approval.restaurantId}, Reason: ${reason}`);
-
-        res.status(200).json({
+        await notification.save();
+        
+        // Return success response
+        return res.status(200).json({
             success: true,
-            message: 'Profile changes rejected successfully'
+            message: 'Restaurant profile changes rejected successfully',
+            data: {
+                restaurant: {
+                    id: restaurant._id,
+                    name: restaurant.name
+                },
+                reason: reason
+            }
         });
     } catch (error) {
-        console.error('Error rejecting restaurant profile:', error);
-        res.status(500).json({
+        console.error('Error rejecting restaurant profile changes:', error);
+        return res.status(500).json({
             success: false,
-            error: error.message
+            message: 'Server error: ' + error.message
         });
     }
 });
@@ -2383,6 +2399,55 @@ router.put('/riders/:id/approve', auth, isAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/restaurant-updates
+ * @desc    Get pending restaurant update requests
+ * @access  Private/Admin
+ */
+router.get('/restaurant-updates', auth, isAdmin, async (req, res) => {
+  try {
+    const pendingUpdates = await Notification.find({
+      type: 'RESTAURANT_UPDATE',
+      status: 'PENDING'
+    }).sort({ createdAt: -1 });
+    
+    return res.status(200).json({
+      success: true,
+      data: pendingUpdates
+    });
+  } catch (error) {
+    console.error('Error fetching pending restaurant updates:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching pending restaurant updates.'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/pending-restaurants
+ * @desc    Get pending restaurant registrations
+ * @access  Private/Admin
+ */
+router.get('/pending-restaurants', auth, isAdmin, async (req, res) => {
+  try {
+    const pendingRestaurants = await Restaurant.find({ status: 'pending_approval' })
+      .populate('owner', 'name email')
+      .sort({ createdAt: -1 });
+    
+    return res.status(200).json({
+      success: true,
+      data: pendingRestaurants
+    });
+  } catch (error) {
+    console.error('Error fetching pending restaurants:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching pending restaurants.'
     });
   }
 });
