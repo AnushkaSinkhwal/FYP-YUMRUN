@@ -234,11 +234,11 @@ const ProductModel = ({ productId }) => {
                                 <div className="flex items-center gap-2">
                                     {product.oldPrice && (
                                         <span className="text-gray-500 line-through text-sm">
-                                            Rs.{product.oldPrice}
+                                            Rs. {product.oldPrice}
                                         </span>
                                     )}
                                     <span className="text-2xl font-bold text-primary">
-                                        Rs.{product.price}
+                                        Rs. {product.price}
                                     </span>
                                 </div>
                                 

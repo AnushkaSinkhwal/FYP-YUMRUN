@@ -14,9 +14,9 @@ const LoyaltyDashboard = () => {
     history: []
   });
   const [rewards, setRewards] = useState([
-    { id: 1, name: '₹50 off your order', pointsRequired: 500, value: 50, description: 'Get ₹50 off on your next order', validDays: 30 },
-    { id: 2, name: '₹100 off your order', pointsRequired: 1000, value: 100, description: 'Get ₹100 off on your next order', validDays: 30 },
-    { id: 3, name: '₹200 off your order', pointsRequired: 2000, value: 200, description: 'Get ₹200 off on your next order', validDays: 30 },
+    { id: 1, name: 'Rs. 50 off your order', pointsRequired: 500, value: 50, description: 'Get Rs. 50 off on your next order', validDays: 30 },
+    { id: 2, name: 'Rs. 100 off your order', pointsRequired: 1000, value: 100, description: 'Get Rs. 100 off on your next order', validDays: 30 },
+    { id: 3, name: 'Rs. 200 off your order', pointsRequired: 2000, value: 200, description: 'Get Rs. 200 off on your next order', validDays: 30 },
     { id: 4, name: 'Free delivery', pointsRequired: 300, value: 'free_delivery', description: 'Get free delivery on your next order', validDays: 30 }
   ]);
   const [error, setError] = useState(null);
@@ -621,7 +621,7 @@ const LoyaltyDashboard = () => {
           <div>
             <h4 className="text-md font-medium mb-2">Earning Points</h4>
             <ul className="ml-6 space-y-2 list-disc text-gray-600 dark:text-gray-300 text-sm">
-              <li>Earn 10 points for every ₹100 spent on orders</li>
+              <li>Earn 10 points for every Rs. 100 spent on orders</li>
               <li>Earn bonus points based on your loyalty tier</li>
               <li>Complete your profile to earn one-time bonus points</li>
               <li>Earn points for reviewing your orders</li>

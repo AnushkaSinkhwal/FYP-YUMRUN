@@ -214,7 +214,7 @@ const PaymentVerify = () => {
                     {orderData && (
                       <div className="mt-3 text-sm text-gray-500">
                         <p>Order ID: {orderData.orderId}</p>
-                        <p>Amount: Rs.{orderData.amount.toFixed(2)}</p>
+                        <p>Amount: Rs. {orderData.amount.toFixed(2)}</p>
                       </div>
                     )}
                   </div>

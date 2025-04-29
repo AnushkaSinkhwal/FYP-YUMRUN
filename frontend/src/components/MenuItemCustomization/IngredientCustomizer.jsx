@@ -264,7 +264,7 @@ const IngredientCustomizer = ({
                   />
                   <label htmlFor={`addon-${addOn._id || addOn.id}`} className="text-sm font-medium flex-1">
                     {addOn.name}
-                    {addOn.price > 0 && <span className="ml-1 text-gray-500">+Rs.{addOn.price.toFixed(2)}</span>}
+                    {addOn.price > 0 && <span className="ml-1 text-gray-500">+Rs. {addOn.price.toFixed(2)}</span>}
                   </label>
                 </div>
                 
@@ -382,7 +382,7 @@ const IngredientCustomizer = ({
       <div className="border-t border-gray-200 pt-4 space-y-4">
         <div className="flex justify-between items-center">
           <span className="font-semibold">Total Price:</span>
-          <span className="text-xl font-bold text-yumrun-primary">Rs.{currentPrice.toFixed(2)}</span>
+          <span className="text-xl font-bold text-yumrun-primary">Rs. {currentPrice.toFixed(2)}</span>
         </div>
         
         {/* Expanded nutrition details */}

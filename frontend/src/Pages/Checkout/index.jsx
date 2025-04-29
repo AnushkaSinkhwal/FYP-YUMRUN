@@ -543,11 +543,11 @@ const Checkout = () => {
                           <div className="flex-1">
                             <p className="font-medium">{item.name}</p>
                             <p className="text-sm text-gray-500">
-                              {item.quantity} × Rs.{item.price}
+                              {item.quantity} × Rs. {item.price}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">Rs.{(item.price * item.quantity).toFixed(2)}</p>
+                            <p className="font-medium">Rs. {(item.price * item.quantity).toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
@@ -556,13 +556,13 @@ const Checkout = () => {
                     <div className="pt-3 space-y-3 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Subtotal</span>
-                        <span className="font-medium">Rs.{cartStats.subTotal.toFixed(2)}</span>
+                        <span className="font-medium">Rs. {cartStats.subTotal.toFixed(2)}</span>
                       </div>
                       
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Delivery Fee</span>
                         <span className="font-medium">
-                          {cartStats.shipping === 0 ? 'Free' : `Rs.${cartStats.shipping.toFixed(2)}`}
+                          {cartStats.shipping === 0 ? 'Free' : `Rs. ${cartStats.shipping.toFixed(2)}`}
                         </span>
                       </div>
                       
@@ -570,7 +570,7 @@ const Checkout = () => {
                       
                       <div className="flex items-center justify-between font-medium">
                         <span>Total</span>
-                        <span className="text-lg text-yumrun-accent">Rs.{cartStats.total.toFixed(2)}</span>
+                        <span className="text-lg text-yumrun-accent">Rs. {cartStats.total.toFixed(2)}</span>
                       </div>
                     </div>
                     
@@ -587,7 +587,7 @@ const Checkout = () => {
                             Processing...
                           </>
                         ) : (
-                          `Place Order - Rs.${cartStats.total.toFixed(2)}`
+                          `Place Order - Rs. ${cartStats.total.toFixed(2)}`
                         )}
                       </Button>
                       

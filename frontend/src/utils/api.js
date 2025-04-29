@@ -427,7 +427,7 @@ export const adminAPI = {
   // approveRestaurant: async (restaurantId) => {
   //   return api.patch(`/admin/restaurants/${restaurantId}/approve`);
   // },
-  // **DEPRECATED**: Old restaurant approval list (use getRestaurants with filtering)
+  // **DEPRECATED**: Old approval list (use getRestaurants with filtering)
   // getRestaurantApprovals: async () => {
   //   return api.get('/admin/approvals/restaurants');
   // },
@@ -809,6 +809,11 @@ export const userAPI = {
     return api.get('/user/order-history');
   },
   
+  // Get food recommendations for the user
+  getRecommendations: async () => {
+    return api.get('/user/recommendations');
+  },
+  
   // Get user's loyalty points and details
   getLoyaltyInfo: async () => {
     return api.get('/user/loyalty');
@@ -874,7 +879,7 @@ export const userAPI = {
     return api.delete(`/user/addresses/${addressId}`);
   },
   
-  // Get user's favorite items
+  // Manage favorites
   getFavorites: async () => {
     return api.get('/favorites');
   },

@@ -363,16 +363,16 @@ const RestaurantDetails = () => {
                                     <>
                                       <div>
                                         <span className="text-sm text-gray-500 line-through mr-1.5">
-                                          Rs.{parseFloat(item.price).toFixed(2)} 
+                                          Rs. {parseFloat(item.price).toFixed(2)} 
                                         </span>
                                         <span className="text-lg font-bold text-yumrun-red">
-                                          Rs.{parseFloat(item.discountedPrice).toFixed(2)}
+                                          Rs. {parseFloat(item.discountedPrice).toFixed(2)}
                                         </span>
                                       </div>
                                     </>
                                   ) : (
                                     <span className="text-lg font-semibold text-gray-800">
-                                       Rs.{parseFloat(item.price).toFixed(2)}
+                                       Rs. {parseFloat(item.price).toFixed(2)}
                                     </span>
                                   )}
                               </div>

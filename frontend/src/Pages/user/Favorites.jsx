@@ -427,7 +427,7 @@ const UserFavorites = () => {
                          </div>
                         
                         <div className="flex items-center justify-between pt-3 mt-auto">
-                          <span className="text-xl font-bold">Rs.{formatPrice(getItemPrice(item))}</span>
+                          <span className="text-xl font-bold">Rs. {formatPrice(getItemPrice(item))}</span>
                           <Button 
                             size="sm"
                             className="transition-transform group-hover:scale-105"

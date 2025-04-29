@@ -87,7 +87,7 @@ const KhaltiPayment = ({ orderId, amount, onFailure }) => {
         </div>
         <h3 className="mb-2 text-xl font-semibold text-green-600">Payment Successful!</h3>
         <p className="mb-4 text-gray-600">
-          Your payment of Rs. {amount} was successfully processed via Khalti.
+          Your payment of Rs.  {amount} was successfully processed via Khalti.
         </p>
       </div>
     );
@@ -144,7 +144,7 @@ const KhaltiPayment = ({ orderId, amount, onFailure }) => {
       <div className="flex items-center justify-between p-4 mb-4 border rounded-md">
         <div>
           <p className="font-medium">Order Total</p>
-          <p className="text-lg font-bold">Rs. {amount}</p>
+          <p className="text-lg font-bold">Rs.  {amount}</p>
         </div>
         <img 
           src="https://khalti.com/static/images/khalti-logo.svg" 

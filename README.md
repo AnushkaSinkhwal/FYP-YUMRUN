@@ -49,7 +49,7 @@ YumRun differentiates itself from conventional food delivery platforms by empowe
   - Option to reorder favorite meals
 
 - **Loyalty System**
-  - Earn points on purchases (10 points per Rs. 100 spent)
+  - Earn points on purchases (10 points per Rs.  100 spent)
   - Redeem points for discounts
   - Track loyalty status and history
   - Points expiration management

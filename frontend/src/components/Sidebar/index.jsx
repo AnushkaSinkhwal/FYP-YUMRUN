@@ -30,8 +30,8 @@ const Sidebar = () => {
                 <h6>FILTER BY PRICE</h6>
                 <RangeSlider value={value} onInput={setValue} min={100} max={7000} step={5} />
                 <div className="d-flex pt-2 pb-2 priceRange">
-                    <span>From: <strong className="text-dark">Rs. {value[0]}</strong></span>
-                    <span className="ml-auto">To: <strong className="text-dark">Rs. {value[1]}</strong></span>
+                    <span>From: <strong className="text-dark">Rs.  {value[0]}</strong></span>
+                    <span className="ml-auto">To: <strong className="text-dark">Rs.  {value[1]}</strong></span>
                 </div>
             </div>
 

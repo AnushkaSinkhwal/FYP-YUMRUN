@@ -58,7 +58,7 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
                 <strong>Add-ons:</strong>
                 <ul className="pl-4 list-disc list-inside">
                   {item.selectedAddOns.map(addOn => (
-                    <li key={addOn.id}>{addOn.name} (+Rs.{(addOn.price || 0).toFixed(2)})</li>
+                    <li key={addOn.id}>{addOn.name} (+Rs. {(addOn.price || 0).toFixed(2)})</li>
                   ))}
                 </ul>
               </div>
@@ -72,7 +72,7 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
           </div>
           
           <div className="text-lg font-medium text-yumrun-accent">
-            Rs.{(totalPrice || 0).toFixed(2)}
+            Rs. {(totalPrice || 0).toFixed(2)}
           </div>
         </div>
         
@@ -205,7 +205,7 @@ const Cart = () => {
                   <div className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">Rs.{(cartStats.subTotal || 0).toFixed(2)}</span>
+                      <span className="font-medium">Rs. {(cartStats.subTotal || 0).toFixed(2)}</span>
                     </div>
                     
                     {/* Conditionally render Delivery Fee only if > 0 */}
@@ -214,7 +214,7 @@ const Cart = () => {
                         <span className="text-gray-600">Delivery Fee</span>
                         <span className="font-medium">
                           {/* Display calculated shipping fee */}
-                          Rs.{(cartStats.shipping || 0).toFixed(2)} 
+                          Rs. {(cartStats.shipping || 0).toFixed(2)} 
                         </span>
                       </div>
                     )}
@@ -224,7 +224,7 @@ const Cart = () => {
                     <div className="flex items-center justify-between font-medium">
                       <span>Total</span>
                       {/* Total already includes shipping calculated in CartContext */}
-                      <span className="text-lg text-yumrun-accent">Rs.{(cartStats.total || 0).toFixed(2)}</span>
+                      <span className="text-lg text-yumrun-accent">Rs. {(cartStats.total || 0).toFixed(2)}</span>
                     </div>
                     
                     <div className="pt-4 mt-4">
@@ -248,7 +248,7 @@ const Cart = () => {
                 
                 <Card className="p-4 mt-4">
                   <Alert variant="info" className="mb-0">
-                    <p className="text-sm">Free delivery on orders above Rs.1000</p>
+                    <p className="text-sm">Free delivery on orders above Rs. 1000</p>
                   </Alert>
                 </Card>
               </div>

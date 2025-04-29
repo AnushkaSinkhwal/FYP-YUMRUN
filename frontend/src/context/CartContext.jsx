@@ -74,7 +74,7 @@ export const CartProvider = ({ children }) => {
     // Calculate shipping based on subtotal
     let shipping = 0;
     if (subTotal > 0 && subTotal < 1000) {
-      shipping = 100; // Rs. 100 delivery fee for orders under Rs. 1000
+      shipping = 100; // Rs.  100 delivery fee for orders under Rs.  1000
     }
     
     setCartStats({

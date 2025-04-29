@@ -238,11 +238,36 @@ const RestaurantProfile = () => {
       const response = await restaurantAPI.updateProfile(formData); 
       console.log("Update profile response:", response);
       
+      // Store potential new paths before clearing file state
+      const submittedLogoPath = logoFile ? `/uploads/restaurants/${logoFile.name}` : null; // Construct potential path (adjust if backend stores differently)
+      const submittedCoverImagePath = coverImageFile ? `/uploads/restaurants/${coverImageFile.name}` : null;
+
       // Backend PUT /restaurants/profile returns 202 Accepted for pending approval
       if (response.status === 202 || response.data?.data?.status === 'pending_approval') {
         setSuccess('Profile update request submitted successfully. Changes require admin approval.');
         setIsPendingApproval(true); // Keep form disabled
+        
+        // *** FIX: Update profile state with submitted changes, including image previews ***
+        setProfile(prevProfile => ({
+          ...prevProfile,
+          // Update text fields based on what was submitted in formData
+          name: formData.get('name') || prevProfile.name,
+          description: formData.get('description') || prevProfile.description,
+          address: formData.get('address') || prevProfile.address,
+          isOpen: formData.get('isOpen') === 'true' || prevProfile.isOpen,
+          cuisine: (JSON.parse(formData.get('cuisine') || '[]')).join(', ') || prevProfile.cuisine,
+          deliveryRadius: parseFloat(formData.get('deliveryRadius')) || prevProfile.deliveryRadius,
+          minimumOrder: parseFloat(formData.get('minimumOrder')) || prevProfile.minimumOrder,
+          deliveryFee: parseFloat(formData.get('deliveryFee')) || prevProfile.deliveryFee,
+          openingHours: JSON.parse(formData.get('openingHours') || '{}') || prevProfile.openingHours,
+          // Use the temporary blob URL for preview if a new file was submitted
+          logo: logoFile ? URL.createObjectURL(logoFile) : prevProfile.logo,
+          coverImage: coverImageFile ? URL.createObjectURL(coverImageFile) : prevProfile.coverImage
+        }));
+        // *** END FIX ***
+
       } else if (response.data.success) {
+        // Handle direct success (if approval system is bypassed or feature changes)
         setSuccess('Restaurant profile updated successfully!');
         setIsPendingApproval(false);
         const updatedData = response.data.data;
@@ -253,6 +278,9 @@ const RestaurantProfile = () => {
           address: getMainAddress(updatedData.address),
           _fullAddressObject: typeof updatedData.address === 'object' ? updatedData.address : {},
           cuisine: Array.isArray(updatedData.cuisine) ? updatedData.cuisine.join(', ') : '',
+          // Use the actual paths returned from backend on direct success
+          logo: updatedData.logo || null,
+          coverImage: updatedData.coverImage || null,
         }));
       } else {
         setError(response.data.message || 'Failed to submit profile update. Please try again.');
@@ -273,9 +301,11 @@ const RestaurantProfile = () => {
       }
     } finally {
       setIsSubmitting(false);
-      // Clear file inputs after submission attempt
-      setLogoFile(null);
-      setCoverImageFile(null);
+      // Clear file inputs after submission attempt only if successful or pending
+      if (success || isPendingApproval) {
+           setLogoFile(null);
+           setCoverImageFile(null);
+      }
     }
   };
 

@@ -136,7 +136,7 @@ const OrderSummary = ({ order, onStatusChange }) => {
   };
   
   const formatPrice = (price) => {
-    return `Rs.${parseFloat(price).toFixed(2)}`;
+    return `Rs. ${parseFloat(price).toFixed(2)}`;
   };
   
   const calculateTotal = () => {

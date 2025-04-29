@@ -344,9 +344,9 @@ const ProductDetails = () => {
 
                         {/* Price Display - USE displayPrice and originalPrice */}
                         <div className="text-3xl font-bold">
-                            <span className={originalPrice ? "text-yumrun-red" : "text-gray-900"}>Rs.{displayPrice.toFixed(2)}</span>
+                            <span className={originalPrice ? "text-yumrun-red" : "text-gray-900"}>Rs. {displayPrice.toFixed(2)}</span>
                             {originalPrice && (
-                                <span className="ml-3 text-xl text-gray-400 line-through">Rs.{originalPrice.toFixed(2)}</span>
+                                <span className="ml-3 text-xl text-gray-400 line-through">Rs. {originalPrice.toFixed(2)}</span>
                             )}
                         </div>
                         

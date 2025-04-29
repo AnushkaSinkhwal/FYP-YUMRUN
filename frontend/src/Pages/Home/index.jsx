@@ -16,22 +16,17 @@ import { Container, Button, Alert, Spinner, Card } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt } from "react-icons/fa";
-import { publicAPI } from "../../utils/api";
-import { ArrowPathIcon as RefreshIcon, InformationCircleIcon, NoSymbolIcon as BanIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { publicAPI, userAPI } from "../../utils/api";
+import { ArrowPathIcon as RefreshIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 import { PLACEHOLDERS } from '../../utils/imageUtils';
 import { getFullImageUrl } from '../../utils/imageUtils';
-
-// Function to format health condition for display
-const formatHealthCondition = (condition) => {
-    if (!condition) return '';
-    return condition.charAt(0).toUpperCase() + condition.slice(1);
-};
 
 const Home = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const [isLoaded, setIsLoaded] = useState(false);
-    const [healthRecommendations, setHealthRecommendations] = useState([]);
-    const [loadingRecs, setLoadingRecs] = useState(false);
+    const [userRecommendations, setUserRecommendations] = useState([]);
+    const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+    const [recommendationsError, setRecommendationsError] = useState(null);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [newProducts, setNewProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
@@ -43,6 +38,7 @@ const Home = () => {
     const { currentUser } = useAuth();
     const navigate = useNavigate();
     
+    const recommendationsRef = useRef(null);
     const bestSellersRef = useRef(null);
     const newProductsRef = useRef(null);
     const bannersRef = useRef(null);
@@ -88,94 +84,106 @@ const Home = () => {
         }, options);
 
         // Observe all refs if they exist
+        if (recommendationsRef.current) observer.observe(recommendationsRef.current);
         if (bestSellersRef.current) observer.observe(bestSellersRef.current);
         if (newProductsRef.current) observer.observe(newProductsRef.current);
         if (bannersRef.current) observer.observe(bannersRef.current);
         if (newsletterRef.current) observer.observe(newsletterRef.current);
+        if (featuredRestaurantsRef.current) observer.observe(featuredRestaurantsRef.current);
 
         return () => {
+            if (recommendationsRef.current) observer.unobserve(recommendationsRef.current);
             if (bestSellersRef.current) observer.unobserve(bestSellersRef.current);
             if (newProductsRef.current) observer.unobserve(newProductsRef.current);
             if (bannersRef.current) observer.unobserve(bannersRef.current);
             if (newsletterRef.current) observer.unobserve(newsletterRef.current);
+            if (featuredRestaurantsRef.current) observer.unobserve(featuredRestaurantsRef.current);
         };
     }, []);
 
-    // Fetch health-focused recommendations based on user's health condition
+    // Always fetch recommendations, regardless of user login status
     useEffect(() => {
-        if (currentUser && currentUser.healthCondition) {
-            fetchHealthRecommendations(currentUser.healthCondition);
-        }
+        fetchUserRecommendations();
     }, [currentUser]);
 
-    // Function to fetch health recommendations
-    const fetchHealthRecommendations = async (healthCondition) => {
-        setLoadingRecs(true);
+    // Function to fetch user recommendations using the new API endpoint
+    const fetchUserRecommendations = async () => {
+        if (!currentUser) {
+            // If no user is logged in, set empty recommendations and no error
+            setUserRecommendations([]);
+            setRecommendationsError(null);
+            setLoadingRecommendations(false);
+            return;
+        }
+        
+        setLoadingRecommendations(true);
+        setRecommendationsError(null);
         
         try {
-            // Use the proper backend API endpoint
-            const response = await fetch(`/api/recommendations/health?condition=${healthCondition || 'Healthy'}`);
+            console.log('Fetching personalized recommendations...');
+            // Use the authenticated userAPI call
+            const response = await userAPI.getRecommendations(); 
+            console.log('Recommendations API response:', response);
             
-            if (!response.ok) {
-                setHealthRecommendations([]);
-                console.error(`Health recommendations API error: ${response.status} ${response.statusText}`);
-                return;
-            }
-            
-            const data = await response.json();
-            
-            if (data && data.data && Array.isArray(data.data.recommendations)) {
-                setHealthRecommendations(data.data.recommendations);
-            } else {
-                // Use fallback data if response format is incorrect
-                setHealthRecommendations([
-                    {
-                        id: 'healthy-1',
-                        name: 'Green Salad Bowl',
-                        description: 'Fresh mixed greens with seasonal vegetables',
-                        calories: 250,
-                        protein: 10,
-                        healthBenefits: ['Rich in vitamins', 'High fiber', 'Low calories'],
-                        image: '/uploads/placeholders/food-placeholder.jpg'
-                    },
-                    {
-                        id: 'healthy-2',
-                        name: 'Grilled Chicken',
-                        description: 'Lean protein with herbs and spices',
-                        calories: 320,
-                        protein: 30,
-                        healthBenefits: ['High protein', 'Low fat', 'No added sugar'],
-                        image: '/uploads/placeholders/food-placeholder.jpg'
+            // Check structure and success
+            if (response?.data?.success && Array.isArray(response.data.data)) {
+                if (response.data.data.length > 0) {
+                    // We have personalized recommendations
+                    setUserRecommendations(response.data.data);
+                } else {
+                    console.log('No personalized recommendations found for user. Using fallback recommendations.');
+                    
+                    // Use featured items as fallback if no personalized recommendations exist
+                    if (featuredProducts.length > 0) {
+                        const fallbackRecommendations = [...featuredProducts.slice(0, 4)].map(item => ({
+                            ...item,
+                            isFallbackRecommendation: true  // Flag to identify fallback recommendations
+                        }));
+                        setUserRecommendations(fallbackRecommendations);
+                    } else {
+                        // If no featured products, try to fetch some generic ones
+                        try {
+                            const fallbackResponse = await fetch('/api/menu?limit=4&sort=rating');
+                            if (fallbackResponse.ok) {
+                                const fallbackData = await fallbackResponse.json();
+                                if (fallbackData.success && Array.isArray(fallbackData.data) && fallbackData.data.length > 0) {
+                                    // Process the fallback items similar to how we process menu items
+                                    const fallbackRecommendations = fallbackData.data.map(item => ({
+                                        id: item._id || item.id,
+                                        name: item.name || item.item_name,
+                                        restaurant: item.restaurant || { name: 'Popular Restaurant' },
+                                        image: item.image || item.imageUrl || 'uploads/placeholders/food-placeholder.jpg',
+                                        price: item.price || item.item_price,
+                                        averageRating: item.averageRating || 4.5,
+                                        isFallbackRecommendation: true
+                                    }));
+                                    setUserRecommendations(fallbackRecommendations);
+                                } else {
+                                    setUserRecommendations([]);
+                                }
+                            } else {
+                                setUserRecommendations([]);
+                            }
+                        } catch (fallbackError) {
+                            console.error('Error fetching fallback recommendations:', fallbackError);
+                            setUserRecommendations([]);
+                        }
                     }
-                ]);
-                console.warn('Using fallback recommendations due to invalid API response format');
+                }
+            } else {
+                // Handle unexpected structure or failure
+                const errorMsg = response?.data?.error?.message || 'Failed to load recommendations: Invalid response format';
+                console.error('Recommendations API error:', errorMsg);
+                setRecommendationsError(errorMsg);
+                setUserRecommendations([]);
             }
         } catch (error) {
-            console.error('Error fetching health recommendations:', error);
-            // Use fallback data on error
-            setHealthRecommendations([
-                {
-                    id: 'healthy-1',
-                    name: 'Green Salad Bowl',
-                    description: 'Fresh mixed greens with seasonal vegetables',
-                    calories: 250,
-                    protein: 10,
-                    healthBenefits: ['Rich in vitamins', 'High fiber', 'Low calories'],
-                    image: '/uploads/placeholders/food-placeholder.jpg'
-                },
-                {
-                    id: 'healthy-2',
-                    name: 'Grilled Chicken',
-                    description: 'Lean protein with herbs and spices',
-                    calories: 320,
-                    protein: 30,
-                    healthBenefits: ['High protein', 'Low fat', 'No added sugar'],
-                    image: '/uploads/placeholders/food-placeholder.jpg'
-                }
-            ]);
-            console.warn('Using fallback recommendations due to API error');
+            console.error('Error fetching user recommendations:', error);
+            const errorMsg = error.response?.data?.error?.message || 'Failed to load recommendations. Please try again later.';
+            setRecommendationsError(errorMsg);
+            setUserRecommendations([]);
         } finally {
-            setLoadingRecs(false);
+            setLoadingRecommendations(false);
         }
     };
 
@@ -357,104 +365,116 @@ const Home = () => {
             {/* Food Categories Section */}
             <HomeCat/>
             
-            {/* Health Recommendations Section (Conditional) */}
-            {currentUser?.healthCondition && (loadingRecs || healthRecommendations.length > 0) && (
-                <section className="py-10 bg-gradient-to-r from-green-50 to-blue-50">
-                    <Container>
-                        <div className="flex flex-col items-start justify-between mb-6 md:flex-row md:items-center">
+            {/* Personalized Recommendations Section (Always visible) */}
+            <section ref={recommendationsRef} className="py-10 bg-gradient-to-r from-green-50 via-white to-blue-50">
+                <Container>
+                    <div className="flex flex-col items-start justify-between mb-6 md:flex-row md:items-center">
+                        <div>
+                            <h2 className="mb-2 text-2xl font-bold text-gray-800">
+                                {currentUser ? 'Recommended For You' : 'Recommended Dishes'}
+                            </h2>
+                            <p className="text-gray-600">
+                                {currentUser 
+                                    ? userRecommendations.length > 0 && userRecommendations[0].isFallbackRecommendation
+                                        ? 'Popular dishes you might enjoy based on trends'
+                                        : 'Personalized suggestions based on your profile' 
+                                    : 'Popular dishes you might enjoy'}
+                            </p>
+                            {userRecommendations.length > 0 && userRecommendations[0].isFallbackRecommendation && (
+                                <p className="mt-1 text-xs text-amber-600">
+                                    These are general recommendations while we learn your preferences
+                                </p>
+                            )}
+                        </div>
+                        
+                        {currentUser && (
                             <div>
-                                <h2 className="mb-2 text-2xl font-bold text-gray-800">Health Recommendations</h2>
-                                <p className="text-gray-600">Personalized for your health profile</p>
-                            </div>
-                            
-                            <div>
-                                <Button onClick={() => fetchHealthRecommendations(currentUser.healthCondition)}>
-                                    <RefreshIcon className="w-4 h-4 mr-2" /> Refresh
+                                <Button onClick={fetchUserRecommendations} disabled={loadingRecommendations}>
+                                    <RefreshIcon className={`w-4 h-4 mr-2 ${loadingRecommendations ? 'animate-spin' : ''}`} />
+                                    {loadingRecommendations ? 'Refreshing...' : 'Refresh'}
                                 </Button>
                             </div>
-                        </div>
+                        )}
+                    </div>
 
-                        <Alert type="info" className="mb-6">
-                            <div className="flex">
-                                <InformationCircleIcon className="w-5 h-5 mr-2 text-blue-400" />
-                                <div>
-                                    <span className="font-medium">Health insights:</span> These recommendations are based on your health condition: <span className="font-medium">{formatHealthCondition(currentUser.healthCondition)}</span>
-                                </div>
-                            </div>
+                    {recommendationsError && (
+                        <Alert type="error" className="mb-6">
+                            {recommendationsError}
                         </Alert>
+                    )}
 
-                        {loadingRecs ? (
-                            <div className="flex justify-center py-10">
-                                <Spinner size="lg" />
-                            </div>
-                        ) : healthRecommendations.length > 0 ? (
-                            <div>
-                                <Swiper
-                                    slidesPerView={1}
-                                    spaceBetween={20}
-                                    pagination={{ clickable: true }}
-                                    breakpoints={{
-                                        640: { slidesPerView: 2 },
-                                        1024: { slidesPerView: 3 }
-                                    }}
-                                    className="py-4"
-                                >
-                                    {healthRecommendations.map((rec, index) => (
-                                        <SwiperSlide key={index}>
-                                            <div className="flex flex-col h-full p-5 bg-white rounded-lg shadow-md">
-                                                <div className="mb-4">
-                                                    {rec.type === 'avoid' ? (
-                                                        <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                            <BanIcon className="w-3 h-3 mr-1" /> Avoid
-                                                        </div>
-                                                    ) : (
-                                                        <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            <CheckCircleIcon className="w-3 h-3 mr-1" /> Recommended
-                                                        </div>
-                                                    )}
+                    {loadingRecommendations ? (
+                        <div className="flex justify-center py-10">
+                            <Spinner size="lg" />
+                        </div>
+                    ) : userRecommendations.length > 0 ? (
+                        <div>
+                            <Swiper
+                                slidesPerView={1}
+                                spaceBetween={20}
+                                navigation={windowWidth >= 768} // Show nav on larger screens
+                                pagination={{ clickable: true }}
+                                modules={[Navigation, Pagination, Autoplay]}
+                                autoplay={{
+                                    delay: 8000, // Slower autoplay for recommendations
+                                    disableOnInteraction: true, // Stop on interaction
+                                }}
+                                breakpoints={{
+                                    640: { slidesPerView: 2 },
+                                    768: { slidesPerView: 3 },
+                                    1024: { slidesPerView: 4 } // Show 4 on large screens
+                                }}
+                                className="py-4 recommendations-swiper"
+                            >
+                                {userRecommendations.map((item) => (
+                                    <SwiperSlide key={item.id} className="h-full">
+                                        <div className="relative h-full">
+                                            {item.isFallbackRecommendation && (
+                                                <div className="absolute top-2 right-2 z-10 bg-amber-500 text-white text-xs px-2 py-1 rounded-full">
+                                                    Popular Pick
                                                 </div>
-
-                                                {rec.image && (
-                                                    <div className="relative w-full h-32 mb-3 overflow-hidden rounded-md bg-gray-50">
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                                            <div className="w-8 h-8 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>
-                                                        </div>
-                                                        <img 
-                                                            src={rec.image} 
-                                                            alt={rec.title || "Health recommendation"}
-                                                            className="object-cover w-full h-full transition-opacity duration-500"
-                                                            onLoad={(e) => e.target.parentElement.querySelector('div').classList.add('opacity-0')}
-                                                            onError={(e) => {
-                                                                e.target.onerror = null;
-                                                                e.target.src = PLACEHOLDERS.FOOD;
-                                                            }}
-                                                            loading="lazy"
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                <h3 className="mb-2 text-lg font-semibold">{rec.title}</h3>
-                                                <p className="flex-grow mb-4 text-sm text-gray-600">{rec.description}</p>
-                                                
-                                                {rec.productId && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => navigate(`/product/${rec.productId}`)}
-                                                        className="mt-auto"
-                                                    >
-                                                        View Product
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </SwiperSlide>
-                                    ))}
-                                </Swiper>
-                            </div>
-                        ) : null }
-                    </Container>
-                </section>
-            )}
+                                            )}
+                                            <ProductItem 
+                                                id={item.id}
+                                                name={item.name} 
+                                                location={item.restaurant?.name || 'Unknown Restaurant'} 
+                                                rating={item.averageRating || 0}
+                                                price={item.price} 
+                                                image={item.image} 
+                                                isRecommendation={!item.isFallbackRecommendation}
+                                                isTrendingItem={item.isFallbackRecommendation}
+                                                className="h-full"
+                                            />
+                                        </div>
+                                    </SwiperSlide>
+                                ))}
+                            </Swiper>
+                        </div>
+                    ) : (!loadingRecommendations && !recommendationsError) ? (
+                        <div className="py-8 text-center bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <InformationCircleIcon className="w-12 h-12 mx-auto text-gray-400"/>
+                            {currentUser ? (
+                                <>
+                                    <p className="mt-4 text-gray-600">No specific recommendations found for you right now.</p>
+                                    <p className="text-sm text-gray-500">Try adding items to favorites or ordering something new!</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="mt-4 text-gray-600">Sign in to get personalized recommendations!</p>
+                                    <div className="mt-4">
+                                        <Button onClick={() => navigate('/signin')} className="mx-2">
+                                            Sign In
+                                        </Button>
+                                        <Button variant="outline" onClick={() => navigate('/signup')} className="mx-2">
+                                            Sign Up
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ) : null}
+                </Container>
+            </section>
             
             <section className="py-10 bg-white">
                 <Container>

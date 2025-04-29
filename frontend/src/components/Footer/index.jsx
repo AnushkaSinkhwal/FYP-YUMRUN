@@ -31,7 +31,7 @@ const Footer = () => {
                             </div>
                             <div>
                                 <h3 className="font-medium text-gray-900">Free Delivery</h3>
-                                <p className="text-sm text-gray-600">On orders over Rs.2500</p>
+                                <p className="text-sm text-gray-600">On orders over Rs. 2500</p>
                             </div>
                         </div>
 

@@ -211,7 +211,7 @@ const IngredientCustomization = ({
                 <div>
                   <p className="text-sm font-medium">{addOn.name}</p>
                   <p className="text-xs text-gray-500">
-                    +Rs. {addOn.price}
+                    +Rs.  {addOn.price}
                   </p>
                 </div>
                 <Button
@@ -244,7 +244,7 @@ const IngredientCustomization = ({
                     key={index} 
                     className="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-gray-800"
                   >
-                    <p className="text-sm">{ingredient.name} (+Rs. {ingredient.price})</p>
+                    <p className="text-sm">{ingredient.name} (+Rs.  {ingredient.price})</p>
                     <Button
                       size="sm"
                       variant="ghost"

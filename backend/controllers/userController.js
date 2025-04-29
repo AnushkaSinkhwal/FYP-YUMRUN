@@ -3,6 +3,7 @@ const { LoyaltyPoints } = require('../models/loyalty');
 const Order = require('../models/order');
 const Restaurant = require('../models/restaurant');
 const Notification = require('../models/notification');
+const recommendationService = require('../services/recommendationService');
 
 /**
  * Get count of unread notifications for a user
@@ -502,6 +503,102 @@ exports.updateDeliveryDetails = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: { message: 'Server error. Please try again.', code: 'SERVER_ERROR' }
+    });
+  }
+};
+
+/**
+ * Get food recommendations for the current user
+ * @route GET /api/user/recommendations
+ * @access Private
+ */
+exports.getUserRecommendations = async (req, res) => {
+  try {
+    const userId = req.user._id; // Assuming user ID is available from auth middleware
+    
+    if (!userId) {
+       return res.status(401).json({
+        success: false,
+        error: {
+          message: 'User not authenticated',
+          code: 'UNAUTHORIZED'
+        }
+      });
+    }
+    
+    console.log(`Controller: Request received for recommendations for user ID: ${userId}`);
+    
+    const recommendations = await recommendationService.getRecommendationsForUser(userId);
+    
+    console.log(`Controller: Sending ${recommendations.length} recommendations.`);
+
+    return res.status(200).json({
+      success: true,
+      data: recommendations
+    });
+    
+  } catch (error) {
+    console.error('Error fetching user recommendations:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Server error while fetching recommendations',
+        code: 'SERVER_ERROR'
+      }
+    });
+  }
+};
+
+/**
+ * Add a favorite menu item for the current user
+ * @route POST /api/user/favorites
+ * @access Private
+ */
+exports.addFavorite = async (req, res) => {
+  try {
+    const { itemId } = req.body;
+    const userId = req.user._id;
+    
+    if (!itemId) {
+       return res.status(400).json({
+        success: false,
+        error: { message: 'Menu Item ID is required', code: 'VALIDATION_ERROR' }
+      });
+    }
+    
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'User not found', code: 'NOT_FOUND' }
+      });
+    }
+    
+    // Add to favorites if not already present
+    if (!user.favorites.includes(itemId)) {
+      user.favorites.push(itemId);
+      await user.save();
+      console.log(`User ${userId} added item ${itemId} to favorites.`);
+      return res.status(200).json({
+        success: true,
+        message: 'Item added to favorites',
+        data: user.favorites // Return updated favorites list
+      });
+    } else {
+      console.log(`Item ${itemId} already in favorites for user ${userId}.`);
+      return res.status(200).json({ // Or status 409 Conflict if preferred
+        success: true, // Still successful in the sense that the item *is* in favorites
+        message: 'Item already in favorites',
+        data: user.favorites
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error adding favorite:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: 'Server error while adding favorite', code: 'SERVER_ERROR' }
     });
   }
 }; 

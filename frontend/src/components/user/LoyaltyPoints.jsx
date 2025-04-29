@@ -201,7 +201,7 @@ const LoyaltyPoints = () => {
           How to Earn Points
         </h3>
         <ul className="ml-4 space-y-1 text-sm text-blue-700 dark:text-blue-300">
-          <li>Earn 10 points for every Rs. 100 spent</li>
+          <li>Earn 10 points for every Rs.  100 spent</li>
           <li>Bonus points for ordering healthy options</li>
           <li>Double points on your birthday</li>
           <li>Refer friends to earn 100 points</li>

@@ -433,10 +433,10 @@ const ProductItem = ({
                                 <div className="price-container">
                                     {/* Use calculated displayOldPrice and displayPrice */}
                                     {displayOldPrice && displayOldPrice > displayPrice ? (
-                                        <span className="mr-2 text-sm text-gray-500 line-through">Rs.{displayOldPrice.toFixed(2)}</span>
+                                        <span className="mr-2 text-sm text-gray-500 line-through">Rs. {displayOldPrice.toFixed(2)}</span>
                                     ) : null}
                                     <span className={`font-medium ${hasOffer ? 'text-yumrun-red' : 'text-yumrun-accent'}`}>
-                                        Rs.{displayPrice.toFixed(2)}
+                                        Rs. {displayPrice.toFixed(2)}
                                     </span>
                                 </div>
                                 

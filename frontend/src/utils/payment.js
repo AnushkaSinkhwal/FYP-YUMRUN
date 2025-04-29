@@ -55,9 +55,9 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
     // Store cart items in session storage for later use
     const cartItems = JSON.parse(sessionStorage.getItem('cartItems') || '[]');
     
-    // Ensure amount is greater than or equal to Rs. 10 (Khalti requirement)
+    // Ensure amount is greater than or equal to Rs.  10 (Khalti requirement)
     if (amount < 10) {
-      throw new Error('Payment amount must be at least Rs. 10');
+      throw new Error('Payment amount must be at least Rs.  10');
     }
     
     // Format order data according to Khalti requirements
@@ -143,7 +143,7 @@ export const initiateKhaltiPayment = async (orderId, amount, customerDetails, ca
     // Provide more specific error messages
     if (error.message === 'Authentication token not found. Please log in again.') {
       errorMessage = error.message;
-    } else if (error.message === 'Payment amount must be at least Rs. 10') {
+    } else if (error.message === 'Payment amount must be at least Rs.  10') {
       errorMessage = error.message;
     } else if (error.code === 'ERR_NETWORK') {
       errorMessage = 'Network error. Please check your internet connection and try again.';

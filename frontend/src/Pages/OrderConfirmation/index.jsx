@@ -130,13 +130,13 @@ const OrderConfirmation = () => {
                   {orderData.items.map((item, index) => (
                     <div key={index} className="flex justify-between py-1 text-sm">
                       <span>{item.quantity}x {item.name}</span>
-                      <span>Rs.{(item.price * item.quantity).toFixed(2)}</span>
+                      <span>Rs. {(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                   
                   <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between font-medium">
                     <span>Total</span>
-                    <span>Rs.{orderData.totalPrice.toFixed(2)}</span>
+                    <span>Rs. {orderData.totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
               )}

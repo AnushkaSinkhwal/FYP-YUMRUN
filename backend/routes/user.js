@@ -1098,4 +1098,18 @@ router.get('/dashboard', protect, async (req, res) => {
  */
 router.put('/delivery-details', protect, emailVerificationCheck, userController.updateDeliveryDetails);
 
+/**
+ * @route   GET /api/user/recommendations
+ * @desc    Get food recommendations for the user
+ * @access  Private
+ */
+router.get('/recommendations', protect, emailVerificationCheck, userController.getUserRecommendations);
+
+/**
+ * @route   POST /api/user/favorites
+ * @desc    Add a favorite menu item
+ * @access  Private
+ */
+router.post('/favorites', protect, emailVerificationCheck, userController.addFavorite);
+
 module.exports = router;
