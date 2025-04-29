@@ -42,7 +42,30 @@ const Restaurants = () => {
       const response = await adminAPI.getRestaurants();
       if (response.data?.success) {
         console.log(`Found ${response.data.restaurants.length} restaurants`);
-        setRestaurants(response.data.restaurants || []);
+        
+        // Check for pending changes for each restaurant
+        const restaurantsWithPendingStatus = await Promise.all(
+          response.data.restaurants.map(async (restaurant) => {
+            try {
+              // Check for pending approval requests
+              const approvalResponse = await adminAPI.getRestaurantApprovals();
+              const pendingApprovals = approvalResponse.data?.data || [];
+              const hasPendingChanges = pendingApprovals.some(
+                approval => approval.restaurantId?._id === restaurant._id || approval.restaurantId === restaurant._id
+              );
+              
+              return {
+                ...restaurant,
+                hasPendingChanges
+              };
+            } catch (err) {
+              console.error(`Error checking pending changes for restaurant ${restaurant._id}:`, err);
+              return restaurant;
+            }
+          })
+        );
+        
+        setRestaurants(restaurantsWithPendingStatus || []);
       } else {
         throw new Error(response.data?.message || 'Failed to fetch restaurants');
       }
@@ -186,6 +209,10 @@ const Restaurants = () => {
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const handleReviewChanges = () => {
+    navigate('/admin/restaurant-approvals');
+  };
+
   return (
     <div className="container p-4 mx-auto md:p-6 lg:p-8">
       <h1 className="mb-6 text-2xl font-bold md:text-3xl">Restaurant Management</h1>
@@ -205,7 +232,7 @@ const Restaurants = () => {
           <FaSearch className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
         </div>
         
-        <div className="flex gap-3 w-full md:w-auto">
+        <div className="flex w-full gap-3 md:w-auto">
           <Button onClick={openAddRestaurantModal} className="w-full md:w-auto">
             <FaPlus className="mr-2" /> Add Restaurant
           </Button>
@@ -252,20 +279,20 @@ const Restaurants = () => {
                   <Badge variant={getBadgeVariant(restaurant.status)}>
                     {formatStatusDisplay(restaurant.status)}
                   </Badge>
-                  {restaurant.status === 'approved' && restaurant.hasPendingUpdate && (
+                  {restaurant.hasPendingChanges && (
                     <Badge variant="warning" title="This restaurant has submitted changes that require your review.">
                       Pending Changes
                     </Badge>
                   )}
                 </div>
                 
-                {restaurant.status === 'approved' && restaurant.hasPendingUpdate && (
-                  <div className="p-2 mb-3 text-sm bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700">
+                {restaurant.hasPendingChanges && (
+                  <div className="p-2 mb-3 text-sm text-yellow-700 border border-yellow-200 rounded-md bg-yellow-50">
                     This restaurant has profile changes awaiting approval.
                     <Button 
                       variant="link" 
                       className="ml-1 text-yellow-700 underline"
-                      onClick={() => navigate('/admin/restaurant-approvals')}
+                      onClick={handleReviewChanges}
                     >
                       Review Changes
                     </Button>

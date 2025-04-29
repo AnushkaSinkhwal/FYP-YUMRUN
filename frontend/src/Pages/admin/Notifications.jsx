@@ -50,7 +50,21 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
     if (notification.type === 'RESTAURANT_UPDATE' || 
         notification.type === 'RESTAURANT_REGISTRATION' || 
         notification.type === 'PROFILE_UPDATE_REQUEST') {
-      navigate('/admin/restaurant-approvals');
+      
+      // Extract the approval ID from the notification data
+      const approvalId = notification.data?.approvalId;
+      
+      // Navigate to restaurant approvals page with the approval ID
+      if (approvalId) {
+        navigate('/admin/restaurant-approvals', { 
+          state: { 
+            approvalId: approvalId,
+            autoOpenDetails: true 
+          } 
+        });
+      } else {
+        navigate('/admin/restaurant-approvals');
+      }
     } else if (notification.type === 'PROFILE_UPDATE') {
       navigate(`/admin/users/${notification.data?.userId || ''}`);
     } else {

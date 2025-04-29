@@ -10,6 +10,7 @@ const MenuItem = require('../models/menuItem');
 const mongoose = require('mongoose');
 const Notification = require('../models/notification');
 const Offer = require('../models/offer');
+const RestaurantApproval = require('../models/restaurantApproval');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -251,6 +252,48 @@ router.put('/profile', [auth, isRestaurantOwner, upload.fields([
         await notification.save();
         console.log(`Created new pending notification ${notification._id} for restaurant ${restaurant._id}`);
         
+        // --- Create RestaurantApproval document ---
+        const approvalRequest = new RestaurantApproval({
+            restaurantId: restaurant._id,
+            currentData: currentData,
+            requestedData: {
+                name: submittedData.name,
+                description: submittedData.description,
+                address: submittedData.address,
+                phone: submittedData.phone,
+                cuisine: submittedData.cuisine,
+                openingHours: submittedData.openingHours,
+                isOpen: submittedData.isOpen,
+                deliveryRadius: submittedData.deliveryRadius,
+                minimumOrder: submittedData.minimumOrder,
+                deliveryFee: submittedData.deliveryFee,
+                // Only use logo if provided as string, else fallback to current logo
+                logo: typeof submittedData.logo === 'string' ? submittedData.logo : currentData.logo,
+                // Only use coverImage if provided as string, else fallback to current coverImage
+                coverImage: typeof submittedData.coverImage === 'string' ? submittedData.coverImage : currentData.coverImage,
+                panNumber: submittedData.panNumber || currentData.panNumber,
+                priceRange: submittedData.priceRange || currentData.priceRange
+            },
+            status: 'pending'
+        });
+        
+        const savedApproval = await approvalRequest.save();
+        console.log(`Created RestaurantApproval document ${savedApproval._id} for restaurant ${restaurant._id}`);
+        
+        // Update the notification with the approval ID
+        notification.data.approvalId = savedApproval._id;
+        await notification.save();
+        
+        // Persist uploaded images immediately if provided
+        if (files.logo?.[0]) {
+            restaurant.logo = submittedData.logo;
+        }
+        if (files.coverImage?.[0]) {
+            restaurant.coverImage = submittedData.coverImage;
+        }
+        // Update restaurant status to pending approval
+        restaurant.status = 'pending_approval';
+        await restaurant.save();
 
         // Respond to the restaurant owner
         return res.status(202).json({ // 202 Accepted: Request received, pending processing

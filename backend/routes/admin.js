@@ -719,9 +719,10 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
           // Create a notification for the restaurant owner
           const ownerNotification = new Notification({
             userId: notification.userId, // The owner who requested the change
-            type: 'SYSTEM',
-            title: 'Restaurant Update Approved',
-            message: 'Your requested restaurant profile changes have been approved by the admin.',
+            type: 'RESTAURANT_UPDATE',
+            title: 'Profile Update Approved',
+            message: 'Your restaurant profile changes have been approved.',
+            status: 'APPROVED',
             isRead: false,
             data: { restaurantId: restaurant._id } // Include restaurant ID for context
           });
@@ -776,9 +777,11 @@ router.post('/notifications/:notificationId/process', auth, isAdmin, async (req,
           // Create a notification for the restaurant owner
           const ownerNotification = new Notification({
             userId: notification.userId,
-            type: 'SYSTEM',
-            title: 'Restaurant Update Rejected',
-            message: `Your requested restaurant profile changes have been rejected by the admin. Reason: ${reason}`,
+            type: 'RESTAURANT_REJECTION',
+            title: 'Profile Changes Rejected',
+            message: `Your restaurant profile changes have been rejected. Reason: ${reason}`,
+            status: 'REJECTED',
+            userId: restaurant.owner,
             isRead: false,
             data: { restaurantId: restaurant._id, reason: reason }
           });
@@ -1083,7 +1086,14 @@ router.get('/owners', auth, isAdmin, async (req, res) => {
 router.get('/restaurant-approvals', auth, isAdmin, async (req, res) => {
     try {
         const pendingApprovals = await RestaurantApproval.find({ status: 'pending' })
-            .populate('restaurantId', 'name email phone')
+            .populate('restaurantId', 'name email phone address cuisine openingHours deliveryRadius minimumOrder deliveryFee logo coverImage panNumber priceRange')
+            .populate({
+                path: 'restaurantId',
+                populate: {
+                    path: 'owner',
+                    select: 'name email phone'
+                }
+            })
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -1091,6 +1101,7 @@ router.get('/restaurant-approvals', auth, isAdmin, async (req, res) => {
             data: pendingApprovals
         });
     } catch (error) {
+        console.error('Error fetching restaurant approvals:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -1121,206 +1132,192 @@ router.get('/restaurant-approvals/count', auth, isAdmin, async (req, res) => {
 
 // Approve restaurant profile changes
 router.post('/restaurant-approvals/:approvalId/approve', auth, isAdmin, async (req, res) => {
+    const { approvalId } = req.params;
+
     try {
-        const approval = await RestaurantApproval.findById(req.params.approvalId);
+        console.log(`Admin attempting to approve restaurant changes for approval ID: ${approvalId}`);
         
-        if (!approval) {
+        // Find the approval request
+        const approvalRequest = await RestaurantApproval.findById(approvalId)
+            .populate('restaurantId');
+        
+        if (!approvalRequest) {
             return res.status(404).json({
                 success: false,
                 message: 'Approval request not found'
             });
         }
-
-        if (approval.status !== 'pending') {
+        
+        if (approvalRequest.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                message: 'This request has already been processed'
+                message: `Cannot approve a request that is already ${approvalRequest.status}`
             });
         }
 
-        // Find the restaurant to update
-        const restaurant = await Restaurant.findById(approval.restaurantId);
+        // Get restaurant ID from approval request
+        const restaurantId = approvalRequest.restaurantId;
+        
+        if (!restaurantId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Restaurant not found in approval request'
+            });
+        }
+        
+        // Find the restaurant - it might be populated or just an ID
+        const restaurant = typeof restaurantId === 'object' ? restaurantId : await Restaurant.findById(restaurantId);
+        
         if (!restaurant) {
             return res.status(404).json({
                 success: false,
                 message: 'Restaurant not found'
             });
         }
-
-        // Get the restaurant owner's user record
+        
+        // Find restaurant owner
         const owner = await User.findById(restaurant.owner);
+        
         if (!owner) {
             return res.status(404).json({
                 success: false,
                 message: 'Restaurant owner not found'
             });
         }
-
-        // Track changes for logging
-        const changes = {};
-
-        // Apply requested changes to the restaurant document
-        if (approval.requestedData.name !== approval.currentData.name) {
-            changes.name = { 
-                from: restaurant.name, 
-                to: approval.requestedData.name 
-            };
-            restaurant.name = approval.requestedData.name;
-        }
-
-        if (approval.requestedData.description !== approval.currentData.description) {
-            changes.description = { 
-                from: restaurant.description, 
-                to: approval.requestedData.description 
-            };
-            restaurant.description = approval.requestedData.description;
-        }
-
-        if (JSON.stringify(approval.requestedData.address) !== JSON.stringify(approval.currentData.address)) {
-            changes.address = { 
-                from: restaurant.address, 
-                to: approval.requestedData.address 
-            };
-            restaurant.address = approval.requestedData.address;
-        }
-
-        if (approval.requestedData.phone !== approval.currentData.phone) {
-            changes.phone = { 
-                from: owner.phone, 
-                to: approval.requestedData.phone 
-            };
-            owner.phone = approval.requestedData.phone;
-        }
-
-        if (JSON.stringify(approval.requestedData.cuisine) !== JSON.stringify(approval.currentData.cuisine)) {
-            changes.cuisine = { 
-                from: restaurant.cuisine, 
-                to: approval.requestedData.cuisine 
-            };
-            restaurant.cuisine = approval.requestedData.cuisine;
-        }
-
-        if (JSON.stringify(approval.requestedData.openingHours) !== JSON.stringify(approval.currentData.openingHours)) {
-            changes.openingHours = { 
-                from: restaurant.openingHours, 
-                to: approval.requestedData.openingHours 
-            };
-            restaurant.openingHours = approval.requestedData.openingHours;
-        }
-
-        if (approval.requestedData.isOpen !== approval.currentData.isOpen) {
-            changes.isOpen = { 
-                from: restaurant.isOpen, 
-                to: approval.requestedData.isOpen 
-            };
-            restaurant.isOpen = approval.requestedData.isOpen;
-        }
-
-        if (approval.requestedData.deliveryRadius !== approval.currentData.deliveryRadius) {
-            changes.deliveryRadius = { 
-                from: restaurant.deliveryRadius, 
-                to: approval.requestedData.deliveryRadius 
-            };
-            restaurant.deliveryRadius = approval.requestedData.deliveryRadius;
-        }
-
-        if (approval.requestedData.minimumOrder !== approval.currentData.minimumOrder) {
-            changes.minimumOrder = { 
-                from: restaurant.minimumOrder, 
-                to: approval.requestedData.minimumOrder 
-            };
-            restaurant.minimumOrder = approval.requestedData.minimumOrder;
-        }
-
-        if (approval.requestedData.deliveryFee !== approval.currentData.deliveryFee) {
-            changes.deliveryFee = { 
-                from: restaurant.deliveryFee, 
-                to: approval.requestedData.deliveryFee 
-            };
-            restaurant.deliveryFee = approval.requestedData.deliveryFee;
-        }
-
-        if (approval.requestedData.logo !== approval.currentData.logo) {
-            changes.logo = { 
-                from: restaurant.logo, 
-                to: approval.requestedData.logo 
-            };
-            restaurant.logo = approval.requestedData.logo;
-        }
-
-        if (approval.requestedData.coverImage !== approval.currentData.coverImage) {
-            changes.coverImage = { 
-                from: restaurant.coverImage, 
-                to: approval.requestedData.coverImage 
-            };
-            restaurant.coverImage = approval.requestedData.coverImage;
-        }
-
-        if (approval.requestedData.panNumber !== approval.currentData.panNumber) {
-            changes.panNumber = { 
-                from: restaurant.panNumber, 
-                to: approval.requestedData.panNumber 
-            };
-            restaurant.panNumber = approval.requestedData.panNumber;
-        }
-
-        if (approval.requestedData.priceRange !== approval.currentData.priceRange) {
-            changes.priceRange = { 
-                from: restaurant.priceRange, 
-                to: approval.requestedData.priceRange 
-            };
-            restaurant.priceRange = approval.requestedData.priceRange;
-        }
-
-        // Log changes before saving
-        console.log("Applying changes to restaurant:", changes);
-
-        // Save the changes
-        const savedRestaurant = await restaurant.save();
         
-        // Save owner updates if any
-        if (changes.phone) {
+        // Update restaurant with requested data
+        const requestedData = approvalRequest.requestedData;
+        
+        // Handle name update
+        if (requestedData.name && requestedData.name !== restaurant.name) {
+            restaurant.name = requestedData.name;
+        }
+        
+        // Handle description update
+        if (requestedData.description && requestedData.description !== restaurant.description) {
+            restaurant.description = requestedData.description;
+        }
+        
+        // Handle address update
+        if (requestedData.address && JSON.stringify(requestedData.address) !== JSON.stringify(restaurant.address)) {
+            restaurant.address = requestedData.address;
+        }
+        
+        // Handle phone update
+        if (requestedData.phone && requestedData.phone !== owner.phone) {
+            owner.phone = requestedData.phone;
             await owner.save();
         }
         
-        // Update approval status
-        approval.status = 'approved';
-        approval.processedBy = req.user.userId;
-        approval.processedAt = new Date();
-        await approval.save();
+        // Handle email update
+        if (requestedData.email && requestedData.email !== owner.email) {
+            // This might need additional verification process
+            // For now, we just update it
+            owner.email = requestedData.email;
+            await owner.save();
+        }
+        
+        // Handle cuisine update
+        if (requestedData.cuisine && JSON.stringify(requestedData.cuisine) !== JSON.stringify(restaurant.cuisine)) {
+            restaurant.cuisine = requestedData.cuisine;
+        }
+        
+        // Handle opening hours update
+        if (requestedData.openingHours && JSON.stringify(requestedData.openingHours) !== JSON.stringify(restaurant.openingHours)) {
+            restaurant.openingHours = requestedData.openingHours;
+        }
+        
+        // Handle isOpen update
+        if (requestedData.isOpen !== undefined && requestedData.isOpen !== restaurant.isOpen) {
+            restaurant.isOpen = requestedData.isOpen;
+        }
+        
+        // Handle deliveryRadius update
+        if (requestedData.deliveryRadius !== undefined && requestedData.deliveryRadius !== restaurant.deliveryRadius) {
+            restaurant.deliveryRadius = requestedData.deliveryRadius;
+        }
+        
+        // Handle minimumOrder update
+        if (requestedData.minimumOrder !== undefined && requestedData.minimumOrder !== restaurant.minimumOrder) {
+            restaurant.minimumOrder = requestedData.minimumOrder;
+        }
+        
+        // Handle deliveryFee update
+        if (requestedData.deliveryFee !== undefined && requestedData.deliveryFee !== restaurant.deliveryFee) {
+            restaurant.deliveryFee = requestedData.deliveryFee;
+        }
+        
+        // Handle logo update
+        if (requestedData.logo && requestedData.logo !== restaurant.logo) {
+            restaurant.logo = requestedData.logo;
+        }
+        
+        // Handle coverImage update
+        if (requestedData.coverImage && requestedData.coverImage !== restaurant.coverImage) {
+            restaurant.coverImage = requestedData.coverImage;
+        }
+        
+        // Handle panNumber update
+        if (requestedData.panNumber && requestedData.panNumber !== restaurant.panNumber) {
+            restaurant.panNumber = requestedData.panNumber;
+        }
+        
+        // Handle priceRange update
+        if (requestedData.priceRange && requestedData.priceRange !== restaurant.priceRange) {
+            restaurant.priceRange = requestedData.priceRange;
+        }
+        
+        // Update restaurant status back to approved since changes are approved
+        restaurant.status = 'approved';
+        
+        // Save restaurant changes
+        await restaurant.save();
+        
+        // Update approval request status
+        approvalRequest.status = 'approved';
+        approvalRequest.processedBy = req.user.userId;
+        approvalRequest.processedAt = new Date();
+        await approvalRequest.save();
         
         // Create notification for restaurant owner
         const notification = new Notification({
-            type: 'RESTAURANT_UPDATE_APPROVED',
-            title: 'Profile Changes Approved',
+            userId: owner._id,
+            type: 'RESTAURANT_UPDATE',  // valid enum
+            title: 'Profile Update Approved',
             message: 'Your restaurant profile changes have been approved.',
-            userId: restaurant.owner,
+            status: 'APPROVED',          // mark as approved
             isRead: false,
             data: {
                 restaurantId: restaurant._id,
-                approvalId: approval._id
+                approvalId: approvalRequest._id
             }
         });
         
         await notification.save();
         
-        // Return success response
+        // Delete any existing admin notifications for this approval
+        await Notification.deleteMany({
+            isAdminNotification: true,
+            'data.approvalId': approvalRequest._id,
+            type: 'RESTAURANT_UPDATE'
+        });
+        
+        console.log(`Successfully approved changes for restaurant ${restaurant.name} (${restaurant._id})`);
+        
         return res.status(200).json({
             success: true,
             message: 'Restaurant profile changes approved successfully',
-            data: {
-                restaurant: {
-                    id: savedRestaurant._id,
-                    name: savedRestaurant.name
-                },
-                changesApplied: Object.keys(changes)
+            restaurant: {
+                id: restaurant._id,
+                name: restaurant.name,
+                status: restaurant.status
             }
         });
     } catch (error) {
         console.error('Error approving restaurant profile changes:', error);
         return res.status(500).json({
             success: false,
-            message: 'Server error: ' + error.message
+            message: 'Server error while approving restaurant profile changes: ' + error.message
         });
     }
 });
@@ -1369,12 +1366,17 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         approval.rejectionReason = reason;
         await approval.save();
         
+        // Update restaurant status back to approved 
+        restaurant.status = 'approved';
+        await restaurant.save();
+        
         // Create notification for restaurant owner
         const notification = new Notification({
-            type: 'RESTAURANT_UPDATE_REJECTED',
+            userId: restaurant.owner,
+            type: 'RESTAURANT_REJECTION', // valid enum
             title: 'Profile Changes Rejected',
             message: `Your restaurant profile changes have been rejected. Reason: ${reason}`,
-            userId: restaurant.owner,
+            status: 'REJECTED',           // mark as rejected
             isRead: false,
             data: {
                 restaurantId: restaurant._id,
@@ -1384,6 +1386,13 @@ router.post('/restaurant-approvals/:approvalId/reject', auth, isAdmin, async (re
         });
         
         await notification.save();
+        
+        // Delete any existing admin notifications for this approval
+        await Notification.deleteMany({
+            isAdminNotification: true,
+            'data.approvalId': approval._id,
+            type: 'RESTAURANT_REJECTION'
+        });
         
         // Return success response
         return res.status(200).json({

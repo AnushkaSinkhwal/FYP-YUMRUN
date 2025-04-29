@@ -52,6 +52,19 @@ const RestaurantProfile = () => {
     fetchRestaurantProfile();
   }, []);
 
+  // Add polling effect when changes are pending approval
+  useEffect(() => {
+    let refreshInterval;
+    if (isPendingApproval) {
+      // Poll every 60 seconds for status changes
+      refreshInterval = setInterval(fetchRestaurantProfile, 60000);
+    }
+    
+    return () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
+  }, [isPendingApproval]);
+
   const fetchRestaurantProfile = async () => {
     setLoading(true);
     setError(null);
@@ -284,10 +297,22 @@ const RestaurantProfile = () => {
 
         {isPendingApproval && !success && (
           <Alert variant="warning" className="mb-6">
-            <FaClock className="w-4 h-4" />
-            <div className="ml-3">
-               <p className="font-medium">Changes Pending Approval</p>
-               <p className="text-sm">Your profile changes are currently under review by an administrator. Further edits are disabled until approved or rejected.</p>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-start">
+                <FaClock className="w-4 h-4 mt-1" />
+                <div className="ml-3">
+                  <p className="font-medium">Changes Pending Approval</p>
+                  <p className="text-sm">Your profile changes are currently under review by an administrator. Further edits are disabled until approved or rejected.</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fetchRestaurantProfile} 
+                className="ml-4 shrink-0"
+              >
+                Check Status
+              </Button>
             </div>
           </Alert>
         )}

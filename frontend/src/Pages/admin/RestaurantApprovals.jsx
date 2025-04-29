@@ -3,6 +3,7 @@ import { Card, Button, Alert, Spinner, Container, Tabs, TabsList, TabsTrigger, T
 import { adminAPI } from '../../utils/api';
 import { formatDate } from '../../utils/formatters';
 import { FaCheck, FaTimes } from 'react-icons/fa';
+import { useLocation } from 'react-router-dom';
 
 const RestaurantApprovals = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -14,10 +15,48 @@ const RestaurantApprovals = () => {
     const [rejectionReason, setRejectionReason] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [selectedApprovalId, setSelectedApprovalId] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [selectedApproval, setSelectedApproval] = useState(null);
+    const location = useLocation();
 
     useEffect(() => {
         fetchPendingApprovals();
     }, []);
+
+    useEffect(() => {
+        const state = location.state;
+        if (state?.approvalId && state?.autoOpenDetails) {
+            console.log('Auto-open requested for approval ID:', state.approvalId);
+            console.log('Available pending updates:', pendingUpdates);
+            
+            // Find the approval in pendingUpdates
+            const approval = pendingUpdates.find(update => update._id === state.approvalId);
+            if (approval) {
+                console.log('Found matching approval:', approval);
+                // Set active tab to updates if needed
+                setActiveTab('updates');
+                // Show details modal
+                showChangeDetails(approval);
+                // Clear the state to prevent reopening on navigation
+                window.history.replaceState({}, document.title);
+            } else {
+                console.warn('Approval ID not found in pending updates:', state.approvalId);
+                // Set message to inform user
+                setMessage({
+                    type: 'info',
+                    text: 'The requested approval could not be found. It may have been already processed or removed.'
+                });
+            }
+        }
+    }, [pendingUpdates, location.state]);
+
+    // Refresh data when navigating from a notification
+    useEffect(() => {
+        if (location.state?.approvalId) {
+            console.log('Refreshing approvals data because we received an approvalId');
+            fetchPendingApprovals();
+        }
+    }, [location.state?.approvalId]);
 
     const fetchPendingApprovals = async () => {
         setIsLoading(true);
@@ -39,8 +78,24 @@ const RestaurantApprovals = () => {
             }
             
             if (updatesRes.data?.success) {
-                setPendingUpdates(updatesRes.data.data || []);
-                console.log(`Found ${updatesRes.data.data?.length || 0} pending restaurant updates`);
+                const pendingUpdates = updatesRes.data.data || [];
+                setPendingUpdates(pendingUpdates);
+                console.log(`Found ${pendingUpdates.length || 0} pending restaurant updates`);
+                
+                if (pendingUpdates.length === 0) {
+                    console.log("No pending updates found. API response data:", updatesRes.data);
+                } else {
+                    // Log detailed information about each pending update
+                    pendingUpdates.forEach((update, index) => {
+                        console.log(`Pending update #${index + 1}:`, {
+                            id: update._id,
+                            restaurantId: update.restaurantId?._id || update.restaurantId,
+                            restaurantName: update.restaurantId?.name || update.currentData?.name,
+                            status: update.status,
+                            createdAt: update.createdAt
+                        });
+                    });
+                }
             }
             
             if (!registrationsRes.data?.success && !updatesRes.data?.success) {
@@ -185,7 +240,7 @@ const RestaurantApprovals = () => {
     const getChangeSummary = (update) => {
         const changes = [];
         
-        if (update.requestedData?.restaurantName !== update.currentData?.restaurantName) {
+        if (update.requestedData?.name !== update.currentData?.name) {
             changes.push('Name');
         }
         
@@ -193,7 +248,7 @@ const RestaurantApprovals = () => {
             changes.push('Description');
         }
         
-        if (update.requestedData?.restaurantAddress !== update.currentData?.restaurantAddress) {
+        if (JSON.stringify(update.requestedData?.address) !== JSON.stringify(update.currentData?.address)) {
             changes.push('Address');
         }
         
@@ -209,12 +264,8 @@ const RestaurantApprovals = () => {
             changes.push('Opening Hours');
         }
         
-        if (update.requestedData?.logo !== update.currentData?.logo) {
-            changes.push('Logo');
-        }
-        
-        if (update.requestedData?.coverImage !== update.currentData?.coverImage) {
-            changes.push('Cover Image');
+        if (update.requestedData?.isOpen !== update.currentData?.isOpen) {
+            changes.push('Open Status');
         }
         
         if (update.requestedData?.deliveryRadius !== update.currentData?.deliveryRadius) {
@@ -229,13 +280,44 @@ const RestaurantApprovals = () => {
             changes.push('Delivery Fee');
         }
         
-        return changes.length > 0 ? changes.join(', ') : 'No changes detected';
+        if (update.requestedData?.logo !== update.currentData?.logo) {
+            changes.push('Logo');
+        }
+        
+        if (update.requestedData?.coverImage !== update.currentData?.coverImage) {
+            changes.push('Cover Image');
+        }
+        
+        if (update.requestedData?.panNumber !== update.currentData?.panNumber) {
+            changes.push('PAN Number');
+        }
+        
+        if (update.requestedData?.priceRange !== update.currentData?.priceRange) {
+            changes.push('Price Range');
+        }
+        
+        // If there are more than 3 changes, summarize
+        if (changes.length > 3) {
+            return `${changes.slice(0, 3).join(', ')} and ${changes.length - 3} more changes`;
+        }
+        
+        return changes.join(', ') || 'No significant changes detected';
+    };
+
+    const showChangeDetails = (approval) => {
+        setSelectedApproval(approval);
+        setShowDetailsModal(true);
+    };
+    
+    const hideChangeDetailsModal = () => {
+        setShowDetailsModal(false);
+        setSelectedApproval(null);
     };
 
     if (isLoading && pendingRestaurants.length === 0 && pendingUpdates.length === 0) {
         return (
             <Container className="py-8">
-                <div className="flex justify-center items-center h-64">
+                <div className="flex items-center justify-center h-64">
                     <Spinner size="lg" />
                 </div>
             </Container>
@@ -257,7 +339,7 @@ const RestaurantApprovals = () => {
                     <div className="flex flex-col gap-2">
                         <p>{message.text}</p>
                         {message.type === 'info' && (
-                            <ul className="list-disc pl-5 text-sm mt-1">
+                            <ul className="pl-5 mt-1 text-sm list-disc">
                                 <li>Restaurant owners can update their profile in Restaurant Dashboard → Profile</li>
                                 <li>After submitting changes, they appear here for admin approval</li>
                                 <li>New restaurant registrations also appear here pending approval</li>
@@ -270,20 +352,9 @@ const RestaurantApprovals = () => {
             {!isLoading && !hasPendingRestaurants && !hasPendingUpdates && (
                 <Card className="p-6 text-center">
                     <p className="text-gray-600 dark:text-gray-400">No pending approvals found.</p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+                    <div className="flex flex-col items-center justify-center gap-3 mt-4 sm:flex-row">
                         <Button variant="outline" onClick={fetchPendingApprovals}>
                             Refresh Approvals
-                        </Button>
-                        <Button 
-                            variant="secondary"
-                            onClick={() => {
-                                setMessage({
-                                    type: 'info',
-                                    text: 'Please go to the restaurant dashboard and update a restaurant profile to create a pending approval.'
-                                });
-                            }}
-                        >
-                            How to Test Approvals
                         </Button>
                     </div>
                 </Card>
@@ -335,7 +406,7 @@ const RestaurantApprovals = () => {
                                                     <td className="px-6 py-4">
                                                         {restaurant.owner?.email || 'N/A'}
                                                     </td>
-                                                    <td className="px-6 py-4 text-center space-x-2">
+                                                    <td className="px-6 py-4 space-x-2 text-center">
                                                         <Button
                                                             variant="success"
                                                             size="sm"
@@ -376,7 +447,7 @@ const RestaurantApprovals = () => {
                                         <thead className="text-xs uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-400">
                                             <tr>
                                                 <th scope="col" className="px-6 py-3">Restaurant</th>
-                                                <th scope="col" className="px-6 py-3">Requested By</th>
+                                                <th scope="col" className="px-6 py-3">Owner</th>
                                                 <th scope="col" className="px-6 py-3">Submitted</th>
                                                 <th scope="col" className="px-6 py-3">Changes</th>
                                                 <th scope="col" className="px-6 py-3 text-center">Actions</th>
@@ -386,10 +457,10 @@ const RestaurantApprovals = () => {
                                             {pendingUpdates.map((update) => (
                                                 <tr key={update._id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                                     <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                                        {getRestaurantName(update)}
+                                                        {update.restaurantId?.name || getRestaurantName(update)}
                                                     </th>
                                                     <td className="px-6 py-4">
-                                                        {update.restaurantId?.email || 'Unknown'}
+                                                        {update.restaurantId?.owner?.email || update.currentData?.email || 'Unknown'}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         {formatDate(update.createdAt)}
@@ -397,7 +468,15 @@ const RestaurantApprovals = () => {
                                                     <td className="px-6 py-4">
                                                         {getChangeSummary(update)}
                                                     </td>
-                                                    <td className="px-6 py-4 text-center space-x-2">
+                                                    <td className="px-6 py-4 space-x-2 text-center">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => showChangeDetails(update)}
+                                                            className="mb-2 sm:mb-0"
+                                                        >
+                                                            Details
+                                                        </Button>
                                                         <Button
                                                             variant="success"
                                                             size="sm"
@@ -434,18 +513,147 @@ const RestaurantApprovals = () => {
                 </Tabs>
             )}
             
+            {/* Change Details Modal */}
+            {showDetailsModal && selectedApproval && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-3xl w-full p-6 max-h-[80vh] overflow-y-auto">
+                        <h3 className="mb-4 text-xl font-semibold">Change Details</h3>
+                        <h4 className="mb-2 text-lg font-medium">
+                            {selectedApproval.restaurantId?.name || getRestaurantName(selectedApproval)}
+                        </h4>
+                        
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Requested on {formatDate(selectedApproval.createdAt)}
+                            </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2">
+                            {selectedApproval.currentData?.name !== selectedApproval.requestedData?.name && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Name</p>
+                                    <p className="text-red-500 line-through">{selectedApproval.currentData.name}</p>
+                                    <p className="text-green-500">{selectedApproval.requestedData.name}</p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.description !== selectedApproval.requestedData?.description && (
+                                <div className="p-3 border rounded-md md:col-span-2">
+                                    <p className="font-medium">Description</p>
+                                    <p className="text-sm text-red-500 line-through">{selectedApproval.currentData.description}</p>
+                                    <p className="text-sm text-green-500">{selectedApproval.requestedData.description}</p>
+                                </div>
+                            )}
+                            
+                            {JSON.stringify(selectedApproval.currentData?.address) !== JSON.stringify(selectedApproval.requestedData?.address) && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Address</p>
+                                    <p className="text-red-500 line-through">
+                                        {typeof selectedApproval.currentData.address === 'string' 
+                                            ? selectedApproval.currentData.address 
+                                            : JSON.stringify(selectedApproval.currentData.address)}
+                                    </p>
+                                    <p className="text-green-500">
+                                        {typeof selectedApproval.requestedData.address === 'string' 
+                                            ? selectedApproval.requestedData.address 
+                                            : JSON.stringify(selectedApproval.requestedData.address)}
+                                    </p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.phone !== selectedApproval.requestedData?.phone && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Phone</p>
+                                    <p className="text-red-500 line-through">{selectedApproval.currentData.phone}</p>
+                                    <p className="text-green-500">{selectedApproval.requestedData.phone}</p>
+                                </div>
+                            )}
+                            
+                            {JSON.stringify(selectedApproval.currentData?.cuisine) !== JSON.stringify(selectedApproval.requestedData?.cuisine) && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Cuisine</p>
+                                    <p className="text-red-500 line-through">
+                                        {Array.isArray(selectedApproval.currentData.cuisine) 
+                                            ? selectedApproval.currentData.cuisine.join(', ') 
+                                            : selectedApproval.currentData.cuisine}
+                                    </p>
+                                    <p className="text-green-500">
+                                        {Array.isArray(selectedApproval.requestedData.cuisine) 
+                                            ? selectedApproval.requestedData.cuisine.join(', ') 
+                                            : selectedApproval.requestedData.cuisine}
+                                    </p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.deliveryRadius !== selectedApproval.requestedData?.deliveryRadius && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Delivery Radius (km)</p>
+                                    <p className="text-red-500 line-through">{selectedApproval.currentData.deliveryRadius}</p>
+                                    <p className="text-green-500">{selectedApproval.requestedData.deliveryRadius}</p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.minimumOrder !== selectedApproval.requestedData?.minimumOrder && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Minimum Order</p>
+                                    <p className="text-red-500 line-through">{selectedApproval.currentData.minimumOrder}</p>
+                                    <p className="text-green-500">{selectedApproval.requestedData.minimumOrder}</p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.deliveryFee !== selectedApproval.requestedData?.deliveryFee && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Delivery Fee</p>
+                                    <p className="text-red-500 line-through">{selectedApproval.currentData.deliveryFee}</p>
+                                    <p className="text-green-500">{selectedApproval.requestedData.deliveryFee}</p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.logo !== selectedApproval.requestedData?.logo && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Logo</p>
+                                    <p className="text-xs text-gray-500">Image has been updated</p>
+                                </div>
+                            )}
+                            
+                            {selectedApproval.currentData?.coverImage !== selectedApproval.requestedData?.coverImage && (
+                                <div className="p-3 border rounded-md">
+                                    <p className="font-medium">Cover Image</p>
+                                    <p className="text-xs text-gray-500">Image has been updated</p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="flex justify-end space-x-2">
+                            <Button variant="outline" onClick={hideChangeDetailsModal}>
+                                Close
+                            </Button>
+                            <Button 
+                                variant="success" 
+                                onClick={() => {
+                                    handleApproveProfileChanges(selectedApproval._id);
+                                    hideChangeDetailsModal();
+                                }}
+                            >
+                                Approve Changes
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             {/* Reject Modal */}
             {showRejectModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
-                        <h3 className="text-lg font-semibold mb-4">Reject Restaurant Profile Changes</h3>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+                    <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800">
+                        <h3 className="mb-4 text-lg font-semibold">Reject Restaurant Profile Changes</h3>
                         <p className="mb-4 text-gray-600 dark:text-gray-400">
                             Please provide a reason for rejecting these changes.
                         </p>
                         <textarea
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
-                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 mb-4"
+                            className="w-full p-2 mb-4 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                             rows="3"
                             placeholder="Reason for rejection..."
                         ></textarea>

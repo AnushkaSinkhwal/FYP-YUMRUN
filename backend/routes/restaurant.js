@@ -71,7 +71,7 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
         });
         
         // Prepare the profile data with current values
-        const profileData = {
+        let profileData = {
             name: restaurant.name || '',
             description: restaurant.description || '',
             address: restaurant.address || '',
@@ -88,6 +88,12 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
             panNumber: restaurant.panNumber || '',
             priceRange: restaurant.priceRange || '$$'
         };
+        
+        // If there's a pending approval, overlay the requested changes (e.g., logo, coverImage, etc.)
+        if (pendingApproval) {
+            const rd = pendingApproval.requestedData || {};
+            profileData = { ...profileData, ...rd };
+        }
         
         // Return restaurant profile information with pending changes if they exist
         return res.status(200).json({
@@ -673,8 +679,24 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
             });
         }
         
-        // Extract fields from request body
-        const { name, email, phone, description, address } = req.body;
+        // Extract all fields from request body
+        const { 
+            name, 
+            email, 
+            phone, 
+            description, 
+            address,
+            cuisine,
+            openingHours,
+            isOpen,
+            deliveryRadius,
+            minimumOrder,
+            deliveryFee,
+            logo,
+            coverImage,
+            panNumber,
+            priceRange
+        } = req.body;
         
         // Validate phone number if provided
         if (phone && !/^\d{10}$/.test(phone)) {
@@ -684,27 +706,76 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
             });
         }
         
+        // Parse arrays and objects from JSON strings if they come as strings
+        let parsedCuisine = cuisine;
+        if (typeof cuisine === 'string') {
+            try {
+                parsedCuisine = JSON.parse(cuisine);
+            } catch (e) {
+                parsedCuisine = cuisine.split(',').map(item => item.trim());
+            }
+        }
+        
+        let parsedOpeningHours = openingHours;
+        if (typeof openingHours === 'string') {
+            try {
+                parsedOpeningHours = JSON.parse(openingHours);
+            } catch (e) {
+                parsedOpeningHours = restaurant.openingHours;
+            }
+        }
+        
+        // Prepare current data object
+        const currentData = {
+            name: restaurant.name,
+            email: user.email,
+            phone: user.phone,
+            description: restaurant.description,
+            address: restaurant.address,
+            cuisine: restaurant.cuisine,
+            openingHours: restaurant.openingHours,
+            isOpen: restaurant.isOpen,
+            deliveryRadius: restaurant.deliveryRadius,
+            minimumOrder: restaurant.minimumOrder,
+            deliveryFee: restaurant.deliveryFee,
+            logo: restaurant.logo,
+            coverImage: restaurant.coverImage,
+            panNumber: restaurant.panNumber,
+            priceRange: restaurant.priceRange
+        };
+        
+        // Prepare requested data object with all possible fields
+        const requestedData = {
+            name: name || restaurant.name,
+            email: email || user.email,
+            phone: phone || user.phone,
+            description: description || restaurant.description,
+            address: address || restaurant.address,
+            cuisine: parsedCuisine || restaurant.cuisine,
+            openingHours: parsedOpeningHours || restaurant.openingHours,
+            isOpen: isOpen !== undefined ? isOpen : restaurant.isOpen,
+            deliveryRadius: deliveryRadius !== undefined ? Number(deliveryRadius) : restaurant.deliveryRadius,
+            minimumOrder: minimumOrder !== undefined ? Number(minimumOrder) : restaurant.minimumOrder,
+            deliveryFee: deliveryFee !== undefined ? Number(deliveryFee) : restaurant.deliveryFee,
+            logo: logo || restaurant.logo,
+            coverImage: coverImage || restaurant.coverImage,
+            panNumber: panNumber || restaurant.panNumber,
+            priceRange: priceRange || restaurant.priceRange
+        };
+        
         // Create a new approval request
         const approvalRequest = new RestaurantApproval({
             restaurantId: restaurant._id,
-            currentData: {
-                name: restaurant.name,
-                email: user.email,
-                phone: user.phone,
-                description: restaurant.description,
-                address: restaurant.address
-            },
-            requestedData: {
-                name: name || restaurant.name,
-                email: email || user.email,
-                phone: phone || user.phone,
-                description: description || restaurant.description,
-                address: address || restaurant.address
-            },
+            currentData,
+            requestedData,
             status: 'pending'
         });
         
         const savedApproval = await approvalRequest.save();
+        
+        // Update restaurant status to pending_approval
+        restaurant.status = 'pending_approval';
+        await restaurant.save();
         
         // Create a notification for admins
         const notification = new Notification({
@@ -714,16 +785,17 @@ router.post('/profile/changes', auth, isRestaurantOwner, async (req, res) => {
             isAdminNotification: true,
             isRead: false,
             data: {
-                restaurantId: restaurant._id,
                 approvalId: savedApproval._id,
-                changes: savedApproval.requestedData
+                restaurantId: restaurant._id,
+                changes: savedApproval.requestedData,
+                actionUrl: `/restaurant/profile`
             }
         });
         
         await notification.save();
         
         // Log the approval request
-        console.log(`Restaurant profile changes submitted for approval. Restaurant ID: ${restaurant._id}, Requested phone: ${phone || 'unchanged'}`);
+        console.log(`Restaurant profile changes submitted for approval. Restaurant ID: ${restaurant._id}`);
         
         return res.status(201).json({
             success: true,
@@ -1114,33 +1186,27 @@ router.get('/analytics', auth, isRestaurantOwner, async (req, res) => {
 router.get('/pending-update-check', auth, isRestaurantOwner, async (req, res) => {
     try {
         const userId = req.user.userId;
-        
-        // Find the restaurant ID associated with the owner
+
+        // Find the restaurant owned by this user
         const restaurant = await Restaurant.findOne({ owner: userId });
-        
         if (!restaurant) {
-             // If no restaurant found for owner, technically no pending update exists for them
-             // Although this case might indicate another issue
             return res.status(200).json({ success: true, hasPendingUpdate: false });
         }
-        
-        // Check for a pending admin notification for this restaurant
-        const pendingAdminNotification = await Notification.findOne({
-            isAdminNotification: true,
-            type: 'RESTAURANT_UPDATE',
-            'data.restaurantId': restaurant._id 
-        });
 
+        // Only check for pending approval requests in the database
+        const pendingApprovalDoc = await RestaurantApproval.findOne({
+            restaurantId: restaurant._id,
+            status: 'pending'
+        });
         return res.status(200).json({
             success: true,
-            hasPendingUpdate: !!pendingAdminNotification // Convert result to boolean
+            hasPendingUpdate: !!pendingApprovalDoc
         });
-
     } catch (error) {
-        console.error('Error checking for pending restaurant update notification:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Server error checking pending update status.' 
+        console.error('Error checking for pending restaurant update status:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error checking pending update status.'
         });
     }
 });
