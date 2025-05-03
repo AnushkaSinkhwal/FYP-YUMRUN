@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Select, Checkbox, Alert, Input } from '../ui';
+import { Card, Button, Checkbox, Alert, Input } from '../ui';
 import { userAPI } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -268,27 +268,27 @@ const HealthProfile = () => {
           {/* Weight Management Goal */}
           <div>
             <h3 className="mb-3 text-lg font-semibold">Weight Management Goal</h3>
-            <Select 
+            <select
               name="weightManagementGoal"
               value={healthProfile.weightManagementGoal}
               onChange={handleSingleSelectChange}
-              className="w-full max-w-xs"
+              className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="None">None</option>
               <option value="Maintain">Maintain Weight</option>
               <option value="Lose">Lose Weight</option>
               <option value="Gain">Gain Weight</option>
-            </Select>
+            </select>
           </div>
           
           {/* Fitness Level */}
           <div>
             <h3 className="mb-3 text-lg font-semibold">Activity Level</h3>
-            <Select 
+            <select
               name="fitnessLevel"
               value={healthProfile.fitnessLevel}
               onChange={handleSingleSelectChange}
-              className="w-full max-w-xs"
+              className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="None">None</option>
               <option value="Sedentary">Sedentary (little to no exercise)</option>
@@ -296,7 +296,7 @@ const HealthProfile = () => {
               <option value="Moderate Activity">Moderate Activity (3-5 days/week)</option>
               <option value="Very Active">Very Active (6-7 days/week)</option>
               <option value="Extra Active">Extra Active (physical job or 2x training)</option>
-            </Select>
+            </select>
           </div>
           
           {/* Daily Calorie Goal */}

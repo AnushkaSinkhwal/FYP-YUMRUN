@@ -5,12 +5,13 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: [
-      'PROFILE_UPDATE', 
+      'PROFILE_UPDATE',
       'RESTAURANT_UPDATE', 
       'RESTAURANT_REGISTRATION', 
       'RESTAURANT_APPROVAL',
       'RESTAURANT_REJECTION',
       'PROFILE_UPDATE_REQUEST',
+      'APPROVAL_REQUEST',
       'SYSTEM', 
       'ORDER', 
       'REWARD'

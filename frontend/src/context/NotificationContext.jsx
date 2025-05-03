@@ -63,22 +63,25 @@ export const NotificationProvider = ({ children }) => {
       }
 
       if (response?.data?.success) {
-        setNotifications(response.data.notifications || []);
-        
+        // Normalize: data array and map 'read' to 'isRead'
+        const raw = response.data.data || [];
+        const items = raw.map(n => ({ ...n, isRead: Boolean(n.read) }));
+        setNotifications(items);
         // Count unread notifications
-        const unreadNotifications = (response.data.notifications || [])
-          .filter(notification => !notification.isRead)
-          .length;
-          
-        setUnreadCount(unreadNotifications);
+        const unreadCount = items.filter(n => !n.isRead).length;
+        setUnreadCount(unreadCount);
         setError(null);
       } else {
         console.error('Error fetching notifications:', response?.data?.message);
+        setNotifications([]);
+        setUnreadCount(0);
         setError('Failed to load notifications');
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError('Failed to load notifications');
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }

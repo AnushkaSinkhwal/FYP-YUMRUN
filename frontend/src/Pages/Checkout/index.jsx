@@ -213,7 +213,8 @@ const Checkout = () => {
         address: deliveryAddress.address,
         additionalInfo: deliveryAddress.additionalInfo || ''
       },
-      specialInstructions: deliveryAddress.additionalInfo || ''
+      specialInstructions: deliveryAddress.additionalInfo || '',
+      paymentMethod: paymentMethod === 'khalti' ? 'KHALTI' : 'CASH'
     };
 
     console.log('Order payload prepared:', orderPayload);

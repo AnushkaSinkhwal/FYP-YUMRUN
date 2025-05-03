@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Input, Spinner } from '../../components/ui';
+import { Card, Button, Input, Spinner, Alert } from '../../components/ui';
 import { FaSearch, FaBell, FaCheck, FaInfo, FaGift, FaShoppingBag } from 'react-icons/fa';
 import { userAPI } from '../../utils/api';
+import { useNavigate } from 'react-router-dom';
 
 const UserNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -19,13 +23,18 @@ const UserNotifications = () => {
       const response = await userAPI.getNotifications();
 
       if (response.data.success) {
-        setNotifications(response.data.notifications || []);
+        // Normalize notifications: map 'read' to isRead
+        const items = (response.data.data || []).map(n => ({ ...n, isRead: Boolean(n.read) }));
+        setNotifications(items);
+        setError('');
       } else {
         setNotifications([]);
+        setError('Failed to load notifications');
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
+      setError('Error connecting to server');
     } finally {
       setLoading(false);
     }
@@ -35,6 +44,10 @@ const UserNotifications = () => {
     (notification.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (notification.message || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalCount = notifications.length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const readCount = totalCount - unreadCount;
 
   const getNotificationIcon = (type) => {
     switch (type.toUpperCase()) {
@@ -51,14 +64,7 @@ const UserNotifications = () => {
 
   const filterNotifications = (status) => {
     if (status === 'all') return filteredNotifications;
-    
-    // Check for both properties since API might use either one
-    return filteredNotifications.filter(notification => {
-      const isUnread = status === 'unread';
-      // Some APIs use isRead, others use read
-      const notificationReadState = notification.isRead !== undefined ? notification.isRead : notification.read;
-      return isUnread ? !notificationReadState : notificationReadState;
-    });
+    return filteredNotifications.filter(n => status === 'unread' ? !n.isRead : n.isRead);
   };
 
   const markAsRead = async (id) => {
@@ -66,16 +72,19 @@ const UserNotifications = () => {
       await userAPI.markNotificationAsRead(id);
       
       // Update state
-      setNotifications(notifications.map(notification => 
-        notification._id === id ? { ...notification, isRead: true } : notification
-      ));
+      const updated = notifications.map(n => n._id === id ? { ...n, isRead: true } : n);
+      setNotifications(updated);
+      setSuccess('Notification marked as read');
+      setError('');
+      // Notify other components to refresh counts
+      window.dispatchEvent(new Event('notifications-updated'));
     } catch (error) {
       console.error('Error marking notification as read:', error);
       
       // Update state anyway for better UX
-      setNotifications(notifications.map(notification => 
-        notification._id === id ? { ...notification, isRead: true } : notification
-      ));
+      const updated = notifications.map(n => n._id === id ? { ...n, isRead: true } : n);
+      setNotifications(updated);
+      setError('Failed to mark notification');
     }
   };
 
@@ -84,12 +93,17 @@ const UserNotifications = () => {
       await userAPI.markAllNotificationsAsRead();
       
       // Update state
-      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+      const updatedAll = notifications.map(n => ({ ...n, isRead: true }));
+      setNotifications(updatedAll);
+      setSuccess('All notifications marked as read');
+      setError('');
+      window.dispatchEvent(new Event('notifications-updated'));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       
-      // Update state anyway for better UX
-      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })));
+      const updatedAll = notifications.map(n => ({ ...n, isRead: true }));
+      setNotifications(updatedAll);
+      setError('Failed to mark all notifications');
     }
   };
 
@@ -103,12 +117,16 @@ const UserNotifications = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {error && <Alert variant="error">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
         <h1 className="text-2xl font-bold">Notifications</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={markAllAsRead}>
-            Mark All as Read
-          </Button>
+          {notifications.some(n => !n.isRead) && (
+            <Button variant="outline" onClick={markAllAsRead}>
+              Mark All as Read
+            </Button>
+          )}
           <div className="relative w-64">
             <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <Input
@@ -121,24 +139,24 @@ const UserNotifications = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-2 border-b mt-4 justify-center md:justify-start">
         <Button
           variant={activeTab === 'all' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('all')}
         >
-          All
+          All ({totalCount})
         </Button>
         <Button
           variant={activeTab === 'unread' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('unread')}
         >
-          Unread
+          Unread ({unreadCount})
         </Button>
         <Button
           variant={activeTab === 'read' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('read')}
         >
-          Read
+          Read ({readCount})
         </Button>
       </div>
 
@@ -146,7 +164,7 @@ const UserNotifications = () => {
         {filterNotifications(activeTab).map(notification => (
           <Card 
             key={notification._id} 
-            className={`p-4 ${!notification.isRead && !notification.read ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}
+            className={`p-4 ${!notification.isRead ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}
           >
             <div className="flex items-start gap-4">
               <div className="mt-1">
@@ -161,7 +179,7 @@ const UserNotifications = () => {
                       {new Date(notification.createdAt).toLocaleString()}
                     </p>
                   </div>
-                  {(!notification.isRead || !notification.read) && (
+                  {!notification.isRead && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -175,7 +193,7 @@ const UserNotifications = () => {
                   <Button 
                     variant="link" 
                     className="p-0 h-auto mt-2"
-                    onClick={() => window.location.href = notification.data.actionUrl}
+                    onClick={() => navigate(notification.data.actionUrl)}
                   >
                     View Details
                   </Button>

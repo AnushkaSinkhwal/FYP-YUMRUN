@@ -180,7 +180,7 @@ const ProductDetails = () => {
         }
         
         setFavoriteLoading(true);
-        const url = `/api/favorites`;
+        const url = `/api/user/favorites`;
         const method = isFavorite ? 'DELETE' : 'POST';
         const body = { menuItemId: productId };
 
@@ -305,7 +305,7 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
                     {/* Product Image Section */}
                     <div className="relative">
-                        <ProductZoom imageUrl={imageUrl} altText={product.name || 'Product Image'} />
+                        <ProductZoom images={[imageUrl]} altText={product.name || 'Product Image'} />
                         {hasOffer && (
                           <div className="absolute top-4 right-4 p-1.5 bg-yumrun-red text-white rounded-md text-xs font-semibold flex items-center gap-1 z-10">
                              <FaTag className="w-3 h-3"/>

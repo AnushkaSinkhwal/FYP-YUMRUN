@@ -16,11 +16,11 @@ router.get('/menuItem/:menuItemId', getMenuItemReviews);
 // Protected routes
 router.use(protect);
 
-router.post('/', authorize('user'), createReview);
-router.get('/my', authorize('user'), getUserReviews);
+router.post('/', authorize('customer'), createReview);
+router.get('/my', authorize('customer'), getUserReviews);
 router.get('/restaurant', restaurant, getRestaurantReviews);
 router.route('/:reviewId')
-    .put(authorize('user'), updateReview)
-    .delete(authorize('user', 'admin'), deleteReview);
+    .put(authorize('customer'), updateReview)
+    .delete(authorize('customer', 'admin'), deleteReview);
 
 module.exports = router; 

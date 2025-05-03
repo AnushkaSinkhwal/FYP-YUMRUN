@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 export const Select = ({ 
   label, 
+  name, 
   value, 
   onChange, 
-  options = [], 
+  options: optionsProp = [], 
+  children, 
   error, 
   className = '', 
   placeholder = 'Select an option',
@@ -13,6 +15,12 @@ export const Select = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef(null);
+
+  // derive options from children <option> elements if no options prop
+  const childOptions = React.Children.toArray(children)
+    .filter(child => React.isValidElement(child) && child.type === 'option')
+    .map(child => ({ value: child.props.value, label: child.props.children }));
+  const finalOptions = optionsProp.length > 0 ? optionsProp : childOptions;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,7 +36,7 @@ export const Select = ({
   return (
     <div className="relative w-full" ref={selectRef}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
           {label}
         </label>
       )}
@@ -43,9 +51,9 @@ export const Select = ({
         `}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <span className="block truncate">
-            {value ? options.find(opt => opt.value === value)?.label : placeholder}
+            {value ? finalOptions.find(opt => opt.value === value)?.label : placeholder}
           </span>
           <svg
             className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
@@ -66,9 +74,9 @@ export const Select = ({
         <p className="mt-1 text-sm text-red-500">{error}</p>
       )}
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg">
-          <ul className="py-1 max-h-60 overflow-auto">
-            {options.map((option) => (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg dark:bg-gray-800 dark:border-gray-700">
+          <ul className="py-1 overflow-auto max-h-60">
+            {finalOptions.map((option) => (
               <li
                 key={option.value}
                 className={`
@@ -76,7 +84,9 @@ export const Select = ({
                   ${value === option.value ? 'bg-gray-100 dark:bg-gray-700' : ''}
                 `}
                 onClick={() => {
-                  onChange(option.value);
+                  // emit synthetic event for compatibility
+                  const syntheticEvent = { target: { name, value: option.value } };
+                  onChange(syntheticEvent);
                   setIsOpen(false);
                 }}
               >
@@ -92,12 +102,14 @@ export const Select = ({
 
 Select.propTypes = {
   label: PropTypes.string,
+  name: PropTypes.string,
   value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   onChange: PropTypes.func.isRequired,
   options: PropTypes.arrayOf(PropTypes.shape({
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     label: PropTypes.string.isRequired,
   })),
+  children: PropTypes.node,
   error: PropTypes.string,
   className: PropTypes.string,
   placeholder: PropTypes.string,

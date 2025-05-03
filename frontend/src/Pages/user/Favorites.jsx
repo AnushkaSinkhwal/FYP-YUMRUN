@@ -4,7 +4,7 @@ import { Card, Button, Input, Alert, Spinner, Badge, Tabs, TabsList, TabsTrigger
 import { FaSearch, FaHeart, FaMapMarkerAlt, FaShoppingCart, FaExclamationTriangle, FaStar, FaUtensils, FaRegClock, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
-import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { getFullImageUrl, getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 const UserFavorites = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -388,7 +388,7 @@ const UserFavorites = () => {
                     <div className="flex flex-col flex-grow cursor-pointer" onClick={() => navigateToItem(item)}>
                       <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
                         <img 
-                          src={getFullImageUrl(item.imageUrl)}
+                          src={getBestImageUrl(item)}
                           alt={getItemName(item)} 
                           className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => { e.target.src = PLACEHOLDERS.FOOD; }}

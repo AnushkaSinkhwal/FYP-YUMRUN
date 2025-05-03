@@ -1217,8 +1217,7 @@ router.get('/available-riders', auth, isRestaurantOwner, async (req, res) => {
         // Find available riders
         const availableRiders = await User.find({
             role: 'delivery_rider',
-            'deliveryRiderDetails.approved': true,
-            'deliveryRiderDetails.isAvailable': true
+            'deliveryRiderDetails.approved': true
         }).select('firstName lastName fullName phone deliveryRiderDetails.vehicleType deliveryRiderDetails.ratings');
 
         // Return the list of available riders

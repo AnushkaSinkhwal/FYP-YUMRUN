@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Alert } from '../ui';
 import { userAPI } from '../../utils/api';
-import { useAuth } from '../../context/AuthContext';
 
 const LoyaltyPoints = () => {
-  const { currentUser } = useAuth();
   const [points, setPoints] = useState(0);
   const [history, setHistory] = useState([]);
   const [rewards, setRewards] = useState([]);
@@ -13,37 +11,22 @@ const LoyaltyPoints = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    // Fetch user's loyalty points and history
     const fetchLoyaltyData = async () => {
       setLoading(true);
       setError('');
-
       try {
-        // Get points from cached user data first
-        if (currentUser && currentUser.loyaltyPoints !== undefined) {
-          setPoints(currentUser.loyaltyPoints);
-        }
-
-        // Fetch fresh data from API
-        const [pointsResponse, historyResponse] = await Promise.all([
-          userAPI.getLoyaltyPoints(),
-          userAPI.getLoyaltyHistory()
+        // Fetch unified loyalty info and available rewards
+        const [infoRes, rewardsRes] = await Promise.all([
+          userAPI.getLoyaltyInfo(),
+          userAPI.getLoyaltyRewards()
         ]);
-
-        if (pointsResponse.data.success) {
-          setPoints(pointsResponse.data.loyaltyPoints);
+        if (infoRes.data.success) {
+          const { currentPoints, history: infoHistory } = infoRes.data.data;
+          setPoints(currentPoints);
+          setHistory(infoHistory || []);
         }
-
-        if (historyResponse.data.success) {
-          setHistory(historyResponse.data.history);
-        }
-
-        // Fetch available rewards
-        const rewardsResponse = await fetch('/api/loyalty/rewards');
-        const rewardsData = await rewardsResponse.json();
-
-        if (rewardsData.success) {
-          setRewards(rewardsData.rewards);
+        if (rewardsRes.data.success) {
+          setRewards(rewardsRes.data.data || []);
         }
       } catch (err) {
         console.error('Error fetching loyalty data:', err);
@@ -52,32 +35,31 @@ const LoyaltyPoints = () => {
         setLoading(false);
       }
     };
-
     fetchLoyaltyData();
-  }, [currentUser]);
+  }, []);
 
-  const handleRedeemPoints = async (reward) => {
-    // This would be used when implementing redemption functionality
-    // For now, it's just a placeholder
+  const handleRedeemPoints = async (pointsRequired, rewardId) => {
     try {
       setLoading(true);
       setError('');
       setSuccess('');
-
-      // Check if user has enough points
-      if (points < reward.pointsRequired) {
-        setError(`You need ${reward.pointsRequired - points} more points to redeem this reward.`);
-        return;
+      // Perform redemption API call
+      const res = await userAPI.redeemLoyaltyPoints(pointsRequired, rewardId);
+      if (res.data.success) {
+        setSuccess(res.data.message || 'Points redeemed successfully!');
+        // Refresh loyalty data
+        const info = await userAPI.getLoyaltyInfo();
+        if (info.data.success) {
+          const { currentPoints, history: updatedHistory } = info.data.data;
+          setPoints(currentPoints);
+          setHistory(updatedHistory || []);
+        }
+      } else {
+        setError(res.data.error?.message || 'Failed to redeem points');
       }
-
-      // Here you would call the API to redeem points
-      setSuccess(`Successfully redeemed ${reward.name} for ${reward.pointsRequired} points!`);
-      
-      // Update points after redemption
-      setPoints(prevPoints => prevPoints - reward.pointsRequired);
     } catch (err) {
       console.error('Error redeeming points:', err);
-      setError('Failed to redeem points. Please try again.');
+      setError(err.response?.data?.error?.message || 'Failed to redeem points. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -133,7 +115,7 @@ const LoyaltyPoints = () => {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {rewards.map((reward) => (
               <div 
-                key={reward.id}
+                key={reward._id}
                 className="p-4 transition-shadow border rounded-lg hover:shadow-md"
               >
                 <h4 className="mb-2 font-medium">{reward.name}</h4>
@@ -141,7 +123,7 @@ const LoyaltyPoints = () => {
                   {reward.pointsRequired} points
                 </p>
                 <Button
-                  onClick={() => handleRedeemPoints(reward)}
+                  onClick={() => handleRedeemPoints(reward.pointsRequired, reward._id)}
                   disabled={points < reward.pointsRequired || loading}
                   size="sm"
                   className={points < reward.pointsRequired ? 'opacity-50' : ''}
@@ -175,16 +157,16 @@ const LoyaltyPoints = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                {history.map((item, index) => (
-                  <tr key={index}>
+                {history.map((item) => (
+                  <tr key={item._id}>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(item.date)}
+                      {formatDate(item.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {item.description || `${item.type === 'earned' ? 'Points earned' : 'Points redeemed'}`}
+                      {item.description}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right ${item.points >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {item.points > 0 ? `+${item.points}` : item.points}
+                      {item.points >= 0 ? `+${item.points}` : item.points}
                     </td>
                   </tr>
                 ))}

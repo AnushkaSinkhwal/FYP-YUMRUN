@@ -29,9 +29,7 @@ exports.getUnreadNotificationsCount = async (req, res) => {
     
     return res.status(200).json({
       success: true,
-      data: {
-        count
-      }
+      count
     });
   } catch (error) {
     console.error('Error fetching unread notifications count:', error);
