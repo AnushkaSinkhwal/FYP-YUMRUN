@@ -1,5 +1,6 @@
 const { MenuItem } = require('../models/menuItem');
 const mongoose = require('mongoose');
+const Offer = require('../models/offer');
 
 // Advanced search for menu items with filtering capabilities
 exports.searchMenuItems = async (req, res) => {
@@ -168,12 +169,52 @@ exports.searchMenuItems = async (req, res) => {
         const results = await MenuItem.find(filter)
             .sort(sort)
             .populate('restaurant', 'fullName restaurantDetails.name restaurantDetails.logo')
-            .limit(100); // Limit to 100 results maximum
+            .limit(100)
+            .lean(); // use lean for easy manipulation
+
+        // Fetch active offers
+        const now = new Date();
+        const activeOffers = await Offer.find({
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).lean();
+
+        // Apply best offer per item
+        const formatted = results.map(item => {
+            const restaurantId = item.restaurant?._id?.toString() || item.restaurant?.toString();
+            let bestOffer = null;
+            if (restaurantId) {
+                const applicable = activeOffers.filter(offer => {
+                    // match restaurant
+                    if (offer.restaurant.toString() !== restaurantId) return false;
+                    // applies to all menu or to this specific item
+                    if (offer.appliesTo === 'All Menu') return true;
+                    if (offer.appliesTo === 'Selected Items' && Array.isArray(offer.menuItems)) {
+                        return offer.menuItems.some(id => id.toString() === item._id.toString());
+                    }
+                    return false;
+                });
+                if (applicable.length > 0) {
+                    bestOffer = applicable.reduce((max, curr) =>
+                        (curr.discountPercentage > max.discountPercentage ? curr : max), applicable[0]
+                    );
+                }
+            }
+            const discount = bestOffer ? bestOffer.discountPercentage : 0;
+            const discountedPrice = bestOffer
+                ? Math.round(item.item_price * (100 - discount) / 100)
+                : item.item_price;
+            // attach offer fields
+            item.discount = discount;
+            item.discountedPrice = discountedPrice;
+            return item;
+        });
 
         return res.status(200).json({
             success: true,
-            count: results.length,
-            data: results
+            count: formatted.length,
+            data: formatted
         });
     } catch (error) {
         console.error('Error searching menu items:', error);

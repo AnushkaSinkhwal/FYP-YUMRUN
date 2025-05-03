@@ -35,18 +35,22 @@ const SearchResults = () => {
         const restaurantsResponse = await axios.get(`${API_URL}/restaurants`);
         
         // Process menu items results
-        const menuItems = menuResponse.data.data.map(item => ({
-          id: item._id,
-          name: item.item_name || item.name,
-          image: item.image,
-          price: item.item_price || item.price,
-          oldPrice: item.originalPrice,
-          rating: item.averageRating || item.rating || 4.0,
-          restaurant: item.restaurant?.name || 'Restaurant',
-          location: item.restaurant?.location || '',
-          discount: item.discount ? item.discount.toString() : '',
-          type: 'food'
-        }));
+        const menuItems = menuResponse.data.data.map(item => {
+          const discount = item.discount || 0;
+          const originalPrice = item.item_price != null ? item.item_price : item.price || 0;
+          const discountedPrice = item.discountedPrice != null ? item.discountedPrice : originalPrice;
+          return {
+            id: item._id,
+            name: item.item_name || item.name,
+            imgSrc: item.image,
+            oldPrice: discount > 0 ? originalPrice.toString() : '',
+            newPrice: discountedPrice.toString(),
+            rating: item.averageRating || item.rating || 4.0,
+            location: item.restaurant?.name || 'Restaurant',
+            offerDetails: { percentage: discount },
+            type: 'food'
+          };
+        });
 
         // Process restaurant results that match the query
         const matchingRestaurants = restaurantsResponse.data.data
@@ -106,9 +110,8 @@ const SearchResults = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {results.map(item => {
                 if (item.type === 'restaurant') {
-                  // For restaurants, link to restaurant page
                   return (
-                    <ProductItem 
+                    <ProductItem
                       key={`restaurant-${item.id}`}
                       id={item.id}
                       name={item.name}
@@ -117,24 +120,22 @@ const SearchResults = () => {
                       newPrice=""
                       rating={item.rating}
                       location={item.location}
-                      discount=""
-                      linkTo={`/restaurant/${item.id}`}
                       isRestaurant={true}
+                      linkTo={`/restaurant/${item.id}`}
                     />
                   );
                 } else {
-                  // For food items
                   return (
-                    <ProductItem 
+                    <ProductItem
                       key={`food-${item.id}`}
                       id={item.id}
                       name={item.name}
-                      imgSrc={item.image}
-                      oldPrice={item.oldPrice ? item.oldPrice.toString() : ''}
-                      newPrice={item.price.toString()}
+                      imgSrc={item.imgSrc}
+                      oldPrice={item.oldPrice}
+                      newPrice={item.newPrice}
                       rating={item.rating}
-                      location={item.restaurant}
-                      discount={item.discount}
+                      location={item.location}
+                      offerDetails={item.offerDetails}
                     />
                   );
                 }

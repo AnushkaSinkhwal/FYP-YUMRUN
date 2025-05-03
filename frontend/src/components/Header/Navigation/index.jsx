@@ -164,7 +164,7 @@ const Navigation = ({ links = [] }) => {
                     <Link to="/cat/drinks" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DRINKS</Link>
                   </li>
                   <li>
-                    <Link to="/cat/dessert" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DESSERT</Link>
+                    <Link to="/cat/desserts" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DESSERTS</Link>
                   </li>
                   <li>
                     <Link to="/cat/bakery" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">BAKERY</Link>

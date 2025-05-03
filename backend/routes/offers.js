@@ -3,6 +3,7 @@ const router = express.Router();
 const Offer = require('../models/offer');
 const MenuItem = require('../models/menuItem');
 const { auth, isRestaurantOwner } = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 // Get all offers for the authenticated restaurant owner
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
@@ -301,6 +302,27 @@ router.get('/public/restaurant/:id', async (req, res) => {
             success: false,
             message: 'Server error. Please try again.'
         });
+    }
+});
+
+// Public: Get active offers for a specific restaurant
+router.get('/restaurant/:restaurantId/public', async (req, res) => {
+    try {
+        const { restaurantId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+            return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
+        }
+        const now = new Date();
+        const offers = await Offer.find({
+            restaurant: restaurantId,
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).lean();
+        return res.status(200).json({ success: true, data: offers });
+    } catch (error) {
+        console.error('Error fetching public restaurant offers:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 

@@ -63,13 +63,17 @@ const RestaurantDetails = () => {
         if (response.data.success && Array.isArray(response.data.data)) {
           // Transform API data to match frontend format
           const formattedMenuItems = response.data.data.map(item => {
-            console.log(`Processing menu item: ${item.name || item.item_name}, ID: ${item._id}, Image:`, item.image);
+            // Extract discount info if present
+            const discountPercentage = item.discount || 0;
+            const discountedPrice = item.discountedPrice != null ? item.discountedPrice : (item.price || item.item_price || 0);
             
             return {
               id: item._id || item.id,
               name: item.name || item.item_name,
               description: item.description || 'No description available',
               price: item.price || item.item_price || 0,
+              discountedPrice,
+              offerDetails: { percentage: discountPercentage },
               category: item.category || 'Uncategorized',
               image: getBestImageUrl(item),
               isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
@@ -337,7 +341,7 @@ const RestaurantDetails = () => {
                           )}
                           
                           {item.isPopular && (
-                            <div className="absolute top-2 left-2 m-0 z-10">
+                            <div className="absolute z-10 m-0 top-2 left-2">
                               <span className="flex items-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded">
                                 Popular
                               </span>
@@ -345,7 +349,7 @@ const RestaurantDetails = () => {
                           )}
                           
                           {!item.isAvailable && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
+                            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black bg-opacity-50">
                               <span className="px-2 py-1 text-sm font-bold text-white bg-red-500 rounded">
                                 Unavailable
                               </span>
@@ -353,9 +357,9 @@ const RestaurantDetails = () => {
                           )}
                         </div>
                         
-                        <div className="p-4 flex flex-col flex-grow">
+                        <div className="flex flex-col flex-grow p-4">
                            <h3 className="mb-1 text-lg font-semibold truncate">{item.name}</h3>
-                           <p className="mb-3 text-sm text-gray-600 flex-grow line-clamp-2">{item.description}</p>
+                           <p className="flex-grow mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
                            
                            <div className="flex items-center justify-between mt-auto">
                               <div className="text-left">

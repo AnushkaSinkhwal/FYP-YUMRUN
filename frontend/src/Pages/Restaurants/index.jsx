@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Button, Spinner } from '../../components/ui';
+import { Container, Button, Spinner, Badge } from '../../components/ui';
 import { FaStar, FaMapMarkerAlt, FaUtensils, FaClock, FaSearch } from 'react-icons/fa';
 import axios from 'axios';
 import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
@@ -44,11 +44,30 @@ const Restaurants = () => {
                 ? getFullImageUrl(restaurant.logo) 
                 : PLACEHOLDERS.RESTAURANT,
             address: restaurant.location || restaurant.address || 'Address not available',
-            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : false
+            isOpen: restaurant.isOpen !== undefined ? restaurant.isOpen : false,
+            hasOffer: false,
+            offerPercentage: 0
           }));
           
           console.log('Formatted restaurants:', formattedRestaurants);
-          setRestaurants(formattedRestaurants);
+          
+          // Fetch offers for each restaurant
+          const withOffers = await Promise.all(formattedRestaurants.map(async r => {
+            try {
+              const resOffers = await axios.get(`/api/offers/restaurant/${r.id}/public`);
+              if (resOffers.data.success && Array.isArray(resOffers.data.data)) {
+                const offers = resOffers.data.data;
+                if (offers.length) {
+                  const best = offers.reduce((max, o) => o.discountPercentage > max.discountPercentage ? o : max, offers[0]);
+                  return { ...r, hasOffer: true, offerPercentage: best.discountPercentage };
+                }
+              }
+            } catch {
+              // ignore per-restaurant errors
+            }
+            return r;
+          }));
+          setRestaurants(withOffers);
         } else {
           setError(response.data.message || 'Failed to fetch restaurants');
           setRestaurants([]);
@@ -201,6 +220,12 @@ const Restaurants = () => {
                 <div key={restaurant.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg hover:scale-[1.02]">
                   <Link to={`/restaurant/${restaurant.id}`} className="block">
                     <div className="relative">
+                      {/* Offer Badge */}
+                      {restaurant.hasOffer && (
+                        <Badge variant="danger" className="absolute top-2 right-2 z-10">
+                          {restaurant.offerPercentage}% OFF
+                        </Badge>
+                      )}
                       <img 
                         src={restaurant.image} 
                         alt={restaurant.name} 

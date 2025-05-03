@@ -743,9 +743,13 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide a status' });
         }
         
-        const validStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ success: false, message: 'Invalid status' });
+        // Use model enum values for valid statuses
+        const validStatuses = Order.schema.path('status').enumValues;
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            });
         }
         
         const order = await Order.findById(orderId);
@@ -759,14 +763,18 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
         }
 
-        // Update status
+        // Update order status and log status update
         order.status = status;
         order.statusUpdates.push({
             status,
             timestamp: new Date(),
             updatedBy: ownerUserId // Log which user performed the update
         });
-        
+        // If marked delivered, record actual delivery time
+        if (status === 'DELIVERED') {
+            order.actualDeliveryTime = new Date();
+        }
+
         await order.save();
         
         // Send status update email to the customer
@@ -955,7 +963,7 @@ router.get('/:id', auth, async (req, res) => {
 router.patch('/:id/status', auth, async (req, res) => {
     try {
         const { status } = req.body;
-        const validStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+        const validStatuses = Order.schema.path('status').enumValues;
         
         if (!status || !validStatuses.includes(status)) {
             return res.status(400).json({
@@ -995,16 +1003,16 @@ router.patch('/:id/status', auth, async (req, res) => {
         // Update the order status
         order.status = status;
         
-        // Add status history
-        order.statusHistory.push({
+        // Add status update entry
+        order.statusUpdates.push({
             status,
             timestamp: new Date(),
             updatedBy: req.user.id
         });
 
-        // If order is delivered, update delivery time
+        // If order is delivered, update actual delivery time
         if (status === 'DELIVERED') {
-            order.deliveredAt = new Date();
+            order.actualDeliveryTime = new Date();
         }
 
         await order.save();
@@ -1068,8 +1076,8 @@ router.patch('/:id/assign-rider', auth, async (req, res) => {
         order.deliveryRiderId = riderId;
         order.status = 'OUT_FOR_DELIVERY';
         
-        // Add status history
-        order.statusHistory.push({
+        // Add status update entry for rider assignment
+        order.statusUpdates.push({
             status: 'OUT_FOR_DELIVERY',
             timestamp: new Date(),
             updatedBy: req.user.id
@@ -1128,8 +1136,8 @@ router.patch('/:id/cancel', auth, async (req, res) => {
         // Update the order status
         order.status = 'CANCELLED';
         
-        // Add status history
-        order.statusHistory.push({
+        // Add status update entry for cancellation
+        order.statusUpdates.push({
             status: 'CANCELLED',
             timestamp: new Date(),
             updatedBy: req.user.id
