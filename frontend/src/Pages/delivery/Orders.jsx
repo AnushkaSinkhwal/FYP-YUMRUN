@@ -27,17 +27,20 @@ const getStatusBadgeVariant = (status) => {
 };
 
 const DeliveryOrders = () => {
-  const [activeTab, setActiveTab] = useState('available');
+  const [activeTab, setActiveTab] = useState('active');
   const [loading, setLoading] = useState(true); // Start loading initially
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // State for actual orders counts in tabs
+  const [activeCount, setActiveCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState('');
   
-  // Fetch orders
+  // Fetch orders based on active tab
   useEffect(() => {
     const fetchOrders = async () => {
       setLoading(true);
@@ -45,10 +48,7 @@ const DeliveryOrders = () => {
       setOrders([]); // Clear previous orders
       try {
         let response;
-        if (activeTab === 'available') {
-          response = await deliveryAPI.getAvailableOrders();
-          setOrders(response.data?.orders || []);
-        } else if (activeTab === 'active') {
+        if (activeTab === 'active') {
           response = await deliveryAPI.getActiveDeliveries();
           // Backend now returns { success: true, deliveries: [...] }
           setOrders(response.data?.deliveries || []); 
@@ -71,6 +71,23 @@ const DeliveryOrders = () => {
 
     fetchOrders();
   }, [activeTab, refreshKey]);
+
+  // Update counts for both active and completed orders on refresh
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const [activeResp, completedResp] = await Promise.all([
+          deliveryAPI.getActiveDeliveries(),
+          deliveryAPI.getDeliveryHistory(),
+        ]);
+        setActiveCount(activeResp.data?.deliveries?.length || 0);
+        setCompletedCount(completedResp.data?.deliveries?.length || 0);
+      } catch (err) {
+        console.error('Error fetching order counts:', err);
+      }
+    };
+    fetchCounts();
+  }, [refreshKey]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -98,42 +115,9 @@ const DeliveryOrders = () => {
     }
   };
 
-  const filterOrders = (status) => {
-    return orders.filter(order => order.status === status);
-  };
-
   const handleViewOrderDetails = (order) => {
     setSelectedOrder(order);
     setShowDetailModal(true);
-  };
-
-  const handleAcceptOrder = async (orderId) => {
-    setLoading(true); // Use main loading state for accepting
-    setError(null);
-    try {
-      // Call the actual API endpoint
-      console.log(`Calling deliveryAPI.acceptOrder for order: ${orderId}`);
-      const response = await deliveryAPI.acceptOrder(orderId);
-      console.log('Accept Order API response:', response.data);
-
-      if (response.data && response.data.success) {
-         // Refresh the orders list to reflect the change from available to active
-        setRefreshKey(prev => prev + 1); 
-        setShowSuccessMessage('Order accepted successfully! Check your Active Orders tab.');
-        setTimeout(() => setShowSuccessMessage(''), 4000);
-        // Optionally switch tab to active after a short delay
-        // setTimeout(() => setActiveTab('active'), 500); 
-      } else {
-        throw new Error(response.data?.message || 'Failed to accept the order.');
-      }
-
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to accept order. Please try again.';
-      setError(errorMessage);
-      console.error('Error accepting order:', error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleUpdateStatus = async (orderId, newStatus) => {
@@ -203,7 +187,7 @@ const DeliveryOrders = () => {
       )}
 
       <div className="flex space-x-4 border-b border-gray-200 dark:border-gray-700">
-        {['available', 'active', 'completed'].map((tab) => (
+        {['active', 'completed'].map((tab) => (
           <button
             key={tab}
             className={`px-4 py-2 text-sm font-medium ${
@@ -215,24 +199,18 @@ const DeliveryOrders = () => {
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)} Orders
             <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800">
-              {filterOrders(tab).length}
+              {tab === 'active' ? activeCount : completedCount}
             </span>
           </button>
         ))}
       </div>
 
       <div className="space-y-4">
-        {filterOrders(activeTab).length === 0 ? (
+        {orders.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            {activeTab === 'available' ? (
+            {activeTab === 'active' ? (
               <>
                 <FaMotorcycle className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
-                <p>No available orders at the moment</p>
-                <p className="text-sm mt-1">Check back soon or refresh to see new orders</p>
-              </>
-            ) : activeTab === 'active' ? (
-              <>
-                <FaClock className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
                 <p>No active deliveries</p>
                 <p className="text-sm mt-1">Accept available orders to start delivering</p>
               </>
@@ -245,12 +223,12 @@ const DeliveryOrders = () => {
             )}
           </div>
         ) : (
-          filterOrders(activeTab).map((order) => (
-            <Card key={order.id} className="hover:shadow-lg transition-shadow">
+          orders.map((order) => (
+            <Card key={order._id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
                 <div>
                   <CardTitle className="text-lg font-semibold">{order.restaurant}</CardTitle>
-                  <p className="text-sm text-gray-500">Order #{order.id}</p>
+                  <p className="text-sm text-gray-500">Order #{order._id}</p>
                 </div>
                 <Badge className={getStatusColor(order.status)}>
                   {getStatusIcon(order.status)}
@@ -267,7 +245,7 @@ const DeliveryOrders = () => {
                       </div>
                       <div className="flex items-center text-gray-600 dark:text-gray-300">
                         <FaDollarSign className="w-4 h-4 mr-1" />
-                        <span>${order.estimatedEarnings.toFixed(2)}</span>
+                        <span>{formatCurrency(order.estimatedEarnings)}</span>
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
@@ -278,11 +256,24 @@ const DeliveryOrders = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <div className="text-sm font-medium">Pickup</div>
-                      <div className="text-sm text-gray-500">{order.pickupAddress}</div>
+                      <div className="text-sm text-gray-500">
+                        {order.restaurantId?.address?.street || 'N/A'}
+                      </div>
                     </div>
                     <div className="space-y-1 md:text-right">
                       <div className="text-sm font-medium">Delivery</div>
-                      <div className="text-sm text-gray-500">{order.deliveryAddress}</div>
+                      <div className="text-sm text-gray-500">
+                        {typeof order.deliveryAddress === 'string' ? (
+                          order.deliveryAddress
+                        ) : (
+                          <>
+                            {order.deliveryAddress?.street || 'N/A'}
+                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                              {order.deliveryAddress?.city || ''}{order.deliveryAddress?.state ? `, ${order.deliveryAddress.state}` : ''}
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -297,23 +288,11 @@ const DeliveryOrders = () => {
                       View Details
                     </Button>
                     
-                    {order.status === 'available' && (
-                      <Button
-                        variant="brand"
-                        size="sm"
-                        onClick={() => handleAcceptOrder(order.id)}
-                        disabled={loading}
-                      >
-                        {loading ? <Spinner size="sm" className="mr-1.5" /> : <FaMotorcycle className="mr-1.5" />}
-                        Accept Delivery
-                      </Button>
-                    )}
-                    
-                    {order.status === 'active' && (
+                    {activeTab === 'active' && (
                       <Button
                         variant="success"
                         size="sm"
-                        onClick={() => handleUpdateStatus(order.id, 'completed')}
+                        onClick={() => handleUpdateStatus(order._id, 'delivered')}
                         disabled={updatingStatus}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
@@ -357,10 +336,16 @@ const DeliveryOrders = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Delivery Address</p>
-                  <p>{selectedOrder.deliveryAddress?.street || 'N/A'}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {selectedOrder.deliveryAddress?.city || ''}, {selectedOrder.deliveryAddress?.state || ''}
-                  </p>
+                  {typeof selectedOrder.deliveryAddress === 'string' ? (
+                    <p>{selectedOrder.deliveryAddress}</p>
+                  ) : (
+                    <>
+                      <p>{selectedOrder.deliveryAddress?.street || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {selectedOrder.deliveryAddress?.city || ''}{selectedOrder.deliveryAddress?.state ? `, ${selectedOrder.deliveryAddress.state}` : ''}
+                      </p>
+                    </>
+                  )}
                 </div>
                  <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Order Placed</p>

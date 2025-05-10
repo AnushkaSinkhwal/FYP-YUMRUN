@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { FaSearch, FaCheck, FaTimes, FaUserEdit, FaTruck, FaFilter } from 'react-icons/fa';
+import { FaSearch, FaCheck, FaTimes, FaUserEdit, FaFilter } from 'react-icons/fa';
 import { adminAPI } from '../../utils/api';
 
 const Riders = () => {
@@ -12,11 +12,36 @@ const Riders = () => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'approved', 'pending'
+  // Assigned orders for rider details
+  const [assignedOrders, setAssignedOrders] = useState([]);
+  const [loadingAssignedOrders, setLoadingAssignedOrders] = useState(false);
 
   // Fetch riders on component mount
   useEffect(() => {
     fetchRiders();
   }, []);
+
+  // Fetch assigned orders when showing details modal for a rider
+  useEffect(() => {
+    if (showDetailsModal && selectedRider) {
+      setLoadingAssignedOrders(true);
+      adminAPI.getDeliveries({ riderId: selectedRider._id })
+        .then(response => {
+          if (response.data.success) {
+            setAssignedOrders(response.data.deliveries);
+          } else {
+            setAssignedOrders([]);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching assigned orders:', error);
+          setAssignedOrders([]);
+        })
+        .finally(() => setLoadingAssignedOrders(false));
+    } else {
+      setAssignedOrders([]);
+    }
+  }, [showDetailsModal, selectedRider]);
 
   // Filter riders based on search term and status filter
   useEffect(() => {
@@ -51,7 +76,9 @@ const Riders = () => {
     try {
       setLoading(true);
       const response = await adminAPI.getRiders();
+      console.log('getRiders response:', response.data);
       if (response.data.success) {
+        console.log('Fetched deliveryStaff:', response.data.deliveryStaff);
         setRiders(response.data.deliveryStaff);
         setFilteredRiders(response.data.deliveryStaff);
       } else {
@@ -234,12 +261,15 @@ const Riders = () => {
                     <div className="text-sm text-gray-900">{rider.email}</div>
                     <div className="text-sm text-gray-500">{rider.phone}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 space-y-1 whitespace-nowrap">
                     <div className="text-sm text-gray-900 capitalize">
-                      {rider.deliveryRiderDetails?.vehicleType || 'N/A'}
+                      {rider.deliveryRiderDetails?.vehicleType || 'Not provided'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {rider.deliveryRiderDetails?.licenseNumber || 'No license info'}
+                      License: {rider.deliveryRiderDetails?.licenseNumber || 'Not provided'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Registration: {rider.deliveryRiderDetails?.vehicleRegistrationNumber || 'Not provided'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -258,6 +288,7 @@ const Riders = () => {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => {
+                          console.log('Selected Rider for details:', rider);
                           setSelectedRider(rider);
                           setShowDetailsModal(true);
                         }}
@@ -279,13 +310,6 @@ const Riders = () => {
                         title={rider.deliveryRiderDetails?.approved ? 'Revoke Approval' : 'Approve Rider'}
                       >
                         {rider.deliveryRiderDetails?.approved ? <FaTimes /> : <FaCheck />}
-                      </button>
-                      <button
-                        onClick={() => window.location.href = `/admin/deliveries?riderId=${rider._id}`}
-                        className="p-1 text-blue-600 rounded hover:text-blue-900 bg-blue-50"
-                        title="View Deliveries"
-                      >
-                        <FaTruck />
                       </button>
                     </div>
                   </td>
@@ -337,38 +361,64 @@ const Riders = () => {
       {/* Details Modal */}
       {showDetailsModal && selectedRider && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="flex items-center justify-center min-h-screen px-4 py-8">
             <div className="fixed inset-0 bg-black opacity-40" onClick={() => setShowDetailsModal(false)}></div>
-            <div className="relative max-w-xl p-6 mx-auto bg-white rounded-lg shadow-xl">
-              <h3 className="mb-4 text-lg font-bold">Rider Details: {selectedRider.fullName}</h3>
+            <div className="relative w-full max-w-3xl p-6 mx-auto bg-white rounded-lg shadow-xl dark:bg-gray-800">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Rider Details: {selectedRider.fullName}</h3>
+                <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                  <FaTimes size={20}/>
+                </button>
+              </div>
               
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-500">Contact Information</p>
-                  <p><strong>Email:</strong> {selectedRider.email}</p>
-                  <p><strong>Phone:</strong> {selectedRider.phone}</p>
-                  <p><strong>Joined:</strong> {new Date(selectedRider.createdAt).toLocaleDateString()}</p>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Contact & Vehicle Info */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Information</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Email:</strong> {selectedRider.email}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Phone:</strong> {selectedRider.phone}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Joined:</strong> {new Date(selectedRider.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Vehicle Details</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Type:</strong> {selectedRider.deliveryRiderDetails?.vehicleType || 'Not provided'}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>License:</strong> {selectedRider.deliveryRiderDetails?.licenseNumber || 'Not provided'}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Registration:</strong> {selectedRider.deliveryRiderDetails?.vehicleRegistrationNumber || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Account:</strong> {selectedRider.isActive ? 'Active' : 'Inactive'}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Approval:</strong> {selectedRider.deliveryRiderDetails?.approved ? 'Approved' : 'Pending Approval'}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Deliveries:</strong> {selectedRider.deliveryRiderDetails?.completedDeliveries || 0} completed</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Rating:</strong> {selectedRider.deliveryRiderDetails?.ratings?.count > 0 ? selectedRider.deliveryRiderDetails.ratings.average.toFixed(1) : 'N/A'} ({selectedRider.deliveryRiderDetails?.ratings?.count || 0} reviews)</p>
+                  </div>
                 </div>
+
+                {/* Assigned Orders Info */}
                 <div>
-                  <p className="text-sm text-gray-500">Vehicle Details</p>
-                  <p><strong>Type:</strong> {selectedRider.deliveryRiderDetails?.vehicleType || 'N/A'}</p>
-                  <p><strong>License:</strong> {selectedRider.deliveryRiderDetails?.licenseNumber || 'N/A'}</p>
-                  <p>
-                    <strong>Registration:</strong> 
-                    {selectedRider.deliveryRiderDetails?.vehicleRegistrationNumber || 'N/A'}
-                  </p>
+                  <p className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Currently Assigned Orders ({assignedOrders.length})</p>
+                  {loadingAssignedOrders ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-300">Loading assigned orders...</p>
+                  ) : assignedOrders.length > 0 ? (
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                      {assignedOrders.map(order => (
+                        <div key={order._id} className="p-3 text-sm border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                          <p className="font-semibold text-gray-800 dark:text-gray-100">Order ID: {order.orderNumber}</p>
+                          <p className="text-gray-600 dark:text-gray-300">Restaurant: {order.restaurantId?.name || 'Unknown'}</p>
+                          <p className="text-gray-600 dark:text-gray-300">Customer: {order.userId?.fullName || 'Unknown'}</p>
+                          <p className="text-gray-600 dark:text-gray-300">Status: <span className={`font-medium ${order.status === 'OUT_FOR_DELIVERY' ? 'text-green-600' : 'text-yellow-600'}`}>{order.status}</span></p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Placed: {new Date(order.createdAt).toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-300">No orders currently assigned to this rider.</p>
+                  )}
                 </div>
               </div>
               
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">Status</p>
-                <p><strong>Account status:</strong> {selectedRider.isActive ? 'Active' : 'Inactive'}</p>
-                <p><strong>Approval status:</strong> {selectedRider.deliveryRiderDetails?.approved ? 'Approved' : 'Pending Approval'}</p>
-                <p><strong>Deliveries completed:</strong> {selectedRider.deliveryRiderDetails?.completedDeliveries || 0}</p>
-                <p><strong>Rating:</strong> {selectedRider.deliveryRiderDetails?.ratings?.average || 'No ratings'} ({selectedRider.deliveryRiderDetails?.ratings?.count || 0} reviews)</p>
-              </div>
-              
-              <div className="flex justify-between mt-6">
+              <div className="flex items-center justify-between pt-5 mt-6 border-t dark:border-gray-700">
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);

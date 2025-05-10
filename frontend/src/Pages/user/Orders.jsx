@@ -21,16 +21,15 @@ const UserOrders = () => {
   const [error, setError] = useState(null);
   const [tempRatings, setTempRatings] = useState({});
   const [ratingInProgress, setRatingInProgress] = useState(null);
+  // State for rider ratings
+  const [tempRiderRatings, setTempRiderRatings] = useState({});
+  const [riderRatingInProgress, setRiderRatingInProgress] = useState(null);
   
   // State for order detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
-  
-  // State for status update
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState('');
   
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -103,28 +102,42 @@ const UserOrders = () => {
     }));
   };
 
+  // Temp state for rider rating
+  const setTempRiderRating = (orderId, rating) => {
+    setTempRiderRatings(prev => ({ ...prev, [orderId]: rating }));
+  };
+
   // Function to submit rating for an order
   const submitRating = async (orderId, rating) => {
     if (!rating) {
       rating = tempRatings[orderId] || 5;
     }
     
+    // Determine menuItemId for this order (use first item in items array)
+    const orderToRate = orders.find(o => String(getId(o)) === orderId);
+    const firstItem = orderToRate?.items?.[0];
+    const menuItemId = firstItem?.productId || firstItem?.id || firstItem?._id;
+    if (!menuItemId) {
+      setError('Unable to submit rating: No item found in order');
+      toast.error('Unable to submit rating: No item found in order');
+      return;
+    }
+
     try {
       setRatingInProgress(orderId);
       
       const response = await userAPI.submitReview({
         orderId,
+        menuItemId,
         rating,
         comment: ''
       });
 
       if (response.data && response.data.success) {
         // Update local state to reflect the new rating
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === orderId || order._id === orderId
-              ? { ...order, rating, isRated: true } 
-              : order
+        setOrders(prevOrders =>
+          prevOrders.map(o =>
+            String(getId(o)) === orderId ? { ...o, rating, isRated: true } : o
           )
         );
         
@@ -145,6 +158,40 @@ const UserOrders = () => {
       toast.error('Failed to submit rating. Please try again.');
     } finally {
       setRatingInProgress(null);
+    }
+  };
+
+  // Function to submit rating for the delivery rider
+  const submitRiderRating = async (orderId) => {
+    const ratingValue = tempRiderRatings[orderId] || 5;
+    try {
+      setRiderRatingInProgress(orderId);
+      const response = await userAPI.submitRiderReview({ orderId, rating: ratingValue, comment: '' });
+      if (response.data && response.data.success) {
+        // Mark this order as rated in local orders state
+        setOrders(prevOrders =>
+          prevOrders.map(o =>
+            String(getId(o)) === orderId ? { ...o, isRiderRated: true, riderRating: ratingValue } : o
+          )
+        );
+        setTempRiderRatings(prev => { const s = { ...prev }; delete s[orderId]; return s; });
+        toast.success('Rider rating submitted successfully');
+      } else {
+        throw new Error(response.data?.message || 'Failed to submit rider review');
+      }
+    } catch (err) {
+      // Log detailed error from server or network
+      console.error('Error submitting rider rating:', err.response || err);
+      // Extract meaningful message from response or fallback
+      const errorMessage =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to submit rider rating. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setRiderRatingInProgress(null);
     }
   };
 
@@ -235,46 +282,6 @@ const UserOrders = () => {
       toast.error('Unable to load order details. Please try again later.');
     } finally {
       setDetailLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (orderId) => {
-    if (!selectedStatus) {
-      toast.warning('Please select a status');
-      return;
-    }
-    
-    setUpdatingStatus(true);
-    try {
-      const response = await userAPI.updateOrderStatus(orderId, selectedStatus);
-      
-      if (response.data && response.data.success) {
-        toast.success(`Order status updated to ${selectedStatus}`);
-        
-        // Update the selected order details with new status
-        if (selectedOrderDetails) {
-          setSelectedOrderDetails({
-            ...selectedOrderDetails,
-            status: selectedStatus
-          });
-        }
-        
-        // Update order in the list
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order._id === orderId || order.id === orderId
-              ? { ...order, status: selectedStatus }
-              : order
-          )
-        );
-      } else {
-        throw new Error(response.data?.message || 'Failed to update order status');
-      }
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      toast.error(err.response?.data?.message || 'Failed to update order status');
-    } finally {
-      setUpdatingStatus(false);
     }
   };
 
@@ -435,7 +442,7 @@ const UserOrders = () => {
                       </div>
                     )}
                     <div className="text-right">
-                      <p className="font-semibold">${(order.grandTotal || order.totalAmount || 0).toFixed(2)}</p>
+                      <p className="font-semibold">Rs {(order.grandTotal || order.totalAmount || 0).toFixed(2)}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {formatDate(order.createdAt || order.date)}
                       </p>
@@ -478,25 +485,25 @@ const UserOrders = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Subtotal</span>
-                        <span>${(order.totalPrice || order.subtotal || 0).toFixed(2)}</span>
+                        <span>Rs. {(order.totalPrice || order.subtotal || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Delivery Fee</span>
-                        <span>${(order.deliveryFee || 0).toFixed(2)}</span>
+                        <span>Rs. {(order.deliveryFee || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax</span>
-                        <span>${(order.tax || 0).toFixed(2)}</span>
+                        <span>Rs. {(order.tax || 0).toFixed(2)}</span>
                       </div>
                       {order.tip > 0 && (
                         <div className="flex justify-between">
                           <span>Tip</span>
-                          <span>${(order.tip || 0).toFixed(2)}</span>
+                          <span>Rs. {(order.tip || 0).toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-1 font-semibold border-t">
                         <span>Total</span>
-                        <span>${(order.grandTotal || order.total || order.totalAmount || 0).toFixed(2)}</span>
+                        <span>Rs. {(order.grandTotal || order.total || order.totalAmount || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -515,7 +522,6 @@ const UserOrders = () => {
                     }
                     View Details
                   </Button>
-                  
                   {order.trackingUrl && (
                     <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" size="sm" className="gap-1">
@@ -543,10 +549,40 @@ const UserOrders = () => {
                       <Button 
                         size="sm"
                         onClick={() => submitRating(orderId)}
-                        disabled={ratingInProgress === orderId || !tempRatings[orderId]}
+                        disabled={ratingInProgress === orderId}
                       >
                         {ratingInProgress === orderId ? <Spinner size="sm" className="mr-2" /> : null}
                         Rate Order
+                      </Button>
+                    </div>
+                  )}
+                  {/* Rider Rating UI */}
+                  {isDelivered && !order.isRiderRated && (
+                    <div className="flex items-center gap-1 mt-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Button
+                          key={star}
+                          variant="ghost"
+                          size="sm"
+                          className="p-1"
+                          onClick={() => setTempRiderRating(orderId, star)}
+                        >
+                          <FaStar className={`h-5 w-5 ${
+                            star <= (tempRiderRatings[orderId] || 0)
+                              ? 'text-yellow-400'
+                              : 'text-gray-300'
+                          }`} />
+                        </Button>
+                      ))}
+                      <Button
+                        size="sm"
+                        onClick={() => submitRiderRating(orderId)}
+                        disabled={riderRatingInProgress === orderId}
+                      >
+                        {riderRatingInProgress === orderId ? (
+                          <Spinner size="sm" className="mr-2" />
+                        ) : null}
+                        Rate Rider
                       </Button>
                     </div>
                   )}
@@ -592,7 +628,7 @@ const UserOrders = () => {
 
       {/* Order Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
             <DialogDescription className="sr-only">
@@ -657,7 +693,7 @@ const UserOrders = () => {
                     <div key={index} className="space-y-1">
                       <div className="flex justify-between">
                         <span>{item.quantity || 1}x {item.name || 'Item'}</span>
-                        <span>${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
+                        <span>Rs. {((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
                       </div>
                       
                       {/* Display customization details */}
@@ -669,7 +705,7 @@ const UserOrders = () => {
                               <span className="font-medium">Add-ons: </span>
                               {item.customization.addedIngredients.map((ingredient, idx) => (
                                 <div key={idx} className="pl-2">
-                                  • {ingredient.name} (+${(ingredient.price || 0).toFixed(2)})
+                                  • {ingredient.name} (+Rs. {(ingredient.price || 0).toFixed(2)})
                                 </div>
                               ))}
                             </div>
@@ -707,7 +743,7 @@ const UserOrders = () => {
                           <span className="font-medium">Add-ons: </span>
                           {item.selectedAddOns.map((addOn, idx) => (
                             <div key={idx} className="pl-2">
-                              • {addOn.name} (+${(addOn.price || 0).toFixed(2)})
+                              • {addOn.name} (+Rs. {(addOn.price || 0).toFixed(2)})
                             </div>
                           ))}
                         </div>
@@ -738,19 +774,25 @@ const UserOrders = () => {
               <div className="pt-4 space-y-1 text-sm border-t">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>${(selectedOrderDetails.totalPrice || 0).toFixed(2)}</span>
+                  <span>Rs. {(selectedOrderDetails.totalPrice || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Delivery Fee:</span>
-                  <span>${(selectedOrderDetails.deliveryFee || 0).toFixed(2)}</span>
+                  <span>Rs. {(selectedOrderDetails.deliveryFee || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tax:</span>
-                  <span>${(selectedOrderDetails.tax || 0).toFixed(2)}</span>
+                  <span>Rs. {(selectedOrderDetails.tax || 0).toFixed(2)}</span>
                 </div>
+                {selectedOrderDetails.tip > 0 && (
+                  <div className="flex justify-between">
+                    <span>Tip:</span>
+                    <span>Rs. {(selectedOrderDetails.tip || 0).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold">
                   <span>Total:</span>
-                  <span>${(selectedOrderDetails.grandTotal || selectedOrderDetails.total || 0).toFixed(2)}</span>
+                  <span>Rs. {(selectedOrderDetails.grandTotal || selectedOrderDetails.total || 0).toFixed(2)}</span>
                 </div>
               </div>
               
@@ -761,39 +803,25 @@ const UserOrders = () => {
                 </div>
               )}
 
-              {/* Add status update section */}
-              <div className="pt-4 border-t">
-                <h4 className="mb-2 font-medium">Update Status</h4>
-                <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-                  <Select 
-                    value={selectedStatus} 
-                    onValueChange={setSelectedStatus}
-                    disabled={updatingStatus}
-                  >
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                      <SelectValue placeholder="Select new status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                      <SelectItem value="PREPARING">Preparing</SelectItem>
-                      <SelectItem value="READY">Ready</SelectItem>
-                      <SelectItem value="OUT_FOR_DELIVERY">Out For Delivery</SelectItem>
-                      <SelectItem value="DELIVERED">Delivered</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button 
-                    onClick={() => handleUpdateStatus(selectedOrderDetails._id)}
-                    disabled={!selectedStatus || updatingStatus}
-                    className="flex items-center justify-center"
-                  >
-                    {updatingStatus ? <Spinner size="sm" className="mr-2" /> : null}
-                    Update Status
-                  </Button>
+              {/* Status History */}
+              {selectedOrderDetails.statusUpdates?.length > 0 && (
+                <div className="pt-4">
+                  <h4 className="mb-2 text-base font-medium">Status History</h4>
+                  <ul className="text-sm divide-y">
+                    {selectedOrderDetails.statusUpdates.slice().reverse().map((update, idx) => (
+                      <li key={idx} className="py-2">
+                        <div className="flex justify-between">
+                          <span>{formatStatus(update.status)}</span>
+                          <span>{formatDate(update.timestamp)}</span>
+                        </div>
+                        {update.updatedBy && (
+                          <div className="text-xs text-gray-500">Updated by: {update.updatedBy.name || 'System'}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              )}
             </div>
           )}
           

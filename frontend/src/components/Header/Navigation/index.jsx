@@ -1,5 +1,5 @@
 import { IoMdMenu } from "react-icons/io";
-import { FaAngleDown, FaAngleRight, FaTimes } from "react-icons/fa";
+import { FaAngleDown, FaTimes } from "react-icons/fa";
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { Container } from '../../../components/ui';
@@ -34,6 +34,24 @@ const Navigation = ({ links = [] }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Static list of menu categories matching RestaurantMenu CATEGORIES
+  const MENU_CATEGORIES = [
+    'Appetizers',
+    'Main Course',
+    'Desserts',
+    'Drinks',
+    'Beverages',
+    'Sides',
+    'Specials',
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Vegan',
+    'Vegetarian',
+    'Gluten-Free'
+  ];
+  const categories = MENU_CATEGORIES.map(name => ({ id: name.toLowerCase(), name }));
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -106,8 +124,8 @@ const Navigation = ({ links = [] }) => {
           {/* Sidebar Navigation */}
           <div className={`w-full lg:w-1/4 ${isMobile && !mobileMenuOpen ? 'hidden' : 'block'}`} ref={navRef}>
             <div className="relative">
-              <button 
-                className="flex items-center justify-between w-full px-4 py-3 font-medium text-gray-800 transition-colors bg-gray-50 hover:bg-gray-100" 
+              <button
+                className="flex items-center justify-between w-full px-4 py-3 font-medium text-gray-800 transition-colors bg-gray-50 hover:bg-gray-100"
                 onClick={() => setisopenSidebarVal(prev => !prev)}
               >
                 <span className="flex items-center">
@@ -116,59 +134,28 @@ const Navigation = ({ links = [] }) => {
                 </span>
                 <FaAngleDown className={`transform transition-transform ${isopenSidebarVal ? 'rotate-180' : ''}`} />
               </button>
-              
               <div className={`absolute left-0 top-full w-full bg-white shadow-md rounded-b-md z-30 transition-all duration-200 ${isopenSidebarVal ? 'block' : 'hidden'}`}>
                 <ul className="py-2">
-                  <li className="relative group">
-                    <Link 
-                      to="/cat/special" 
+                  <li key="all-categories">
+                    <Link
+                      to="/menu"
                       onClick={closeMenus}
-                      className="flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange"
+                      className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange"
                     >
-                      OUR SPECIAL
-                      <FaAngleRight />
+                      ALL CATEGORIES
                     </Link>
-                    <div className="absolute top-0 z-30 hidden w-48 bg-white rounded-md shadow-md group-hover:block left-full">
-                      <Link to="/cat/espresso" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">ESPRESSO</Link>
-                      <Link to="/cat/latte" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">LATTE</Link>
-                      <Link to="/cat/cappuccino" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">CAPPUCCINO</Link>
-                      <Link to="/cat/tea" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">TEA</Link>
-                    </div>
                   </li>
-                  <li className="relative group">
-                    <Link 
-                      to="/cat/appetizer" 
-                      onClick={closeMenus}
-                      className="flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange"
-                    >
-                      APPETIZER
-                      <FaAngleRight />
-                    </Link>
-                    <div className="absolute top-0 z-30 hidden w-48 bg-white rounded-md shadow-md group-hover:block left-full">
-                      <Link to="/cat/finger-food" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">FINGER FOOD</Link>
-                      <Link to="/cat/salads" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">SALADS</Link>
-                      <Link to="/cat/soups" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">SOUPS</Link>
-                      <Link to="/cat/starters" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">STARTERS</Link>
-                    </div>
-                  </li>
-                  <li>
-                    <Link to="/cat/breakfast" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">BREAKFAST</Link>
-                  </li>
-                  <li>
-                    <Link to="/cat/lunch" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">LUNCH</Link>
-                  </li>
-                  <li>
-                    <Link to="/cat/dinner" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DINNER</Link>
-                  </li>
-                  <li>
-                    <Link to="/cat/drinks" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DRINKS</Link>
-                  </li>
-                  <li>
-                    <Link to="/cat/desserts" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">DESSERTS</Link>
-                  </li>
-                  <li>
-                    <Link to="/cat/bakery" onClick={closeMenus} className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange">BAKERY</Link>
-                  </li>
+                  {categories.map(cat => (
+                    <li key={cat.id}>
+                      <Link
+                        to={`/menu?category=${encodeURIComponent(cat.id)}`}
+                        onClick={closeMenus}
+                        className="block px-4 py-2 text-sm hover:bg-gray-50 hover:text-yumrun-orange"
+                      >
+                        {cat.name.toUpperCase()}
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>

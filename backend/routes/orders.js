@@ -13,6 +13,8 @@ const { sendEmail, emailTemplates } = require('../utils/emailService');
 const mongoose = require('mongoose');
 const MenuItem = require('../models/menuItem');
 const Notification = require('../models/notification');
+const Review = require('../models/review');
+const RiderReview = require('../models/riderReview');
 
 // GET all orders
 router.get('/', auth, async (req, res) => {
@@ -28,7 +30,7 @@ router.get('/', auth, async (req, res) => {
 // GET current user's orders
 router.get('/user', protect, async (req, res) => {
     try {
-        // Fix: use the correct user ID property - ensure we can access the user ID in any format
+        // Fix: use the correct user ID property
         const userId = req.user._id || req.user.userId || req.user.id;
         console.log(`[Orders API] Fetching orders for user: ${userId}`);
         
@@ -42,17 +44,33 @@ router.get('/user', protect, async (req, res) => {
         }
         
         console.log(`[Orders API] Querying database for orders with userId: ${userId}`);
+        // Fetch orders and include restaurant info
         const orders = await Order.find({ userId })
             .populate('restaurantId', 'restaurantDetails.name restaurantDetails.address')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
         
         console.log(`[Orders API] Found ${orders.length} orders for user ${userId}`);
-        
-        // Return only real orders from database
-        return res.status(200).json({ 
-            success: true, 
-            data: orders 
-        });
+
+        // Enrich each order with existing menu item and rider reviews
+        const enrichedOrders = await Promise.all(
+          orders.map(async order => {
+            // Attach menu item review if exists
+            const menuReview = await Review.findOne({ user: userId, orderId: order._id }).lean();
+            if (menuReview) {
+              order.rating = menuReview.rating;
+              order.isRated = true;
+            }
+            // Attach rider review if exists
+            const riderReview = await RiderReview.findOne({ user: userId, orderId: order._id }).lean();
+            if (riderReview) {
+              order.riderRating = riderReview.rating;
+              order.isRiderRated = true;
+            }
+            return order;
+          })
+        );
+        return res.status(200).json({ success: true, data: enrichedOrders });
     } catch (error) {
         console.error('Error fetching user orders:', error);
         res.status(500).json({ 
@@ -124,6 +142,7 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
         })
             .sort({ createdAt: -1 })
             .populate('userId', 'firstName lastName fullName email phone') // Populate customer details
+            .populate('deliveryRiderId', 'firstName lastName fullName phone deliveryRiderDetails.vehicleType deliveryRiderDetails.ratings') // Populate assigned rider details
             .populate({ // Populate the user who updated the status in the history
                 path: 'statusUpdates.updatedBy',
                 select: 'name' // Select only the name field
@@ -545,7 +564,9 @@ router.post('/', async (req, res) => {
         }
 
         // Add delivery fee, tax, tip if applicable (fetch from restaurant or config)
-        const deliveryFee = restaurant.deliveryFee || 0;
+        const deliveryFee = (req.body.deliveryFee !== undefined && typeof req.body.deliveryFee === 'number')
+            ? req.body.deliveryFee
+            : (restaurant.deliveryFee || 0);
         const taxRate = 0.0; // Example: Get tax rate from config/restaurant
         const taxAmount = calculatedTotal * taxRate;
         const tipAmount = req.body.tip || 0; // Get tip from request if provided

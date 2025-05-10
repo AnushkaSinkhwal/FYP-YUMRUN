@@ -115,7 +115,8 @@ exports.updateUserProfile = async (req, res) => {
       phone,
       address,
       healthCondition,
-      notifications
+      notifications,
+      deliveryRiderDetails
     } = req.body;
 
     // Find user
@@ -143,9 +144,15 @@ exports.updateUserProfile = async (req, res) => {
 
     // Update notification settings if provided
     if (notifications) {
-       // Ensure we merge, not overwrite completely, or handle partial updates
-       // A simple merge works if the frontend sends the complete object
        user.notifications = { ...user.notifications, ...notifications };
+    }
+    
+    // Update delivery rider details if provided and if user is a delivery rider
+    if (user.role === 'delivery_rider' && deliveryRiderDetails) {
+      user.deliveryRiderDetails = {
+        ...((user.deliveryRiderDetails && user.deliveryRiderDetails.toObject) ? user.deliveryRiderDetails.toObject() : user.deliveryRiderDetails),
+        ...deliveryRiderDetails
+      };
     }
 
     // Save updated user
@@ -161,7 +168,8 @@ exports.updateUserProfile = async (req, res) => {
         phone: user.phone,
         address: user.address,
         healthCondition: user.healthCondition,
-        notifications: user.notifications
+        notifications: user.notifications,
+        deliveryRiderDetails: user.deliveryRiderDetails
       }
     });
   } catch (error) {

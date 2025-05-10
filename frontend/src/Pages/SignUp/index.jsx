@@ -360,8 +360,9 @@ const SignUp = () => {
                                     <Label htmlFor="healthCondition">Health Condition</Label>
                                     <Select
                                         id="healthCondition"
+                                        name="healthCondition"
                                         value={formData.healthCondition}
-                                        onChange={(value) => setFormData(prev => ({ ...prev, healthCondition: value }))}
+                                        onChange={handleInputChange}
                                         options={[
                                             { value: "Healthy", label: "Healthy" },
                                             { value: "Diabetes", label: "Diabetes" },
@@ -445,8 +446,9 @@ const SignUp = () => {
                                         <Label htmlFor="vehicleType">Vehicle Type*</Label>
                                         <Select
                                             id="vehicleType"
+                                            name="vehicleType"
                                             value={formData.vehicleType}
-                                            onChange={(value) => setFormData(prev => ({ ...prev, vehicleType: value }))}
+                                            onChange={handleInputChange}
                                             options={[
                                                 { value: "motorcycle", label: "Motorcycle" },
                                                 { value: "scooter", label: "Scooter" },

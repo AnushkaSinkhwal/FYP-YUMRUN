@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Badge, Spinner, Tabs, TabsList, TabsTrigger, TabsContent, Alert } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { userAPI } from '../../utils/api';
-import LoyaltyDashboard from '../../components/Loyalty/LoyaltyDashboard';
 import HealthProfile from '../../components/Profile/HealthProfile';
 import { formatDate } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
-import { FaShoppingCart, FaHeart, FaMoneyBillWave, FaClipboardList, FaUser, FaBell } from 'react-icons/fa';
+import { FaShoppingCart, FaHeart, FaClipboardList, FaUser, FaBell } from 'react-icons/fa';
 
 const UserDashboard = () => {
   const { currentUser } = useAuth();
@@ -144,14 +143,6 @@ const UserDashboard = () => {
       color: 'bg-red-500',
       link: '/user/favorites?tab=restaurants'
     },
-    {
-      title: 'Amount Saved',
-      count: `Rs ${dashboardData.savedAmount || 0}`,
-      icon: <FaMoneyBillWave className="w-5 h-5 text-white" />,
-      color: 'bg-green-500',
-      link: '#',
-      onClick: () => setActiveTab('loyalty')
-    }
   ];
 
   // Function to get the appropriate color class for an order status
@@ -283,7 +274,6 @@ const UserDashboard = () => {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
               <TabsTrigger value="health">Health Profile</TabsTrigger>
-              <TabsTrigger value="loyalty">Loyalty Points</TabsTrigger>
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
             </TabsList>
             
@@ -339,11 +329,6 @@ const UserDashboard = () => {
                 <Card className="p-5 text-white transition-all cursor-pointer hover:shadow-md bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => setActiveTab('health')}>
                   <h3 className="text-lg font-semibold">Update Health Profile</h3>
                   <p className="mt-1 text-sm opacity-90">Customize your dietary preferences</p>
-                </Card>
-                
-                <Card className="p-5 text-white transition-all cursor-pointer hover:shadow-md bg-gradient-to-br from-green-400 to-green-600" onClick={() => setActiveTab('loyalty')}>
-                  <h3 className="text-lg font-semibold">Check Loyalty Points</h3>
-                  <p className="mt-1 text-sm opacity-90">Redeem points for rewards</p>
                 </Card>
               </div>
             </TabsContent>
@@ -409,12 +394,6 @@ const UserDashboard = () => {
             <TabsContent value="health" className="p-6">
               <h2 className="mb-6 text-xl font-bold">Health Profile</h2>
               <HealthProfile />
-            </TabsContent>
-            
-            {/* Loyalty Tab */}
-            <TabsContent value="loyalty" className="p-6">
-              <h2 className="mb-6 text-xl font-bold">Loyalty Points</h2>
-              <LoyaltyDashboard />
             </TabsContent>
             
             {/* Notifications Tab */}

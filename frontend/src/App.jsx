@@ -14,7 +14,6 @@ import PaymentVerify from "./Pages/PaymentVerify";
 import SearchResults from "./Pages/Search";
 import SignIn from "./Pages/SignIn";
 import SignUp from "./Pages/SignUp";
-import Listing from "./Pages/Listing";
 import ProductDetails from "./Pages/ProductDetails";
 import BackToTop from "./components/BackToTop";
 import RestaurantDetails from './Pages/RestaurantDetails';
@@ -22,7 +21,6 @@ import About from './Pages/About';
 import Contact from './Pages/Contact';
 import Restaurants from './Pages/Restaurants';
 import Menu from './Pages/Menu';
-import Shop from "./Pages/Shop";
 import PaymentVerificationPage from './Pages/payment/Verify';
 import OrderDetail from './Pages/order/OrderDetail';
 import EmailVerification from './Pages/EmailVerification';
@@ -42,12 +40,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { MyContext } from "./context/UIContext.js";
 
 // Admin imports
-import AdminLayout from "./layouts/AdminLayout";
+import DashboardLayout from "./components/shared/DashboardLayout";
 import AdminDashboard from "./Pages/admin/Dashboard";
 import AdminUsers from "./Pages/admin/Users";
 import AdminRestaurants from "./Pages/admin/Restaurants";
 import AdminOrders from "./Pages/admin/Orders";
-import AdminDeliveries from "./Pages/admin/Deliveries";
 import AdminProfile from "./Pages/admin/Profile";
 import AdminSettings from "./Pages/admin/Settings";
 import AdminNotifications from "./Pages/admin/Notifications";
@@ -80,7 +77,6 @@ import UserDashboard from "./Pages/user/Dashboard";
 import UserOrders from "./Pages/user/Orders";
 import UserProfile from "./Pages/user/Profile";
 import UserFavorites from "./Pages/user/Favorites";
-import UserRewards from "./Pages/user/Rewards";
 import UserNotifications from "./Pages/user/Notifications";
 import UserSettings from "./Pages/user/Settings";
 import MyReviews from './Pages/user/MyReviews';
@@ -228,10 +224,12 @@ function App() {
                 <a href="#main-content" className="skip-to-content">Skip to content</a>
                 
                 <Routes>
+                  {/* Redirect legacy /orders/:orderId to user orders list */}
+                  <Route path="/orders/:orderId" element={<Navigate to="/user/orders" replace />} />
                   {/* Admin Routes */}
                   <Route path="/admin" element={
                     <ProtectedRoute allowedRoles={['admin']}>
-                      <AdminLayout />
+                      <DashboardLayout role="admin" />
                     </ProtectedRoute>
                   }>
                     <Route index element={<AdminDashboard />} />
@@ -241,7 +239,6 @@ function App() {
                     <Route path="restaurant-approvals" element={<AdminRestaurantApprovals />} />
                     <Route path="riders" element={<AdminRiders />} />
                     <Route path="orders" element={<AdminOrders />} />
-                    <Route path="deliveries" element={<AdminDeliveries />} />
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="notifications" element={<AdminNotifications />} />
@@ -319,17 +316,6 @@ function App() {
                       {isHeaderFooterShow && <Header />}
                       <main id="main-content">
                         <Menu />
-                      </main>
-                      {isHeaderFooterShow && <Footer />}
-                      <BackToTop />
-                    </>
-                  } />
-                  
-                  <Route path="/cat/:id" element={
-                    <>
-                      {isHeaderFooterShow && <Header />}
-                      <main id="main-content">
-                        <Listing />
                       </main>
                       {isHeaderFooterShow && <Footer />}
                       {isOpenProductModel && <ProductModel productId={productId} />}
@@ -457,7 +443,6 @@ function App() {
                     <Route path="info" element={<UserProfile />} />
                     <Route path="favorites" element={<UserFavorites />} />
                     <Route path="reviews" element={<MyReviews />} />
-                    <Route path="rewards" element={<UserRewards />} />
                     <Route path="notifications" element={<UserNotifications />} />
                     <Route path="settings" element={<UserSettings />} />
                   </Route>
@@ -473,6 +458,7 @@ function App() {
                     <Route path="orders" element={<DeliveryOrders />} />
                     <Route path="history" element={<DeliveryHistory />} />
                     <Route path="profile" element={<DeliveryProfile />} />
+                    <Route path="settings" element={<DeliveryProfile />} />
                     <Route path="earnings" element={<DeliveryEarnings />} />
                     <Route path="notifications" element={<DeliveryNotifications />} />
                   </Route>
@@ -488,7 +474,6 @@ function App() {
                     <Route path="orders" element={<UserOrders />} />
                     <Route path="profile" element={<UserProfile />} />
                     <Route path="favorites" element={<UserFavorites />} />
-                    <Route path="rewards" element={<UserRewards />} />
                     <Route path="notifications" element={<UserNotifications />} />
                     <Route path="settings" element={<UserSettings />} />
                     <Route path="reviews" element={<MyReviews />} />
@@ -513,15 +498,6 @@ function App() {
                   {/* Payment routes */}
                   <Route path="/payment/verify" element={<PaymentVerificationPage />} />
 
-                  {/* Category/Shop/Favorites Placeholders */}
-                  <Route path="/cat/shop" element={<LayoutWrapper><Shop /></LayoutWrapper>} />
-                  <Route path="/cat/favourites" element={<LayoutWrapper><PlaceholderPage title="Favourites Page" /></LayoutWrapper>} />
-                  <Route path="/cat/breakfast" element={<LayoutWrapper><PlaceholderPage title="Breakfast Category" /></LayoutWrapper>} />
-                  <Route path="/cat/lunch" element={<LayoutWrapper><PlaceholderPage title="Lunch Category" /></LayoutWrapper>} />
-                  <Route path="/cat/dinner" element={<LayoutWrapper><PlaceholderPage title="Dinner Category" /></LayoutWrapper>} />
-                  <Route path="/cat/drinks" element={<LayoutWrapper><PlaceholderPage title="Drinks Category" /></LayoutWrapper>} />
-                  <Route path="/cat/desserts" element={<LayoutWrapper><PlaceholderPage title="Desserts Category" /></LayoutWrapper>} />
-                  
                   {/* Ensure other top-level pages use LayoutWrapper */} 
                   <Route path="/restaurants" element={<LayoutWrapper><Restaurants /></LayoutWrapper>} />
                   <Route path="/menu" element={<LayoutWrapper><Menu /></LayoutWrapper>} />

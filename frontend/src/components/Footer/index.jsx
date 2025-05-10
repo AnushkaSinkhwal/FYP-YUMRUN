@@ -7,8 +7,25 @@ import { FaFacebook, FaTwitterSquare, FaPhoneAlt, FaMapMarkerAlt } from "react-i
 import { FaSquareInstagram } from "react-icons/fa6";
 import logo from '../../assets/images/logo.png';
 import { Container, Button, Input, Separator } from '../ui';
+import { useState, useEffect } from 'react';
+import { categoryAPI } from '../../utils/api';
 
 const Footer = () => {
+    const [categories, setCategories] = useState([]);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await categoryAPI.getCategories();
+                setCategories(response.data);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            }
+        };
+
+        fetchCategories();
+    }, []);
+
     return (
         <footer className="bg-white border-t border-gray-200">
             {/* Features Section */}
@@ -93,19 +110,24 @@ const Footer = () => {
                                 <li><Link to="/restaurants" className="text-gray-600 hover:text-yumrun-primary transition-colors">Restaurants</Link></li>
                                 <li><Link to="/menu" className="text-gray-600 hover:text-yumrun-primary transition-colors">Menu</Link></li>
                                 <li><Link to="/contact" className="text-gray-600 hover:text-yumrun-primary transition-colors">Contact</Link></li>
-                                <li><Link to="/cat/shop" className="text-gray-600 hover:text-yumrun-primary transition-colors">Shop</Link></li>
-                                <li><Link to="/cat/favourites" className="text-gray-600 hover:text-yumrun-primary transition-colors">Favorites</Link></li>
                             </ul>
                         </div>
 
                         <div>
                             <h3 className="font-medium text-gray-900 mb-4">Categories</h3>
                             <ul className="space-y-2">
-                                <li><Link to="/cat/breakfast" className="text-gray-600 hover:text-yumrun-primary transition-colors">Breakfast</Link></li>
-                                <li><Link to="/cat/lunch" className="text-gray-600 hover:text-yumrun-primary transition-colors">Lunch</Link></li>
-                                <li><Link to="/cat/dinner" className="text-gray-600 hover:text-yumrun-primary transition-colors">Dinner</Link></li>
-                                <li><Link to="/cat/drinks" className="text-gray-600 hover:text-yumrun-primary transition-colors">Drinks</Link></li>
-                                <li><Link to="/cat/desserts" className="text-gray-600 hover:text-yumrun-primary transition-colors">Desserts</Link></li>
+                                {categories.length > 0 ? categories.map(cat => (
+                                    <li key={cat.id}>
+                                        <Link
+                                            to={`/menu?category=${encodeURIComponent(cat.name.toLowerCase())}`}
+                                            className="text-gray-600 hover:text-yumrun-primary transition-colors"
+                                        >
+                                            {cat.name}
+                                        </Link>
+                                    </li>
+                                )) : (
+                                    <li className="text-gray-600">No categories available</li>
+                                )}
                             </ul>
                         </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Spinner, Button } from '../../components/ui';
 import { FaFilter, FaSearch, FaShoppingCart, FaStar } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
@@ -8,6 +8,13 @@ import axios from 'axios';
 import { getBestImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 import { isValidObjectId, cleanObjectId } from '../../utils/validationUtils';
 
+// Static menu categories matching restaurant dashboard options
+const STATIC_MENU_CATEGORIES = [
+  'Appetizers', 'Main Course', 'Desserts', 'Drinks', 'Beverages',
+  'Sides', 'Specials', 'Breakfast', 'Lunch', 'Dinner', 'Vegan',
+  'Vegetarian', 'Gluten-Free'
+];
+
 const Menu = () => {
   const { addToCart } = useCart();
   const { addToast } = useToast();
@@ -15,7 +22,11 @@ const Menu = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [activeCategory, setActiveCategory] = useState(
+    () => searchParams.get('category')?.toLowerCase() || 'all'
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     priceRange: 'all',
@@ -23,11 +34,12 @@ const Menu = () => {
     sortBy: 'popularity'
   });
 
-  // Categories - will be dynamically populated based on available menu items
-  const [categories, setCategories] = useState([
+  // Use static categories for filtering
+  const categories = [
     { id: 'all', name: 'All Items' },
-    { id: 'popular', name: 'Most Popular' }
-  ]);
+    { id: 'popular', name: 'Most Popular' },
+    ...STATIC_MENU_CATEGORIES.map(name => ({ id: name.toLowerCase(), name }))
+  ];
 
   // Fetch menu items
   useEffect(() => {
@@ -120,18 +132,6 @@ const Menu = () => {
           });
           console.log(`Filtered out ${formattedItems.length - validItems.length} items with missing/invalid restaurant IDs`);
           setMenuItems(validItems);
-          
-          // Extract all unique categories from the menu items
-          const uniqueCategories = [...new Set(validItems.map(item => item.category))];
-          // Create the categories array with 'all' and 'popular' at the beginning
-          setCategories([
-            { id: 'all', name: 'All Items' },
-            { id: 'popular', name: 'Most Popular' },
-            ...uniqueCategories.map(category => ({
-              id: category,
-              name: category.charAt(0).toUpperCase() + category.slice(1) // Capitalize first letter
-            }))
-          ]);
         } else {
           setError(response.data.message || 'Failed to fetch menu items');
           setMenuItems([]);
@@ -203,7 +203,15 @@ const Menu = () => {
   // Handle category change
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId);
+    // Update URL query param
+    navigate(`/menu?category=${encodeURIComponent(categoryId)}`);
   };
+
+  // Sync state when URL query param changes
+  useEffect(() => {
+    const param = searchParams.get('category');
+    setActiveCategory(param?.toLowerCase() || 'all');
+  }, [searchParams]);
 
   // Handle search input change
   const handleSearchChange = (e) => {

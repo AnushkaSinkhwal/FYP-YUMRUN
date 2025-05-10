@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/order');
 const Restaurant = require('../models/restaurant');
 const ErrorResponse = require('../utils/errorResponse');
+const RiderReview = require('../models/riderReview');
 
 /**
  * Create a review for a menu item
@@ -129,6 +130,59 @@ exports.createReview = async (req, res) => {
                 code: 'SERVER_ERROR'
             }
         });
+    }
+};
+
+/**
+ * Create a review for the delivery rider
+ * @route POST /api/reviews/rider
+ * @access Private
+ */
+exports.createRiderReview = async (req, res) => {
+    console.log('[ReviewController] createRiderReview called with body:', req.body, 'user:', req.user?._id);
+
+    try {
+        const { orderId, rating, comment } = req.body;
+        const userId = req.user.id;
+
+        if (!orderId || !rating) {
+            return res.status(400).json({ success: false, message: 'orderId and rating are required' });
+        }
+        // Fetch the order
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        // Ensure order belongs to user
+        if (order.userId.toString() !== userId) {
+            return res.status(403).json({ success: false, message: 'Not authorized to review this order' });
+        }
+        // Allow review only after delivery
+        if (order.status !== 'DELIVERED') {
+            return res.status(400).json({ success: false, message: 'Can only review rider after delivery' });
+        }
+        // Get rider ID
+        const riderId = order.assignedRider || order.deliveryPersonId;
+        if (!riderId) {
+            return res.status(400).json({ success: false, message: 'No rider assigned to this order' });
+        }
+        // Check for existing review
+        const existing = await RiderReview.findOne({ user: userId, orderId, rider: riderId });
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'You have already reviewed this rider for this order' });
+        }
+        // Create the rider review
+        const newReview = await RiderReview.create({
+            rating,
+            comment,
+            user: userId,
+            rider: riderId,
+            orderId
+        });
+        res.status(201).json({ success: true, data: { review: newReview } });
+    } catch (err) {
+        console.error('Error creating rider review:', err);
+        res.status(500).json({ success: false, message: 'Server error while creating rider review' });
     }
 };
 

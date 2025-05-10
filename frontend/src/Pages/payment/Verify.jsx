@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { userAPI } from '../../utils/api';
 import { Card, Button, Alert } from '../../components/ui';
+import { useCart } from '../../context/CartContext';
 
 const PaymentVerificationPage = () => {
   const [queryParams] = useSearchParams();
@@ -9,6 +10,7 @@ const PaymentVerificationPage = () => {
   const [status, setStatus] = useState('processing');
   const [error, setError] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
+  const { clearCart } = useCart();
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -76,8 +78,9 @@ const PaymentVerificationPage = () => {
               setStatus('success');
               setOrderDetails(response.data.data.order);
               
-              // Clear pending order from session storage
+              // Clear pending order from session storage and clear the shopping cart
               sessionStorage.removeItem('pendingOrder');
+              clearCart();
             } else if (paymentStatus === 'Pending') {
               setStatus('pending');
               setOrderDetails(response.data.data.order);
@@ -128,15 +131,12 @@ const PaymentVerificationPage = () => {
       }
     }
     // If no order details, just go to orders page
-    navigate('/orders');
+    navigate('/user/orders');
   };
 
   const handleGoToOrder = () => {
-    if (orderDetails && orderDetails._id) {
-      navigate(`/orders/${orderDetails._id}`);
-    } else {
-      navigate('/orders');
-    }
+    // Redirect to user's orders list
+    navigate('/user/orders');
   };
 
   const handleGoToHome = () => {

@@ -3,11 +3,10 @@ import { useAuth } from '../../context/AuthContext';
 import { userAPI } from '../../utils/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './styles.css';
-import { FaSignOutAlt, FaTrophy } from 'react-icons/fa';
+import { FaSignOutAlt } from 'react-icons/fa';
 import { Card, Button, Input, Select, Alert } from '../../components/ui';
 import PendingChanges from '../../components/Profile/PendingChanges';
 import HealthProfile from '../../components/Profile/HealthProfile';
-import LoyaltyDashboard from '../../components/Loyalty/LoyaltyDashboard';
 
 const Profile = () => {
   const { currentUser, logout, isAdmin, isRestaurantOwner, isDeliveryStaff } = useAuth();
@@ -35,7 +34,7 @@ const Profile = () => {
     const queryParams = new URLSearchParams(location.search);
     const tabParam = queryParams.get('tab');
     
-    if (tabParam && ['profile', 'security', 'account', 'health', 'loyalty'].includes(tabParam)) {
+    if (tabParam && ['profile', 'security', 'account', 'health'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -176,14 +175,6 @@ const Profile = () => {
                       className={`block px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 ${activeTab === 'health' ? 'bg-gray-100 dark:bg-gray-800 font-medium' : ''}`}
                     >
                       Health Profile
-                    </a>
-                    {/* Add Loyalty Program Tab for customers */}
-                    <a 
-                      href="#" 
-                      onClick={(e) => { e.preventDefault(); setActiveTab('loyalty'); }}
-                      className={`block px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 ${activeTab === 'loyalty' ? 'bg-gray-100 dark:bg-gray-800 font-medium' : ''}`}
-                    >
-                      <FaTrophy className="inline mr-2 w-4 h-4" /> Loyalty Program
                     </a>
                   </>
                 )}
@@ -360,11 +351,6 @@ const Profile = () => {
           {/* Health Profile Tab */}
           {activeTab === 'health' && !isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
             <HealthProfile />
-          )}
-          
-          {/* Loyalty Program Tab - Added */}
-          {activeTab === 'loyalty' && !isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
-            <LoyaltyDashboard />
           )}
           
           {/* Security Tab */}

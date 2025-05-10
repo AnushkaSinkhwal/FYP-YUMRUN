@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FaSearch, 
   FaFilter, 
   FaEye, 
   FaDownload, 
-  FaCheckCircle, 
   FaTimesCircle,
   FaMotorcycle,
-  FaUserPlus
+  FaUserPlus,
+  FaEdit
 } from 'react-icons/fa';
 import { Card, Badge, Button, Alert, Spinner, Tabs, TabsList, TabsTrigger, Select } from '../../components/ui';
 import { adminAPI } from '../../utils/api';
@@ -20,7 +20,7 @@ const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_D
 
 // Helper function to format currency
 const formatCurrency = (amount) => {
-  return `$${parseFloat(amount || 0).toFixed(2)}`;
+  return `Rs. ${parseFloat(amount || 0).toFixed(2)}`;
 };
 
 // Helper function to format date
@@ -48,15 +48,16 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const itemsPerPage = 10;
 
-  // State for status update in modal
+  // Add state for delivery staff
+  const [deliveryStaff, setDeliveryStaff] = useState([]);
+  // State for manual status update
   const [newStatus, setNewStatus] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [updateError, setUpdateError] = useState(null);
-
-  // Add state for delivery staff
-  const [deliveryStaff, setDeliveryStaff] = useState([]);
   const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState('');
   const [isAssigningDelivery, setIsAssigningDelivery] = useState(false);
+  const [assignError, setAssignError] = useState(null);
+  const [isLoadingDrivers, setIsLoadingDrivers] = useState(true);
 
   // Fetch orders from API
   useEffect(() => {
@@ -75,15 +76,17 @@ const Orders = () => {
         const formattedOrders = response.data.orders.map(order => ({
           id: order.orderNumber || order._id,                // Use orderNumber or fallback
           originalId: order._id,                              // Always store MongoDB _id
-          customer: order.userId?.name || 'Unknown User',
+          customer: order.userId?.fullName || 'Unknown User',
           email: order.userId?.email || 'No email',
           phone: order.userId?.phone || 'No phone',
           restaurant: order.restaurantId?.name || 'Unknown Restaurant',
           total: order.grandTotal || 0,
           totalPrice: order.totalPrice || 0,
           items: order.items || [],
-          status: order.status || 'PENDING',
-          paymentStatus: order.paymentStatus || 'PENDING',
+          status: (order.status || 'PENDING').toUpperCase(),
+          paymentStatus: (order.paymentStatus || 'PENDING').toUpperCase(),
+          statusUpdates: order.statusUpdates || [],
+          actualDeliveryTime: order.actualDeliveryTime || null,
           date: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown date',
           deliveryAddress: order.deliveryAddress || 'No address provided',
           specialInstructions: order.specialInstructions || '',
@@ -93,7 +96,8 @@ const Orders = () => {
           tip: order.tip || 0,
           // New: assigned rider from backend
           deliveryPersonId: order.assignedRider?._id || null,
-          deliveryPerson: order.assignedRider?.name || 'Unassigned',
+          // Use fullName if available, fallback to name
+          deliveryPerson: order.assignedRider?.fullName || order.assignedRider?.name || 'Unassigned',
         }));
         
         console.log('Fetched and formatted orders:', formattedOrders);
@@ -123,28 +127,27 @@ const Orders = () => {
 
   // Fetch delivery staff data
   useEffect(() => {
-  const fetchDeliveryStaff = async () => {
-    try {
+    const fetchDeliveryStaff = async () => {
+      setIsLoadingDrivers(true);
       try {
         const response = await adminAPI.getAvailableDrivers();
         if (response.data && response.data.success) {
-          setDeliveryStaff(response.data.drivers || []);
-          return;
+          const drivers = (response.data.deliveryStaff || []).map(driver => ({
+            id: driver._id,
+            name: driver.fullName || `${driver.firstName} ${driver.lastName}`,
+            status: driver.deliveryRiderDetails?.approved ? 'available' : 'unavailable'
+          }));
+          setDeliveryStaff(drivers);
+        } else {
+          setDeliveryStaff([]);
         }
       } catch (err) {
         console.log('Drivers API endpoint not available:', err.message);
+        setDeliveryStaff([]);
+      } finally {
+        setIsLoadingDrivers(false);
       }
-      
-      // Fallback data if API is not available
-      const sampleDrivers = [
-        { id: "DS001", name: "Mike Johnson", vehicleType: "motorcycle", status: "available" },
-        { id: "DS002", name: "Sarah Williams", vehicleType: "scooter", status: "available" }
-      ];
-      setDeliveryStaff(sampleDrivers);
-    } catch (error) {
-      console.error("Error fetching delivery staff:", error);
-    }
-  };
+    };
 
     fetchDeliveryStaff();
   }, []);
@@ -181,9 +184,49 @@ const Orders = () => {
   // View order details
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
-    setNewStatus(order.status); // Initialize modal status with current status
-    setUpdateError(null); // Clear previous update errors
+    setNewStatus(order.status);
+    setUpdateError(null);
     setShowOrderDetails(true);
+  };
+
+  // Manually update order status (before delivery assignment)
+  const handleUpdateStatus = async (originalId) => {
+    setUpdateError(null);
+    if (!newStatus) {
+      setUpdateError('Please select a status');
+      return;
+    }
+    setIsUpdatingStatus(true);
+    try {
+      const response = await adminAPI.updateOrderStatus(originalId, newStatus);
+      if (!response.data?.success) throw new Error(response.data?.message || 'Failed to update status');
+      // Update local state and append to history
+      setOrders(prev => prev.map(order =>
+        order.originalId === originalId
+          ? {
+              ...order,
+              status: newStatus,
+              statusUpdates: order.statusUpdates
+                ? [...order.statusUpdates, { status: newStatus, timestamp: new Date().toISOString(), updatedBy: { name: 'System' } }]
+                : [{ status: newStatus, timestamp: new Date().toISOString(), updatedBy: { name: 'System' } }]
+            }
+          : order
+      ));
+      if (selectedOrder?.originalId === originalId) {
+        setSelectedOrder(prev => ({
+          ...prev,
+          status: newStatus,
+          statusUpdates: prev.statusUpdates
+            ? [...prev.statusUpdates, { status: newStatus, timestamp: new Date().toISOString(), updatedBy: { name: 'System' } }]
+            : [{ status: newStatus, timestamp: new Date().toISOString(), updatedBy: { name: 'System' } }]
+        }));
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to update status';
+      setUpdateError(msg);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   // Status badge variant based on backend codes
@@ -212,9 +255,10 @@ const Orders = () => {
 
   // Assign delivery staff to order
   const handleAssignDelivery = async (originalId, staffId) => {
+    setAssignError(null);
     try {
       if (!staffId || staffId.trim() === '') {
-        setError("Please select a delivery staff member");
+        setAssignError("Please select a delivery staff member");
         return;
       }
       
@@ -226,112 +270,54 @@ const Orders = () => {
         throw new Error(response.data?.message || 'Failed to assign driver');
       }
 
-      // On success, update local state
+      // Determine driver name for assignment
+      const driverName = deliveryStaff.find(s => s.id === staffId)?.name || 'Driver';
+
+      // On success, update local state and status history
       setOrders(prev => prev.map(order =>
         order.originalId === originalId
-          ? { ...order, deliveryPersonId: staffId, deliveryPerson: deliveryStaff.find(s => s.id === staffId)?.name || 'Driver', status: 'OUT_FOR_DELIVERY' }
+          ? {
+              ...order,
+              deliveryPersonId: staffId,
+              deliveryPerson: driverName,
+              status: 'OUT_FOR_DELIVERY',
+              statusUpdates: order.statusUpdates
+                ? [...order.statusUpdates, { status: 'OUT_FOR_DELIVERY', timestamp: new Date().toISOString(), updatedBy: { name: driverName } }]
+                : [{ status: 'OUT_FOR_DELIVERY', timestamp: new Date().toISOString(), updatedBy: { name: driverName } }]
+            }
           : order
       ));
 
-      // Also update modal state
+      // Also update modal state and status history
       if (selectedOrder?.originalId === originalId) {
         setSelectedOrder(prev => ({
           ...prev,
           deliveryPersonId: staffId,
-          deliveryPerson: deliveryStaff.find(s => s.id === staffId)?.name || 'Driver',
-          status: 'OUT_FOR_DELIVERY'
+          deliveryPerson: driverName,
+          status: 'OUT_FOR_DELIVERY',
+          statusUpdates: prev.statusUpdates
+            ? [...prev.statusUpdates, { status: 'OUT_FOR_DELIVERY', timestamp: new Date().toISOString(), updatedBy: { name: driverName } }]
+            : [{ status: 'OUT_FOR_DELIVERY', timestamp: new Date().toISOString(), updatedBy: { name: driverName } }]
         }));
       }
       
       // Clear UI state
-      setError(null);
+      setAssignError(null);
       setIsAssigningDelivery(false);
       setSelectedDeliveryPerson('');
     } catch (error) {
       console.error("Error assigning delivery staff:", error);
-      setError("Failed to assign delivery staff. Please try again.");
+      const msg = error.response?.data?.message || error.message || 'Failed to assign delivery staff';
+      setAssignError(msg);
       setIsAssigningDelivery(false);
     }
   };
 
-  // Handle Order Status Update
-  const handleStatusUpdate = async () => {
-    if (!selectedOrder || !newStatus || newStatus === selectedOrder.status) {
-      setUpdateError('Please select a new status.');
-      return;
-    }
-
-    setIsUpdatingStatus(true);
-    setUpdateError(null);
-
-    try {
-      // Extract original ID (_id) using the reliably stored field
-      const originalOrderId = selectedOrder.originalId;
-      if (!originalOrderId) {
-         console.error("Original ID missing from selected order object:", selectedOrder);
-         throw new Error('Cannot determine original order ID for update.');
-      }
-      
-      console.log(`Updating status for order ${originalOrderId} to ${newStatus}`);
-      const response = await adminAPI.updateOrderStatus(originalOrderId, newStatus);
-
-      if (response.data && response.data.success) {
-        const updatedOrderData = response.data.order;
-        
-        // Create the formatted version of the updated order
-        const formattedUpdatedOrder = {
-           id: updatedOrderData.orderNumber || updatedOrderData._id,
-           originalId: updatedOrderData._id, // Store original ID
-           customer: updatedOrderData.userId?.name || 'Unknown User',
-           email: updatedOrderData.userId?.email || 'No email',
-           phone: updatedOrderData.userId?.phone || 'No phone',
-           restaurant: updatedOrderData.restaurantId?.name || 'Unknown Restaurant',
-           total: updatedOrderData.grandTotal || 0,
-           totalPrice: updatedOrderData.totalPrice || 0,
-           items: updatedOrderData.items || [],
-           status: updatedOrderData.status,
-           paymentStatus: updatedOrderData.paymentStatus,
-           date: updatedOrderData.createdAt ? new Date(updatedOrderData.createdAt).toLocaleString() : 'Unknown date',
-           deliveryAddress: updatedOrderData.deliveryAddress,
-           specialInstructions: updatedOrderData.specialInstructions,
-           paymentMethod: updatedOrderData.paymentMethod,
-           deliveryFee: updatedOrderData.deliveryFee || 0,
-           tax: updatedOrderData.tax || 0,
-           tip: updatedOrderData.tip || 0,
-           // Ensure all fields used in the modal/table are included
-           statusUpdates: updatedOrderData.statusUpdates,
-           actualDeliveryTime: updatedOrderData.actualDeliveryTime
-        };
-
-        // Update the main orders list
-        setOrders(prevOrders => 
-          prevOrders.map(o => (o.id === selectedOrder.id ? formattedUpdatedOrder : o))
-        );
-        
-        // Update the selected order in the modal
-        setSelectedOrder(formattedUpdatedOrder);
-        setNewStatus(formattedUpdatedOrder.status); // Reflect the new status in the dropdown
-
-        // Optionally show a success message or close modal
-        console.log('Order status updated successfully');
-        // setShowOrderDetails(false); // Uncomment to close modal on success
-      } else {
-        throw new Error(response.data?.message || 'Failed to update status: Invalid response from server');
-      }
-    } catch (err) {
-      console.error("Error updating order status:", err);
-      const message = err.response?.data?.message || err.message || "An unknown error occurred.";
-      setUpdateError(`Failed to update status: ${message}`);
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+        <h1 className="mb-2 text-2xl font-bold text-gray-800 sm:text-3xl dark:text-gray-100">
           Order Management
         </h1>
         <p className="text-gray-600 dark:text-gray-300">
@@ -357,16 +343,16 @@ const Orders = () => {
       </Tabs>
 
       {/* Action bar */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col justify-between gap-4 mb-6 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaSearch className="text-gray-400" />
             </div>
             <input
               type="text"
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500"
               placeholder="Search orders..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -375,11 +361,11 @@ const Orders = () => {
 
           {/* Status filter */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <FaFilter className="text-gray-400" />
             </div>
             <select
-              className="pl-10 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="block w-full pl-10 text-gray-900 bg-white border border-gray-300 rounded-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
@@ -402,11 +388,11 @@ const Orders = () => {
       <Card className="shadow-sm dark:bg-gray-800">
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex justify-center items-center py-8">
+            <div className="flex items-center justify-center py-8">
               <Spinner size="lg" color="primary" />
             </div>
           ) : paginatedOrders.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
               No orders found matching your search criteria
             </div>
           ) : (
@@ -415,11 +401,11 @@ const Orders = () => {
                 <tr>
                   <th className="px-4 py-3">Order ID</th>
                   <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Restaurant</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Restaurant</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Payment</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Date</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Payment</th>
+                  <th className="hidden px-4 py-3 md:table-cell">Date</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -437,21 +423,21 @@ const Orders = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="hidden px-4 py-3 md:table-cell">
                       {order.restaurant}
                     </td>
-                    <td className="px-4 py-3 font-medium">${parseFloat(order.total).toFixed(2)}</td>
+                    <td className="px-4 py-3 font-medium">{formatCurrency(order.total)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={getStatusBadgeVariant(order.status)}>
                         {humanizeStatus(order.status)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="hidden px-4 py-3 md:table-cell">
                       <Badge variant={getPaymentStatusBadgeVariant(order.paymentStatus)}>
                         {humanizeStatus(order.paymentStatus)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">{order.date}</td>
+                    <td className="hidden px-4 py-3 md:table-cell">{order.date}</td>
                     <td className="px-4 py-3 text-right">
                       <Button variant="outline" size="sm" onClick={() => handleViewOrder(order)}>
                         <FaEye className="mr-1" /> View
@@ -466,7 +452,7 @@ const Orders = () => {
 
         {/* Pagination */}
         {!isLoading && totalPages > 1 && (
-          <div className="flex justify-between items-center px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
               <span className="font-medium">
@@ -498,15 +484,15 @@ const Orders = () => {
 
       {/* Order details modal */}
       {showOrderDetails && selectedOrder && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <Card className="w-full max-w-4xl dark:bg-gray-800 p-6 max-h-[95vh] overflow-y-auto relative">
             {/* Modal Header */}
-            <div className="flex justify-between items-center mb-6 pb-4 border-b dark:border-gray-600">
+            <div className="flex items-center justify-between pb-4 mb-6 border-b dark:border-gray-600">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                   Order Details: {selectedOrder.id}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Placed on: {formatDate(selectedOrder.date)} 
                 </p>
               </div>
@@ -514,64 +500,48 @@ const Orders = () => {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowOrderDetails(false)}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="absolute text-gray-500 top-4 right-4 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                  <FaTimesCircle size={20} />
               </Button>
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-3">
               {/* Left Column: Customer & Delivery */}
-              <div className="md:col-span-1 space-y-4">
+              <div className="space-y-4 md:col-span-1">
                 {/* Customer Info Card */}
-                <div className="border dark:border-gray-600 rounded-md p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Customer</h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{selectedOrder.customer}</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{selectedOrder.email}</p>
+                <div className="p-4 border rounded-md dark:border-gray-600">
+                  <h4 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Customer</h4>
+                  <p className="mb-1 text-sm text-gray-700 dark:text-gray-300">{selectedOrder.customer}</p>
+                  <p className="mb-1 text-sm text-gray-700 dark:text-gray-300">{selectedOrder.email}</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.phone}</p>
                 </div>
 
                 {/* Delivery Address Card */}
-                <div className="border dark:border-gray-600 rounded-md p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Delivery Address</h4>
-                  {typeof selectedOrder.deliveryAddress === "string" ? (
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {selectedOrder.deliveryAddress}
-                    </p>
-                  ) : (
-                    <> 
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {selectedOrder.deliveryAddress?.street || selectedOrder.deliveryAddress?.fullAddress || "N/A"}
-                      </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {selectedOrder.deliveryAddress?.city}{selectedOrder.deliveryAddress?.state ? `, ${selectedOrder.deliveryAddress.state}` : ""}{selectedOrder.deliveryAddress?.zipCode ? ` ${selectedOrder.deliveryAddress.zipCode}` : ""}
-                      </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {selectedOrder.deliveryAddress?.country || ""}
-                      </p>
-                    </>
-                  )}
-                   {selectedOrder.specialInstructions && (
-                    <div className="mt-3 pt-3 border-t dark:border-gray-600">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Instructions:</p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.specialInstructions}</p>
-                    </div>
+                <div className="p-4 border rounded-md dark:border-gray-600">
+                  <h4 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Delivery Address</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">Name: {selectedOrder.deliveryAddress.fullName}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">Email: {selectedOrder.deliveryAddress.email}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">Phone: {selectedOrder.deliveryAddress.phone}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">Address: {selectedOrder.deliveryAddress.address}</p>
+                  {selectedOrder.deliveryAddress.additionalInfo && (
+                    <p className="text-sm text-gray-700 dark:text-gray-300">Additional Info: {selectedOrder.deliveryAddress.additionalInfo}</p>
                   )}
                 </div>
               </div>
 
               {/* Right Column: Order Summary & Financials */}
-              <div className="md:col-span-2 space-y-4">
+              <div className="space-y-4 md:col-span-2">
                  {/* Order Summary Card */}
-                 <div className="border dark:border-gray-600 rounded-md p-4 grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-2 gap-4 p-4 border rounded-md dark:border-gray-600">
                     <div>
                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Restaurant</p>
                        <p className="text-base font-semibold text-gray-800 dark:text-gray-100">{selectedOrder.restaurant}</p>
                     </div>
                      <div>
                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Payment</p>
-                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center">
+                       <p className="flex items-center text-base font-semibold text-gray-800 dark:text-gray-100">
                           {selectedOrder.paymentMethod} <Badge variant={getPaymentStatusBadgeVariant(selectedOrder.paymentStatus)} className="ml-2">{humanizeStatus(selectedOrder.paymentStatus)}</Badge>
                        </p>
                     </div>
@@ -582,13 +552,9 @@ const Orders = () => {
                  </div>
 
                 {/* Price Breakdown Card */}
-                <div className="border dark:border-gray-600 rounded-md p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Financials</h4>
+                <div className="p-4 border rounded-md dark:border-gray-600">
+                  <h4 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Financials</h4>
                   <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-300">Subtotal:</span>
-                      <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.totalPrice)}</span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-300">Delivery Fee:</span>
                       <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.deliveryFee)}</span>
@@ -603,7 +569,7 @@ const Orders = () => {
                         <span className="text-gray-800 dark:text-gray-200">{formatCurrency(selectedOrder.tip)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between pt-2 border-t dark:border-gray-600 font-bold text-base">
+                    <div className="flex justify-between pt-2 text-base font-bold border-t dark:border-gray-600">
                       <span className="text-gray-800 dark:text-gray-100">Grand Total:</span>
                       <span className="text-gray-800 dark:text-gray-100">{formatCurrency(selectedOrder.total)}</span>
                     </div>
@@ -614,11 +580,11 @@ const Orders = () => {
 
             {/* Order Items Table */}
             <div className="mb-6">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Order Items</h4>
-              <div className="overflow-x-auto border dark:border-gray-600 rounded-md">
-                <table className="w-full text-sm text-left"> 
-                  <thead className="text-xs uppercase bg-gray-50 dark:bg-gray-700"> 
-                    <tr> 
+              <h4 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Order Items</h4>
+              <div className="overflow-x-auto border rounded-md dark:border-gray-600">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase bg-gray-50 dark:bg-gray-700">
+                    <tr>
                       <th className="px-4 py-2">Item</th>
                       <th className="px-4 py-2 text-right">Price</th>
                       <th className="px-4 py-2 text-center">Quantity</th>
@@ -627,54 +593,74 @@ const Orders = () => {
                   </thead>
                   <tbody>
                     {selectedOrder.items && selectedOrder.items.map((item, index) => (
-                      <tr key={item.productId || index} className="border-b dark:border-gray-700 last:border-b-0"> 
-                        <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{item.name}</td>
-                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(item.price)}</td>
-                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{item.quantity}</td>
-                        <td className="px-4 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(item.price * item.quantity)}</td>
-                      </tr>
+                      <React.Fragment key={item.productId || index}>
+                        <tr className="border-b dark:border-gray-700 last:border-b-0">
+                          <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{item.name}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(item.price)}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{item.quantity}</td>
+                          <td className="px-4 py-3 font-medium text-right text-gray-800 dark:text-gray-100">{formatCurrency(item.price * item.quantity)}</td>
+                        </tr>
+                        {/* Customizations */}
+                        {item.customization?.addedIngredients?.map((ing, idx) => (
+                          <tr key={`add-${idx}`} className="border-b dark:border-gray-700 last:border-b-0">
+                            <td className="px-4 py-2 italic text-gray-600 dark:text-gray-400">+ {ing.name}</td>
+                            <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ing.price)}</td>
+                            <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-300">1</td>
+                            <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ing.price)}</td>
+                          </tr>
+                        ))}
+                        {item.customization?.specialInstructions && (
+                          <tr className="border-b dark:border-gray-700 last:border-b-0">
+                            <td colSpan="4" className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">Note: {item.customization.specialInstructions}</td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Status Update Section */}
-            <div className="mb-6 p-4 border rounded-md dark:border-gray-600">
-              <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Update Order Status</h4>
-              {updateError && (
-                <Alert variant="error" className="mb-3">
-                  {updateError}
-                </Alert>
-              )}
-              <div className="flex items-center gap-3">
-                <Select
-                  value={newStatus}
-                  onChange={(value) => setNewStatus(value)}
-                  options={ORDER_STATUSES.map(status => ({ value: status, label: humanizeStatus(status) }))}
-                  className="flex-grow"
-                  disabled={isUpdatingStatus}
-                />
-                <Button 
-                  variant="primary"
-                  onClick={handleStatusUpdate}
-                  disabled={isUpdatingStatus || newStatus === selectedOrder.status}
-                  className="flex items-center whitespace-nowrap"
-                >
-                  {isUpdatingStatus ? <Spinner size="sm" className="mr-2" /> : <FaCheckCircle className="mr-1" />}
-                  Update Status
-                </Button>
+            {/* Manual status update before delivery assignment */}
+            {selectedOrder.status !== 'READY' && (
+              <div className="p-4 mb-6 border rounded-md dark:border-gray-600">
+                <h4 className="mb-3 font-medium text-gray-900 dark:text-gray-200">Update Order Status</h4>
+                {updateError && (
+                  <Alert variant="error" size="sm" className="mb-3">{updateError}</Alert>
+                )}
+                <div className="flex items-center gap-3">
+                  <Select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    options={ORDER_STATUSES.filter(status => status !== 'OUT_FOR_DELIVERY').map(status => ({ value: status, label: humanizeStatus(status) }))}
+                    className="flex-grow"
+                    disabled={isUpdatingStatus}
+                    placeholder="Select status..."
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleUpdateStatus(selectedOrder.originalId)}
+                    disabled={!newStatus || isUpdatingStatus}
+                    className="flex items-center whitespace-nowrap"
+                  >
+                    {isUpdatingStatus ? <Spinner size="sm" className="mr-2" /> : <FaEdit className="mr-1" />}Update Status
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            {/* Delivery Staff Section - Show when status is CONFIRMED or OUT_FOR_DELIVERY */}
-            {['CONFIRMED','OUT_FOR_DELIVERY'].includes(selectedOrder.status) && (
-              <div className="mb-6 p-4 border rounded-md dark:border-gray-600">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Delivery Assignment</h4>
+            )}
+            
+            {/* Delivery Assignment Section - Show when status is READY or OUT_FOR_DELIVERY */}
+            {(selectedOrder.status === 'READY' || selectedOrder.status === 'OUT_FOR_DELIVERY') && (
+              <div className="p-4 mb-6 border rounded-md dark:border-gray-600">
+                  <h4 className="mb-3 font-medium text-gray-900 dark:text-gray-200">Delivery Assignment</h4>
+                  {assignError && (
+                    <Alert variant="error" size="sm" className="mb-3">{assignError}</Alert>
+                  )}
                 {selectedOrder.deliveryPersonId ? (
                   // Show assigned driver info
                   <div className="flex items-center gap-3">
-                     <div className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 p-3">
+                     <div className="p-3 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                         <FaMotorcycle size={20} />
                      </div>
                      <div>
@@ -684,8 +670,10 @@ const Orders = () => {
                      {/* Optionally add button to unassign/reassign */} 
                   </div>
                 ) : (
-                  // Show assignment controls
-                  deliveryStaff.filter(staff => staff.status === 'available').length === 0 ? (
+                  // Show assignment controls with loading state
+                  isLoadingDrivers ? (
+                    <div className="flex items-center"><Spinner size="sm" /></div>
+                  ) : deliveryStaff.filter(staff => staff.status === 'available').length === 0 ? (
                     <Alert variant="warning" size="sm">
                       No delivery staff currently available for assignment.
                     </Alert>
@@ -693,10 +681,10 @@ const Orders = () => {
                     <div className="flex items-center gap-3">
                       <Select
                         value={selectedDeliveryPerson}
-                        onChange={(value) => setSelectedDeliveryPerson(value)}
+                        onChange={(e) => setSelectedDeliveryPerson(e.target.value)}
                         options={deliveryStaff
                           .filter(staff => staff.status === 'available')
-                          .map(staff => ({ value: staff.id, label: `${staff.name}` }))} // Simplified label
+                          .map(staff => ({ value: staff.id, label: `${staff.name}` }))}
                         placeholder="Select delivery staff..."
                         className="flex-grow"
                         disabled={isAssigningDelivery}
@@ -720,7 +708,7 @@ const Orders = () => {
             {/* Status History */}
             {selectedOrder.statusUpdates && selectedOrder.statusUpdates.length > 0 && (
               <div className="mb-6">
-                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Status History</h4>
+                <h4 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Status History</h4>
                 <ul className="space-y-3">
                   {selectedOrder.statusUpdates.slice().reverse().map((update, index) => ( // Show newest first
                     <li key={index} className="flex items-center gap-3 text-sm">
@@ -736,7 +724,7 @@ const Orders = () => {
             )}
             
             {/* Modal Footer Actions (Optional - Print/Close are moved to header) */}
-            {/* <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-600"> ... </div> */}
+            {/* <div className="flex justify-end pt-4 space-x-3 border-t dark:border-gray-600"> ... </div> */}
 
           </Card>
         </div>

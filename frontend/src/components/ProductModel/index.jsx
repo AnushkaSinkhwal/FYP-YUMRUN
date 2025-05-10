@@ -20,6 +20,8 @@ import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { Spinner } from '../ui';
 import { cn } from '../../lib/utils';
+import IngredientCustomizer from '../MenuItemCustomization/IngredientCustomizer';
+import { Card } from '../ui/card';
 
 const ProductModel = ({ productId }) => {
     const context = useContext(MyContext);
@@ -59,15 +61,11 @@ const ProductModel = ({ productId }) => {
     
     const handleAddToCart = () => {
         if (!product) return;
-        
-        // Ensure we have restaurantId for the order
-        const restaurantId = product.restaurantId || 
-                             (product.restaurant && product.restaurant._id) || 
-                             (product.restaurant && product.restaurant.id);
-        
+        // Use product.restaurant.id for the restaurant reference
+        const itemId = product.id || product._id;
+        const restaurantId = product.restaurant?.id;
         if (!restaurantId) {
             console.error('Missing restaurantId for product:', product);
-            // Display toast warning if available
             if (typeof addToast === 'function') {
                 addToast('Cannot add to cart: Missing restaurant information', { type: 'error' });
             }
@@ -75,17 +73,17 @@ const ProductModel = ({ productId }) => {
         }
         
         addToCart({
-            id: product.id,
+            id: itemId,
             name: product.name,
-            price: product.price,
-            basePrice: product.price,
             image: product.image,
-            quantity: quantity,
+            quantity,
+            price: product.price * quantity,
+            unitPrice: product.price,
+            basePrice: product.price,
             rating: product.rating || 0,
-            restaurantName: product.restaurant?.name || '',
-            restaurantId: restaurantId
+            restaurantId,
+            restaurantName: product.restaurant?.name || ''
         });
-        
         // Close the modal after adding to cart
         context.setIsOpenProductModel(false);
     };
@@ -305,42 +303,62 @@ const ProductModel = ({ productId }) => {
                                     </div>
                                 )}
                                 
-                                {/* Quantity selector */}
-                                <div>
-                                    <h3 className="text-lg font-medium mb-2">Quantity</h3>
-                                    <QuantityControl 
-                                        value={quantity} 
-                                        onChange={setQuantity} 
+                                {/* Customization or Quantity/Actions */}
+                                {product.customizationOptions?.availableAddOns?.length > 0 ? (
+                                  <Card className="p-4 mb-5">
+                                    <h3 className="text-lg font-semibold mb-4">Customize Your Order</h3>
+                                    <IngredientCustomizer
+                                      menuItem={product}
+                                      onChange={(cartItemData) => {
+                                        // Inject restaurant information for cart context
+                                        addToCart({
+                                          ...cartItemData,
+                                          restaurantId: product.restaurant?.id,
+                                          restaurantName: product.restaurant?.name || ''
+                                        });
+                                        context.setIsOpenProductModel(false);
+                                      }}
                                     />
-                                </div>
-                                
-                                {/* Action buttons */}
-                                <div className="flex flex-wrap gap-3 pt-2">
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "flex-1 gap-2",
-                                            !product.isAvailable && "opacity-50 cursor-not-allowed"
-                                        )}
-                                        onClick={handleAddToCart}
-                                        disabled={!product.isAvailable}
-                                    >
-                                        <IoCartSharp className="h-4 w-4" />
-                                        Add to Cart
-                                    </Button>
-                                    <Button
-                                        variant="default"
-                                        className={cn(
-                                            "flex-1 gap-2",
-                                            !product.isAvailable && "opacity-50 cursor-not-allowed"
-                                        )}
-                                        onClick={handleOrderNow}
-                                        disabled={!product.isAvailable}
-                                    >
-                                        <IoCartSharp className="h-4 w-4" />
-                                        Order Now
-                                    </Button>
-                                </div>
+                                  </Card>
+                                ) : (
+                                  <>  
+                                    {/* Quantity selector */}
+                                    <div>
+                                        <h3 className="text-lg font-medium mb-2">Quantity</h3>
+                                        <QuantityControl 
+                                            value={quantity} 
+                                            onChange={setQuantity} 
+                                        />
+                                    </div>
+                                    {/* Action buttons */}
+                                    <div className="flex flex-wrap gap-3 pt-2">
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "flex-1 gap-2",
+                                                !product.isAvailable && "opacity-50 cursor-not-allowed"
+                                            )}
+                                            onClick={handleAddToCart}
+                                            disabled={!product.isAvailable}
+                                        >
+                                            <IoCartSharp className="h-4 w-4" />
+                                            Add to Cart
+                                        </Button>
+                                        <Button
+                                            variant="default"
+                                            className={cn(
+                                                "flex-1 gap-2",
+                                                !product.isAvailable && "opacity-50 cursor-not-allowed"
+                                            )}
+                                            onClick={handleOrderNow}
+                                            disabled={!product.isAvailable}
+                                        >
+                                            <IoCartSharp className="h-4 w-4" />
+                                            Order Now
+                                        </Button>
+                                    </div>
+                                  </>
+                                )}
                             </div>
                         </div>
                     </div>

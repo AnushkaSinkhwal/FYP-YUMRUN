@@ -8,9 +8,7 @@ import {
   FaHome, 
   FaUtensils, 
   FaShoppingCart, 
-  FaBell, 
-  FaBars, 
-  FaTimes,
+  FaBell,
   FaEdit,
   FaChartLine,
   FaUsers,
@@ -31,7 +29,6 @@ const DashboardLayout = ({ children, role }) => {
   const { setIsAdminPath } = useContext(MyContext);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // Debug user data
   useEffect(() => {
@@ -39,8 +36,10 @@ const DashboardLayout = ({ children, role }) => {
     console.log('DashboardLayout - passed role prop:', role);
   }, [currentUser, role]);
   
-  // Get user role from props, currentUser, or default to fallback
-  const userRole = role || (currentUser?.role?.toLowerCase()) || 
+  // Normalize role for navigation: map delivery_rider to deliveryuser, then fallback
+  const rawRole = role || currentUser?.role?.toLowerCase();
+  const normalizedRole = rawRole === 'delivery_rider' ? 'deliveryuser' : rawRole;
+  const userRole = normalizedRole || 
     (currentUser?.isRestaurantOwner ? 'restaurant' : 
      currentUser?.isAdmin ? 'admin' : 
      currentUser?.isDeliveryRider ? 'deliveryuser' : 'user');
@@ -57,11 +56,10 @@ const DashboardLayout = ({ children, role }) => {
       admin: [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/restaurants', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
+        { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/users', label: 'Users', icon: <FaUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/riders', label: 'Riders', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/admin/deliveries', label: 'Deliveries', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/admin/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
@@ -76,15 +74,12 @@ const DashboardLayout = ({ children, role }) => {
       ],
       deliveryuser: [
         { path: '/delivery/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/orders',    label: 'Orders',      icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/delivery/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
-        { path: '/delivery/favorites', label: 'Favorites', icon: <FaHeart className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/reviews', label: 'Reviews', icon: <FaStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/rewards', label: 'Rewards', icon: <FaGift className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/profile', label: 'Profile', icon: <FaUser className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/history', label: 'History', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/delivery/earnings', label: 'Earnings', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/reviews',   label: 'Reviews',      icon: <FaStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/profile',   label: 'Profile',      icon: <FaUser className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/settings',  label: 'Settings',     icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/delivery/earnings',  label: 'Earnings',     icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
       user: [
         { path: '/user/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
@@ -92,7 +87,6 @@ const DashboardLayout = ({ children, role }) => {
         { path: '/user/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/user/favorites', label: 'Favorites', icon: <FaHeart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/reviews', label: 'Reviews', icon: <FaStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/user/rewards', label: 'Rewards', icon: <FaGift className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/user/settings', label: 'Settings', icon: <FaCog className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
@@ -101,9 +95,6 @@ const DashboardLayout = ({ children, role }) => {
   };
 
   useEffect(() => {
-    // Close sidebar when changing routes on mobile
-    setIsMobileSidebarOpen(false);
-    
     // Fetch notification count
     fetchNotificationCount();
     
@@ -276,33 +267,13 @@ const DashboardLayout = ({ children, role }) => {
 
   return (
     <div className="flex h-screen text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
-      {/* Mobile sidebar overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <aside 
-        className={`
-          fixed lg:sticky top-0 left-0 z-30 w-64 h-full bg-white dark:bg-gray-800 shadow-lg transition-transform duration-300 transform 
-          ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
+      {/* Sidebar always visible; collapse logic removed */}
+      <aside className="fixed lg:sticky top-0 left-0 z-30 w-64 h-full bg-white dark:bg-gray-800 shadow-lg">
         {/* Logo and brand */}
         <div className="flex items-center justify-between h-16 px-4 text-white bg-yumrun-primary dark:bg-yumrun-primary">
           <Link to={`/${userRole}/dashboard`} className="text-lg font-bold">
             {getRoleTitle()}
           </Link>
-          
-          <button 
-            className="p-1 rounded-md hover:bg-yumrun-primary-dark lg:hidden"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          >
-            <FaTimes className="w-5 h-5" />
-          </button>
         </div>
         
         {/* Navigation */}
@@ -339,14 +310,6 @@ const DashboardLayout = ({ children, role }) => {
         {/* Header */}
         <header className="z-10 bg-white shadow-sm dark:bg-gray-800">
           <div className="flex items-center justify-between px-4 py-3">
-            {/* Mobile menu button */}
-            <button
-              className="p-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yumrun-primary lg:hidden"
-              onClick={() => setIsMobileSidebarOpen(true)}
-            >
-              <FaBars className="w-5 h-5" />
-            </button>
-            
             {/* Dashboard title for large screens */}
             <div className="hidden lg:block">
               <h1 className="text-xl font-semibold">{getRoleTitle()}</h1>

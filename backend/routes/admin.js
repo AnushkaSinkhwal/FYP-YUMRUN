@@ -2213,12 +2213,12 @@ router.patch('/restaurants/:restaurantId/details', auth, isAdmin, async (req, re
 router.get('/orders', auth, isAdmin, async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate('userId', 'name email phone') // Populate user details including phone
+      .populate('userId', 'fullName email phone') // Populate user details including fullName and phone
       .populate('restaurantId', 'name') // Populate restaurant name
-      .populate('assignedRider', 'name') // Populate assigned rider info
+      .populate('assignedRider', 'fullName') // Populate assigned rider info
       .populate({ // Populate the user who updated the status in the history
         path: 'statusUpdates.updatedBy',
-        select: 'name' // Select only the name field
+        select: 'fullName' // Select only the fullName field
       })
       .sort({ createdAt: -1 }); // Sort by newest first
 
@@ -2255,9 +2255,9 @@ const allowedTransitions = {
 router.get('/deliveries', auth, isAdmin, async (req, res) => {
   try {
     const deliveries = await Order.find({ status: { $in: ['PREPARING','READY','OUT_FOR_DELIVERY'] } })
-      .populate('userId', 'name email')
+      .populate('userId', 'fullName email')
       .populate('restaurantId', 'name')
-      .populate('assignedRider', 'name');  // Populate new assignedRider field
+      .populate('assignedRider', 'fullName');  // Populate new assignedRider field
     return res.status(200).json({ success: true, deliveries });
   } catch (error) {
     console.error('Error fetching deliveries:', error);

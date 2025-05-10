@@ -9,7 +9,6 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import ProductItem from "../../components/ProductItem";
-import HomeCat from "../../components/HomeCat";
 import { IoIosMail } from "react-icons/io";
 import { useEffect, useState, useRef } from 'react';
 import { Container, Button, Alert, Spinner, Card } from '../../components/ui';
@@ -362,9 +361,6 @@ const Home = () => {
                 <HomeBanner/>
             </div>
             
-            {/* Food Categories Section */}
-            <HomeCat/>
-            
             {/* Personalized Recommendations Section (Always visible) */}
             <section ref={recommendationsRef} className="py-10 bg-gradient-to-r from-green-50 via-white to-blue-50">
                 <Container>
@@ -437,6 +433,7 @@ const Home = () => {
                                             <ProductItem 
                                                 id={item.id}
                                                 name={item.name} 
+                                                restaurant={{ id: item.restaurant?.id, name: item.restaurant?.name }}
                                                 location={item.restaurant?.name || 'Unknown Restaurant'} 
                                                 rating={item.averageRating || 0}
                                                 price={item.price} 
@@ -581,6 +578,7 @@ const Home = () => {
                                                     <ProductItem 
                                                         id={product.id}
                                                         name={product.name} 
+                                                        restaurant={{ id: product.restaurant?.id, name: product.restaurant?.name }}
                                                         location={product.restaurant?.name || ''} 
                                                         rating={product.rating || 0}
                                                         oldPrice={product.oldPrice}
@@ -631,6 +629,7 @@ const Home = () => {
                                                 <ProductItem 
                                                     id={product.id}
                                                     name={product.name} 
+                                                    restaurant={{ id: product.restaurant?.id, name: product.restaurant?.name }}
                                                     location={product.restaurant?.name || ''} 
                                                     rating={product.rating || 0}
                                                     oldPrice={product.oldPrice}

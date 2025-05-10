@@ -19,19 +19,10 @@ const DeliveryProfile = () => {
     email: "",
     address: "",
     vehicleType: "",
-    vehicleNumber: "",
+    vehicleRegistrationNumber: "",
     licenseNumber: "",
     bio: "",
     preferredZones: [],
-    availability: {
-      monday: { start: "09:00", end: "17:00" },
-      tuesday: { start: "09:00", end: "17:00" },
-      wednesday: { start: "09:00", end: "17:00" },
-      thursday: { start: "09:00", end: "17:00" },
-      friday: { start: "09:00", end: "17:00" },
-      saturday: { start: "10:00", end: "16:00" },
-      sunday: { start: "10:00", end: "16:00" }
-    }
   });
 
   // Fetch user profile data
@@ -53,19 +44,10 @@ const DeliveryProfile = () => {
             email: userData.email || "",
             address: userData.address || "",
             vehicleType: userData.deliveryRiderDetails?.vehicleType || "",
-            vehicleNumber: userData.deliveryRiderDetails?.vehicleNumber || "",
+            vehicleRegistrationNumber: userData.deliveryRiderDetails?.vehicleRegistrationNumber || "",
             licenseNumber: userData.deliveryRiderDetails?.licenseNumber || "",
             bio: userData.deliveryRiderDetails?.bio || "",
             preferredZones: userData.deliveryRiderDetails?.preferredZones || [],
-            availability: userData.deliveryRiderDetails?.availability || {
-              monday: { start: "09:00", end: "17:00" },
-              tuesday: { start: "09:00", end: "17:00" },
-              wednesday: { start: "09:00", end: "17:00" },
-              thursday: { start: "09:00", end: "17:00" },
-              friday: { start: "09:00", end: "17:00" },
-              saturday: { start: "10:00", end: "16:00" },
-              sunday: { start: "10:00", end: "16:00" }
-            }
           });
         } else {
           setError('Failed to fetch profile data');
@@ -89,19 +71,6 @@ const DeliveryProfile = () => {
     }));
   };
 
-  const handleAvailabilityChange = (day, field, value) => {
-    setProfile(prev => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: {
-          ...prev.availability[day],
-          [field]: value
-        }
-      }
-    }));
-  };
-
   const handleSave = async () => {
     try {
       setLoading(true);
@@ -115,11 +84,10 @@ const DeliveryProfile = () => {
         address: profile.address,
         deliveryRiderDetails: {
           vehicleType: profile.vehicleType,
-          vehicleNumber: profile.vehicleNumber,
+          vehicleRegistrationNumber: profile.vehicleRegistrationNumber,
           licenseNumber: profile.licenseNumber,
           bio: profile.bio,
           preferredZones: profile.preferredZones,
-          availability: profile.availability,
           approved: false // Set to false to trigger re-approval
         }
       };
@@ -162,7 +130,7 @@ const DeliveryProfile = () => {
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={loading}>
-              {loading ? <Spinner className="mr-2 h-4 w-4" /> : null}
+              {loading ? <Spinner className="w-4 h-4 mr-2" /> : null}
               Save Changes
             </Button>
           </div>
@@ -271,13 +239,13 @@ const DeliveryProfile = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vehicleNumber">Vehicle Number</Label>
+            <Label htmlFor="vehicleRegistrationNumber">Vehicle Registration Number</Label>
             <div className="relative">
               <FaIdCard className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
               <Input
-                id="vehicleNumber"
-                name="vehicleNumber"
-                value={profile.vehicleNumber}
+                id="vehicleRegistrationNumber"
+                name="vehicleRegistrationNumber"
+                value={profile.vehicleRegistrationNumber}
                 onChange={handleInputChange}
                 disabled={!isEditing}
                 className="pl-10"
@@ -330,33 +298,6 @@ const DeliveryProfile = () => {
               ))}
             </div>
           </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">Availability</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(profile.availability).map(([day, times]) => (
-            <div key={day} className="space-y-2">
-              <Label className="capitalize">{day}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="time"
-                  value={times.start}
-                  onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
-                  disabled={!isEditing}
-                  className="w-1/2"
-                />
-                <Input
-                  type="time"
-                  value={times.end}
-                  onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
-                  disabled={!isEditing}
-                  className="w-1/2"
-                />
-              </div>
-            </div>
-          ))}
         </div>
       </Card>
     </div>

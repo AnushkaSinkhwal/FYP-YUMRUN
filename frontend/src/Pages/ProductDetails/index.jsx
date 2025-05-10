@@ -9,7 +9,7 @@ import { useCart } from '../../context/CartContext';
 import { Container, Button, Alert, Spinner, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
+import { getBestImageUrl } from '../../utils/imageUtils';
 import IngredientCustomizer from '../../components/MenuItemCustomization/IngredientCustomizer';
 
 const ProductDetails = () => {
@@ -151,7 +151,7 @@ const ProductDetails = () => {
             basePriceToAdd = product.price; // In this case, base and unit are the same
         }
 
-        const imageUrlForCart = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+        const imageUrlForCart = getBestImageUrl(product);
         const finalPriceForQuantity = parseFloat((unitPriceToAdd * quantity).toFixed(2));
 
         const cartItem = {
@@ -272,7 +272,7 @@ const ProductDetails = () => {
 
     // --- Main Render ---
     if (loading) {
-        return <div className="flex justify-center items-center h-screen"><Spinner size="large" /></div>;
+        return <div className="flex items-center justify-center h-screen"><Spinner size="large" /></div>;
     }
 
     if (error) {
@@ -285,7 +285,7 @@ const ProductDetails = () => {
     }
 
     // Process image URL with fallback
-    const imageUrl = product.image ? getFullImageUrl(product.image) : PLACEHOLDERS.FOOD;
+    const imageUrl = getBestImageUrl(product);
     const displayPrice = product.discountedPrice !== undefined ? product.discountedPrice : product.price;
     const originalPrice = product.discountedPrice !== undefined ? product.price : null;
     const hasOffer = product.offerDetails && product.offerDetails.percentage > 0;
@@ -302,7 +302,7 @@ const ProductDetails = () => {
                     <FaArrowLeft className="mr-2" /> Back
                  </Button>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-12">
                     {/* Product Image Section */}
                     <div className="relative">
                         <ProductZoom images={[imageUrl]} altText={product.name || 'Product Image'} />
@@ -315,7 +315,7 @@ const ProductDetails = () => {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="absolute top-4 left-4 z-10 bg-white rounded-full shadow"
+                            className="absolute z-10 bg-white rounded-full shadow top-4 left-4"
                             onClick={toggleFavorite}
                             disabled={favoriteLoading}
                             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -326,11 +326,11 @@ const ProductDetails = () => {
 
                     {/* Product Details Section */}
                     <div className="flex flex-col">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-2">{product.name || 'Product Name'}</h1>
+                        <h1 className="mb-2 text-3xl font-bold text-gray-800">{product.name || 'Product Name'}</h1>
                         {product.restaurant && product.restaurant.id && (
                             <Link 
                                 to={`/restaurant/${product.restaurant.id}`}
-                                className="text-sm text-yumrun-primary hover:underline mb-3"
+                                className="mb-3 text-sm text-yumrun-primary hover:underline"
                             >
                                 From: {product.restaurant.name || 'Restaurant'}
                             </Link>
@@ -350,7 +350,7 @@ const ProductDetails = () => {
                             )}
                         </div>
                         
-                        <p className="text-gray-600 mb-5 leading-relaxed">{product.description || 'No description available.'}</p>
+                        <p className="mb-5 leading-relaxed text-gray-600">{product.description || 'No description available.'}</p>
                         
                         {/* Quantity Selector - Only show if NOT customizing */}
                         {!product.customizationOptions?.availableAddOns?.length > 0 && (
@@ -366,7 +366,7 @@ const ProductDetails = () => {
                                   >
                                       <FaMinus />
                                   </Button>
-                                  <span className="px-4 py-1 text-center w-12 font-semibold">{quantity}</span>
+                                  <span className="w-12 px-4 py-1 font-semibold text-center">{quantity}</span>
                                   <Button 
                                       variant="ghost" 
                                       size="icon-sm" 
@@ -397,7 +397,7 @@ const ProductDetails = () => {
                         {/* Customization Options - Now directly on the page */}
                         {product && product.customizationOptions?.availableAddOns?.length > 0 && (
                             <Card className="p-4 mb-5">
-                                <h3 className="text-lg font-semibold mb-4">Customize Your Order</h3>
+                                <h3 className="mb-4 text-lg font-semibold">Customize Your Order</h3>
                                 <IngredientCustomizer
                                     menuItem={product}
                                     onChange={handleAddToCartOrCustomize}
@@ -406,7 +406,7 @@ const ProductDetails = () => {
                         )}
 
                         {/* Action Buttons */}
-                        <div className="flex items-center space-x-4 mt-auto">
+                        <div className="flex items-center mt-auto space-x-4">
                             {/* Only show Add to Cart directly if there are no customization options */}
                             {!product.customizationOptions?.availableAddOns?.length > 0 && (
                                 <Button 
@@ -435,7 +435,7 @@ const ProductDetails = () => {
 
                 {/* Reviews Section */}
                 <div>
-                    <h2 className="text-2xl font-semibold mb-6">Reviews & Ratings</h2>
+                    <h2 className="mb-6 text-2xl font-semibold">Reviews & Ratings</h2>
                     <Tabs defaultValue="reviews" className="w-full">
                         <TabsList>
                             <TabsTrigger value="reviews">Customer Reviews ({totalReviews})</TabsTrigger>
@@ -456,7 +456,7 @@ const ProductDetails = () => {
                                                 {renderRatingStars(review.rating)}
                                                 <span className="ml-auto text-xs text-gray-500">{new Date(review.date).toLocaleDateString()}</span>
                                             </div>
-                                            <p className="text-sm text-gray-800 mb-1 font-medium">{review.user?.name || 'Anonymous'}</p>
+                                            <p className="mb-1 text-sm font-medium text-gray-800">{review.user?.name || 'Anonymous'}</p>
                                             <p className="text-sm text-gray-600">{review.comment}</p>
                                         </Card>
                                     ))}
@@ -467,7 +467,7 @@ const ProductDetails = () => {
                         {isAuthenticated && (
                             <TabsContent value="add-review" className="mt-4">
                                 <Card className="p-6">
-                                    <h3 className="text-lg font-semibold mb-4">Write Your Review</h3>
+                                    <h3 className="mb-4 text-lg font-semibold">Write Your Review</h3>
                                     {reviewSubmitSuccess && <Alert variant="success" className="mb-4">Review submitted successfully!</Alert>}
                                     {reviewSubmitError && <Alert variant="destructive" className="mb-4">{reviewSubmitError}</Alert>}
                                     <div className="mb-4">

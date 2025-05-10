@@ -105,8 +105,13 @@ const RestaurantOrdersContent = () => {
         const ordersData = response.data.data || [];
         console.log("Successfully fetched restaurant orders:", ordersData);
 
-        // Set orders data, empty array is fine if no orders found
-        setOrders(ordersData);
+        // Map populated deliveryRiderId into assignedRider for consistency
+        const mappedOrders = ordersData.map(order => ({
+          ...order,
+          assignedRider: order.deliveryRiderId || null
+        }));
+        // Set orders data
+        setOrders(mappedOrders);
         
         // Clear any existing error since the request was successful
         setError(null);
@@ -307,13 +312,17 @@ const RestaurantOrdersContent = () => {
       if (response?.data?.success) {
         setSuccess(`Rider assigned to order successfully!`);
 
+        // Determine rider object for assignment
+        const riderObj = availableRiders.find(r => r._id === selectedRiderId);
+
         // Update the order in the local state
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
             order._id === selectedOrder._id
               ? {
                   ...order,
-                  assignedRider: selectedRiderId,
+                  // Assign full rider object for UI display
+                  assignedRider: riderObj || selectedRiderId,
                   status: response.data.data.status || order.status,
                 }
               : order
@@ -734,12 +743,6 @@ const RestaurantOrdersContent = () => {
                         <div className="flex justify-between text-green-600">
                           <span>Discount:</span>
                           <span>-{formatCurrency(selectedOrder.discount)}</span>
-                        </div>
-                      )}
-                      {selectedOrder.loyaltyPointsUsed > 0 && (
-                        <div className="flex justify-between">
-                          <span>Loyalty Points Used:</span>
-                          <span>{selectedOrder.loyaltyPointsUsed} pts</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-1 mt-1 font-bold border-t">

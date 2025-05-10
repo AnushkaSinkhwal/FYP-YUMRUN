@@ -288,9 +288,9 @@ export const adminAPI = {
     return api.get('/admin/orders');
   },
 
-  // Get deliveries for admin (orders in progress)
-  getDeliveries: async () => {
-    return api.get('/admin/deliveries');
+  // Get deliveries for admin (orders in progress) with optional filtering parameters
+  getDeliveries: async (params = {}) => {
+    return api.get('/admin/deliveries', { params });
   },
 
   // Update delivery status (uses same endpoint as order status update)
@@ -379,22 +379,8 @@ export const adminAPI = {
 
   // Get available drivers (admin only)
   getAvailableDrivers: async () => {
-    // Assuming the endpoint exists, otherwise this will fail
-    // Add a proper endpoint in the backend if needed
-    // return api.get('/admin/drivers/available');
-    
-    // Placeholder: return sample data if endpoint doesn't exist
-    // In a real app, implement the backend endpoint
-    return new Promise(resolve => resolve({
-      data: {
-        success: true,
-        drivers: [
-          { id: "DRV001", name: "Alex Green", status: "available" },
-          { id: "DRV002", name: "Maria Rodriguez", status: "available" },
-          { id: "DRV003", name: "Sam Carter", status: "on_delivery" },
-        ]
-      }
-    }));
+    // Fetch actual delivery riders from backend
+    return api.get('/delivery/staff');
   },
   
   // Restaurant Management (approvals, updates)
@@ -613,12 +599,12 @@ export const restaurantAPI = {
     if (reason) {
       payload.reason = reason;
     }
-    return api.post(`/orders/${orderId}/status`, payload);
+    return api.patch(`/orders/${orderId}/status`, payload);
   },
   
-  // NEW: Assign rider to an order
+  // Assign rider to an order
   assignRider: async (orderId, riderId) => {
-    return api.post(`/orders/${orderId}/assign-rider`, { riderId });
+    return api.patch(`/orders/${orderId}/assign-rider`, { riderId });
   },
   
   // NEW: Get available riders
@@ -725,6 +711,11 @@ export const userAPI = {
     return api.post('/reviews', reviewData);
   },
   
+  // Submit a review for a delivery rider
+  submitRiderReview: async (reviewData) => {
+    return api.post('/reviews/rider', reviewData);
+  },
+  
   // Update user profile
   updateProfile: async (profileData) => {
     // Ensure fullName is used if name is provided
@@ -812,31 +803,6 @@ export const userAPI = {
   // Get food recommendations for the user
   getRecommendations: async () => {
     return api.get('/user/recommendations');
-  },
-  
-  // Get user's loyalty points and details
-  getLoyaltyInfo: async () => {
-    return api.get('/user/loyalty');
-  },
-  
-  // Get user's loyalty points
-  getLoyaltyPoints: async () => {
-    return api.get('/user/loyalty/points');
-  },
-  
-  // Get user's loyalty history
-  getLoyaltyHistory: async (page = 1, limit = 10) => {
-    return api.get(`/user/loyalty/history?page=${page}&limit=${limit}`);
-  },
-  
-  // Redeem loyalty points
-  redeemLoyaltyPoints: async (points, rewardId) => {
-    return api.post('/user/loyalty/redeem', { points, rewardId });
-  },
-  
-  // Get loyalty rewards
-  getLoyaltyRewards: async () => {
-    return api.get('/loyalty/rewards');
   },
   
   // Get personalized recommendations
@@ -1035,6 +1001,14 @@ export const publicAPI = {
     return api.get('/restaurants/featured');
   },
   // Add other public endpoints like search, menu items etc. here
+};
+
+// Category API methods
+export const categoryAPI = {
+  // Get all categories
+  getCategories: async () => {
+    return api.get('/categories');
+  }
 };
 
 // Export default instance

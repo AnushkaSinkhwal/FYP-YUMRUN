@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
     createReview, 
+    createRiderReview, 
     getMenuItemReviews, 
     getUserReviews, 
     getRestaurantReviews,
@@ -17,6 +18,7 @@ router.get('/menuItem/:menuItemId', getMenuItemReviews);
 router.use(protect);
 
 router.post('/', authorize('customer'), createReview);
+router.post('/rider', authorize('customer'), createRiderReview);
 router.get('/my', authorize('customer'), getUserReviews);
 router.get('/restaurant', restaurant, getRestaurantReviews);
 router.route('/:reviewId')

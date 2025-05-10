@@ -3,6 +3,7 @@ import { adminAPI } from '../../utils/api';
 import { Card, Button, Alert, Spinner, Badge } from '../../components/ui';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
+import { FaCheck } from 'react-icons/fa';
 
 const NotificationItem = ({ notification, onMarkAsRead }) => {
   const navigate = useNavigate();
@@ -110,6 +111,16 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
           >
             View Details
           </Button>
+          {!notification.isRead && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-2"
+              onClick={() => onMarkAsRead(notification._id)}
+            >
+              <FaCheck className="mr-1" /> Mark as Read
+            </Button>
+          )}
         </div>
       </div>
     </Card>
@@ -188,6 +199,22 @@ const AdminNotifications = () => {
     }
   };
   
+  const handleMarkAllAsRead = async () => {
+    try {
+      setIsLoading(true);
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+      for (const id of unreadIds) {
+        await adminAPI.markNotificationAsRead(id);
+      }
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      setError('Failed to mark all as read');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
     <div className="container px-4 py-4 mx-auto">
       <div className="mb-4">
@@ -195,6 +222,12 @@ const AdminNotifications = () => {
         <p className="text-sm text-gray-600">
           Manage user profile update requests and restaurant registrations
         </p>
+      </div>
+      
+      <div className="flex justify-end mb-4">
+        <Button size="sm" variant="outline" onClick={handleMarkAllAsRead}>
+          <FaCheck className="mr-1" /> Mark All as Read
+        </Button>
       </div>
       
       {processSuccess && (

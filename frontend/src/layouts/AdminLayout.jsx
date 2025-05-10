@@ -24,7 +24,6 @@ const AdminLayout = () => {
     { name: 'Restaurants', href: '/admin/restaurants', icon: <FiCoffee /> },
     { name: 'Restaurant Approvals', href: '/admin/restaurant-approvals', icon: <FiCoffee /> },
     { name: 'Orders', href: '/admin/orders', icon: <FiShoppingCart /> },
-    { name: 'Deliveries', href: '/admin/deliveries', icon: <FiTruck /> },
     { name: 'Riders', href: '/admin/riders', icon: <FiTruck /> },
     { name: 'Settings', href: '/admin/settings', icon: <FiSettings /> }
   ];
@@ -45,6 +44,7 @@ const AdminLayout = () => {
                 YumRun Admin
               </span>
             </Link>
+            {/* Sidebar toggle button */}
             <button 
               onClick={toggleSidebar}
               className="p-1 rounded-md hover:bg-gray-100 focus:outline-none"
@@ -105,7 +105,15 @@ const AdminLayout = () => {
       <main className={`transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
         {/* Top header */}
         <header className="sticky top-0 z-10 bg-white shadow-sm">
-          <div className="flex items-center justify-between h-16 px-6">
+          <div className="flex items-center h-16 px-6">
+            {/* Persistent sidebar toggle for collapsed state */}
+            <button
+              onClick={toggleSidebar}
+              className="p-2 mr-4 text-gray-600 hover:text-gray-800 focus:outline-none"
+              aria-label="Toggle sidebar"
+            >
+              {isSidebarOpen ? <FiX className="w-5 h-5" /> : <FiMenu className="w-5 h-5" />}
+            </button>
             <h1 className="text-xl font-semibold">Admin Portal</h1>
             
             <div className="flex items-center space-x-4">
