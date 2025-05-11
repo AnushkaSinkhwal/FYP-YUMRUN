@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Button, Input, Label, Alert, Avatar, AvatarFallback, AvatarImage, Switch } from '../../components/ui';
-import { FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaLock, FaInfoCircle, FaCamera } from 'react-icons/fa';
+import { FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt, FaLock, FaInfoCircle, FaCamera } from 'react-icons/fa';
 import { userAPI } from '../../utils/api';
 
 const UserProfile = () => {
@@ -11,14 +11,6 @@ const UserProfile = () => {
   const [success, setSuccess] = useState(null);
   const [approvalStatus, setApprovalStatus] = useState(null);
   
-  // Add state for tag inputs
-  const [allergyInput, setAllergyInput] = useState('');
-  const [conditionInput, setConditionInput] = useState('');
-  const [preferenceInput, setPreferenceInput] = useState('');
-  const [fitnessGoalInput, setFitnessGoalInput] = useState('');
-  const [favouriteFoodInput, setFavouriteFoodInput] = useState('');
-  const [dislikedFoodInput, setDislikedFoodInput] = useState('');
-
   const [profile, setProfile] = useState({
     name: "",
     phone: "",
@@ -58,18 +50,6 @@ const UserProfile = () => {
   // Track original values to detect changes
   const [originalProfile, setOriginalProfile] = useState({});
 
-  // Keep only activityLevelSelectRef, remove weightGoalSelectRef
-  const activityLevelSelectRef = useRef(null);
-  
-  // Add this new state for debugging
-  const [debugInfo, setDebugInfo] = useState({
-    clickAttempted: false,
-    dropdownOpened: false,
-    clientX: 0,
-    clientY: 0,
-    target: null
-  });
-
   useEffect(() => {
     fetchUserProfile();
     checkApprovalStatus();
@@ -78,7 +58,7 @@ const UserProfile = () => {
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
-      const response = await userAPI.getUserProfile();
+      const response = await userAPI.getProfile();
       
       if (response.data.success) {
         const userData = response.data.data;
@@ -234,99 +214,13 @@ const UserProfile = () => {
     }));
   };
 
-  // Handler for nested health profile basic fields (height, weight)
-  const handleHealthProfileInputChange = (e) => {
-    const { name, value } = e.target;
-    // Ensure numeric values for height/weight
-    const numericValue = value === '' ? '' : parseFloat(value) || 0;
-    setProfile(prev => ({
-      ...prev,
-      healthProfile: {
-        ...prev.healthProfile,
-        [name]: numericValue
-      }
-    }));
-  };
-  
-  // Handler for nested dailyTargets fields
-  const handleDailyTargetChange = (e) => {
-      const { name, value } = e.target;
-      const numericValue = value === '' ? '' : parseInt(value, 10) || 0;
-      setProfile(prev => ({
-          ...prev,
-          healthProfile: {
-              ...prev.healthProfile,
-              dailyTargets: {
-                  ...prev.healthProfile.dailyTargets,
-                  [name]: numericValue
-              }
-          }
-      }));
-  };
-  
-  // Handler for activityLevel select change
-  const handleActivityLevelChange = (value) => {
-      setProfile(prev => ({
-          ...prev,
-          healthProfile: {
-              ...prev.healthProfile,
-              activityLevel: value
-          }
-      }));
-  };
-
-  // Handler to add a tag to a health profile array field
-  // Updated to handle adding to different fields
-  const handleAddTag = (field, value, setValue) => {
-    const trimmedValue = value.trim();
-    if (trimmedValue === '') return;
-    setProfile(prev => {
-      const currentArray = prev.healthProfile[field] || [];
-      // Prevent adding duplicates
-      if (currentArray.includes(trimmedValue)) {
-        return prev; 
-      }
-      return {
-        ...prev,
-        healthProfile: {
-          ...prev.healthProfile,
-          [field]: [...currentArray, trimmedValue]
-        }
-      };
-    });
-    setValue(''); // Clear the input state
-  };
-
-  // Handler to remove a tag from a health profile array field
-  const handleRemoveTag = (field, indexToRemove) => {
-    setProfile(prev => ({
-      ...prev,
-      healthProfile: {
-        ...prev.healthProfile,
-        [field]: (prev.healthProfile[field] || []).filter((_, index) => index !== indexToRemove)
-      }
-    }));
-  };
-
-  const handleNotificationChange = (type) => {
-    setProfile(prev => ({
-      ...prev,
-      notifications: {
-        ...prev.notifications,
-        [type]: !prev.notifications[type]
-      }
-    }));
-  };
-
   // Determine if any field has changed
   const hasChanges = () => {
     return (
       profile.name !== originalProfile.name ||
       profile.phone !== originalProfile.phone ||
       profile.email !== originalProfile.email ||
-      profile.address !== originalProfile.address ||
-      profile.healthCondition !== originalProfile.healthCondition ||
-      JSON.stringify(profile.healthProfile) !== JSON.stringify(originalProfile.healthProfile) // Basic check for health profile changes
+      profile.address !== originalProfile.address
     );
   };
 
@@ -448,8 +342,6 @@ const UserProfile = () => {
           fullName: profile.name !== originalProfile.name ? profile.name : undefined,
           phone: profile.phone !== originalProfile.phone ? profile.phone : undefined,
           address: profile.address !== originalProfile.address ? profile.address : undefined,
-          healthCondition: profile.healthCondition !== originalProfile.healthCondition ? profile.healthCondition : undefined,
-          notifications: profile.notifications
         };
         
         // Filter out undefined values
@@ -486,67 +378,6 @@ const UserProfile = () => {
     }
   };
 
-  // Click debug handler
-  const handleDebugClick = (e) => {
-    setDebugInfo(prev => ({
-      ...prev,
-      clickAttempted: true,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      target: e.target.tagName + (e.target.id ? '#' + e.target.id : '')
-    }));
-    
-    // Try to focus the select element
-    if (activityLevelSelectRef.current) {
-      activityLevelSelectRef.current.focus();
-    }
-  };
-  
-  // Focus debug handler
-  const handleDebugFocus = () => {
-    setDebugInfo(prev => ({
-      ...prev,
-      dropdownOpened: true
-    }));
-  };
-  
-  // Manual selection handler
-  const handleManualSelection = (field, value) => {
-    if (field === 'activityLevel') {
-      handleActivityLevelChange(value);
-    } else if (field === 'weightManagementGoal') {
-      handleHealthProfileInputChange({ target: { name: 'weightManagementGoal', value }});
-    }
-  };
-
-  // useEffect for debugging the dropdown
-  useEffect(() => {
-    if (isEditing && activityLevelSelectRef.current) {
-      const selectEl = activityLevelSelectRef.current;
-      
-      // Log when select element gets focused
-      selectEl.addEventListener('focus', () => {
-        console.log('Select focused');
-      });
-      
-      // Log when select element gets clicked
-      selectEl.addEventListener('click', () => {
-        console.log('Select clicked');
-      });
-      
-      // Log when select element changes
-      selectEl.addEventListener('change', () => {
-        console.log('Select changed');
-      });
-      
-      return () => {
-        selectEl.removeEventListener('focus', () => {});
-        selectEl.removeEventListener('click', () => {});
-        selectEl.removeEventListener('change', () => {});
-      };
-    }
-  }, [isEditing, activityLevelSelectRef]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -564,43 +395,6 @@ const UserProfile = () => {
           .toUpperCase()
       : 'U';
   };
-
-  // Helper to render tag input fields
-  const renderTagInput = (label, field, inputValue, setInputValue) => (
-    <div>
-      <Label htmlFor={field} className="block mb-2">{label}</Label>
-      <div className="flex mb-2">
-        <Input
-          id={field}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={`Add ${label.toLowerCase()}...`}
-          className="flex-grow mr-2"
-          onKeyDown={(e) => {
-             if (e.key === 'Enter') {
-               e.preventDefault(); // Prevent form submission
-               handleAddTag(field, inputValue, setInputValue);
-             }
-          }}
-        />
-        <Button type="button" onClick={() => handleAddTag(field, inputValue, setInputValue)}>Add</Button>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(profile.healthProfile?.[field] || []).map((item, index) => (
-          <span key={index} className="flex items-center px-2 py-1 text-sm bg-gray-200 rounded-full">
-            {item}
-            <button 
-              type="button" 
-              onClick={() => handleRemoveTag(field, index)} 
-              className="ml-1 text-red-500 hover:text-red-700"
-            >
-              &times;
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -801,153 +595,6 @@ const UserProfile = () => {
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="healthCondition">Health Condition</Label>
-                <div className="relative">
-                  <FaInfoCircle className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
-                  <Input
-                    id="healthCondition"
-                    name="healthCondition"
-                    value={profile.healthCondition}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="pl-10"
-                    placeholder="e.g., Healthy, Allergies"
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Health Profile Display/Edit */}
-          <Card className="p-6">
-            <h2 className="mb-4 text-lg font-semibold">Health & Dietary Information</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {/* Height */}
-              <div className="space-y-1">
-                <Label htmlFor="height" className="text-sm font-medium">Height (cm)</Label>
-                {isEditing ? (
-                  <Input
-                    id="height"
-                    name="height"
-                    type="number"
-                    value={profile.healthProfile?.height || ''}
-                    onChange={handleHealthProfileInputChange} // Use specific handler
-                    placeholder="e.g., 175"
-                  />
-                ) : (
-                  <p>{profile.healthProfile?.height ? `${profile.healthProfile.height} cm` : 'N/A'}</p>
-                )}
-              </div>
-              {/* Weight */}
-              <div className="space-y-1">
-                <Label htmlFor="weight" className="text-sm font-medium">Weight (kg)</Label>
-                {isEditing ? (
-                  <Input
-                    id="weight"
-                    name="weight"
-                    type="number"
-                    value={profile.healthProfile?.weight || ''}
-                    onChange={handleHealthProfileInputChange} // Use specific handler
-                    placeholder="e.g., 70"
-                  />
-                ) : (
-                  <p>{profile.healthProfile?.weight ? `${profile.healthProfile.weight} kg` : 'N/A'}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Dietary Preferences */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Dietary Preferences", "dietaryPreferences", preferenceInput, setPreferenceInput)}
-            </div>
-
-            {/* Health Conditions */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Health Conditions", "healthConditions", conditionInput, setConditionInput)}
-            </div>
-
-            {/* Allergies */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Food Allergies", "allergies", allergyInput, setAllergyInput)}
-            </div>
-
-            {/* Fitness Goals */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Fitness Goals", "fitnessGoals", fitnessGoalInput, setFitnessGoalInput)}
-            </div>
-
-            {/* Favourite Foods */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Favourite Foods", "favouriteFoods", favouriteFoodInput, setFavouriteFoodInput)}
-            </div>
-
-            {/* Disliked Foods */}
-            <div className="mt-4 space-y-2">
-              {renderTagInput("Disliked Foods", "dislikedFoods", dislikedFoodInput, setDislikedFoodInput)}
-            </div>
-          </Card>
-
-          {/* Daily Targets Section */}
-          <Card className="p-6">
-            <h2 className="mb-4 text-lg font-semibold">Daily Nutritional Targets</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              <div>
-                <Label htmlFor="calories">Calories</Label>
-                <Input 
-                  id="calories" 
-                  name="calories" 
-                  type="number" 
-                  value={profile.healthProfile?.dailyTargets?.calories || ''} 
-                  onChange={handleDailyTargetChange} 
-                  placeholder="e.g., 2000"
-                />
-              </div>
-              <div>
-                <Label htmlFor="protein">Protein (g)</Label>
-                <Input 
-                  id="protein" 
-                  name="protein" 
-                  type="number" 
-                  value={profile.healthProfile?.dailyTargets?.protein || ''} 
-                  onChange={handleDailyTargetChange} 
-                  placeholder="e.g., 50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="carbs">Carbs (g)</Label>
-                <Input 
-                  id="carbs" 
-                  name="carbs" 
-                  type="number" 
-                  value={profile.healthProfile?.dailyTargets?.carbs || ''} 
-                  onChange={handleDailyTargetChange} 
-                  placeholder="e.g., 250"
-                />
-              </div>
-              <div>
-                <Label htmlFor="fat">Fat (g)</Label>
-                <Input 
-                  id="fat" 
-                  name="fat" 
-                  type="number" 
-                  value={profile.healthProfile?.dailyTargets?.fat || ''} 
-                  onChange={handleDailyTargetChange} 
-                  placeholder="e.g., 70"
-                />
-              </div>
-              <div>
-                <Label htmlFor="fiber">Fiber (g)</Label>
-                <Input 
-                  id="fiber" 
-                  name="fiber" 
-                  type="number" 
-                  value={profile.healthProfile?.dailyTargets?.fiber || ''} 
-                  onChange={handleDailyTargetChange} 
-                  placeholder="e.g., 25"
-                />
-              </div>
             </div>
           </Card>
 
@@ -1083,31 +730,6 @@ const UserProfile = () => {
             </Card>
           )}
 
-          {/* Notifications */}
-          <Card className="p-6">
-            <h2 className="mb-4 text-lg font-semibold">Notifications</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {Object.entries(profile.notifications).map(([type, enabled]) => (
-                <div key={type} className="flex items-center justify-between p-3 border rounded-md">
-                  <div className="flex items-center gap-2">
-                    <FaBell className="w-5 h-5 text-gray-400" />
-                    <Label className="capitalize">
-                      {type.replace(/([A-Z])/g, ' $1').trim()}
-                    </Label>
-                  </div>
-                  <Button
-                    variant={enabled ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleNotificationChange(type)}
-                    disabled={!isEditing}
-                  >
-                    {enabled ? "Enabled" : "Disabled"}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
-
           {/* Security */}
           <Card className="p-6">
             <h2 className="mb-4 text-lg font-semibold">Security</h2>
@@ -1126,103 +748,6 @@ const UserProfile = () => {
           </Card>
         </div>
       </div>
-
-      {/* Emergency Debug Options - Fixed Position */}
-      {isEditing && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          width: '300px',
-          padding: '10px',
-          backgroundColor: 'red',
-          color: 'white',
-          zIndex: 10000,
-          border: '5px solid black',
-          borderRadius: '5px'
-        }}>
-          <h3 style={{ margin: '0 0 10px 0', textAlign: 'center' }}>EMERGENCY DEBUG</h3>
-          
-          {/* Debug info display */}
-          <div style={{ fontSize: '10px', marginBottom: '10px' }}>
-            <p>Click attempted: {debugInfo.clickAttempted ? 'YES' : 'NO'}</p>
-            <p>Dropdown opened: {debugInfo.dropdownOpened ? 'YES' : 'NO'}</p>
-            <p>Click position: {debugInfo.clientX}, {debugInfo.clientY}</p>
-            <p>Click target: {debugInfo.target || 'None'}</p>
-          </div>
-          
-          {/* Super simple dropdown - direct HTML with minimum styling */}
-          <div style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              EMERGENCY Activity Level
-            </label>
-            <select 
-              ref={activityLevelSelectRef}
-              value={profile.healthProfile?.activityLevel || 'moderately_active'} 
-              onChange={(e) => handleActivityLevelChange(e.target.value)}
-              onClick={handleDebugClick}
-              onFocus={handleDebugFocus}
-              style={{
-                width: '100%',
-                height: '40px',
-                fontSize: '16px',
-                border: '3px solid black'
-              }}
-            >
-              <option value="sedentary">Sedentary</option>
-              <option value="lightly_active">Lightly Active</option>
-              <option value="moderately_active">Moderately Active</option>
-              <option value="very_active">Very Active</option>
-              <option value="extremely_active">Extremely Active</option>
-            </select>
-          </div>
-          
-          {/* Buttons as alternative to dropdown */}
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Button Selection Method
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <button 
-                onClick={() => handleManualSelection('activityLevel', 'sedentary')}
-                style={{ 
-                  padding: '5px',
-                  backgroundColor: profile.healthProfile?.activityLevel === 'sedentary' ? 'green' : 'gray',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Sedentary
-              </button>
-              <button 
-                onClick={() => handleManualSelection('activityLevel', 'lightly_active')}
-                style={{ 
-                  padding: '5px',
-                  backgroundColor: profile.healthProfile?.activityLevel === 'lightly_active' ? 'green' : 'gray',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Lightly Active
-              </button>
-              <button 
-                onClick={() => handleManualSelection('activityLevel', 'moderately_active')}
-                style={{ 
-                  padding: '5px',
-                  backgroundColor: profile.healthProfile?.activityLevel === 'moderately_active' ? 'green' : 'gray',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Moderately Active
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

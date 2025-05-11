@@ -4,7 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Spinner, Alert
 import { deliveryAPI } from '../../utils/api'; // Import deliveryAPI
 
 // Reusable helper functions (consider moving to a utils file)
-const formatCurrency = (amount) => `$${parseFloat(amount || 0).toFixed(2)}`;
+const formatCurrency = (amount) => `Rs.${parseFloat(amount || 0).toFixed(2)}`;
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   try {
@@ -227,8 +227,8 @@ const DeliveryOrders = () => {
             <Card key={order._id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
                 <div>
-                  <CardTitle className="text-lg font-semibold">{order.restaurant}</CardTitle>
-                  <p className="text-sm text-gray-500">Order #{order._id}</p>
+                  <CardTitle className="text-lg font-semibold">{order.restaurantId?.name || 'Restaurant'}</CardTitle>
+                  <p className="text-sm text-gray-500">Order #{order.orderNumber || order._id}</p>
                 </div>
                 <Badge className={getStatusColor(order.status)}>
                   {getStatusIcon(order.status)}
@@ -241,11 +241,11 @@ const DeliveryOrders = () => {
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center text-gray-600 dark:text-gray-300">
                         <FaMapMarkerAlt className="w-4 h-4 mr-1" />
-                        <span>{order.estimatedDistance}</span>
+                        <span>{order.items?.length || 0} items</span>
                       </div>
                       <div className="flex items-center text-gray-600 dark:text-gray-300">
                         <FaDollarSign className="w-4 h-4 mr-1" />
-                        <span>{formatCurrency(order.estimatedEarnings)}</span>
+                        <span>{formatCurrency(order.grandTotal)}</span>
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
@@ -263,16 +263,21 @@ const DeliveryOrders = () => {
                     <div className="space-y-1 md:text-right">
                       <div className="text-sm font-medium">Delivery</div>
                       <div className="text-sm text-gray-500">
-                        {typeof order.deliveryAddress === 'string' ? (
-                          order.deliveryAddress
+                        {/* Show delivery address from order or fallback to user profile address */}
+                        {order.deliveryAddress ? (
+                          typeof order.deliveryAddress === 'string' ? (
+                            order.deliveryAddress
+                          ) : (
+                            order.deliveryAddress.street || order.deliveryAddress.full || order.deliveryAddress.formatted
+                          )
                         ) : (
-                          <>
-                            {order.deliveryAddress?.street || 'N/A'}
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {order.deliveryAddress?.city || ''}{order.deliveryAddress?.state ? `, ${order.deliveryAddress.state}` : ''}
-                            </p>
-                          </>
+                          order.userId?.address?.street || 'N/A'
                         )}
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {order.deliveryAddress && typeof order.deliveryAddress !== 'string'
+                            ? (order.deliveryAddress.city || '') + (order.deliveryAddress.state ? `, ${order.deliveryAddress.state}` : '')
+                            : order.userId?.address?.city || ''}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -337,14 +342,19 @@ const DeliveryOrders = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Delivery Address</p>
                   {typeof selectedOrder.deliveryAddress === 'string' ? (
-                    <p>{selectedOrder.deliveryAddress}</p>
-                  ) : (
-                    <>
-                      <p>{selectedOrder.deliveryAddress?.street || 'N/A'}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {selectedOrder.deliveryAddress?.city || ''}{selectedOrder.deliveryAddress?.state ? `, ${selectedOrder.deliveryAddress.state}` : ''}
-                      </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.deliveryAddress}</p>
+                  ) : selectedOrder.deliveryAddress ? (
+                    <>  
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Name:</strong> {selectedOrder.deliveryAddress.fullName}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Email:</strong> {selectedOrder.deliveryAddress.email}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Phone:</strong> {selectedOrder.deliveryAddress.phone}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Address:</strong> {selectedOrder.deliveryAddress.address}</p>
+                      {selectedOrder.deliveryAddress.additionalInfo && (
+                        <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Additional Info:</strong> {selectedOrder.deliveryAddress.additionalInfo}</p>
+                      )}
                     </>
+                  ) : (
+                    <p className="text-sm text-gray-700 dark:text-gray-300">N/A</p>
                   )}
                 </div>
                  <div>

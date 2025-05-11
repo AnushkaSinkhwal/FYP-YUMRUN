@@ -14,70 +14,48 @@ const RiderReview = require('../models/riderReview');
  */
 exports.createReview = async (req, res) => {
     try {
-        const { orderId, menuItemId, rating, comment } = req.body;
-        const userId = req.user.id; // From protect middleware
-
-        // Basic validation
-        if (!orderId || !menuItemId || !rating) {
+        // Extract fields and enforce required ones
+        let { orderId, menuItemId, rating, comment } = req.body;
+        const userId = req.user.id;
+        if (!menuItemId || rating === undefined) {
             return res.status(400).json({
                 success: false,
-                error: {
-                    message: 'OrderId, menuItemId, and rating are required',
-                    code: 'VALIDATION_ERROR'
-                }
+                error: { message: 'menuItemId and rating are required', code: 'VALIDATION_ERROR' }
             });
         }
+        // Validate rating range
         if (rating < 1 || rating > 5) {
             return res.status(400).json({
                 success: false,
-                error: {
-                    message: 'Rating must be between 1 and 5',
-                    code: 'VALIDATION_ERROR'
-                }
+                error: { message: 'Rating must be between 1 and 5', code: 'VALIDATION_ERROR' }
             });
+        }
+        // Optional order validation
+        let order = null;
+        if (orderId) {
+            order = await Order.findById(orderId);
+            if (!order) {
+                return res.status(404).json({ success: false, error: { message: 'Order not found', code: 'NOT_FOUND' } });
+            }
+            if (order.userId.toString() !== userId) {
+                return res.status(403).json({ success: false, error: { message: 'You can only review items from your own orders', code: 'FORBIDDEN' } });
+            }
+            if (order.status !== 'DELIVERED') {
+                return res.status(400).json({ success: false, error: { message: 'You can only review items after the order is delivered', code: 'VALIDATION_ERROR' } });
+            }
+        } else {
+            orderId = null;
         }
 
-        // 1. Verify the order exists, belongs to the user, and is delivered
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                error: {
-                    message: 'Order not found',
-                    code: 'NOT_FOUND'
-                }
-            });
-        }
-        if (order.userId.toString() !== userId) {
-            return res.status(403).json({
-                success: false,
-                error: {
-                    message: 'You can only review items from your own orders',
-                    code: 'FORBIDDEN'
-                }
-            });
-        }
-        // Allow review for DELIVERED or maybe COMPLETED status
-        if (order.status !== 'DELIVERED') {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: 'You can only review items after the order is delivered',
-                    code: 'VALIDATION_ERROR'
-                }
-            });
-        }
-
-        // 2. Verify the menuItem exists in that order
-        const orderItem = order.items.find(item => item.productId && item.productId.toString() === menuItemId);
-        if (!orderItem) {
-            return res.status(404).json({
-                success: false,
-                error: {
-                    message: `Menu item ${menuItemId} not found in order ${orderId}`,
-                    code: 'NOT_FOUND'
-                }
-            });
+        // 2. Optionally verify the menuItem exists in order if provided
+        if (orderId && order) {
+            const orderItem = order.items.find(item => item.productId && item.productId.toString() === menuItemId);
+            if (!orderItem) {
+                return res.status(404).json({
+                    success: false,
+                    error: { message: `Menu item not found in specified order`, code: 'NOT_FOUND' }
+                });
+            }
         }
 
         // 3. Get the restaurantId from the menuItem
@@ -192,9 +170,11 @@ exports.createRiderReview = async (req, res) => {
  * @access Public
  */
 exports.getMenuItemReviews = async (req, res) => {
+    console.log(`[getMenuItemReviews] Received request for menuItemId: ${req.params.menuItemId}`);
     try {
         const menuItemId = req.params.menuItemId;
         if (!menuItemId) {
+            console.warn("[getMenuItemReviews] menuItemId is missing from params");
             return res.status(400).json({
                 success: false,
                 error: {
@@ -204,24 +184,97 @@ exports.getMenuItemReviews = async (req, res) => {
             });
         }
 
-        const reviews = await Review.find({ menuItem: menuItemId })
-            .populate('user', 'name profileImage')
-            .sort({ createdAt: -1 });
+        // Validate if menuItemId is a valid ObjectId string
+        if (!mongoose.Types.ObjectId.isValid(menuItemId)) {
+            console.warn(`[getMenuItemReviews] Invalid menuItemId format: ${menuItemId}`);
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Invalid Menu item ID format',
+                    code: 'VALIDATION_ERROR'
+                }
+            });
+        }
 
+        console.log(`[getMenuItemReviews] Finding reviews for menuItemId: ${menuItemId}`);
+        let reviews;
+        try {
+            reviews = await Review.find({ menuItem: menuItemId }) // Mongoose handles string to ObjectId conversion here
+                .populate('user', 'fullName profilePic')
+                .sort({ createdAt: -1 });
+            console.log(`[getMenuItemReviews] Found ${reviews.length} reviews.`);
+        } catch (findError) {
+            console.error("[getMenuItemReviews] Error during Review.find():", findError);
+            // This specific error might indicate issues with populate or the query itself
+            return res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Server error while finding reviews',
+                    code: 'DB_FIND_ERROR',
+                    details: findError.message
+                }
+            });
+        }
+        
+        console.log(`[getMenuItemReviews] Aggregating stats for menuItemId: ${menuItemId}`);
+        let stats;
+        let typedObjectId;
+        try {
+            typedObjectId = new mongoose.Types.ObjectId(menuItemId); // Explicit conversion for aggregation
+        } catch (conversionError) {
+            console.error(`[getMenuItemReviews] Error converting menuItemId to ObjectId for aggregation: ${menuItemId}`, conversionError);
+            // This should be caught by the isValid check above, but as a fallback
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: 'Invalid Menu item ID for aggregation',
+                    code: 'INVALID_ID_AGGREGATION',
+                    details: conversionError.message
+                }
+            });
+        }
+
+        try {
+            stats = await Review.aggregate([
+                { $match: { menuItem: typedObjectId } }, // Use the converted ObjectId
+                { $group: { _id: '$menuItem', nRating: { $sum: 1 }, avgRating: { $avg: '$rating' } } }
+            ]);
+            console.log('[getMenuItemReviews] Aggregation stats:', stats);
+        } catch (aggError) {
+            console.error("[getMenuItemReviews] Error during Review.aggregate():", aggError);
+            // This specific error would point to an aggregation stage problem
+            return res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Server error during review aggregation',
+                    code: 'DB_AGGREGATE_ERROR',
+                    details: aggError.message
+                }
+            });
+        }
+        
+        const meta = stats.length > 0
+            ? { averageRating: stats[0].avgRating, total: stats[0].nRating }
+            : { averageRating: 0, total: 0 };
+
+        console.log(`[getMenuItemReviews] Successfully fetched reviews and meta for ${menuItemId}`);
         res.status(200).json({
             success: true,
             results: reviews.length,
             data: {
-                reviews
+                reviews,
+                meta
             }
         });
     } catch (err) {
-        console.error("Error fetching menu item reviews:", err);
+        // This is now a more general catch-all, ideally specific errors are caught above
+        console.error("[getMenuItemReviews] Overall unhandled error for menuItemId:", req.params.menuItemId, err);
         res.status(500).json({
             success: false,
             error: {
-                message: 'Server error while fetching reviews',
-                code: 'SERVER_ERROR'
+                message: 'Server error while fetching reviews', // Original error message
+                code: 'SERVER_ERROR',
+                details: err.message // Add more details from the error
             }
         });
     }
@@ -432,7 +485,7 @@ exports.getRestaurantReviews = async (req, res) => {
 
         // Find reviews for any menu item belonging to this restaurant
         const reviews = await Review.find({ restaurant: restaurantId })
-            .populate('user', 'name profileImage')
+            .populate('user', 'fullName profilePic')
             .populate('menuItem', 'item_name image')
             .sort({ createdAt: -1 });
 

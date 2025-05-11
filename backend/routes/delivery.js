@@ -6,23 +6,71 @@ const User = require('../models/user');
 const { createDeliveryNotification } = require('../utils/notifications');
 const { sendEmail, emailTemplates } = require('../utils/emailService');
 const Notification = require('../models/notification');
+const RiderReview = require('../models/riderReview');
 
 // GET all delivery staff (Admin only)
 router.get('/staff', auth, isAdmin, async (req, res) => {
     try {
-        const deliveryStaff = await User.find({ role: 'delivery_rider' })
-            .select('-password')
-            .sort({ fullName: 1 });
-            
+        const deliveryStaffWithCounts = await User.aggregate([
+            { $match: { role: 'delivery_rider' } },
+            {
+                $lookup: {
+                    from: 'orders', // The collection name for Orders
+                    localField: '_id',
+                    foreignField: 'deliveryPersonId',
+                    as: 'deliveredOrders',
+                    pipeline: [
+                        { $match: { status: 'DELIVERED' } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    completedDeliveriesCount: { $size: '$deliveredOrders' }
+                }
+            },
+            {
+                $project: {
+                    // Exclude fields if necessary, like password
+                    // Include all original User fields and the new count
+                    password: 0, 
+                    deliveredOrders: 0 // Don't need to send the actual orders array
+                }
+            },
+            { $sort: { fullName: 1 } }
+        ]);
+
+        // The aggregate pipeline returns plain objects, so we need to manually select fields
+        // or re-fetch with Mongoose if full model instances are needed.
+        // For this case, we'll map the results to ensure all necessary user fields are present.
+        // This is a simplified approach; a more robust solution might involve a second query
+        // or careful projection if many User fields are needed.
+        
+        // Fetch full user documents to retain all fields and virtuals
+        const staffIds = deliveryStaffWithCounts.map(staff => staff._id);
+        const fullStaffDetails = await User.find({ _id: { $in: staffIds } }).select('-password').lean();
+
+        const staffMap = fullStaffDetails.reduce((map, staff) => {
+            map[staff._id.toString()] = staff;
+            return map;
+        }, {});
+
+        const finalDeliveryStaff = deliveryStaffWithCounts.map(staff => ({
+            ...(staffMap[staff._id.toString()] || {}),
+            completedDeliveriesCount: staff.completedDeliveriesCount,
+            // Ensure other necessary fields like deliveryRiderDetails are present
+            deliveryRiderDetails: staffMap[staff._id.toString()]?.deliveryRiderDetails || { approved: false, vehicleType: 'N/A' },
+        }));
+
         res.status(200).json({ 
             success: true, 
-            deliveryStaff 
+            deliveryStaff: finalDeliveryStaff
         });
     } catch (error) {
-        console.error('Error fetching delivery staff:', error);
+        console.error('Error fetching delivery staff with counts:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Server error' 
+            message: 'Server error fetching delivery staff' 
         });
     }
 });
@@ -58,9 +106,13 @@ router.get('/staff/:id', auth, isAdmin, async (req, res) => {
 // GET active deliveries (For delivery staff)
 router.get('/active', auth, isDeliveryRider, async (req, res) => {
     try {
+        console.log('[Delivery Routes] GET /delivery/active - req.user:', req.user);
         const activeDeliveries = await Order.find({ 
-            deliveryPersonId: req.user._id,
-            status: { $in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] }
+            status: { $in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] },
+            $or: [
+                { deliveryPersonId: req.user._id },
+                { assignedRider: req.user._id }
+            ]
         })
         .populate('userId', 'fullName email phone address')
         .populate('restaurantId', 'name address')
@@ -68,7 +120,9 @@ router.get('/active', auth, isDeliveryRider, async (req, res) => {
           path: 'statusUpdates.updatedBy',
           select: 'name'
         })
-        .sort({ createdAt: -1 });
+        .sort({ updatedAt: -1 });
+        
+        console.log(`[Delivery Routes] Found ${activeDeliveries.length} active deliveries for rider ${req.user._id}`);
         
         res.status(200).json({ 
             success: true, 
@@ -113,18 +167,41 @@ router.get('/available', auth, isDeliveryRider, async (req, res) => {
 // GET delivery history (For delivery staff)
 router.get('/history', auth, isDeliveryRider, async (req, res) => {
     try {
+        console.log('[Delivery Routes] GET /delivery/history - req.user:', req.user);
+        const limit = parseInt(req.query.limit, 10) || 50;
+        // Fetch completed deliveries for this rider
         const completedDeliveries = await Order.find({ 
             deliveryPersonId: req.user._id,
             status: { $in: ['DELIVERED', 'CANCELLED'] }
         })
         .populate('userId', 'fullName')
-        .populate('restaurantId', 'name')
+        .populate('restaurantId', 'name address')
         .sort({ updatedAt: -1 })
-        .limit(50); // Limit to last 50 deliveries
-        
-        res.status(200).json({ 
-            success: true, 
-            deliveries: completedDeliveries 
+        .limit(limit)
+        .lean();
+
+        // Fetch rider reviews for these orders
+        const riderReviews = await RiderReview.find({
+            rider: req.user._id,
+            orderId: { $in: completedDeliveries.map(d => d._id) }
+        }).lean();
+
+        // Map orderId to rating
+        const reviewMap = {};
+        riderReviews.forEach(rr => {
+            reviewMap[rr.orderId.toString()] = rr.rating;
+        });
+        // Attach ratings to deliveries
+        const deliveriesWithRating = completedDeliveries.map(delivery => ({
+            ...delivery,
+            rating: reviewMap[delivery._id.toString()] || 0
+        }));
+
+        console.log(`[Delivery Routes] Found ${deliveriesWithRating.length} historical deliveries for rider ${req.user._id}`);
+
+        res.status(200).json({
+            success: true,
+            deliveries: deliveriesWithRating
         });
     } catch (error) {
         console.error('Error fetching delivery history:', error);
@@ -784,6 +861,20 @@ router.put('/notifications/mark-all-read', auth, isDeliveryRider, async (req, re
             success: false,
             message: 'Failed to mark all notifications as read'
         });
+    }
+});
+
+// GET all reviews for the logged-in delivery rider
+router.get('/reviews', auth, isDeliveryRider, async (req, res) => {
+    try {
+        const reviews = await RiderReview.find({ rider: req.user._id })
+            .populate('user', 'fullName profilePic')
+            .populate('orderId', 'orderNumber')
+            .sort({ createdAt: -1 });
+        res.status(200).json({ success: true, reviews });
+    } catch (error) {
+        console.error('Error fetching rider reviews:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching reviews' });
     }
 });
 

@@ -4,7 +4,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription 
 } from '../../components/ui';
 import { 
-  FaSearch, FaFilter, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync,
+  FaSearch, FaStar, FaMapMarkerAlt, FaClock, FaUtensils, FaExternalLinkAlt, FaShoppingBag, FaSync,
   FaReceipt, FaTimes, FaCalendarAlt
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
@@ -353,16 +353,6 @@ const UserOrders = () => {
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Orders</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={fetchOrders}>
-            <FaSync className={loading ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
-            Refresh Orders
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <FaFilter className="w-4 h-4" />
-            Export Orders
-          </Button>
-        </div>
       </div>
 
       {error && (

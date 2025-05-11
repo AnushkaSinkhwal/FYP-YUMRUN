@@ -931,11 +931,4 @@ router.put('/delivery-details', protect, emailVerificationCheck, userController.
  */
 router.get('/recommendations', protect, emailVerificationCheck, userController.getUserRecommendations);
 
-/**
- * @route   POST /api/user/favorites
- * @desc    Add a favorite menu item
- * @access  Private
- */
-router.post('/favorites', protect, emailVerificationCheck, userController.addFavorite);
-
 module.exports = router;

@@ -210,7 +210,7 @@ const ProductItem = ({
         }
         
         try {
-            const url = `/api/favorites`;
+            const url = `/api/user/favorites`;
             const method = favoriteActive ? 'DELETE' : 'POST';
             const body = { menuItemId: id };
             

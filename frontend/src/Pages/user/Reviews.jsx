@@ -34,7 +34,7 @@ const UserReviews = () => {
     
     try {
       console.log('Fetching reviews...');
-      const response = await api.get('/reviews/user');
+      const response = await api.get('/reviews/my');
       console.log('Reviews response:', response);
       
       if (response.data && response.data.success) {

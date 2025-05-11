@@ -40,6 +40,13 @@ const ingredientSchema = new mongoose.Schema({
     }
 }, { _id: true });
 
+// Add below ingredientSchema
+const cookingOptionSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    price: { type: Number, default: 0 },
+    impact: { type: Object, default: {} } // nutritional impacts, e.g., { calories: Number, fat: Number }
+}, { _id: true });
+
 const menuItemSchema = mongoose.Schema({
     menu_id: {
         type: mongoose.Schema.Types.ObjectId,
@@ -133,6 +140,10 @@ const menuItemSchema = mongoose.Schema({
         servingSizeOptions: {
             type: [String],
             default: ['Regular']
+        },
+        cookingOptions: {
+            type: [cookingOptionSchema],
+            default: []
         }
     },
     healthAttributes: {

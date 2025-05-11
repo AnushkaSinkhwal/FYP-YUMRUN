@@ -24,26 +24,38 @@ const calculateBasePoints = (orderTotal) => {
  */
 exports.getLoyaltyInfo = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    
+    const restaurantId = req.query.restaurantId;
     const user = await User.findById(userId);
     if (!user) {
         throw new ErrorResponse('User not found', 404);
     }
     
-    // Get user's current tier and benefits
+    // Determine currentPoints scoped to restaurant if provided, otherwise global
+    let currentPoints = user.loyaltyPoints;
+    if (restaurantId) {
+        const mongoose = require('mongoose');
+        const match = {
+            user: mongoose.Types.ObjectId(userId),
+            restaurantId: mongoose.Types.ObjectId(restaurantId)
+        };
+        const agg = await LoyaltyTransaction.aggregate([
+            { $match: match },
+            { $group: { _id: null, totalPoints: { $sum: '$points' } } }
+        ]);
+        currentPoints = agg[0]?.totalPoints || 0;
+    }
+    
+    // Get user's current tier and benefits (global tier)
     const tier = user.loyaltyTier;
     const tierBenefits = getTierBenefits(tier);
     
     // Calculate points needed for next tier
     let nextTier = null;
     let pointsToNextTier = 0;
-    
     if (tier !== 'PLATINUM') {
-        // Find the next tier
         const tiers = Object.keys(LOYALTY_TIERS);
-        const currentTierIndex = tiers.indexOf(tier);
-        nextTier = tiers[currentTierIndex + 1];
-        
+        const idx = tiers.indexOf(tier);
+        nextTier = tiers[idx + 1];
         if (nextTier) {
             pointsToNextTier = LOYALTY_TIERS[nextTier] - user.lifetimeLoyaltyPoints;
         }
@@ -52,7 +64,7 @@ exports.getLoyaltyInfo = asyncHandler(async (req, res) => {
     return res.status(200).json({
         success: true,
         data: {
-            currentPoints: user.loyaltyPoints,
+            currentPoints,
             lifetimePoints: user.lifetimeLoyaltyPoints,
             currentTier: tier,
             tierBenefits,
@@ -75,6 +87,10 @@ exports.getLoyaltyTransactions = asyncHandler(async (req, res) => {
     const skip = (page - 1) * limit;
     
     const query = { user: userId };
+    // Filter by restaurant if provided
+    if (req.query.restaurantId && mongoose.Types.ObjectId.isValid(req.query.restaurantId)) {
+        query.restaurantId = req.query.restaurantId;
+    }
     
     // Allow filtering by transaction type
     if (req.query.type && ['EARN', 'REDEEM', 'ADJUST', 'EXPIRE'].includes(req.query.type.toUpperCase())) {
@@ -119,14 +135,14 @@ exports.getLoyaltyTransactions = asyncHandler(async (req, res) => {
 exports.addOrderPoints = asyncHandler(async (req, res) => {
     const { orderId, orderTotal } = req.body;
     const userId = req.user._id;
-    
     if (!orderId || !orderTotal) {
         throw new ErrorResponse('Order ID and total are required', 400);
     }
-    
+    // Determine restaurant for the order
+    const order = await Order.findById(orderId);
+    const restaurantId = order?.restaurantId;
     const session = await mongoose.startSession();
     session.startTransaction();
-    
     try {
         // Find user
         const user = await User.findById(userId).session(session);
@@ -145,6 +161,7 @@ exports.addOrderPoints = asyncHandler(async (req, res) => {
         // Create loyalty transaction
         const transaction = new LoyaltyTransaction({
             user: userId,
+            restaurantId: restaurantId,
             points: pointsToAdd,
             type: 'EARN',
             source: 'ORDER',
@@ -162,10 +179,10 @@ exports.addOrderPoints = asyncHandler(async (req, res) => {
         await user.save({ session });
         
         // Update order with points earned (if order model has this field)
-        const order = await Order.findById(orderId).session(session);
-        if (order) {
-            order.loyaltyPointsEarned = pointsToAdd;
-            await order.save({ session });
+        const orderRec = await Order.findById(orderId).session(session);
+        if (orderRec) {
+            orderRec.loyaltyPointsEarned = pointsToAdd;
+            await orderRec.save({ session });
         }
         
         await session.commitTransaction();
@@ -194,7 +211,6 @@ exports.addOrderPoints = asyncHandler(async (req, res) => {
 exports.redeemPoints = asyncHandler(async (req, res) => {
     const { rewardId, pointsToRedeem } = req.body;
     const userId = req.user._id;
-    
     if (!rewardId || !pointsToRedeem || pointsToRedeem <= 0) {
         throw new ErrorResponse('Valid reward and points amount are required', 400);
     }
@@ -214,9 +230,13 @@ exports.redeemPoints = asyncHandler(async (req, res) => {
             throw new ErrorResponse('Insufficient loyalty points', 400);
         }
         
+        // Determine restaurant context if redeeming for an order
+        const restaurantId = req.body.restaurantId;
+        
         // Create redemption transaction
         const transaction = new LoyaltyTransaction({
             user: userId,
+            restaurantId: restaurantId,
             points: -pointsToRedeem, // Negative for redemption
             type: 'REDEEM',
             source: 'SYSTEM',

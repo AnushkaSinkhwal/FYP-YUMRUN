@@ -50,6 +50,11 @@ const auth = (req, res, next) => {
         console.log('[Auth Middleware] Set role from legacy properties:', req.user.role);
       }
       
+      // Sync _id and id to userId for route compatibility
+      req.user._id = req.user.userId;
+      req.user.id = req.user.userId;
+      console.log('[Auth Middleware] Synced user._id and user.id to:', req.user.userId);
+      
       next();
     } catch (jwtError) {
       console.log('[Auth Middleware] Token verification failed:', jwtError.message);

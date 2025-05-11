@@ -2254,10 +2254,23 @@ const allowedTransitions = {
  */
 router.get('/deliveries', auth, isAdmin, async (req, res) => {
   try {
-    const deliveries = await Order.find({ status: { $in: ['PREPARING','READY','OUT_FOR_DELIVERY'] } })
-      .populate('userId', 'fullName email')
-      .populate('restaurantId', 'name')
-      .populate('assignedRider', 'fullName');  // Populate new assignedRider field
+    // Build filter: if riderId provided, return all orders assigned to that rider; otherwise return active deliveries
+    let filter = {};
+    if (req.query.riderId) {
+      const riderId = req.query.riderId;
+      filter = {
+        $or: [
+          { assignedRider: riderId },
+          { deliveryPersonId: riderId }
+        ]
+      };
+    } else {
+      filter = { status: { $in: ['PREPARING', 'READY', 'OUT_FOR_DELIVERY'] } };
+    }
+    const deliveries = await Order.find(filter)
+       .populate('userId', 'fullName email')
+       .populate('restaurantId', 'name')
+       .populate('assignedRider', 'fullName');  // Populate new assignedRider field
     return res.status(200).json({ success: true, deliveries });
   } catch (error) {
     console.error('Error fetching deliveries:', error);

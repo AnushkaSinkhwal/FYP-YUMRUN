@@ -31,12 +31,17 @@ const IngredientCustomizer = ({
   const [cookingMethod, setCookingMethod] = useState(null);
   const [quantity, setQuantity] = useState(1);
   
-  // Available cooking methods and their nutritional impacts
+  // Dynamic cooking methods from menuItem.customizationOptions.cookingOptions
+  const dynamicCooking = menuItem?.customizationOptions?.cookingOptions || [];
   const cookingMethods = [
-    { id: 'default', name: 'Default', impact: { calories: 0, fat: 0 } },
-    { id: 'grilled', name: 'Grilled', impact: { calories: -50, fat: -4 } },
-    { id: 'steamed', name: 'Steamed', impact: { calories: -70, fat: -6 } },
-    { id: 'fried', name: 'Fried', impact: { calories: 100, fat: 8 } },
+    // Default option
+    { id: 'default', name: 'Default', price: 0, impact: {} },
+    ...dynamicCooking.map(opt => ({
+      id: opt._id?.toString() || opt.id,
+      name: opt.name,
+      price: opt.price || 0,
+      impact: opt.impact || {}
+    }))
   ];
   
   // Initialize with default ingredients if available
@@ -115,16 +120,17 @@ const IngredientCustomizer = ({
       itemPrice += ingredient.price || 0;
     });
     
-    // Apply cooking method impacts if selected
-    if (cookingMethod && cookingMethod !== 'default') {
-      const selectedMethod = cookingMethods.find(method => method.id === cookingMethod);
-      if (selectedMethod) {
-        Object.entries(selectedMethod.impact).forEach(([nutrient, value]) => {
-          if (updatedNutrition[nutrient] !== undefined) {
-            updatedNutrition[nutrient] = Math.max(0, updatedNutrition[nutrient] + value);
-          }
-        });
-      }
+    // Apply cooking method impacts and price if selected
+    const selectedMethod = cookingMethods.find(method => method.id === cookingMethod);
+    if (selectedMethod) {
+      // Nutritional impact
+      Object.entries(selectedMethod.impact || {}).forEach(([nutrient, value]) => {
+        if (updatedNutrition[nutrient] !== undefined) {
+          updatedNutrition[nutrient] = Math.max(0, updatedNutrition[nutrient] + value);
+        }
+      });
+      // Price impact
+      itemPrice += selectedMethod.price || 0;
     }
     
     // Apply serving size factor
@@ -354,11 +360,8 @@ const IngredientCustomizer = ({
               <RadioGroupItem id={`cooking-${method.id}`} value={method.id} className="mr-1" />
               <Label htmlFor={`cooking-${method.id}`} className="text-sm flex-1">
                 {method.name}
-                {method.id !== 'default' && method.impact.calories !== 0 && (
-                  <span className="ml-1 text-xs text-gray-500">
-                    {method.impact.calories > 0 ? '+' : ''}{method.impact.calories} cal,
-                    {method.impact.fat > 0 ? '+' : ''}{method.impact.fat}g fat
-                  </span>
+                {method.id !== 'default' && method.price > 0 && (
+                  <span className="ml-1 text-xs text-gray-500">+Rs. {method.price.toFixed(2)}</span>
                 )}
               </Label>
             </div>
@@ -470,7 +473,14 @@ IngredientCustomizer.propTypes = {
         fiber: PropTypes.number,
         sugar: PropTypes.number
       })),
-      servingSizeOptions: PropTypes.arrayOf(PropTypes.string)
+      servingSizeOptions: PropTypes.arrayOf(PropTypes.string),
+      cookingOptions: PropTypes.arrayOf(PropTypes.shape({
+        _id: PropTypes.string,
+        id: PropTypes.string,
+        name: PropTypes.string.isRequired,
+        price: PropTypes.number,
+        impact: PropTypes.object
+      }))
     })
   }).isRequired,
   onChange: PropTypes.func.isRequired,

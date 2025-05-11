@@ -632,7 +632,7 @@ router.get('/restaurant', auth, async (req, res) => {
         }
 
         // Find the Restaurant document associated with this user
-        const Restaurant = mongoose.model('Restaurant'); // Ensure Restaurant model is loaded
+        const Restaurant = mongoose.model('Restaurant');
         const userRestaurant = await Restaurant.findOne({ owner: userId });
 
         if (!userRestaurant) {
@@ -923,7 +923,7 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
                 const parsedAddOns = JSON.parse(req.body.availableAddOns);
                 if (Array.isArray(parsedAddOns)) {
                      menuItemData.customizationOptions = {
-                         ...menuItemData.customizationOptions, // Preserve other potential options
+                         ...menuItemData.customizationOptions,
                          availableAddOns: parsedAddOns
                      };
                      console.log('Parsed availableAddOns:', menuItemData.customizationOptions.availableAddOns);
@@ -933,6 +933,21 @@ router.post('/', auth, isRestaurantOwner, upload.single('image'), handleMulterEr
                       ...menuItemData.customizationOptions,
                       availableAddOns: req.body.availableAddOns
                  };
+            }
+            // Parse cookingOptions if provided
+            if (req.body.cookingOptions && typeof req.body.cookingOptions === 'string') {
+                const parsedCooking = JSON.parse(req.body.cookingOptions);
+                if (Array.isArray(parsedCooking)) {
+                    menuItemData.customizationOptions = {
+                        ...menuItemData.customizationOptions,
+                        cookingOptions: parsedCooking
+                    };
+                }
+            } else if (Array.isArray(req.body.cookingOptions)) {
+                menuItemData.customizationOptions = {
+                    ...menuItemData.customizationOptions,
+                    cookingOptions: req.body.cookingOptions
+                };
             }
             // Ensure customizationOptions object exists if adding addons
             if (menuItemData.customizationOptions && !req.body.customizationOptions) {
@@ -1096,10 +1111,9 @@ router.put('/:id', [
                      : req.body.availableAddOns;
                  if (Array.isArray(parsedAddOns)) {
                      if (!menuItem.customizationOptions) {
-                         menuItem.customizationOptions = {}; // Ensure object exists
+                         menuItem.customizationOptions = {};
                      }
                      menuItem.customizationOptions.availableAddOns = parsedAddOns;
-                     // Mark the path as modified if it's a mixed type or nested schema
                      menuItem.markModified('customizationOptions');
                      console.log('Updated availableAddOns:', menuItem.customizationOptions.availableAddOns);
                  }
@@ -1108,6 +1122,21 @@ router.put('/:id', [
              console.error("Error parsing ingredients or add-ons JSON during update:", parseError);
              // Decide if this should be a blocking error or just log and continue
          }
+
+        // Parse and update cookingOptions if provided
+        if (req.body.cookingOptions) {
+            const parsedCooking = (typeof req.body.cookingOptions === 'string')
+                ? JSON.parse(req.body.cookingOptions)
+                : req.body.cookingOptions;
+            if (Array.isArray(parsedCooking)) {
+                if (!menuItem.customizationOptions) {
+                    menuItem.customizationOptions = {};
+                }
+                menuItem.customizationOptions.cookingOptions = parsedCooking;
+                menuItem.markModified('customizationOptions');
+                console.log('Updated cookingOptions:', menuItem.customizationOptions.cookingOptions);
+            }
+        }
 
         // Update boolean flags
         menuItem.isVegetarian = isVegetarian === 'true' || isVegetarian === true;

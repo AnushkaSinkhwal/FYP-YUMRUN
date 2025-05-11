@@ -29,7 +29,8 @@ const reviewSchema = mongoose.Schema({
     orderId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',
-        required: true
+        required: false,
+        default: null
     }
 }, {
     timestamps: true,
@@ -79,6 +80,32 @@ reviewSchema.statics.calculateAverageRating = async function(menuItemId) {
         // Consider how to handle this error - maybe retry?
     }
 };
+
+// --- Static method to calculate and update Restaurant average rating ---
+reviewSchema.statics.calculateRestaurantRating = async function(restaurantId) {
+    console.log(`Calculating average rating for restaurant: ${restaurantId}`);
+    const stats = await this.aggregate([
+        { $match: { restaurant: new mongoose.Types.ObjectId(restaurantId) } },
+        { $group: { _id: '$restaurant', nRating: { $sum: 1 }, avgRating: { $avg: '$rating' } } }
+    ]);
+    try {
+        if (stats.length > 0) {
+            await mongoose.model('Restaurant').findByIdAndUpdate(restaurantId, {
+                totalRatings: stats[0].nRating,
+                rating: stats[0].avgRating
+            });
+            console.log(`Restaurant ${restaurantId} updated: ${stats[0].nRating} ratings, ${stats[0].avgRating} average.`);
+        } else {
+            await mongoose.model('Restaurant').findByIdAndUpdate(restaurantId, {
+                totalRatings: 0,
+                rating: 0
+            });
+            console.log(`Restaurant ${restaurantId} updated: No ratings found, reset to 0.`);
+        }
+    } catch (err) {
+        console.error(`Error updating Restaurant ${restaurantId} ratings:`, err);
+    }
+};
 // --- End Static method ---
 
 // --- Middleware to call calculateAverageRating after save/remove ---
@@ -87,6 +114,7 @@ reviewSchema.post('save', function() {
     // 'this' points to the current review document
     // this.constructor points to the Model (Review)
     this.constructor.calculateAverageRating(this.menuItem);
+    this.constructor.calculateRestaurantRating(this.restaurant);
 });
 
 // Called BEFORE a review is removed (findByIdAndDelete triggers findOneAndRemove)
@@ -106,6 +134,7 @@ reviewSchema.pre('findOneAndDelete', async function(next) {
 reviewSchema.post('findOneAndDelete', async function() {
     if (this.reviewToDelete) {
         await this.reviewToDelete.constructor.calculateAverageRating(this.reviewToDelete.menuItem);
+        await this.reviewToDelete.constructor.calculateRestaurantRating(this.reviewToDelete.restaurant);
     }
 });
 // --- End Middleware ---

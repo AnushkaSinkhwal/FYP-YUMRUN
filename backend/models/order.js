@@ -35,7 +35,9 @@ const orderItemSchema = new mongoose.Schema({
       type: String,
       default: 'Regular'
     },
-    specialInstructions: String
+    specialInstructions: String,
+    cookingMethod: { type: String },
+    cookingPrice: { type: Number, default: 0 }
   },
   nutritionalInfo: {
     calories: Number,
@@ -232,7 +234,9 @@ orderSchema.index({ deliveryPersonId: 1 });
 
 // Update grandTotal when totalPrice, deliveryFee, tax, or tip changes
 orderSchema.pre('save', function(next) {
-  this.grandTotal = this.totalPrice + this.deliveryFee + this.tax + this.tip;
+  // Calculate grand total including loyalty points used
+  const pointsUsed = this.loyaltyPointsUsed || 0;
+  this.grandTotal = this.totalPrice + this.deliveryFee + this.tax + this.tip - pointsUsed;
   
   // Calculate total nutritional info from items
   if (this.items && this.items.length > 0) {

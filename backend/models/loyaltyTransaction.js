@@ -8,6 +8,12 @@ const loyaltyTransactionSchema = new mongoose.Schema({
         required: true,
         index: true
     },
+    // Associate transaction with a specific restaurant (for restaurant-scoped loyalty)
+    restaurantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Restaurant',
+        index: true
+    },
     points: {
         type: Number,
         required: true

@@ -130,6 +130,11 @@ restaurantSchema.set('toJSON', {
     virtuals: true,
 });
 
+// Virtual to alias totalRatings as totalReviews for frontend compatibility
+restaurantSchema.virtual('totalReviews').get(function() {
+    return this.totalRatings;
+});
+
 // Create and export the model directly
 const Restaurant = mongoose.model('Restaurant', restaurantSchema);
 module.exports = Restaurant; 

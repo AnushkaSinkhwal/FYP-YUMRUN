@@ -7,7 +7,7 @@ import RelatedProducts from './RelatedProducts';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { Container, Button, Alert, Spinner, Separator, Tabs, TabsContent, TabsList, TabsTrigger, Card } from '../../components/ui';
-import axios from 'axios';
+import api, { reviewAPI } from '../../utils/api';
 import { Link } from 'react-router-dom';
 import { getBestImageUrl } from '../../utils/imageUtils';
 import IngredientCustomizer from '../../components/MenuItemCustomization/IngredientCustomizer';
@@ -43,7 +43,7 @@ const ProductDetails = () => {
             setLoading(true);
             setError(null);
             try {
-                const response = await axios.get(`/api/menu/${productId}`);
+                const response = await api.get(`/menu/${productId}`);
                 if (response.data.success) {
                     setProduct(response.data.data);
                 } else {
@@ -68,7 +68,7 @@ const ProductDetails = () => {
         setReviewsLoading(true);
         setReviewsError(null);
         try {
-            const response = await axios.get(`/api/reviews/menuItem/${productId}`);
+            const response = await reviewAPI.getMenuItemReviews(productId);
             if (response.data.success) {
                 setReviews(response.data.data.reviews || []);
                 setAverageRating(response.data.data.meta?.averageRating || 0);
@@ -93,7 +93,7 @@ const ProductDetails = () => {
         const checkFavoriteStatus = async () => {
             if (!isAuthenticated || !productId) return;
             try {
-                const response = await axios.get(`/api/user/favorites/${productId}/check`);
+                const response = await api.get(`/user/favorites/${productId}/check`);
                 if (response.data.success) {
                     setIsFavorite(response.data.data.isFavorite);
                 }
@@ -180,17 +180,16 @@ const ProductDetails = () => {
         }
         
         setFavoriteLoading(true);
-        const url = `/api/user/favorites`;
-        const method = isFavorite ? 'DELETE' : 'POST';
-        const body = { menuItemId: productId };
-
         try {
             console.log(`Toggling favorite: ${product?.name}`);
-            const response = await axios({
-                method: method,
-                url: isFavorite ? `${url}/${productId}` : url,
-                data: body
-            });
+            let response;
+            if (!isFavorite) {
+                // Add to favorites
+                response = await api.post('/user/favorites', { menuItemId: productId });
+            } else {
+                // Remove from favorites
+                response = await api.delete(`/user/favorites/${productId}`);
+            }
 
             if (response.data.success) {
                 setIsFavorite(!isFavorite);
@@ -220,12 +219,10 @@ const ProductDetails = () => {
         setReviewSubmitSuccess(false);
         
         try {
-            // No need to check orders, backend should handle this if necessary
-            const response = await axios.post('/api/reviews', {
+            const response = await reviewAPI.createReview({
                 menuItemId: productId,
                 rating: newReviewRating,
-                comment: newReviewComment,
-                // orderId: orderId // Backend might associate automatically or not require it
+                comment: newReviewComment
             });
             
             if (response.data.success) {
@@ -234,11 +231,11 @@ const ProductDetails = () => {
                 setReviewSubmitSuccess(true);
                 fetchReviews(); // Refresh reviews list
             } else {
-                throw new Error(response.data.message || 'Failed to submit review');
+                throw new Error(response.data.error?.message || 'Failed to submit review');
             }
         } catch (error) {
             console.error('Error submitting review:', error);
-            setReviewSubmitError(error.response?.data?.message || 'An error occurred while submitting your review.');
+            setReviewSubmitError(error.response?.data?.error?.message || 'An error occurred while submitting your review.');
         } finally {
             setReviewSubmitting(false);
         }
@@ -407,18 +404,28 @@ const ProductDetails = () => {
 
                         {/* Action Buttons */}
                         <div className="flex items-center mt-auto space-x-4">
-                            {/* Only show Add to Cart directly if there are no customization options */}
+                            {/* Only show Add to Cart and Order Now if there are no customization options */}
                             {!product.customizationOptions?.availableAddOns?.length > 0 && (
-                                <Button 
-                                    onClick={() => handleAddToCartOrCustomize()} 
-                                    variant="primary" 
-                                    size="lg" 
-                                    className="flex-1"
-                                    disabled={!product || !product.isAvailable} 
-                                >
-                                    <FaShoppingCart className="mr-2" />
-                                    {product.isAvailable ? 'Add to Cart' : 'Unavailable'}
-                                </Button>
+                                <>
+                                  <Button 
+                                      onClick={() => handleAddToCartOrCustomize()} 
+                                      variant="primary" 
+                                      size="lg" 
+                                      className="flex-1"
+                                      disabled={!product || !product.isAvailable} 
+                                  >
+                                      <FaShoppingCart className="mr-2" />
+                                      {product.isAvailable ? 'Add to Cart' : 'Unavailable'}
+                                  </Button>
+                                  <Button
+                                      onClick={() => { handleAddToCartOrCustomize(); navigate('/checkout'); }}
+                                      variant="secondary"
+                                      size="lg"
+                                      disabled={!product || !product.isAvailable}
+                                  >
+                                      Order Now
+                                  </Button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -454,9 +461,9 @@ const ProductDetails = () => {
                                         <Card key={review.id} className="p-4">
                                             <div className="flex items-center mb-2">
                                                 {renderRatingStars(review.rating)}
-                                                <span className="ml-auto text-xs text-gray-500">{new Date(review.date).toLocaleDateString()}</span>
+                                                <span className="ml-auto text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</span>
                                             </div>
-                                            <p className="mb-1 text-sm font-medium text-gray-800">{review.user?.name || 'Anonymous'}</p>
+                                            <p className="mb-1 text-sm font-medium text-gray-800">{review.user?.fullName || 'Anonymous'}</p>
                                             <p className="text-sm text-gray-600">{review.comment}</p>
                                         </Card>
                                     ))}

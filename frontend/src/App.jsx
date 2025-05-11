@@ -70,6 +70,7 @@ import DeliveryHistory from "./Pages/delivery/History";
 import DeliveryProfile from "./Pages/delivery/Profile";
 import DeliveryEarnings from "./Pages/delivery/Earnings";
 import DeliveryNotifications from "./Pages/delivery/Notifications";
+import DeliveryReviews from "./Pages/delivery/Reviews";
 
 // User imports
 import UserLayout from "./components/user/UserLayout";
@@ -453,6 +454,7 @@ function App() {
                       <DeliveryLayout />
                     </ProtectedRoute>
                   }>
+                    <Route path="reviews" element={<DeliveryReviews />} />
                     <Route index element={<DeliveryDashboard />} />
                     <Route path="dashboard" element={<DeliveryDashboard />} />
                     <Route path="orders" element={<DeliveryOrders />} />

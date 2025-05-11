@@ -847,17 +847,17 @@ export const userAPI = {
   
   // Manage favorites
   getFavorites: async () => {
-    return api.get('/favorites');
+    return api.get('/user/favorites');
   },
   
   // Add item to favorites
   addFavorite: async (itemId) => {
-    return api.post('/favorites/add', { itemId });
+    return api.post('/user/favorites', { itemId });
   },
   
   // Remove item from favorites
   removeFavorite: async (itemId) => {
-    return api.delete(`/favorites/${itemId}`);
+    return api.delete(`/user/favorites/${itemId}`);
   },
   
   // Update order status
@@ -957,6 +957,11 @@ export const deliveryAPI = {
   deleteNotification: async (notificationId) => {
     return api.delete(`/delivery/notifications/${notificationId}`);
   },
+  
+  // Get reviews for the delivery rider
+  getReviews: async () => {
+    return api.get('/delivery/reviews');
+  }
 };
 
 // --- NEW: Review API methods ---
@@ -994,6 +999,24 @@ export const reviewAPI = {
   }
 };
 // --- END: Review API methods ---
+
+// --- Loyalty API methods ---
+export const loyaltyAPI = {
+  // Get user's loyalty summary and tier info (scoped to a restaurant if provided)
+  getInfo: async (restaurantId) => {
+    const config = restaurantId ? { params: { restaurantId } } : {};
+    return api.get('/loyalty/info', config);
+  },
+  // Get user's loyalty transactions with optional pagination/filter
+  getTransactions: async (params) => api.get('/loyalty/transactions', { params }),
+  // Earn points for an order (usually handled on backend automatically)
+  earnPoints: async (data) => api.post('/loyalty/earn', data),
+  // Redeem points for a reward or order (use rewardId or specify use case)
+  redeemPoints: async (payload) => api.post('/loyalty/redeem', payload),
+  // Get available loyalty rewards
+  getRewards: async () => api.get('/loyalty/rewards'),
+};
+// --- End Loyalty API methods ---
 
 // General Public API methods (examples)
 export const publicAPI = {

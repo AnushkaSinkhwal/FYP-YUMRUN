@@ -46,7 +46,8 @@ const initialFormData = {
   isVegan: false,
   isGlutenFree: false,
   isAvailable: true,
-  availableAddOns: []
+  availableAddOns: [],
+  cookingOptions: []
 };
 
 const RestaurantMenu = () => {
@@ -196,18 +197,23 @@ const RestaurantMenu = () => {
       isVegetarian: item.isVegetarian || false,
       isVegan: item.isVegan || false,
       isGlutenFree: item.isGlutenFree || false,
-      // Map ALL fields for add-ons, including nutrition
       availableAddOns: Array.isArray(currentAddOns) ? currentAddOns.map(addon => ({
-        name: addon.name || '', 
+        name: addon.name,
         price: addon.price?.toString() || '0',
-        calories: addon.calories?.toString() || '',
-        protein: addon.protein?.toString() || '',
-        carbs: addon.carbs?.toString() || '',
-        fat: addon.fat?.toString() || '',
-        sodium: addon.sodium?.toString() || '',
-        fiber: addon.fiber?.toString() || '',
-        sugar: addon.sugar?.toString() || ''
-      })) : []
+        calories: addon.calories?.toString() || '0',
+        protein: addon.protein?.toString() || '0',
+        carbs: addon.carbs?.toString() || '0',
+        fat: addon.fat?.toString() || '0',
+        sodium: addon.sodium?.toString() || '0',
+        fiber: addon.fiber?.toString() || '0',
+        sugar: addon.sugar?.toString() || '0'
+      })) : [],
+      cookingOptions: Array.isArray(item.customizationOptions?.cookingOptions)
+         ? item.customizationOptions.cookingOptions.map(opt => ({
+             name: opt.name,
+             price: opt.price?.toString() || '0'
+         }))
+         : [],
     });
     setIsEditDialogOpen(true);
   };
@@ -277,6 +283,17 @@ const RestaurantMenu = () => {
         }
       } else {
          console.log('No availableAddOns in form data.');
+      }
+      
+      // Add cookingOptions as a JSON string if any
+      if (formData.cookingOptions && formData.cookingOptions.length > 0) {
+        const validCooking = formData.cookingOptions
+          .filter(opt => opt.name && opt.price)
+          .map(opt => ({ name: opt.name, price: parseFloat(opt.price) || 0 }));
+        if (validCooking.length > 0) {
+          formDataObj.append('cookingOptions', JSON.stringify(validCooking));
+          console.log('Appending cookingOptions:', JSON.stringify(validCooking));
+        }
       }
       
       // Configure the request with the correct content type for FormData
@@ -383,6 +400,17 @@ const RestaurantMenu = () => {
           console.log('No availableAddOns in form data for update.');
       }
       
+      // Add cookingOptions as a JSON string if any
+      if (formData.cookingOptions && formData.cookingOptions.length > 0) {
+        const validCooking = formData.cookingOptions
+          .filter(opt => opt.name && opt.price)
+          .map(opt => ({ name: opt.name, price: parseFloat(opt.price) || 0 }));
+        if (validCooking.length > 0) {
+          data.append('cookingOptions', JSON.stringify(validCooking));
+          console.log('Appending cookingOptions for update:', JSON.stringify(validCooking));
+        }
+      }
+      
       const response = await axios.put(`${API_URL}/menu/${itemId}`, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
@@ -456,6 +484,23 @@ const RestaurantMenu = () => {
   const removeAddOn = (index) => {
     const updatedAddOns = formData.availableAddOns.filter((_, i) => i !== index);
     setFormData(prev => ({ ...prev, availableAddOns: updatedAddOns }));
+  };
+
+  // Handlers for cooking options
+  const handleCookingOptionChange = (index, field, value) => {
+    setFormData(prev => {
+      const newOptions = [...prev.cookingOptions];
+      newOptions[index] = { ...newOptions[index], [field]: value };
+      return { ...prev, cookingOptions: newOptions };
+    });
+  };
+  
+  const addCookingOption = () => {
+    setFormData(prev => ({ ...prev, cookingOptions: [...prev.cookingOptions, { name: '', price: '' }] }));
+  };
+  
+  const removeCookingOption = (index) => {
+    setFormData(prev => ({ ...prev, cookingOptions: prev.cookingOptions.filter((_, i) => i !== index) }));
   };
 
   const renderForm = (submitHandler) => (
@@ -724,6 +769,36 @@ const RestaurantMenu = () => {
           className="mt-2"
         >
           <FaPlus className="w-4 h-4 mr-2" /> Add Add-on
+        </Button>
+      </div>
+
+      {/* Cooking Methods Section */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="mb-3 font-medium text-gray-700 dark:text-gray-300">Cooking Methods (Optional)</h3>
+        {formData.cookingOptions.map((opt, index) => (
+          <div key={index} className="flex items-center space-x-2 mb-2">
+            <Input
+              type="text"
+              placeholder="Method Name"
+              value={opt.name}
+              onChange={(e) => handleCookingOptionChange(index, 'name', e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              placeholder="Price Impact"
+              step="0.01"
+              value={opt.price}
+              onChange={(e) => handleCookingOptionChange(index, 'price', e.target.value)}
+              className="w-24"
+            />
+            <Button type="button" variant="destructive" size="icon" onClick={() => removeCookingOption(index)} aria-label="Remove Method">
+              <FaTrash className="w-4 h-4" />
+            </Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" onClick={addCookingOption} className="mt-2">
+          <FaPlus className="w-4 h-4 mr-2" /> Add Cooking Method
         </Button>
       </div>
     </form>

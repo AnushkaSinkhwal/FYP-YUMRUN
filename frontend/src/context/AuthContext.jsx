@@ -392,27 +392,26 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     setIsLoading(true);
     setError(null);
-    
     try {
       const response = await authAPI.updateProfile(profileData);
-      
-      // Check for nested data structure
-      const responseData = response.data.data || response.data;
-      
-      if (responseData.success) {
-        const { user } = responseData;
-        const normalizedUser = normalizeUserData(user);
-        
-        // Update stored user data
-        localStorage.setItem('userData', JSON.stringify(normalizedUser));
-        
-        // Update state
-        setCurrentUser(normalizedUser);
+      if (response.data.success) {
+        const updated = response.data.data;
+        const newUser = {
+          ...currentUser,
+          fullName: updated.fullName || currentUser.fullName,
+          email: updated.email || currentUser.email,
+          phone: updated.phone || currentUser.phone,
+          address: updated.address || currentUser.address,
+          healthCondition: updated.healthCondition || currentUser.healthCondition,
+          notifications: updated.notifications || currentUser.notifications,
+          deliveryRiderDetails: updated.deliveryRiderDetails || currentUser.deliveryRiderDetails,
+        };
+        localStorage.setItem('userData', JSON.stringify(newUser));
+        setCurrentUser(newUser);
         setIsLoading(false);
-        
-        return { success: true, user: normalizedUser };
+        return { success: true, user: newUser };
       } else {
-        const errMsg = responseData.error?.message || 'Profile update failed';
+        const errMsg = response.data.error?.message || 'Profile update failed';
         setError(errMsg);
         setIsLoading(false);
         return { success: false, error: errMsg };

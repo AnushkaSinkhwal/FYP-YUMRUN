@@ -14,9 +14,11 @@ const generateCartItemId = (item) => {
   const baseId = item.id || item._id;
   // Sort add-on IDs for consistency
   const addOnIds = (item.selectedAddOns || []).map(a => a.id).sort().join('-');
-  // Include other relevant customizations if needed (e.g., serving size)
-  const customizationKey = addOnIds; // Simplified for now
-  return `${baseId}-${customizationKey}`;
+  // Include cooking method for uniqueness
+  const cookingKey = item.customizationDetails?.cookingMethod || '';
+  // Combine keys
+  const customizationKey = [addOnIds, cookingKey].filter(Boolean).join('-');
+  return customizationKey ? `${baseId}-${customizationKey}` : baseId;
 };
 
 export const CartProvider = ({ children }) => {

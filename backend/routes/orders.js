@@ -385,6 +385,37 @@ router.post('/', async (req, res) => {
             totalPrice 
         });
         
+        // Handle loyalty redemption if provided (1 point = Rs.1) scoped to this restaurant
+        const loyaltyPointsUsed = parseInt(req.body.loyaltyPointsUsed, 10) || 0;
+        if (loyaltyPointsUsed > 0) {
+            // Determine user and compute available restaurant-specific points
+            const userRedeem = await User.findById(req.user._id || req.user.userId || req.user.id);
+            const LoyaltyTransaction = require('../models/loyaltyTransaction');
+            const availableAgg = await LoyaltyTransaction.aggregate([
+                { $match: { user: userRedeem._id, restaurantId: mongoose.Types.ObjectId(restaurantId) } },
+                { $group: { _id: null, total: { $sum: '$points' } } }
+            ]);
+            const availablePoints = availableAgg[0]?.total || 0;
+            if (loyaltyPointsUsed > availablePoints) {
+                return res.status(400).json({ success: false, message: 'Insufficient loyalty points for this restaurant' });
+            }
+            // Deduct redeemed points from global balance
+            userRedeem.loyaltyPoints -= loyaltyPointsUsed;
+            await userRedeem.save();
+            // Record redemption transaction with restaurant context
+            const redeemTxn = new LoyaltyTransaction({
+                user: userRedeem._id,
+                restaurantId: mongoose.Types.ObjectId(restaurantId),
+                points: -loyaltyPointsUsed,
+                type: 'REDEEM',
+                source: 'ORDER',
+                description: `Redeemed ${loyaltyPointsUsed} points for order checkout at restaurant ${restaurantId}`,
+                referenceId: null,
+                balance: userRedeem.loyaltyPoints
+            });
+            await redeemTxn.save();
+        }
+        
         // Validate required fields
         if (!items || !items.length || !restaurantId || !deliveryAddress || !totalPrice) {
             return res.status(400).json({
@@ -548,17 +579,34 @@ router.post('/', async (req, res) => {
                 }
             }
 
-            calculatedTotal += currentItemTotal; // Add the final item total (base + addons) * quantity
+            // Process cooking method if provided
+            let cookingMethodName = '';
+            let cookingPrice = 0;
+            if (item.cookingMethod) {
+                const availableCooking = menuItem.customizationOptions?.cookingOptions || [];
+                const matchedCooking = availableCooking.find(opt =>
+                    (opt._id && opt._id.toString() === item.cookingMethod) || opt.id === item.cookingMethod
+                );
+                if (matchedCooking) {
+                    cookingMethodName = matchedCooking.name;
+                    cookingPrice = matchedCooking.price || 0;
+                    currentItemTotal += cookingPrice * item.quantity;
+                }
+            }
+
+            calculatedTotal += currentItemTotal;
 
             // Prepare the item structure for saving in the Order document
             validatedItems.push({
-                productId: menuItem._id.toString(), // Use productId as in schema
-                name: menuItem.item_name, // Use item_name from model
-                price: itemBasePrice, // Store base price
+                productId: menuItem._id.toString(),
+                name: menuItem.item_name,
+                price: itemBasePrice,
                 quantity: item.quantity,
                 customization: {
-                    addedIngredients: addedIngredientsForOrder, // Store selected add-ons
-                    specialInstructions: item.specialInstructions || ''
+                    addedIngredients: addedIngredientsForOrder,
+                    specialInstructions: item.specialInstructions || '',
+                    cookingMethod: cookingMethodName,
+                    cookingPrice: cookingPrice
                 },
             });
         }
@@ -606,7 +654,8 @@ router.post('/', async (req, res) => {
             deliveryFee: deliveryFee,
             tax: taxAmount,
             tip: tipAmount,
-            grandTotal: grandTotal, // Final amount charged
+            loyaltyPointsUsed: loyaltyPointsUsed, // Points applied for discount
+            // grandTotal will be computed in pre-save hook including loyaltyPointsUsed
             deliveryAddress: deliveryAddress,
             specialInstructions: orderNote, // Map orderNote to specialInstructions
             paymentMethod: paymentMethod || 'CASH', // Default to CASH
@@ -674,6 +723,42 @@ router.post('/', async (req, res) => {
             console.error('[Orders API] General error during post-order operations:', postOrderError);
             // Continue with response even if notifications/email fail
         }
+        
+        // --- Loyalty: Earn points for this order ---
+        try {
+            const { calculateBasePoints, calculateOrderPoints, updateUserTier } = require('../utils/loyaltyUtils');
+            const LoyaltyTransaction = require('../models/loyaltyTransaction');
+            const userEarn = await User.findById(userId);
+            const basePoints = calculateBasePoints(order.grandTotal);
+            const pointsEarned = calculateOrderPoints(basePoints, userEarn.loyaltyTier);
+            // Set expiry date 12 months from now
+            const expiryDate = new Date();
+            expiryDate.setMonth(expiryDate.getMonth() + 12);
+            const earnTxn = new LoyaltyTransaction({
+                user: userId,
+                restaurantId: order.restaurantId,
+                points: pointsEarned,
+                type: 'EARN',
+                source: 'ORDER',
+                description: `Points earned from order #${order.orderNumber}`,
+                referenceId: order._id,
+                balance: (userEarn.loyaltyPoints || 0) + pointsEarned,
+                expiryDate
+            });
+            await earnTxn.save();
+            // Update user's points
+            userEarn.loyaltyPoints = (userEarn.loyaltyPoints || 0) + pointsEarned;
+            userEarn.lifetimeLoyaltyPoints = (userEarn.lifetimeLoyaltyPoints || 0) + pointsEarned;
+            await userEarn.save();
+            // Update user tier if changed
+            await updateUserTier(userId);
+            // Update order record with earned points
+            order.loyaltyPointsEarned = pointsEarned;
+            await order.save();
+        } catch (err) {
+            console.error('Error processing loyalty earn for order:', err);
+        }
+        // --- End Loyalty processing ---
         
         // Return success response with the created order
         console.log('[Orders API] Returning successful response with order ID:', order._id);
@@ -1093,8 +1178,9 @@ router.patch('/:id/assign-rider', auth, async (req, res) => {
             });
         }
 
-        // Update the order
-        order.deliveryRiderId = riderId;
+        // Update the order with the correct rider fields
+        order.assignedRider = riderId;       // Legacy assigned rider field
+        order.deliveryPersonId = riderId;    // Used by rider dashboard
         order.status = 'OUT_FOR_DELIVERY';
         
         // Add status update entry for rider assignment

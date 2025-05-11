@@ -5,7 +5,7 @@ import { userAPI } from '../../utils/api';
 import HealthProfile from '../../components/Profile/HealthProfile';
 import { formatDate } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
-import { FaShoppingCart, FaHeart, FaClipboardList, FaUser, FaBell } from 'react-icons/fa';
+import { FaShoppingCart, FaHeart, FaClipboardList, FaUser, FaBell, FaStar } from 'react-icons/fa';
 
 const UserDashboard = () => {
   const { currentUser } = useAuth();
@@ -120,6 +120,14 @@ const UserDashboard = () => {
   };
 
   const stats = [
+    {
+      title: 'Loyalty Points',
+      count: profile?.loyaltyPoints || 0,
+      icon: <FaStar className="w-5 h-5 text-white" />, 
+      color: 'bg-green-500',
+      link: '#',
+      onClick: () => setActiveTab('overview')
+    },
     {
       title: 'Total Orders',
       count: dashboardData.totalOrders || 0,

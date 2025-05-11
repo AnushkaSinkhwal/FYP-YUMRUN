@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { userAPI } from '../../utils/api';
+import { userAPI, loyaltyAPI } from '../../utils/api';
 import { isValidObjectId, cleanObjectId } from '../../utils/validationUtils';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
 import {
@@ -28,7 +28,7 @@ const Checkout = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('khalti');
   const [deliveryAddress, setDeliveryAddress] = useState({
-    fullName: currentUser?.name || '',
+    fullName: currentUser?.fullName || '',
     phone: currentUser?.phone || '',
     email: currentUser?.email || '',
     address: currentUser?.address || '',
@@ -36,6 +36,8 @@ const Checkout = () => {
     additionalInfo: '',
   });
   const [orderRestaurantId, setOrderRestaurantId] = useState(null);
+  const [loyaltyInfo, setLoyaltyInfo] = useState({ currentPoints: 0, lifetimePoints: 0 });
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   // Add state for Khalti flow
   const [showKhalti, setShowKhalti] = useState(false);
@@ -112,18 +114,44 @@ const Checkout = () => {
     setOrderRestaurantId(cleanedRestaurantId);
   }, [cartItems, navigate, addToast]);
 
-  // Update form when user data changes
+  // Prefill deliveryAddress from the user's stored profile
   useEffect(() => {
-    if (currentUser) {
-      setDeliveryAddress(prev => ({
-        ...prev,
-        fullName: currentUser.name || prev.fullName,
-        email: currentUser.email || prev.email,
-        phone: currentUser.phone || prev.phone,
-        address: currentUser.address || prev.address,
-      }));
-    }
-  }, [currentUser]);
+    const loadUserProfile = async () => {
+      try {
+        const res = await userAPI.getProfile();
+        if (res.data.success) {
+          const u = res.data.data;
+          setDeliveryAddress(prev => ({
+            ...prev,
+            fullName: u.fullName || '',
+            phone: u.phone || '',
+            email: u.email || '',
+            address: u.address || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching profile in checkout:', err);
+      }
+    };
+    loadUserProfile();
+  }, []);
+
+  // Fetch loyalty info
+  useEffect(() => {
+    if (!orderRestaurantId) return;
+    const fetchLoyalty = async () => {
+      try {
+        // Scope loyalty query to this restaurant
+        const res = await loyaltyAPI.getInfo(orderRestaurantId);
+        if (res.data.success) {
+          setLoyaltyInfo(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching loyalty info:', err);
+      }
+    };
+    fetchLoyalty();
+  }, [orderRestaurantId]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -195,17 +223,20 @@ const Checkout = () => {
       orderNumber: orderNumber,
       userId: currentUser?._id || "67fb33ee85f505c7e9c02a7d",
       items: cartItems.map(item => ({
-        menuItemId: item.menuItemId || item.id, // Prefer menuItemId if available
+        menuItemId: item.menuItemId || item.id,
         name: item.name,
-        price: item.basePrice || item.unitPrice || (item.price / item.quantity),
+        price: item.unitPrice || item.basePrice || (item.price / item.quantity),
         quantity: item.quantity,
-        selectedAddOns: (item.selectedAddOns || []).map(addOn => ({ id: addOn.id }))
+        selectedAddOns: (item.selectedAddOns || []).map(addOn => ({ id: addOn.id })),
+        cookingMethod: item.customizationDetails?.cookingMethod,
+        specialInstructions: item.customizationDetails?.specialInstructions
       })),
       restaurantId: orderRestaurantId,
       totalPrice: cartStats.total,
       subTotal: cartStats.subTotal,
       deliveryFee: cartStats.shipping,
-      discount: 0, // Add discount if needed
+      discount: pointsToRedeem, // Loyalty discount
+      loyaltyPointsUsed: pointsToRedeem,
       deliveryAddress: {
         fullName: deliveryAddress.fullName,
         phone: deliveryAddress.phone,
@@ -213,7 +244,7 @@ const Checkout = () => {
         address: deliveryAddress.address,
         additionalInfo: deliveryAddress.additionalInfo || ''
       },
-      specialInstructions: deliveryAddress.additionalInfo || '',
+      orderNote: deliveryAddress.additionalInfo || '',
       paymentMethod: paymentMethod === 'khalti' ? 'KHALTI' : 'CASH'
     };
 
@@ -554,6 +585,39 @@ const Checkout = () => {
                       ))}
                     </div>
                     
+                    {/* Loyalty Points Section */}
+                    <div className="p-4 mb-4 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Loyalty Points</span>
+                        <span className="font-semibold">{loyaltyInfo.currentPoints || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <label className="inline-flex items-center">
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 form-checkbox text-yumrun-primary"
+                            disabled={loyaltyInfo.currentPoints <= 0}
+                            checked={pointsToRedeem > 0}
+                            onChange={() => {
+                              const available = Math.min(loyaltyInfo.currentPoints, Math.floor(cartStats.total));
+                              setPointsToRedeem(pointsToRedeem > 0 ? 0 : available);
+                            }}
+                          />
+                          <span className="ml-2">Redeem points</span>
+                        </label>
+                      </div>
+                      {loyaltyInfo.currentPoints > 0 && pointsToRedeem === 0 && (
+                        <p className="mt-2 text-sm text-gray-500">
+                          You have {loyaltyInfo.currentPoints} points available
+                        </p>
+                      )}
+                      {pointsToRedeem > 0 && (
+                        <p className="mt-2 text-sm text-green-600">
+                          Redeeming {pointsToRedeem} points for Rs. {pointsToRedeem.toFixed(2)} off
+                        </p>
+                      )}
+                    </div>
+                    
                     <div className="pt-3 space-y-3 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Subtotal</span>
@@ -571,7 +635,7 @@ const Checkout = () => {
                       
                       <div className="flex items-center justify-between font-medium">
                         <span>Total</span>
-                        <span className="text-lg text-yumrun-accent">Rs. {cartStats.total.toFixed(2)}</span>
+                        <span className="text-lg text-yumrun-accent">Rs. {(cartStats.total - pointsToRedeem).toFixed(2)}</span>
                       </div>
                     </div>
                     
@@ -588,7 +652,7 @@ const Checkout = () => {
                             Processing...
                           </>
                         ) : (
-                          `Place Order - Rs. ${cartStats.total.toFixed(2)}`
+                          `Place Order - Rs. ${(cartStats.total - pointsToRedeem).toFixed(2)}`
                         )}
                       </Button>
                       
