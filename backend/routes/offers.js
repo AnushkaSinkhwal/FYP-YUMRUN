@@ -4,11 +4,16 @@ const Offer = require('../models/offer');
 const MenuItem = require('../models/menuItem');
 const { auth, isRestaurantOwner } = require('../middleware/auth');
 const mongoose = require('mongoose');
+const Restaurant = require('../models/restaurant');
 
 // Get all offers for the authenticated restaurant owner
 router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
     try {
-        const offers = await Offer.find({ restaurant: req.user.userId })
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
+        const offers = await Offer.find({ restaurant: { $in: [ restaurantDoc._id, req.user.userId ] } })
             .populate('menuItems', 'item_name item_price image')
             .sort({ created: -1 });
         
@@ -28,9 +33,13 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
 // Get a specific offer by ID
 router.get('/:id', auth, isRestaurantOwner, async (req, res) => {
     try {
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
         const offer = await Offer.findOne({ 
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: { $in: [ restaurantDoc._id, req.user.userId ] }
         }).populate('menuItems', 'item_name item_price image');
         
         if (!offer) {
@@ -95,6 +104,12 @@ router.post('/', auth, isRestaurantOwner, async (req, res) => {
             });
         }
         
+        // Find restaurant document for owner
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
+        
         // Create new offer
         const offer = new Offer({
             title,
@@ -106,7 +121,7 @@ router.post('/', auth, isRestaurantOwner, async (req, res) => {
             isActive: isActive !== undefined ? isActive : true,
             appliesTo: appliesTo || 'All Menu',
             menuItems: menuItems || [],
-            restaurant: req.user.userId
+            restaurant: restaurantDoc._id
         });
         
         const savedOffer = await offer.save();
@@ -144,10 +159,16 @@ router.put('/:id', auth, isRestaurantOwner, async (req, res) => {
             menuItems
         } = req.body;
         
+        // Find restaurant document for owner
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
+        
         // Find offer first to ensure it belongs to the authenticated restaurant
         const existingOffer = await Offer.findOne({
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: { $in: [ restaurantDoc._id, req.user.userId ] }
         });
         
         if (!existingOffer) {
@@ -218,9 +239,13 @@ router.put('/:id', auth, isRestaurantOwner, async (req, res) => {
 // Toggle offer active status
 router.patch('/:id/toggle-active', auth, isRestaurantOwner, async (req, res) => {
     try {
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
         const offer = await Offer.findOne({
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: { $in: [ restaurantDoc._id, req.user.userId ] }
         });
         
         if (!offer) {
@@ -253,9 +278,13 @@ router.patch('/:id/toggle-active', auth, isRestaurantOwner, async (req, res) => 
 // Delete an offer
 router.delete('/:id', auth, isRestaurantOwner, async (req, res) => {
     try {
+        const restaurantDoc = await Restaurant.findOne({ owner: req.user.userId });
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found for this owner' });
+        }
         const offer = await Offer.findOne({
             _id: req.params.id,
-            restaurant: req.user.userId
+            restaurant: { $in: [ restaurantDoc._id, req.user.userId ] }
         });
         
         if (!offer) {
@@ -283,15 +312,17 @@ router.delete('/:id', auth, isRestaurantOwner, async (req, res) => {
 // Get all active offers for a specific restaurant (public)
 router.get('/public/restaurant/:id', async (req, res) => {
     try {
-        const today = new Date();
-        
+        const restaurantId = req.params.id;
+        // Verify restaurant exists and fetch owner for legacy offer support
+        const restaurantDoc = await Restaurant.findById(restaurantId);
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
+        // Include offers stored under both restaurant ID and owner user ID for legacy data
         const offers = await Offer.find({
-            restaurant: req.params.id,
-            isActive: true,
-            startDate: { $lte: today },
-            endDate: { $gte: today }
+            restaurant: { $in: [ restaurantId, restaurantDoc.owner ] },
+            isActive: true
         }).populate('menuItems', 'item_name item_price image');
-        
         return res.status(200).json({
             success: true,
             data: offers
@@ -312,12 +343,15 @@ router.get('/restaurant/:restaurantId/public', async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
             return res.status(400).json({ success: false, message: 'Invalid restaurant ID format' });
         }
-        const now = new Date();
+        // Verify restaurant exists and fetch owner for legacy offer support
+        const restaurantDoc = await Restaurant.findById(restaurantId);
+        if (!restaurantDoc) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
+        // Include offers stored under both restaurant ID and owner user ID for legacy data
         const offers = await Offer.find({
-            restaurant: restaurantId,
-            isActive: true,
-            startDate: { $lte: now },
-            endDate: { $gte: now }
+            restaurant: { $in: [ restaurantId, restaurantDoc.owner ] },
+            isActive: true
         }).lean();
         return res.status(200).json({ success: true, data: offers });
     } catch (error) {

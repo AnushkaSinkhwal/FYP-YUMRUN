@@ -36,6 +36,7 @@ const ProductDetails = () => {
     const [reviewSubmitError, setReviewSubmitError] = useState(null);
     const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [restaurantOffers, setRestaurantOffers] = useState([]);
 
     // --- Fetch Product Data ---
     useEffect(() => {
@@ -61,6 +62,27 @@ const ProductDetails = () => {
             fetchProductData();
         }
     }, [productId]);
+
+    // Fetch public restaurant offers for display
+    useEffect(() => {
+        if (!product || !product.restaurant?.id) return;
+        console.log(`[ProductDetails] Fetching offers for restaurant ID: ${product.restaurant.id}`);
+        const fetchOffers = async () => {
+            try {
+                const res = await api.get(`/offers/public/restaurant/${product.restaurant.id}`);
+                console.log('[ProductDetails] Offers endpoint response:', res);
+                if (res.data.success) {
+                    console.log('[ProductDetails] Offers data received:', res.data.data);
+                    setRestaurantOffers(res.data.data);
+                } else {
+                    console.warn('[ProductDetails] Fetch offers responded with success=false:', res.data.message);
+                }
+            } catch (err) {
+                console.error('[ProductDetails] Error fetching restaurant offers:', err);
+            }
+        };
+        fetchOffers();
+    }, [product]);
 
     // --- Fetch Reviews ---
     const fetchReviews = useCallback(async () => {
@@ -332,6 +354,21 @@ const ProductDetails = () => {
                                 From: {product.restaurant.name || 'Restaurant'}
                             </Link>
                         )}
+                        {/* Restaurant-level offers badges */}
+                        {restaurantOffers.length > 0 && (
+                            <div className="mb-4 flex flex-wrap gap-2">
+                                {restaurantOffers.map(offer => (
+                                    <span 
+                                        key={offer._id || offer.id} 
+                                        className="px-2 py-1 text-xs font-semibold text-white bg-red-600 rounded-full flex items-center gap-1 shadow-sm"
+                                        title={offer.description}
+                                    >
+                                        <FaTag className="w-3 h-3" />
+                                        {offer.discountPercentage}% OFF {offer.title}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                         
                         {/* Rating */}
                         <div className="flex items-center mb-4">
@@ -400,6 +437,19 @@ const ProductDetails = () => {
                                     onChange={handleAddToCartOrCustomize}
                                 />
                             </Card>
+                        )}
+
+                        {/* Order Now button for quick checkout from product page */}
+                        {product && product.isAvailable && (
+                          <Button
+                            onClick={() => { handleAddToCartOrCustomize(); navigate('/checkout'); }}
+                            variant="secondary"
+                            size="lg"
+                            className="w-full mb-6"
+                            disabled={!product.isAvailable}
+                          >
+                            Order Now
+                          </Button>
                         )}
 
                         {/* Action Buttons */}

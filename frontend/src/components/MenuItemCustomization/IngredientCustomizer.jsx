@@ -21,15 +21,20 @@ const IngredientCustomizer = ({
     sugar: menuItem?.sugar || 0
   });
   
-  const [basePrice, setBasePrice] = useState(menuItem?.price || menuItem?.item_price || 0);
-  const [currentPrice, setCurrentPrice] = useState(basePrice);
+  const [quantity, setQuantity] = useState(1);
+  
+  // Use discounted price if available, otherwise original price for initial state
+  const initialStartingPrice = menuItem?.discountedPrice !== undefined ? menuItem.discountedPrice : (menuItem?.price || menuItem?.item_price || 0);
+  
+  // State for the base price of the item (potentially discounted)
+  const [basePrice, setBasePrice] = useState(initialStartingPrice);
+  const [currentPrice, setCurrentPrice] = useState(initialStartingPrice);
   const [removedIngredients, setRemovedIngredients] = useState([]);
   const [addedIngredients, setAddedIngredients] = useState([]);
   const [servingSize] = useState('Regular');
   const [currentNutrition, setCurrentNutrition] = useState({...baseNutrition});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cookingMethod, setCookingMethod] = useState(null);
-  const [quantity, setQuantity] = useState(1);
   
   // Dynamic cooking methods from menuItem.customizationOptions.cookingOptions
   const dynamicCooking = menuItem?.customizationOptions?.cookingOptions || [];
@@ -69,10 +74,10 @@ const IngredientCustomizer = ({
         sugar: menuItem.sugar || 0
       });
       
-      // Set base and current price
-      const initialPrice = menuItem.price || menuItem.item_price || 0;
-      setBasePrice(initialPrice);
-      setCurrentPrice(initialPrice);
+      // Set base and current price using potentially discounted price
+      const startingPrice = menuItem.discountedPrice !== undefined ? menuItem.discountedPrice : (menuItem.price || menuItem.item_price || 0);
+      setBasePrice(startingPrice); // basePrice state now holds the potentially discounted price
+      setCurrentPrice(startingPrice);
       
       // Initialize default cooking method
       setCookingMethod('default');
@@ -214,6 +219,9 @@ const IngredientCustomizer = ({
   const handleAddToCart = () => {
     if (!menuItem) return;
 
+    // Determine the correct original base price (before discounts/addons)
+    const originalItemBasePrice = menuItem?.originalPrice || menuItem?.price || menuItem?.item_price || 0;
+
     // Construct the data object expected by the cart context
     const cartItemData = {
       id: menuItem.id || menuItem._id, // Ensure we have the ID
@@ -222,7 +230,7 @@ const IngredientCustomizer = ({
       quantity: quantity,
       price: currentPrice, // This is the FINAL calculated price for the quantity
       unitPrice: currentPrice / quantity, // Unit price with customizations
-      basePrice: basePrice, // Store the original single item base price
+      basePrice: originalItemBasePrice, // Store the NON-discounted base price of the item itself
       selectedAddOns: addedIngredients.map(addOn => ({
          id: addOn._id || addOn.id, 
          name: addOn.name, 
@@ -451,6 +459,8 @@ IngredientCustomizer.propTypes = {
     imageUrl: PropTypes.string,
     price: PropTypes.number,
     item_price: PropTypes.number,
+    discountedPrice: PropTypes.number,
+    originalPrice: PropTypes.number,
     calories: PropTypes.number,
     protein: PropTypes.number,
     carbs: PropTypes.number,

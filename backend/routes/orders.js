@@ -142,7 +142,7 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
         })
             .sort({ createdAt: -1 })
             .populate('userId', 'firstName lastName fullName email phone') // Populate customer details
-            .populate('deliveryRiderId', 'firstName lastName fullName phone deliveryRiderDetails.vehicleType deliveryRiderDetails.ratings') // Populate assigned rider details
+            .populate('deliveryPersonId', 'firstName lastName fullName phone deliveryRiderDetails.vehicleType deliveryRiderDetails.ratings') // Populate assigned rider details
             .populate({ // Populate the user who updated the status in the history
                 path: 'statusUpdates.updatedBy',
                 select: 'name' // Select only the name field
@@ -151,10 +151,16 @@ router.get('/restaurant', auth, isRestaurantOwner, async (req, res) => {
         
         console.log(`[Orders API] Found ${orders.length} orders matching IDs: ${uniqueStringIds.join(', ')}`);
         
+        // Map deliveryPersonId to deliveryRiderId for front-end compatibility
+        const ordersWithRiderField = orders.map(order => ({
+            ...order,
+            deliveryRiderId: order.deliveryPersonId || order.assignedRider || null
+        }));
+        
         // Return the found orders
         return res.status(200).json({
             success: true,
-            data: orders
+            data: ordersWithRiderField
         });
         
     } catch (error) {
@@ -548,7 +554,7 @@ router.post('/', async (req, res) => {
                 console.log(`[Orders API] WARNING: Allowing item from different restaurant for now`);
             }
 
-            let itemBasePrice = menuItem.item_price;
+            const itemBasePrice = (item.price != null ? parseFloat(item.price) : menuItem.item_price);
             let currentItemTotal = itemBasePrice * item.quantity;
             const addedIngredientsForOrder = [];
 

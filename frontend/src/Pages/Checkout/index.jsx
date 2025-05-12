@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { userAPI, loyaltyAPI } from '../../utils/api';
+import { userAPI, loyaltyAPI, default as api } from '../../utils/api';
 import { isValidObjectId, cleanObjectId } from '../../utils/validationUtils';
 import { FiArrowLeft, FiMapPin, FiCreditCard, FiHome, FiPhone, FiUser, FiMail } from 'react-icons/fi';
 import {
@@ -37,6 +37,7 @@ const Checkout = () => {
   });
   const [orderRestaurantId, setOrderRestaurantId] = useState(null);
   const [loyaltyInfo, setLoyaltyInfo] = useState({ currentPoints: 0, lifetimePoints: 0 });
+  const [restaurantOffers, setRestaurantOffers] = useState([]);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   // Add state for Khalti flow
@@ -151,6 +152,25 @@ const Checkout = () => {
       }
     };
     fetchLoyalty();
+  }, [orderRestaurantId]);
+
+  // Fetch public offers for this restaurant in checkout
+  useEffect(() => {
+    if (!orderRestaurantId) return;
+    const fetchOffers = async () => {
+      try {
+        console.log(`[Checkout] Fetching offers for restaurant ${orderRestaurantId}`);
+        const res = await api.get(`/offers/public/restaurant/${orderRestaurantId}`);
+        console.log('[Checkout] Offers API response:', res.data);
+        if (res.data.success) {
+          setRestaurantOffers(res.data.data);
+          console.log('[Checkout] Updated restaurantOffers state:', res.data.data);
+        }
+      } catch (err) {
+        console.error('[Checkout] Error fetching offers:', err);
+      }
+    };
+    fetchOffers();
   }, [orderRestaurantId]);
 
   const handleInputChange = (e) => {
@@ -358,6 +378,31 @@ const Checkout = () => {
       setIsLoading(false);
     }
   };
+
+  // Compute adjusted items with offers
+  console.log('[Checkout] cartItems:', cartItems);
+  console.log('[Checkout] restaurantOffers:', restaurantOffers);
+  const adjustedItems = cartItems.map(item => {
+    // Find best applicable offer for this item
+    const offer = restaurantOffers.filter(o => {
+      if (o.appliesTo === 'All Menu') return true;
+      if (o.appliesTo === 'Selected Items' && Array.isArray(o.menuItems)) {
+        // menuItems may be populated objects
+        return o.menuItems.some(mi => (mi._id || mi.id || '').toString() === item.menuItemId.toString());
+      }
+      return false;
+    }).reduce((best, cur) => cur.discountPercentage > best.discountPercentage ? cur : best, { discountPercentage: 0, title: '' });
+    console.log(`[Checkout] Item ${item.menuItemId} best offer:`, offer);
+    const discount = offer.discountPercentage || 0;
+    const discountedBase = Math.round((item.basePrice * (100 - discount)) / 100 * 100) / 100;
+    const addOnCost = (item.selectedAddOns || []).reduce((sum, a) => sum + (a.price || 0), 0);
+    const unitPrice = Math.round((discountedBase + addOnCost) * 100) / 100;
+    const lineTotal = Math.round((unitPrice * item.quantity) * 100) / 100;
+    return { ...item, offer, discountedBase, unitPrice, lineTotal };
+  });
+  console.log('[Checkout] adjustedItems:', adjustedItems);
+  const adjustedSubTotal = adjustedItems.reduce((sum, i) => sum + i.lineTotal, 0);
+  const adjustedTotal = adjustedSubTotal + cartStats.shipping;
 
   return (
     <section className="py-10">
@@ -570,16 +615,19 @@ const Checkout = () => {
                   
                   <div className="p-4">
                     <div className="mb-4 overflow-y-auto max-h-64">
-                      {cartItems.map((item) => (
+                      {adjustedItems.map((item) => (
                         <div key={item.id} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                           <div className="flex-1">
                             <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-500">
-                              {item.quantity} × Rs. {item.price}
-                            </p>
+                            <div className="text-sm text-gray-500 flex items-center space-x-2">
+                              <span>{item.quantity} × Rs. {item.unitPrice.toFixed(2)}</span>
+                              {item.offer.discountPercentage > 0 && (
+                                <span className="text-xs text-gray-400 line-through">Rs. {item.basePrice.toFixed(2)}</span>
+                              )}
+                            </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">Rs. {(item.price * item.quantity).toFixed(2)}</p>
+                            <p className="font-medium">Rs. {item.lineTotal.toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
@@ -621,7 +669,7 @@ const Checkout = () => {
                     <div className="pt-3 space-y-3 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Subtotal</span>
-                        <span className="font-medium">Rs. {cartStats.subTotal.toFixed(2)}</span>
+                        <span className="font-medium">Rs. {adjustedSubTotal.toFixed(2)}</span>
                       </div>
                       
                       <div className="flex items-center justify-between">
@@ -635,7 +683,7 @@ const Checkout = () => {
                       
                       <div className="flex items-center justify-between font-medium">
                         <span>Total</span>
-                        <span className="text-lg text-yumrun-accent">Rs. {(cartStats.total - pointsToRedeem).toFixed(2)}</span>
+                        <span className="text-lg text-yumrun-accent">Rs. {(adjustedTotal - pointsToRedeem).toFixed(2)}</span>
                       </div>
                     </div>
                     
@@ -652,7 +700,7 @@ const Checkout = () => {
                             Processing...
                           </>
                         ) : (
-                          `Place Order - Rs. ${(cartStats.total - pointsToRedeem).toFixed(2)}`
+                          `Place Order - Rs. ${(adjustedTotal - pointsToRedeem).toFixed(2)}`
                         )}
                       </Button>
                       

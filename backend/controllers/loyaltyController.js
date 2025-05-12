@@ -30,19 +30,26 @@ exports.getLoyaltyInfo = asyncHandler(async (req, res) => {
         throw new ErrorResponse('User not found', 404);
     }
     
-    // Determine currentPoints scoped to restaurant if provided, otherwise global
+    // Start with global loyalty points
     let currentPoints = user.loyaltyPoints;
+    // If a restaurantId is provided, try to scope points to that restaurant
     if (restaurantId) {
-        const mongoose = require('mongoose');
-        const match = {
-            user: mongoose.Types.ObjectId(userId),
-            restaurantId: mongoose.Types.ObjectId(restaurantId)
-        };
-        const agg = await LoyaltyTransaction.aggregate([
-            { $match: match },
-            { $group: { _id: null, totalPoints: { $sum: '$points' } } }
-        ]);
-        currentPoints = agg[0]?.totalPoints || 0;
+        try {
+            const mongoose = require('mongoose');
+            const match = {
+                user: mongoose.Types.ObjectId(userId),
+                restaurantId: mongoose.Types.ObjectId(restaurantId)
+            };
+            const aggResult = await LoyaltyTransaction.aggregate([
+                { $match: match },
+                { $group: { _id: null, totalPoints: { $sum: '$points' } } }
+            ]);
+            currentPoints = aggResult[0]?.totalPoints || 0;
+        } catch (aggError) {
+            console.error('Error aggregating loyalty points for restaurant', restaurantId, aggError);
+            // Fallback to global points
+            currentPoints = user.loyaltyPoints;
+        }
     }
     
     // Get user's current tier and benefits (global tier)

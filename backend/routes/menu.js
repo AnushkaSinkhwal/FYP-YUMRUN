@@ -269,9 +269,7 @@ router.get('/', async (req, res) => {
             // Fetch all active offers (can be optimized if needed)
             const now = new Date();
             const activeOffers = await Offer.find({
-                isActive: true,
-                startDate: { $lte: now },
-                endDate: { $gte: now }
+                isActive: true
             }).lean();
             
             console.log(`Fetched ${activeOffers.length} active offers.`);
@@ -399,12 +397,10 @@ router.get('/', async (req, res) => {
         
         console.log(`[Menu API] Found ${allMenuItems.length} items total. Filtered down to ${validItems.length} valid items.`);
         
-        // Fetch active offers
+        // Fetch all active offers (can be optimized if needed)
         const now = new Date();
         const activeOffers = await Offer.find({
-            isActive: true,
-            startDate: { $lte: now },
-            endDate: { $gte: now }
+            isActive: true
         }).lean();
         
         console.log(`Fetched ${activeOffers.length} active offers.`);
@@ -531,10 +527,8 @@ router.get('/restaurant/:id', async (req, res) => {
         // Fetch active offers for this restaurant
         const now = new Date();
         const activeOffers = await Offer.find({
-            restaurant: req.params.id, 
-            isActive: true,
-            startDate: { $lte: now },
-            endDate: { $gte: now }
+            restaurant: req.params.id,
+            isActive: true
         }).lean();
         console.log(`Found ${activeOffers.length} active offers for this restaurant.`);
 
@@ -766,10 +760,8 @@ router.get('/:id', async (req, res) => {
         if (itemRestaurantId) {
             const now = new Date();
             const activeOffers = await Offer.find({
-                restaurant: itemRestaurantId, // Filter by this item's restaurant
-                isActive: true,
-                startDate: { $lte: now },
-                endDate: { $gte: now }
+                restaurant: itemRestaurantId,
+                isActive: true
             }).lean();
 
             console.log(`Found ${activeOffers.length} active offers for restaurant ${itemRestaurantId}`);

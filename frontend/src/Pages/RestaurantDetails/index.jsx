@@ -22,6 +22,7 @@ const RestaurantDetails = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
   const [itemToCustomize, setItemToCustomize] = useState(null);
+  const [restaurantOffers, setRestaurantOffers] = useState([]);
 
   // Fetch restaurant details
   useEffect(() => {
@@ -47,6 +48,26 @@ const RestaurantDetails = () => {
     if (id) {
       fetchRestaurantDetails();
     }
+  }, [id]);
+
+  // Fetch public offers for this restaurant
+  useEffect(() => {
+    const fetchRestaurantOffers = async () => {
+      console.log(`[RestaurantDetails] Fetching offers for restaurant ${id}`);
+      try {
+        const response = await axios.get(`/api/offers/public/restaurant/${id}`);
+        console.log('[RestaurantDetails] Offers endpoint response:', response);
+        if (response.data.success) {
+          console.log('[RestaurantDetails] Offers data received:', response.data.data);
+          setRestaurantOffers(response.data.data);
+        } else {
+          console.warn('[RestaurantDetails] Fetch offers responded with success=false:', response.data.message);
+        }
+      } catch (err) {
+        console.error('[RestaurantDetails] Error fetching restaurant offers:', err);
+      }
+    };
+    if (id) fetchRestaurantOffers();
   }, [id]);
 
   // Fetch menu items
@@ -150,22 +171,44 @@ const RestaurantDetails = () => {
   const handleSimpleAddToCart = (item) => {
     if (!restaurant) return;
     console.log("Adding simple item to cart:", item);
+    // Use discountedPrice if there's an active offer, otherwise original price
+    const priceToUse = item.discountedPrice != null ? item.discountedPrice : item.price;
     addToCart({
       id: item.id,
       name: item.name,
-      price: item.price, // Use item's base price
+      price: priceToUse,
+      unitPrice: priceToUse,
       image: item.image,
       quantity: 1,
       restaurantId: restaurant.id || restaurant._id,
       restaurantName: restaurant.name,
       selectedAddOns: [] // No add-ons for simple add
     });
-     // Add toast notification maybe
+    // Add toast notification maybe
   };
 
   return (
     <div className="py-8">
       <Container>
+        {/* Restaurant-level offers badges */}
+        {restaurantOffers.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">Current Offers</h2>
+            <div className="flex flex-wrap gap-2">
+              {restaurantOffers.map(offer => (
+                <span 
+                  key={offer._id || offer.id} 
+                  className="px-3 py-1 text-sm font-semibold text-white bg-yumrun-red rounded-full flex items-center gap-1 shadow-sm"
+                  title={offer.description}
+                >
+                  <FaTag className="w-3 h-3" />
+                  {offer.discountPercentage}% OFF {offer.title}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <Spinner size="lg" />
