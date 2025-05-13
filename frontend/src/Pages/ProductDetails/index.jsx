@@ -356,11 +356,11 @@ const ProductDetails = () => {
                         )}
                         {/* Restaurant-level offers badges */}
                         {restaurantOffers.length > 0 && (
-                            <div className="mb-4 flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 mb-4">
                                 {restaurantOffers.map(offer => (
                                     <span 
                                         key={offer._id || offer.id} 
-                                        className="px-2 py-1 text-xs font-semibold text-white bg-red-600 rounded-full flex items-center gap-1 shadow-sm"
+                                        className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-white bg-red-600 rounded-full shadow-sm"
                                         title={offer.description}
                                     >
                                         <FaTag className="w-3 h-3" />
@@ -440,10 +440,10 @@ const ProductDetails = () => {
                         )}
 
                         {/* Order Now button for quick checkout from product page */}
-                        {product && product.isAvailable && (
+                        {product.customizationOptions?.availableAddOns?.length > 0 && product.isAvailable && (
                           <Button
                             onClick={() => { handleAddToCartOrCustomize(); navigate('/checkout'); }}
-                            variant="secondary"
+                            variant="brand"
                             size="lg"
                             className="w-full mb-6"
                             disabled={!product.isAvailable}
@@ -453,15 +453,15 @@ const ProductDetails = () => {
                         )}
 
                         {/* Action Buttons */}
-                        <div className="flex items-center mt-auto space-x-4">
+                        <div className="flex flex-col items-stretch mt-auto space-y-3 md:flex-row md:space-y-0 md:space-x-4">
                             {/* Only show Add to Cart and Order Now if there are no customization options */}
                             {!product.customizationOptions?.availableAddOns?.length > 0 && (
                                 <>
                                   <Button 
                                       onClick={() => handleAddToCartOrCustomize()} 
-                                      variant="primary" 
-                                      size="lg" 
-                                      className="flex-1"
+                                      variant="brand"
+                                      size="lg"
+                                      className="w-full md:flex-1"
                                       disabled={!product || !product.isAvailable} 
                                   >
                                       <FaShoppingCart className="mr-2" />
@@ -469,8 +469,9 @@ const ProductDetails = () => {
                                   </Button>
                                   <Button
                                       onClick={() => { handleAddToCartOrCustomize(); navigate('/checkout'); }}
-                                      variant="secondary"
+                                      variant="outline"
                                       size="lg"
+                                      className="w-full md:flex-1"
                                       disabled={!product || !product.isAvailable}
                                   >
                                       Order Now

@@ -74,7 +74,7 @@ export const Select = ({
         <p className="mt-1 text-sm text-red-500">{error}</p>
       )}
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg dark:bg-gray-800 dark:border-gray-700">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg dark:bg-gray-800 dark:border-gray-700">
           <ul className="py-1 overflow-auto max-h-60">
             {finalOptions.map((option) => (
               <li
@@ -127,7 +127,7 @@ export const SelectValue = ({ placeholder = 'Select an option' }) => (
 );
 
 export const SelectContent = ({ children, className = '' }) => (
-  <div className={`absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg ${className}`}>
+  <div className={`absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg ${className}`}>
     {children}
   </div>
 );

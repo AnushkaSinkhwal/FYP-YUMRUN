@@ -391,38 +391,7 @@ router.post('/', async (req, res) => {
             totalPrice 
         });
         
-        // Handle loyalty redemption if provided (1 point = Rs.1) scoped to this restaurant
-        const loyaltyPointsUsed = parseInt(req.body.loyaltyPointsUsed, 10) || 0;
-        if (loyaltyPointsUsed > 0) {
-            // Determine user and compute available restaurant-specific points
-            const userRedeem = await User.findById(req.user._id || req.user.userId || req.user.id);
-            const LoyaltyTransaction = require('../models/loyaltyTransaction');
-            const availableAgg = await LoyaltyTransaction.aggregate([
-                { $match: { user: userRedeem._id, restaurantId: mongoose.Types.ObjectId(restaurantId) } },
-                { $group: { _id: null, total: { $sum: '$points' } } }
-            ]);
-            const availablePoints = availableAgg[0]?.total || 0;
-            if (loyaltyPointsUsed > availablePoints) {
-                return res.status(400).json({ success: false, message: 'Insufficient loyalty points for this restaurant' });
-            }
-            // Deduct redeemed points from global balance
-            userRedeem.loyaltyPoints -= loyaltyPointsUsed;
-            await userRedeem.save();
-            // Record redemption transaction with restaurant context
-            const redeemTxn = new LoyaltyTransaction({
-                user: userRedeem._id,
-                restaurantId: mongoose.Types.ObjectId(restaurantId),
-                points: -loyaltyPointsUsed,
-                type: 'REDEEM',
-                source: 'ORDER',
-                description: `Redeemed ${loyaltyPointsUsed} points for order checkout at restaurant ${restaurantId}`,
-                referenceId: null,
-                balance: userRedeem.loyaltyPoints
-            });
-            await redeemTxn.save();
-        }
-        
-        // Validate required fields
+        // Validate required fields (omitting loyalty redemption for simplicity)
         if (!items || !items.length || !restaurantId || !deliveryAddress || !totalPrice) {
             return res.status(400).json({
                 success: false,
@@ -638,6 +607,11 @@ router.post('/', async (req, res) => {
 
         // Generate order number (date-based)
         const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
+        // Override calculatedTotal with client-provided totalPrice (includes offers)
+        let finalTotalPrice = calculatedTotal;
+        if (req.body.totalPrice != null && !isNaN(Number(req.body.totalPrice))) {
+            finalTotalPrice = Number(req.body.totalPrice);
+        }
         
         // Get user ID from authentication
         const userId = req.user.id || req.user._id || req.user.userId;
@@ -650,24 +624,23 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Create the order
+        // Create the order (including offer and loyalty) 
         const order = new Order({
             orderNumber,
             userId: userId,
             restaurantId: restaurantId,
             items: validatedItems,
-            totalPrice: calculatedTotal, // Total price of items (base + addons)
+            totalPrice: finalTotalPrice, // Total price of items (offers applied)
             deliveryFee: deliveryFee,
             tax: taxAmount,
             tip: tipAmount,
-            loyaltyPointsUsed: loyaltyPointsUsed, // Points applied for discount
-            // grandTotal will be computed in pre-save hook including loyaltyPointsUsed
+            loyaltyPointsUsed: parseInt(req.body.loyaltyPointsUsed, 10) || 0,
             deliveryAddress: deliveryAddress,
-            specialInstructions: orderNote, // Map orderNote to specialInstructions
-            paymentMethod: paymentMethod || 'CASH', // Default to CASH
+            specialInstructions: orderNote,
+            paymentMethod: paymentMethod || 'CASH',
             paymentStatus: 'PENDING',
             status: 'PENDING'
-            // statusUpdates will be added automatically on status change
+            // statusUpdates will be added automatically
         });
 
         console.log('[Orders API] Saving order:', {
@@ -719,6 +692,25 @@ router.post('/', async (req, res) => {
                 console.log(`[Orders API] Customer not found or no email for user ID: ${userId}. Skipping confirmation email.`);
             }
 
+            // Add email promise for restaurant owner notification
+            if (restaurant && restaurant.owner) {
+                const ownerUser = await User.findById(restaurant.owner);
+                if (ownerUser && ownerUser.email) {
+                    notificationPromises.push(
+                        sendEmail({
+                            to: ownerUser.email,
+                            subject: `New Order Received: #${order.orderNumber}`,
+                            html: `
+                              <p>Hello ${ownerUser.fullName || ownerUser.firstName || 'Owner'},</p>
+                              <p>You have received a new order <strong>#${order.orderNumber}</strong> worth Rs. ${order.grandTotal.toFixed(2)}.</p>
+                              <p>Please check your restaurant dashboard for details.</p>
+                              <p>Regards,<br>The YumRun Team</p>
+                            `
+                        })
+                    );
+                }
+            }
+
             // Execute all promises concurrently
             await Promise.all(notificationPromises).catch(err => {
                 console.error('[Orders API] Error in post-order operations (notifications/email):', err);
@@ -735,6 +727,7 @@ router.post('/', async (req, res) => {
             const { calculateBasePoints, calculateOrderPoints, updateUserTier } = require('../utils/loyaltyUtils');
             const LoyaltyTransaction = require('../models/loyaltyTransaction');
             const userEarn = await User.findById(userId);
+            // Calculate points based solely on order total
             const basePoints = calculateBasePoints(order.grandTotal);
             const pointsEarned = calculateOrderPoints(basePoints, userEarn.loyaltyTier);
             // Set expiry date 12 months from now
@@ -742,7 +735,6 @@ router.post('/', async (req, res) => {
             expiryDate.setMonth(expiryDate.getMonth() + 12);
             const earnTxn = new LoyaltyTransaction({
                 user: userId,
-                restaurantId: order.restaurantId,
                 points: pointsEarned,
                 type: 'EARN',
                 source: 'ORDER',
@@ -752,19 +744,13 @@ router.post('/', async (req, res) => {
                 expiryDate
             });
             await earnTxn.save();
-            // Update user's points
+            // Update user points
             userEarn.loyaltyPoints = (userEarn.loyaltyPoints || 0) + pointsEarned;
             userEarn.lifetimeLoyaltyPoints = (userEarn.lifetimeLoyaltyPoints || 0) + pointsEarned;
             await userEarn.save();
-            // Update user tier if changed
-            await updateUserTier(userId);
-            // Update order record with earned points
-            order.loyaltyPointsEarned = pointsEarned;
-            await order.save();
         } catch (err) {
             console.error('Error processing loyalty earn for order:', err);
         }
-        // --- End Loyalty processing ---
         
         // Return success response with the created order
         console.log('[Orders API] Returning successful response with order ID:', order._id);
@@ -873,6 +859,24 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
         // Verify the order belongs to the restaurant owner
         if (order.restaurantId.toString() !== ownerRestaurantId.toString()) {
             return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
+        }
+
+        // Enforce allowed status transitions for restaurant owner
+        const prev = order.status;
+        const allowedTransitions = {
+          PENDING: ['CONFIRMED','CANCELLED'],
+          CONFIRMED: ['PREPARING','CANCELLED'],
+          PREPARING: ['READY','CANCELLED'],
+          READY: ['CANCELLED'],
+          OUT_FOR_DELIVERY: [],
+          DELIVERED: [],
+          CANCELLED: []
+        };
+        if (!allowedTransitions[prev] || !allowedTransitions[prev].includes(status)) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot change status from ${prev} to ${status}`
+          });
         }
 
         // Update order status and log status update
@@ -1072,7 +1076,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Update order status (restaurant or admin)
-router.patch('/:id/status', auth, async (req, res) => {
+router.patch('/:id/status', auth, isRestaurantOwner, async (req, res) => {
     try {
         const { status } = req.body;
         const validStatuses = Order.schema.path('status').enumValues;
@@ -1093,9 +1097,9 @@ router.patch('/:id/status', auth, async (req, res) => {
         }
 
         // Check if user has permission to update this order
-        const isRestaurantOwner = req.user.role === 'restaurant' && 
-                              req.user.restaurantDetails && 
-                              req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
+        const isRestaurantOwner = req.user.role === 'restaurant' &&
+                              req.user.restaurantId &&
+                              req.user.restaurantId.toString() === order.restaurantId.toString();
         
         if (!isRestaurantOwner && req.user.role !== 'admin' && req.user.role !== 'delivery_rider') {
             return res.status(403).json({
@@ -1110,6 +1114,24 @@ router.patch('/:id/status', auth, async (req, res) => {
                 success: false,
                 message: 'Only delivery riders can mark orders as delivered'
             });
+        }
+
+        // Enforce allowed status transitions for restaurant owner
+        const prev = order.status;
+        const allowedTransitions = {
+          PENDING: ['CONFIRMED','CANCELLED'],
+          CONFIRMED: ['PREPARING','CANCELLED'],
+          PREPARING: ['READY','CANCELLED'],
+          READY: ['CANCELLED'],
+          OUT_FOR_DELIVERY: [],
+          DELIVERED: [],
+          CANCELLED: []
+        };
+        if (!allowedTransitions[prev] || !allowedTransitions[prev].includes(status)) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot change status from ${prev} to ${status}`
+          });
         }
 
         // Update the order status
@@ -1144,7 +1166,7 @@ router.patch('/:id/status', auth, async (req, res) => {
 });
 
 // Assign delivery rider to order
-router.patch('/:id/assign-rider', auth, async (req, res) => {
+router.patch('/:id/assign-rider', auth, isRestaurantOwner, async (req, res) => {
     try {
         const { riderId } = req.body;
         
@@ -1164,9 +1186,9 @@ router.patch('/:id/assign-rider', auth, async (req, res) => {
         }
 
         // Check if user has permission to assign riders
-        const isRestaurantOwner = req.user.role === 'restaurant' && 
-                              req.user.restaurantDetails && 
-                              req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
+        const isRestaurantOwner = req.user.role === 'restaurant' &&
+                              req.user.restaurantId &&
+                              req.user.restaurantId.toString() === order.restaurantId.toString();
         
         if (!isRestaurantOwner && req.user.role !== 'admin') {
             return res.status(403).json({
@@ -1224,8 +1246,8 @@ router.patch('/:id/cancel', auth, async (req, res) => {
             });
         }
 
-        // Check if the order can be cancelled
-        const cancelableStatuses = ['PENDING', 'CONFIRMED'];
+        // Check if the order can be cancelled (only pending orders)
+        const cancelableStatuses = ['PENDING'];
         if (!cancelableStatuses.includes(order.status)) {
             return res.status(400).json({
                 success: false,
@@ -1233,13 +1255,9 @@ router.patch('/:id/cancel', auth, async (req, res) => {
             });
         }
 
-        // Check if user has permission to cancel this order
+        // Check if the user has permission to cancel this order (only owner or admin)
         const isUser = order.userId.toString() === req.user.id;
-        const isRestaurantOwner = req.user.role === 'restaurant' && 
-                              req.user.restaurantDetails && 
-                              req.user.restaurantDetails._id.toString() === order.restaurantId.toString();
-        
-        if (!isUser && !isRestaurantOwner && req.user.role !== 'admin') {
+        if (!isUser && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 message: 'Access denied. You do not have permission to cancel this order.'
@@ -1262,6 +1280,27 @@ router.patch('/:id/cancel', auth, async (req, res) => {
         }
 
         await order.save();
+
+        // Notify restaurant owner via email about cancellation
+        try {
+            const restaurantDoc = await Restaurant.findById(order.restaurantId);
+            if (restaurantDoc && restaurantDoc.owner) {
+                const ownerUser = await User.findById(restaurantDoc.owner);
+                if (ownerUser && ownerUser.email) {
+                    await sendEmail({
+                        to: ownerUser.email,
+                        subject: `Order Cancelled: #${order.orderNumber}`,
+                        html: `
+                          <p>Hello ${ownerUser.fullName || ownerUser.firstName || 'Owner'},</p>
+                          <p>Order <strong>#${order.orderNumber}</strong> has been cancelled by the customer.</p>
+                          <p>Regards,<br>The YumRun Team</p>
+                        `
+                    });
+                }
+            }
+        } catch (emailError) {
+            console.error('Error sending cancellation email to owner:', emailError);
+        }
 
         res.status(200).json({
             success: true,

@@ -233,6 +233,29 @@ const Checkout = () => {
       return;
     }
 
+    // Recalculate adjusted total (including offers)
+    const recalcItems = cartItems.map(item => {
+      const rawBasePrice = item.basePrice != null
+        ? item.basePrice
+        : item.unitPrice != null
+          ? item.unitPrice
+          : (item.price && item.quantity ? item.price / item.quantity : 0);
+      const offer = restaurantOffers.filter(o => {
+        if (o.appliesTo === 'All Menu') return true;
+        if (o.appliesTo === 'Selected Items' && Array.isArray(o.menuItems)) {
+          return o.menuItems.some(mi => (mi._id || mi.id || '').toString() === item.menuItemId.toString());
+        }
+        return false;
+      }).reduce((best, cur) => cur.discountPercentage > best.discountPercentage ? cur : best, { discountPercentage: 0 });
+      const discount = offer.discountPercentage || 0;
+      const discountedBase = Math.round((rawBasePrice * (100 - discount)) / 100 * 100) / 100;
+      const addOnCost = (item.selectedAddOns || []).reduce((sum, a) => sum + (a.price || 0), 0);
+      const unitPrice = Math.round((discountedBase + addOnCost) * 100) / 100;
+      const lineTotal = Math.round((unitPrice * item.quantity) * 100) / 100;
+      return lineTotal;
+    });
+    const adjustedSub = recalcItems.reduce((sum, v) => sum + v, 0);
+    const adjustedTotal = adjustedSub + cartStats.shipping;
     setIsLoading(true);
 
     // Create a unique order number (can still be generated locally if needed)
@@ -334,7 +357,9 @@ const Checkout = () => {
         
         if (paymentMethod === 'khalti') {
           console.log('Order created, proceeding to Khalti initiation for order ID:', actualOrderId);
-          setKhaltiDetails({ orderId: actualOrderId, amount: createdOrder.grandTotal }); // Use actual order ID and amount
+          // Pay adjusted total minus redeemed points
+          const amountToPay = adjustedTotal - pointsToRedeem;
+          setKhaltiDetails({ orderId: actualOrderId, amount: amountToPay });
           setShowKhalti(true);
           setIsLoading(false); // Khalti component handles its own loading
           return;
@@ -383,6 +408,12 @@ const Checkout = () => {
   console.log('[Checkout] cartItems:', cartItems);
   console.log('[Checkout] restaurantOffers:', restaurantOffers);
   const adjustedItems = cartItems.map(item => {
+    // Determine raw base price (fallback to unitPrice or total price/quantity)
+    const rawBasePrice = item.basePrice != null
+      ? item.basePrice
+      : item.unitPrice != null
+        ? item.unitPrice
+        : (item.price && item.quantity ? item.price / item.quantity : 0);
     // Find best applicable offer for this item
     const offer = restaurantOffers.filter(o => {
       if (o.appliesTo === 'All Menu') return true;
@@ -391,14 +422,14 @@ const Checkout = () => {
         return o.menuItems.some(mi => (mi._id || mi.id || '').toString() === item.menuItemId.toString());
       }
       return false;
-    }).reduce((best, cur) => cur.discountPercentage > best.discountPercentage ? cur : best, { discountPercentage: 0, title: '' });
+    }).reduce((best, cur) => cur.discountPercentage > best.discountPercentage ? cur : best, { discountPercentage: 0 });
     console.log(`[Checkout] Item ${item.menuItemId} best offer:`, offer);
     const discount = offer.discountPercentage || 0;
-    const discountedBase = Math.round((item.basePrice * (100 - discount)) / 100 * 100) / 100;
+    const discountedBase = Math.round((rawBasePrice * (100 - discount)) / 100 * 100) / 100;
     const addOnCost = (item.selectedAddOns || []).reduce((sum, a) => sum + (a.price || 0), 0);
     const unitPrice = Math.round((discountedBase + addOnCost) * 100) / 100;
     const lineTotal = Math.round((unitPrice * item.quantity) * 100) / 100;
-    return { ...item, offer, discountedBase, unitPrice, lineTotal };
+    return { ...item, offer, basePrice: rawBasePrice, discountedBase, unitPrice, lineTotal };
   });
   console.log('[Checkout] adjustedItems:', adjustedItems);
   const adjustedSubTotal = adjustedItems.reduce((sum, i) => sum + i.lineTotal, 0);

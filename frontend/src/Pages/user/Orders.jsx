@@ -30,6 +30,9 @@ const UserOrders = () => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  // State for canceling orders
+  const [cancelingOrderId, setCancelingOrderId] = useState(null);
+  const [cancelError, setCancelError] = useState(null);
   
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -285,6 +288,32 @@ const UserOrders = () => {
     }
   };
 
+  // Function to cancel an order by the user
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    setCancelError(null);
+    setCancelingOrderId(orderId);
+    try {
+      const response = await userAPI.cancelOrder(orderId);
+      if (response.data && response.data.success) {
+        toast.success('Order cancelled successfully');
+        setOrders(prevOrders =>
+          prevOrders.map(o =>
+            String(getId(o)) === orderId ? { ...o, status: 'CANCELLED' } : o
+          )
+        );
+      } else {
+        throw new Error(response.data?.message || 'Failed to cancel order');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to cancel order';
+      setCancelError(msg);
+      toast.error(msg);
+    } finally {
+      setCancelingOrderId(null);
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
     if (!order) return false;
     
@@ -358,6 +387,12 @@ const UserOrders = () => {
       {error && (
         <Alert variant="destructive" className="mb-4">
           {error}
+        </Alert>
+      )}
+
+      {cancelError && (
+        <Alert variant="destructive" className="mb-4">
+          {cancelError}
         </Alert>
       )}
 
@@ -575,6 +610,18 @@ const UserOrders = () => {
                         Rate Rider
                       </Button>
                     </div>
+                  )}
+                  {order.status === 'PENDING' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCancelOrder(orderId)}
+                      disabled={cancelingOrderId === orderId}
+                      className="gap-1"
+                    >
+                      {cancelingOrderId === orderId ? <Spinner size="sm" className="mr-1" /> : <FaTimes className="w-3 h-3 mr-1" />}
+                      Cancel Order
+                    </Button>
                   )}
                 </div>
               </Card>

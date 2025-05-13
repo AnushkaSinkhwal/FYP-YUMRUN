@@ -864,6 +864,11 @@ export const userAPI = {
   updateOrderStatus: async (orderId, status) => {
     return api.patch(`/orders/${orderId}/status`, { status });
   },
+  
+  // Cancel an order (only for user's own pending orders)
+  cancelOrder: async (orderId) => {
+    return api.patch(`/orders/${orderId}/cancel`);
+  },
 };
 
 // Delivery Rider API methods
