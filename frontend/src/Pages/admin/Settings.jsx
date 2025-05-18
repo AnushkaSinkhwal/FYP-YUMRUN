@@ -1,18 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Input, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui';
 import { FaCog, FaGlobe, FaEnvelope } from 'react-icons/fa';
+import { adminAPI } from '../../utils/api';
 
 const Settings = () => {
   const [generalSettings, setGeneralSettings] = useState({
-    siteName: 'YumRun',
-    siteDescription: 'Food Delivery Platform',
-    contactEmail: 'support@yumrun.com',
-    contactPhone: '+1 (555) 123-4567',
-    language: 'en',
-    timezone: 'Asia/Kathmandu'
+    siteName: '',
+    siteDescription: '',
+    contactEmail: '',
+    contactPhone: '',
+    contactAddress: ''
   });
 
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await adminAPI.getSettings();
+        if (response.data.success) {
+          setGeneralSettings(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleGeneralSettingsChange = (name, value) => {
     setGeneralSettings(prev => ({
@@ -24,9 +39,10 @@ const Settings = () => {
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // TODO: Implement API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Show success message
+      const response = await adminAPI.updateSettings(generalSettings);
+      if (response.data.success) {
+        setMessage('Settings saved successfully.');
+      }
     } catch {
       // Show error message
     } finally {
@@ -103,6 +119,15 @@ const Settings = () => {
                     placeholder="Enter contact phone"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Contact Address</label>
+                  <Input
+                    value={generalSettings.contactAddress}
+                    onChange={(e) => handleGeneralSettingsChange('contactAddress', e.target.value)}
+                    placeholder="Enter contact address"
+                  />
+                </div>
               </div>
             </Card>
           </div>
@@ -119,6 +144,11 @@ const Settings = () => {
           {loading ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
+      {message && (
+        <div className="mt-4 text-green-600">
+          {message}
+        </div>
+      )}
     </div>
   );
 };

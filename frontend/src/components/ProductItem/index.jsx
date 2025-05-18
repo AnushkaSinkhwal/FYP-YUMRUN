@@ -14,7 +14,7 @@ import {
 } from '../ui';
 import { cn } from "../../lib/utils";
 import { useCart } from '../../context/CartContext';
-import { getFullImageUrl, PLACEHOLDERS, getBestImageUrl } from '../../utils/imageUtils';
+import { PLACEHOLDERS, getBestImageUrl } from '../../utils/imageUtils';
 
 const ProductItem = ({ 
     itemView = "four", 
@@ -251,11 +251,6 @@ const ProductItem = ({
 
     // Function to render the star rating
     const renderRating = (value) => {
-        // Don't display ratings if they're not provided or zero
-        if (!value || value <= 0) {
-            return null;
-        }
-        
         const fullStars = Math.floor(value);
         const hasHalfStar = value % 1 >= 0.5;
         

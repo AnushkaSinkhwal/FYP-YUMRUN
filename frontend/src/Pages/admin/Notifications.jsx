@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '../../utils/api';
 import { Card, Button, Alert, Spinner, Badge } from '../../components/ui';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
 import { FaCheck } from 'react-icons/fa';
 
 const NotificationItem = ({ notification, onMarkAsRead }) => {
-  const navigate = useNavigate();
-  
   const getStatusBadge = (status) => {
     switch(status) {
       case 'PENDING':
@@ -44,36 +41,6 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
     }
   };
   
-  const handleViewDetails = () => {
-    onMarkAsRead(notification._id);
-    
-    // Determine the appropriate route based on notification type
-    if (notification.type === 'RESTAURANT_UPDATE' || 
-        notification.type === 'RESTAURANT_REGISTRATION' || 
-        notification.type === 'PROFILE_UPDATE_REQUEST') {
-      
-      // Extract the approval ID from the notification data
-      const approvalId = notification.data?.approvalId;
-      
-      // Navigate to restaurant approvals page with the approval ID
-      if (approvalId) {
-        navigate('/admin/restaurant-approvals', { 
-          state: { 
-            approvalId: approvalId,
-            autoOpenDetails: true 
-          } 
-        });
-      } else {
-        navigate('/admin/restaurant-approvals');
-      }
-    } else if (notification.type === 'PROFILE_UPDATE') {
-      navigate(`/admin/users/${notification.data?.userId || ''}`);
-    } else {
-      // Default to notification list if no specific location
-      navigate('/admin/notifications');
-    }
-  };
-  
   return (
     <Card className={`mb-3 border-l-4 ${!notification.isRead ? 'border-l-yumrun-primary bg-yellow-50 dark:bg-yellow-900/20' : 'border-l-transparent'}`}>
       <div className="p-3">
@@ -104,13 +71,6 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
         </div>
         
         <div className="flex justify-end mt-2">
-          <Button 
-            size="sm"
-            variant="secondary"
-            onClick={handleViewDetails}
-          >
-            View Details
-          </Button>
           {!notification.isRead && (
             <Button
               size="sm"
@@ -147,7 +107,6 @@ const AdminNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [processSuccess, setProcessSuccess] = useState(null);
   
   useEffect(() => {
     fetchNotifications();
@@ -157,7 +116,6 @@ const AdminNotifications = () => {
     try {
       setIsLoading(true);
       setError(null);
-      setProcessSuccess(null);
       const response = await adminAPI.getNotifications({ limit: 100 });
       if (response?.data?.success) {
         setNotifications(response.data.notifications || []);
@@ -177,7 +135,6 @@ const AdminNotifications = () => {
   
   const handleMarkAsRead = async (notificationId) => {
     try {
-      setProcessSuccess(null);
       setError(null);
       
       const response = await adminAPI.markNotificationAsRead(notificationId);
@@ -229,12 +186,6 @@ const AdminNotifications = () => {
           <FaCheck className="mr-1" /> Mark All as Read
         </Button>
       </div>
-      
-      {processSuccess && (
-        <Alert variant="success" className="mb-4" dismissible onDismiss={() => setProcessSuccess(null)}>
-          {processSuccess}
-        </Alert>
-      )}
       
       {error && (
         <Alert variant="destructive" className="mb-4" dismissible onDismiss={() => setError(null)}>

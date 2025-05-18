@@ -60,6 +60,7 @@ const contactRoutes = require('./routes/contact');
 const deliveryRoutes = require('./routes/delivery');
 const statusRoutes = require('./routes/status');
 const categoriesRoutes = require('./routes/categories');
+const settingsRoutes = require('./routes/settings');
 
 // --- Static File Serving ---
 // Serve files from the 'uploads' directory publicly at /uploads
@@ -105,6 +106,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/categories', categoriesRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // API Status Route
 app.get('/api/status', (req, res) => {

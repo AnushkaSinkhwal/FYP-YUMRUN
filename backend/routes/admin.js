@@ -10,6 +10,7 @@ const Order = require('../models/order');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const { createNotification } = require('../utils/notifications'); // Import the function
+const Setting = require('../models/setting');
 
 // Admin login route
 router.post('/login', async (req, res) => {
@@ -2471,6 +2472,44 @@ router.get('/pending-restaurants', auth, isAdmin, async (req, res) => {
       success: false,
       message: 'Server error while fetching pending restaurants.'
     });
+  }
+});
+
+// Settings Management Routes
+/**
+ * @route   GET /api/admin/settings
+ * @desc    Get site settings
+ * @access  Private/Admin
+ */
+router.get('/settings', auth, isAdmin, async (req, res) => {
+  try {
+    let settings = await Setting.findOne();
+    if (!settings) settings = await Setting.create({});
+    res.status(200).json({ success: true, data: settings });
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/settings
+ * @desc    Update site settings
+ * @access  Private/Admin
+ */
+router.put('/settings', auth, isAdmin, async (req, res) => {
+  try {
+    let settings = await Setting.findOne();
+    if (!settings) {
+      settings = new Setting(req.body);
+    } else {
+      Object.assign(settings, req.body);
+    }
+    await settings.save();
+    res.status(200).json({ success: true, data: settings });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

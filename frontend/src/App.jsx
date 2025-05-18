@@ -57,7 +57,6 @@ import RestaurantDashboard from "./Pages/restaurant/Dashboard";
 import RestaurantMenu from "./Pages/restaurant/Menu";
 import RestaurantOrders from "./Pages/restaurant/Orders";
 import RestaurantProfile from "./Pages/restaurant/Profile";
-import RestaurantAnalytics from "./Pages/restaurant/Analytics";
 import RestaurantNotifications from "./Pages/restaurant/Notifications";
 import RestaurantOffers from "./Pages/restaurant/Offers";
 import RestaurantReviews from './Pages/restaurant/RestaurantReviews';
@@ -306,7 +305,6 @@ function App() {
                     <Route path="orders" element={<RestaurantOrders />} />
                     <Route path="reviews" element={<RestaurantReviews />} />
                     <Route path="profile" element={<RestaurantProfile />} />
-                    <Route path="analytics" element={<RestaurantAnalytics />} />
                     <Route path="notifications" element={<RestaurantNotifications />} />
                     <Route path="offers" element={<RestaurantOffers />} />
                   </Route>

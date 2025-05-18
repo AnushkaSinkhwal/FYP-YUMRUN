@@ -11,14 +11,14 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import ProductItem from "../../components/ProductItem";
 import { IoIosMail } from "react-icons/io";
 import { useEffect, useState, useRef } from 'react';
-import { Container, Button, Alert, Spinner, Card } from '../../components/ui';
+import { Container, Button, Alert, Spinner, Card, Badge } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt } from "react-icons/fa";
 import { publicAPI, userAPI } from "../../utils/api";
 import { ArrowPathIcon as RefreshIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
-import { PLACEHOLDERS } from '../../utils/imageUtils';
-import { getFullImageUrl } from '../../utils/imageUtils';
+import { PLACEHOLDERS, getFullImageUrl } from '../../utils/imageUtils';
+import axios from 'axios';
 
 const Home = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -321,21 +321,37 @@ const Home = () => {
         const fetchRestaurants = async () => {
             setLoadingRestaurants(true);
             setRestaurantsError(null);
-            
+
             try {
-                // Use publicAPI from api.js
+                // Get featured restaurants
                 const response = await publicAPI.getFeaturedRestaurants();
-                
                 if (response.data.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
-                    setFeaturedRestaurants(response.data.data);
+                    const restaurants = response.data.data;
+                    // Fetch active offers for each restaurant
+                    const restaurantsWithOffers = await Promise.all(
+                        restaurants.map(async (r) => {
+                            try {
+                                const resOffers = await axios.get(`/api/offers/restaurant/${r._id || r.id}/public`);
+                                if (resOffers.data.success && Array.isArray(resOffers.data.data) && resOffers.data.data.length > 0) {
+                                    const offers = resOffers.data.data;
+                                    const bestOffer = offers.reduce((max, o) =>
+                                        o.discountPercentage > max.discountPercentage ? o : max, offers[0]
+                                    );
+                                    return { ...r, hasOffer: true, offerPercentage: bestOffer.discountPercentage };
+                                }
+                            } catch (err) {
+                                console.error('Error fetching offers for restaurant', r._id || r.id, err);
+                            }
+                            return { ...r, hasOffer: false, offerPercentage: 0 };
+                        })
+                    );
+                    setFeaturedRestaurants(restaurantsWithOffers);
                 } else {
-                    // Handle cases where API returns success:true but empty data
                     console.log('No featured restaurants returned from API.');
-                    setFeaturedRestaurants([]); // Show empty state
+                    setFeaturedRestaurants([]);
                 }
             } catch (error) {
                 console.error('Error fetching restaurants:', error);
-                // Show error message and empty state instead of fallback data
                 setRestaurantsError('Failed to load featured restaurants.');
                 setFeaturedRestaurants([]);
             } finally {
@@ -683,6 +699,12 @@ const Home = () => {
                                                     className="overflow-hidden transition-all duration-300 transform hover:shadow-md hover:-translate-y-1"
                                                 >
                                                     <div className="relative h-48 bg-gray-100">
+                                                        {/* Offer Badge */}
+                                                        {restaurant.hasOffer && (
+                                                            <Badge variant="danger" className="absolute top-2 right-2 z-10">
+                                                                {restaurant.offerPercentage}% OFF
+                                                            </Badge>
+                                                        )}
                                                         {loadingRestaurants ? (
                                                             <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
                                                                 <div className="w-10 h-10 border-4 rounded-full border-yumrun-primary border-t-transparent animate-spin"></div>

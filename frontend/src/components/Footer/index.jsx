@@ -8,10 +8,11 @@ import { FaSquareInstagram } from "react-icons/fa6";
 import logo from '../../assets/images/logo.png';
 import { Container, Button, Input, Separator } from '../ui';
 import { useState, useEffect } from 'react';
-import { categoryAPI } from '../../utils/api';
+import { categoryAPI, publicAPI } from '../../utils/api';
 
 const Footer = () => {
     const [categories, setCategories] = useState([]);
+    const [settings, setSettings] = useState(null);
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -24,6 +25,20 @@ const Footer = () => {
         };
 
         fetchCategories();
+    }, []);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await publicAPI.getSettings();
+                if (response.data.success) {
+                    setSettings(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching site settings:', error);
+            }
+        };
+        fetchSettings();
     }, []);
 
     return (
@@ -87,18 +102,22 @@ const Footer = () => {
                                 Delivering delicious meals from your favorite restaurants straight to your door.
                             </p>
                             <div className="mt-6 space-y-3">
+                                {settings && (
+                                <>
                                 <div className="flex items-center text-gray-600">
                                     <FaMapMarkerAlt className="h-4 w-4 mr-3 text-yumrun-primary" />
-                                    <span>123 Food Street, Kathmandu</span>
+                                    <span>{settings.contactAddress}</span>
                                 </div>
                                 <div className="flex items-center text-gray-600">
                                     <FaPhoneAlt className="h-4 w-4 mr-3 text-yumrun-primary" />
-                                    <span>+977 01-4123456</span>
+                                    <span>{settings.contactPhone}</span>
                                 </div>
                                 <div className="flex items-center text-gray-600">
                                     <MdEmail className="h-4 w-4 mr-3 text-yumrun-primary" />
-                                    <span>info@yumrun.com</span>
+                                    <span>{settings.contactEmail}</span>
                                 </div>
+                                </>
+                                )}
                             </div>
                         </div>
 

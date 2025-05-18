@@ -446,7 +446,12 @@ export const adminAPI = {
   },
   
   // Other admin operations (settings, logs, etc.)
-  // ... add other admin API calls as needed ...
+  getSettings: async () => {
+    return api.get('/admin/settings');
+  },
+  updateSettings: async (settingsData) => {
+    return api.put('/admin/settings', settingsData);
+  },
 
   // **NEW** (from Restaurants.jsx - Add Restaurant functionality)
   createRestaurantAndOwner: async (newRestaurantData) => {
@@ -470,7 +475,7 @@ export const adminAPI = {
 export const restaurantAPI = {
   // Get restaurant profile
   getProfile: async () => {
-    return api.get('/restaurants/profile');
+    return api.get('/restaurant/profile');
   },
   
   // Get dashboard data
@@ -480,7 +485,7 @@ export const restaurantAPI = {
   
   // Update restaurant profile
   updateProfile: async (profileData) => {
-    return api.put('/restaurants/profile', profileData);
+    return api.put('/restaurant/profile', profileData);
   },
   
   // Submit profile changes for approval
@@ -615,11 +620,6 @@ export const restaurantAPI = {
   // NEW: Get order status history
   getOrderStatusHistory: async (orderId) => {
     return api.get(`/orders/${orderId}/status-history`);
-  },
-  
-  // Get analytics data
-  getAnalytics: async (period = 'week') => {
-    return api.get(`/restaurant/analytics?period=${period}`);
   },
   
   // Add check for pending admin update notification
@@ -1027,6 +1027,9 @@ export const loyaltyAPI = {
 export const publicAPI = {
   getFeaturedRestaurants: async () => {
     return api.get('/restaurants/featured');
+  },
+  getSettings: async () => {
+    return api.get('/settings');
   },
   // Add other public endpoints like search, menu items etc. here
 };

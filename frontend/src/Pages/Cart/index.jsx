@@ -71,9 +71,20 @@ const CartItem = ({ item, updateQuantity, removeFromCart }) => {
             )}
           </div>
           
-          <div className="text-lg font-medium text-yumrun-accent">
-            Rs. {(totalPrice || 0).toFixed(2)}
-          </div>
+          {item.basePrice > unitPrice ? (
+            <div className="flex flex-col items-end">
+              <span className="text-sm line-through text-gray-500">
+                Rs. {(item.basePrice * item.quantity).toFixed(2)}
+              </span>
+              <span className="text-lg font-medium text-yumrun-accent">
+                Rs. {(totalPrice || 0).toFixed(2)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-lg font-medium text-yumrun-accent">
+              Rs. {(totalPrice || 0).toFixed(2)}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center justify-between mt-4">

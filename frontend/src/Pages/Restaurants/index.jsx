@@ -231,7 +231,7 @@ const Restaurants = () => {
                         alt={restaurant.name} 
                         className="object-cover w-full h-48"
                       />
-                      <div className="absolute top-0 right-0 m-2">
+                      <div className="absolute top-2 left-2 z-10">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                           {restaurant.isOpen ? 'Open' : 'Closed'}
                         </span>

@@ -70,7 +70,6 @@ const DashboardLayout = ({ children, role }) => {
         { path: '/restaurant/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/restaurant/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/restaurant/analytics', label: 'Analytics', icon: <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
       deliveryuser: [
         { path: '/delivery/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },

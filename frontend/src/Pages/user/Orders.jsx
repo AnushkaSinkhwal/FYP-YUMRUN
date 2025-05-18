@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  Card, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, Alert, Badge,
+  Card, Button, Input, Select, Spinner, Alert, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription 
 } from '../../components/ui';
 import { 
@@ -407,31 +407,31 @@ const UserOrders = () => {
           />
         </div>
 
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="preparing">Preparing</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="ready">Ready</SelectItem>
-            <SelectItem value="out_for_delivery">Out For Delivery</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
+        <Select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="w-[180px]"
+          placeholder="Filter by status"
+        >
+          <option value="all">All Status</option>
+          <option value="delivered">Delivered</option>
+          <option value="preparing">Preparing</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="ready">Ready</option>
+          <option value="out_for_delivery">Out For Delivery</option>
+          <option value="cancelled">Cancelled</option>
         </Select>
 
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date">Date</SelectItem>
-            <SelectItem value="amount">Amount</SelectItem>
-            <SelectItem value="rating">Rating</SelectItem>
-          </SelectContent>
+        <Select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-[180px]"
+          placeholder="Sort by"
+        >
+          <option value="date">Date</option>
+          <option value="amount">Amount</option>
+          <option value="rating">Rating</option>
         </Select>
       </div>
 
