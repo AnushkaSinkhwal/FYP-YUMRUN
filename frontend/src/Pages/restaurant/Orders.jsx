@@ -98,7 +98,8 @@ const Orders = () => {
           paymentStatus: (order.paymentStatus || 'PENDING').toUpperCase(),
           statusUpdates: order.statusUpdates || [],
           actualDeliveryTime: order.actualDeliveryTime || null,
-          date: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown date',
+          // Use raw ISO date string so formatting happens later and avoid locale-specific parsing issues
+          date: order.createdAt || '',
           deliveryAddress: order.deliveryAddress || 'No address provided',
           specialInstructions: order.specialInstructions || '',
           paymentMethod: order.paymentMethod,
@@ -109,6 +110,8 @@ const Orders = () => {
           deliveryPersonId: order.assignedRider?._id || null,
           deliveryPerson: order.assignedRider?.fullName || order.assignedRider?.name || 'Unassigned',
         }));
+        // Sort orders by date descending so latest orders appear first
+        formattedOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
         setOrders(formattedOrders);
       } else {
         console.error('API returned success but data is missing or malformed:', response.data);

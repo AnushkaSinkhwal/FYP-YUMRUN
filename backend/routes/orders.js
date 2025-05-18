@@ -661,10 +661,12 @@ router.post('/', async (req, res) => {
         try {
             // Create promises for notifications and email
             const notificationPromises = [
+                // Notify the restaurant owner (using owner user ID and include order for actionUrl)
                 createRestaurantOrderNotification(
-                    restaurantId, 
+                    restaurant.owner,
                     `New Order #${order.orderNumber}`,
-                    `A new order has been placed for ${order.grandTotal} with ${order.items.length} items.`
+                    `You have received a new order #${order.orderNumber} worth Rs. ${order.grandTotal.toFixed(2)} with ${order.items.length} items.`,
+                    order
                 ),
                 createOrderNotification(
                     userId,
