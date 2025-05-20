@@ -13,9 +13,11 @@ const AdminDashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingRestaurantsCount, setPendingRestaurantsCount] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchPendingRestaurantsCount();
     fetchRecentActivity();
   }, []);
 
@@ -38,6 +40,17 @@ const AdminDashboard = () => {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingRestaurantsCount = async () => {
+    try {
+      const response = await adminAPI.getPendingRestaurants();
+      if (response.data?.success) {
+        setPendingRestaurantsCount(response.data.data.length || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching pending restaurants count:', err);
     }
   };
 
@@ -117,6 +130,13 @@ const AdminDashboard = () => {
       icon: <FaUtensils size={24} />,
       color: "bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300",
       link: "/admin/restaurants",
+    },
+    {
+      title: "Pending Restaurants",
+      count: loading ? '...' : pendingRestaurantsCount,
+      icon: <FaUtensils size={24} />,
+      color: "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300",
+      link: "/admin/restaurant-approvals",
     },
     {
       title: "Total Orders",
