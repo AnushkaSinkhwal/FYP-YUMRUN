@@ -9,9 +9,11 @@ import {
   Spinner 
 } from '../../components/ui';
 import api from '../../utils/api';
+import { useCart } from '../../context/CartContext';
 
 const OrderConfirmation = () => {
   const { orderId } = useParams();
+  const { clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(true);
   const [orderData, setOrderData] = useState(null);
   const [orderStatus, setOrderStatus] = useState({
@@ -59,11 +61,12 @@ const OrderConfirmation = () => {
         });
       } finally {
         setIsLoading(false);
+        clearCart();
       }
     };
 
     fetchOrderDetails();
-  }, [orderId]);
+  }, [orderId, clearCart]);
 
   const renderStatus = () => {
     if (isLoading) {

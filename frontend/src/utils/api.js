@@ -11,6 +11,12 @@ const api = axios.create({
 // Add request interceptor for JWT token
 api.interceptors.request.use(
   (config) => {
+    // If sending FormData, remove Content-Type header so browser sets multipart/form-data boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+
     // Get token from localStorage
     const token = localStorage.getItem('authToken');
     
@@ -485,7 +491,10 @@ export const restaurantAPI = {
   
   // Update restaurant profile
   updateProfile: async (profileData) => {
-    return api.put('/restaurant/profile', profileData);
+    // Ensure FormData is sent as multipart/form-data to allow file uploads
+    return api.put('/restaurant/profile', profileData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   },
   
   // Submit profile changes for approval

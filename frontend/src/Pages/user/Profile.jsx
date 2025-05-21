@@ -50,6 +50,12 @@ const UserProfile = () => {
   // Track original values to detect changes
   const [originalProfile, setOriginalProfile] = useState({});
 
+  // Add state and handler for inline change-password form
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(null);
+
   useEffect(() => {
     fetchUserProfile();
     checkApprovalStatus();
@@ -375,6 +381,36 @@ const UserProfile = () => {
       setError("Failed to save profile changes");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setPasswordLoading(true);
+    const current = e.target.currentPassword.value;
+    const newP = e.target.newPassword.value;
+    const confirm = e.target.confirmPassword.value;
+    if (newP !== confirm) {
+      setPasswordError('New passwords do not match');
+      setPasswordLoading(false);
+      return;
+    }
+    try {
+      const response = await userAPI.changePassword({ currentPassword: current, newPassword: newP });
+      if (response.data.success) {
+        setPasswordSuccess(response.data.message || 'Password updated successfully!');
+        e.target.reset();
+        setShowPasswordForm(false);
+      } else {
+        setPasswordError(response.data.message || 'Failed to change password');
+      }
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || 'An error occurred while changing password');
+      console.error('Password change error:', err);
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -733,17 +769,54 @@ const UserProfile = () => {
           {/* Security */}
           <Card className="p-6">
             <h2 className="mb-4 text-lg font-semibold">Security</h2>
+            {passwordSuccess && (
+              <Alert variant="success" className="mb-4">
+                {passwordSuccess}
+              </Alert>
+            )}
+            {passwordError && (
+              <Alert variant="destructive" className="mb-4">
+                {passwordError}
+              </Alert>
+            )}
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border rounded-md">
-                <div className="flex items-center gap-2">
-                  <FaLock className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <Label>Password</Label>
-                    <p className="text-sm text-gray-500">Last changed: Never</p>
+              {!showPasswordForm ? (
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                  <div className="flex items-center gap-2">
+                    <FaLock className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <Label>Password</Label>
+                      <p className="text-sm text-gray-500">Last changed: Never</p>
+                    </div>
                   </div>
+                  <Button variant="outline" onClick={() => setShowPasswordForm(true)}>
+                    Change Password
+                  </Button>
                 </div>
-                <Button variant="outline">Change Password</Button>
-              </div>
+              ) : (
+                <form onSubmit={handlePasswordSubmit} className="space-y-4 p-4 border rounded-md">
+                  <div>
+                    <Label>Current Password</Label>
+                    <Input type="password" name="currentPassword" required />
+                  </div>
+                  <div>
+                    <Label>New Password</Label>
+                    <Input type="password" name="newPassword" required />
+                  </div>
+                  <div>
+                    <Label>Confirm New Password</Label>
+                    <Input type="password" name="confirmPassword" required />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={() => setShowPasswordForm(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={passwordLoading}>
+                      {passwordLoading ? 'Changing...' : 'Change Password'}
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           </Card>
         </div>

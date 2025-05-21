@@ -11,6 +11,7 @@ import { useContext, useState, useEffect, useRef } from 'react';
 import { MyContext } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { publicAPI } from '../../utils/api';
 import { Container, Button } from '../../components/ui';
 
 const Header = () => {
@@ -18,6 +19,8 @@ const Header = () => {
   const { currentUser, logout } = useAuth();
   const { cartStats } = useCart();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
+  const [contactPhone, setContactPhone] = useState('+977 1234567');
+  const [contactEmail, setContactEmail] = useState('info@yumrun.com');
   const [showSearch, setShowSearch] = useState(false);
   const [cartActive, setCartActive] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -92,6 +95,23 @@ const Header = () => {
     }
   }, [currentUser]);
 
+  // Fetch site settings for dynamic contact info
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await publicAPI.getSettings();
+        if (res.data.success && res.data.data) {
+          const { contactPhone, contactEmail } = res.data.data;
+          if (contactPhone) setContactPhone(contactPhone);
+          if (contactEmail) setContactEmail(contactEmail);
+        }
+      } catch (err) {
+        console.error('Error fetching site settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const toggleSearch = () => {
     setShowSearch(!showSearch);
   };
@@ -138,13 +158,13 @@ const Header = () => {
         <Container>
           <div className="flex flex-col items-center md:flex-row md:justify-between">
             <div className="items-center hidden space-x-4 md:flex">
-              <a href="tel:+9771234567" className="flex items-center text-sm text-white hover:text-gray-100" aria-label="Call us">
+              <a href={`tel:${contactPhone}`} className="flex items-center text-sm text-white hover:text-gray-100" aria-label="Call us">
                 <BsTelephone className="mr-1" />
-                <span>+977 1234567</span>
+                <span>{contactPhone}</span>
               </a>
-              <a href="mailto:info@yumrun.com" className="flex items-center text-sm text-white hover:text-gray-100" aria-label="Email us">
+              <a href={`mailto:${contactEmail}`} className="flex items-center text-sm text-white hover:text-gray-100" aria-label="Email us">
                 <MdOutlineEmail className="mr-1" />
-                <span>info@yumrun.com</span>
+                <span>{contactEmail}</span>
               </a>
             </div>
             <p className="mb-0 text-sm text-center text-white md:text-right">Delivering Delicious Food To Your Doorstep</p>

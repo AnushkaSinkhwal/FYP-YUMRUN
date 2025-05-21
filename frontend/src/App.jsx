@@ -303,6 +303,7 @@ function App() {
                     <Route path="dashboard" element={<RestaurantDashboard />} />
                     <Route path="menu" element={<RestaurantMenu />} />
                     <Route path="orders" element={<RestaurantOrders />} />
+                    <Route path="orders/:orderId" element={<Navigate to="/restaurant/orders" replace />} />
                     <Route path="reviews" element={<RestaurantReviews />} />
                     <Route path="profile" element={<RestaurantProfile />} />
                     <Route path="notifications" element={<RestaurantNotifications />} />

@@ -132,26 +132,22 @@ const createRestaurantOrderNotification = async (restaurantId, title, message, o
     let notificationData = {};
     
     if (order && typeof order === 'object') {
-      // Old format - receiving full order object
-      title = title || 'New Order Received';
-      message = message || `You have received a new order #${order.orderNumber}.`;
+      // Receiving full order object, but always link to orders list
       notificationData = {
         orderId: order._id,
         orderNumber: order.orderNumber,
-        actionUrl: `/restaurant/orders/${order._id}`
+        actionUrl: `/restaurant/orders`
       };
     } else if (typeof title === 'object' && title !== null) {
-      // Very old format - order is passed as first parameter
+      // Legacy format - first parameter was the order
       order = title;
-      title = 'New Order Received';
-      message = `You have received a new order #${order.orderNumber}.`;
       notificationData = {
         orderId: order._id,
         orderNumber: order.orderNumber,
-        actionUrl: `/restaurant/orders/${order._id}`
+        actionUrl: `/restaurant/orders`
       };
     } else {
-      // New format - receiving separate parameters
+      // New format - receiving separate parameters, link to orders list
       notificationData = {
         actionUrl: `/restaurant/orders`
       };

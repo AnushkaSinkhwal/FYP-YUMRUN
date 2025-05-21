@@ -605,14 +605,18 @@ router.post('/', async (req, res) => {
         //    });
         // }
 
-        // Generate order number (date-based)
-        const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
-        // Override calculatedTotal with client-provided totalPrice (includes offers)
-        let finalTotalPrice = calculatedTotal;
-        if (req.body.totalPrice != null && !isNaN(Number(req.body.totalPrice))) {
-            finalTotalPrice = Number(req.body.totalPrice);
-        }
+        // Use server-calculated totalPrice (items total, ignore client-provided value)
+        const finalTotalPrice = calculatedTotal;
         
+        console.log('[Orders API] Pre-Save Pricing Debug:', {
+            calculatedTotal_ItemsOnly: calculatedTotal,
+            deliveryFee_FromRequestOrRestaurant: deliveryFee,
+            taxAmount_Calculated: taxAmount,
+            tipAmount_FromRequest: tipAmount,
+            finalTotalPrice_ToBeSavedAsOrderTotalPrice: finalTotalPrice,
+            loyaltyPointsUsed_FromRequest: parseInt(req.body.loyaltyPointsUsed, 10) || 0
+        });
+
         // Get user ID from authentication
         const userId = req.user.id || req.user._id || req.user.userId;
         
@@ -626,11 +630,11 @@ router.post('/', async (req, res) => {
 
         // Create the order (including offer and loyalty) 
         const order = new Order({
-            orderNumber,
+            orderNumber: `ORD-${Date.now().toString().slice(-8)}`,
             userId: userId,
             restaurantId: restaurantId,
             items: validatedItems,
-            totalPrice: finalTotalPrice, // Total price of items (offers applied)
+            totalPrice: finalTotalPrice,
             deliveryFee: deliveryFee,
             tax: taxAmount,
             tip: tipAmount,
@@ -648,10 +652,24 @@ router.post('/', async (req, res) => {
             userId: order.userId,
             restaurantId: order.restaurantId,
             itemsCount: order.items.length,
-            grandTotal: order.grandTotal
+            totalPrice_Saved: order.totalPrice,
+            deliveryFee_Saved: order.deliveryFee,
+            tax_Saved: order.tax,
+            tip_Saved: order.tip,
+            loyaltyPointsUsed_Saved: order.loyaltyPointsUsed,
+            grandTotal_FromModelDefault_BeforePreSaveHook: order.grandTotal
         });
 
         await order.save();
+        console.log('[Orders API] Post-Save Pricing Debug (from saved order object):', {
+            orderId: order._id,
+            totalPrice: order.totalPrice,
+            deliveryFee: order.deliveryFee,
+            tax: order.tax,
+            tip: order.tip,
+            loyaltyPointsUsed: order.loyaltyPointsUsed,
+            grandTotal_Final: order.grandTotal
+        });
         console.log(`[Orders API] Order saved with ID: ${order._id}`);
 
         // Fetch the user details to include in the email
@@ -665,7 +683,7 @@ router.post('/', async (req, res) => {
                 createRestaurantOrderNotification(
                     restaurant.owner,
                     `New Order #${order.orderNumber}`,
-                    `You have received a new order #${order.orderNumber} worth Rs. ${order.grandTotal.toFixed(2)} with ${order.items.length} items.`,
+                    `You have received a new order #${order.orderNumber} with a total value of Rs. ${order.grandTotal.toFixed(2)} (items: Rs. ${order.totalPrice.toFixed(2)}, delivery: Rs. ${order.deliveryFee.toFixed(2)}).`,
                     order
                 ),
                 createOrderNotification(
@@ -683,7 +701,6 @@ router.post('/', async (req, res) => {
                         sendEmail({
                             to: customer.email,
                             subject: `YumRun Order Confirmation #${order.orderNumber}`,
-                            // Pass both order and customer objects to the template
                             html: emailTemplates.orderConfirmationEmail(order, customer) 
                         })
                     );
@@ -704,7 +721,7 @@ router.post('/', async (req, res) => {
                             subject: `New Order Received: #${order.orderNumber}`,
                             html: `
                               <p>Hello ${ownerUser.fullName || ownerUser.firstName || 'Owner'},</p>
-                              <p>You have received a new order <strong>#${order.orderNumber}</strong> worth Rs. ${order.grandTotal.toFixed(2)}.</p>
+                              <p>You have received a new order <strong>#${order.orderNumber}</strong> with a total value of Rs. ${order.grandTotal.toFixed(2)} (items: Rs. ${order.totalPrice.toFixed(2)}, delivery: Rs. ${order.deliveryFee.toFixed(2)}).</p>
                               <p>Please check your restaurant dashboard for details.</p>
                               <p>Regards,<br>The YumRun Team</p>
                             `
@@ -911,6 +928,14 @@ router.post('/:id/status', auth, isRestaurantOwner, async (req, res) => {
         } else {
             console.error('Could not find customer to send status update email for order:', order._id);
         }
+        
+        // Create in-app notification for the customer about status change
+        createOrderNotification(
+          order.userId,
+          `Order #${order.orderNumber} ${status}`,
+          `Your order #${order.orderNumber} is now ${status}`,
+          order
+        );
         
         // Populate user details in the response
         const updatedOrder = await Order.findById(order._id)

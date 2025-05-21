@@ -22,7 +22,7 @@ import KhaltiPayment from '../../components/Payments/KhaltiPayment';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cartItems, cartStats, clearCart } = useCart();
+  const { cartItems, cartStats } = useCart();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -348,7 +348,6 @@ const Checkout = () => {
         // STEP 2: Handle payment method based on the created order
         if (paymentMethod === 'cod') {
           console.log('Processing Cash on Delivery...');
-          clearCart();
           navigate(`/order-confirmation/${actualOrderId}`);
           addToast('Order placed successfully!', { type: 'success' });
           setIsLoading(false);
@@ -650,7 +649,7 @@ const Checkout = () => {
                         <div key={item.id} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                           <div className="flex-1">
                             <p className="font-medium">{item.name}</p>
-                            <div className="text-sm text-gray-500 flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 text-sm text-gray-500">
                               <span>{item.quantity} × Rs. {item.unitPrice.toFixed(2)}</span>
                               {item.offer.discountPercentage > 0 && (
                                 <span className="text-xs text-gray-400 line-through">Rs. {item.basePrice.toFixed(2)}</span>

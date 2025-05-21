@@ -28,6 +28,8 @@ const DashboardLayout = ({ children, role }) => {
   const { currentUser, logout } = useAuth();
   const { setIsAdminPath } = useContext(MyContext);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const [approvalCount, setApprovalCount] = useState(0);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   
   // Debug user data
@@ -56,7 +58,7 @@ const DashboardLayout = ({ children, role }) => {
       admin: [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/restaurants', label: 'Restaurants', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/admin/restaurant-approvals', label: 'Approvals', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" />, badge: approvalCount > 0, count: approvalCount },
         { path: '/admin/users', label: 'Users', icon: <FaUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/riders', label: 'Riders', icon: <FaTruck className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/admin/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
@@ -67,7 +69,7 @@ const DashboardLayout = ({ children, role }) => {
         { path: '/restaurant/dashboard', label: 'Dashboard', icon: <FaHome className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/menu', label: 'Menu', icon: <FaUtensils className="w-4 h-4 sm:w-5 sm:h-5" /> },
         { path: '/restaurant/offers', label: 'Offers', icon: <FaGift className="w-4 h-4 sm:w-5 sm:h-5" /> },
-        { path: '/restaurant/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+        { path: '/restaurant/orders', label: 'Orders', icon: <FaShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />, badge: newOrderCount > 0, count: newOrderCount },
         { path: '/restaurant/notifications', label: 'Notifications', icon: <FaBell className="w-4 h-4 sm:w-5 sm:h-5" />, badge: notificationCount > 0 },
         { path: '/restaurant/profile', label: 'Profile', icon: <FaEdit className="w-4 h-4 sm:w-5 sm:h-5" /> },
       ],
@@ -94,12 +96,16 @@ const DashboardLayout = ({ children, role }) => {
   };
 
   useEffect(() => {
-    // Fetch notification count
+    // Fetch notification and approval counts
     fetchNotificationCount();
+    if (userRole === 'admin') fetchApprovalCount();
+    if (userRole === 'restaurant') fetchNewOrderCount();
     
-    // Poll for new notifications every minute
+    // Poll for new notifications and approvals every minute
     const interval = setInterval(() => {
       fetchNotificationCount();
+      if (userRole === 'admin') fetchApprovalCount();
+      if (userRole === 'restaurant') fetchNewOrderCount();
     }, 60000);
     
     return () => clearInterval(interval);
@@ -209,6 +215,34 @@ const DashboardLayout = ({ children, role }) => {
     }
   };
   
+  // Fetch pending approval count for admin
+  const fetchApprovalCount = async () => {
+    try {
+      const response = await adminAPI.getRestaurantApprovalsCount();
+      if (response.data.success) {
+        setApprovalCount(response.data.count || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching approval count:', err);
+      setApprovalCount(0);
+    }
+  };
+  
+  // Fetch new order count for restaurant owners
+  const fetchNewOrderCount = async () => {
+    try {
+      if (userRole === 'restaurant') {
+        const response = await restaurantAPI.getDashboard();
+        if (response.data.success && response.data.data) {
+          setNewOrderCount(response.data.data.pendingOrders || 0);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching restaurant new order count:', err);
+      setNewOrderCount(0);
+    }
+  };
+  
   const handleLogout = async () => {
     await logout();
     // Reset UI state
@@ -292,9 +326,12 @@ const DashboardLayout = ({ children, role }) => {
                 >
                   {item.icon}
                   <span className="ml-3">{item.label}</span>
-                  {item.badge && notificationCount > 0 && (
+                  {item.badge && (
                     <span className="flex items-center justify-center w-5 h-5 ml-auto text-xs font-bold text-white bg-red-600 rounded-full">
-                      {notificationCount > 9 ? '9+' : notificationCount}
+                      {item.count !== undefined
+                        ? (item.count > 9 ? '9+' : item.count)
+                        : (notificationCount > 9 ? '9+' : notificationCount)
+                      }
                     </span>
                   )}
                 </Link>

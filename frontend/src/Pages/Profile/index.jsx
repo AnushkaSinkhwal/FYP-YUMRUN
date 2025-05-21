@@ -127,7 +127,34 @@ const Profile = () => {
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    // Password change functionality (to be implemented)
+    setError('');
+    setSuccess('');
+
+    // Extract passwords from form inputs
+    const currentPassword = e.target.currentPassword.value;
+    const newPassword = e.target.newPassword.value;
+    const confirmPassword = e.target.confirmPassword.value;
+
+    // Validate new passwords match
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    try {
+      // Call API to change password
+      const response = await userAPI.changePassword({ currentPassword, newPassword });
+      if (response.data.success) {
+        setSuccess(response.data.message || 'Password updated successfully!');
+        // Reset form fields
+        e.target.reset();
+      } else {
+        setError(response.data.message || 'Failed to change password');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'An error occurred while changing password');
+      console.error('Password change error:', err);
+    }
   };
 
   const handleLogout = () => {
@@ -136,19 +163,19 @@ const Profile = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div className="container px-4 py-8 mx-auto">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
         <div className="md:col-span-1">
           <Card className="mb-6">
             <div className="p-4 text-center">
-              <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <div className="flex items-center justify-center w-24 h-24 mx-auto mb-4 bg-gray-200 rounded-full">
                 <span className="text-2xl font-bold text-gray-500">
                   {currentUser?.name?.charAt(0) || 'U'}
                 </span>
               </div>
-              <h5 className="text-xl font-bold mb-1">{currentUser?.name || 'User'}</h5>
-              <p className="text-gray-500 mb-1">{currentUser?.email}</p>
-              <p className="text-sm text-gray-500 mb-4">
+              <h5 className="mb-1 text-xl font-bold">{currentUser?.name || 'User'}</h5>
+              <p className="mb-1 text-gray-500">{currentUser?.email}</p>
+              <p className="mb-4 text-sm text-gray-500">
                 {isAdmin() ? 'Administrator' : 
                  isRestaurantOwner() ? 'Restaurant Owner' : 
                  isDeliveryStaff() ? 'Delivery Staff' : 'Customer'}
@@ -193,7 +220,7 @@ const Profile = () => {
                   Account
                 </a>
                 
-                <div className="border-t border-gray-200 dark:border-gray-700 my-4 pt-4">
+                <div className="pt-4 my-4 border-t border-gray-200 dark:border-gray-700">
                   <Button 
                     variant="destructive"
                     onClick={handleLogout}
@@ -216,7 +243,7 @@ const Profile = () => {
           {/* Profile Settings */}
           {activeTab === 'profile' && (
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Profile Settings</h2>
+              <h2 className="mb-4 text-2xl font-bold">Profile Settings</h2>
               
               {success && (
                 <Alert variant="success" className="mb-4">
@@ -233,7 +260,7 @@ const Profile = () => {
               <form onSubmit={handleSubmit}>
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Full Name</label>
+                    <label className="block mb-2 text-sm font-medium">Full Name</label>
                     <Input 
                       name="name" 
                       value={profileData.name} 
@@ -243,7 +270,7 @@ const Profile = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium mb-2">Email Address</label>
+                    <label className="block mb-2 text-sm font-medium">Email Address</label>
                     <Input 
                       type="email" 
                       name="email" 
@@ -254,7 +281,7 @@ const Profile = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium mb-2">Phone Number</label>
+                    <label className="block mb-2 text-sm font-medium">Phone Number</label>
                     <Input 
                       name="phone" 
                       value={profileData.phone} 
@@ -266,7 +293,7 @@ const Profile = () => {
                   {/* Show health condition dropdown only for regular users */}
                   {!isAdmin() && !isRestaurantOwner() && !isDeliveryStaff() && (
                     <div>
-                      <label className="block text-sm font-medium mb-2">Health Condition</label>
+                      <label className="block mb-2 text-sm font-medium">Health Condition</label>
                       <Select 
                         name="healthCondition" 
                         value={profileData.healthCondition} 
@@ -278,7 +305,7 @@ const Profile = () => {
                         <option value="Hypertension">Hypertension</option>
                         <option value="Other">Other</option>
                       </Select>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="mt-1 text-sm text-gray-500">
                         For more detailed health preferences, visit the &quot;Health Profile&quot; tab.
                       </p>
                     </div>
@@ -287,12 +314,12 @@ const Profile = () => {
                   {/* Restaurant owner specific fields */}
                   {isRestaurantOwner() && (
                     <>
-                      <div className="border-t pt-4 mt-4">
-                        <h3 className="text-xl font-semibold mb-4">Restaurant Details</h3>
+                      <div className="pt-4 mt-4 border-t">
+                        <h3 className="mb-4 text-xl font-semibold">Restaurant Details</h3>
                         
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium mb-2">Restaurant Name</label>
+                            <label className="block mb-2 text-sm font-medium">Restaurant Name</label>
                             <Input 
                               name="restaurant.name" 
                               value={profileData.restaurantDetails.name} 
@@ -301,7 +328,7 @@ const Profile = () => {
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium mb-2">Restaurant Address</label>
+                            <label className="block mb-2 text-sm font-medium">Restaurant Address</label>
                             <Input 
                               name="restaurant.address" 
                               value={profileData.restaurantDetails.address} 
@@ -310,18 +337,18 @@ const Profile = () => {
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium mb-2">Description</label>
+                            <label className="block mb-2 text-sm font-medium">Description</label>
                             <textarea 
                               name="restaurant.description" 
                               value={profileData.restaurantDetails.description} 
                               onChange={handleInputChange}
-                              className="w-full rounded-md border border-gray-300 p-2"
+                              className="w-full p-2 border border-gray-300 rounded-md"
                               rows="3"
                             />
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium mb-2">Cuisine Type</label>
+                            <label className="block mb-2 text-sm font-medium">Cuisine Type</label>
                             <Input 
                               name="restaurant.cuisineType" 
                               value={profileData.restaurantDetails.cuisineType} 
@@ -356,12 +383,23 @@ const Profile = () => {
           {/* Security Tab */}
           {activeTab === 'security' && (
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Security Settings</h2>
+              <h2 className="mb-4 text-2xl font-bold">Security Settings</h2>
+              
+              {success && (
+                <Alert variant="success" className="mb-4">
+                  {success}
+                </Alert>
+              )}
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  {error}
+                </Alert>
+              )}
               
               <form onSubmit={handlePasswordChange}>
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Current Password</label>
+                    <label className="block mb-2 text-sm font-medium">Current Password</label>
                     <Input 
                       type="password" 
                       name="currentPassword" 
@@ -370,20 +408,20 @@ const Profile = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium mb-2">New Password</label>
+                    <label className="block mb-2 text-sm font-medium">New Password</label>
                     <Input 
                       type="password" 
                       name="newPassword" 
                       required 
                     />
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="mt-1 text-sm text-gray-500">
                       Password must be at least 8 characters long and include at least one uppercase letter, 
                       one lowercase letter, one number, and one special character.
                     </p>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium mb-2">Confirm New Password</label>
+                    <label className="block mb-2 text-sm font-medium">Confirm New Password</label>
                     <Input 
                       type="password" 
                       name="confirmPassword" 
@@ -407,12 +445,12 @@ const Profile = () => {
           {/* Account Tab */}
           {activeTab === 'account' && (
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Account Settings</h2>
+              <h2 className="mb-4 text-2xl font-bold">Account Settings</h2>
               
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
-                  <p className="text-gray-500 mb-4">
+                  <h3 className="mb-2 text-lg font-semibold">Delete Account</h3>
+                  <p className="mb-4 text-gray-500">
                     This action is irreversible. All of your data will be permanently deleted.
                   </p>
                   <Button 
@@ -422,9 +460,9 @@ const Profile = () => {
                   </Button>
                 </div>
                 
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-2">Export My Data</h3>
-                  <p className="text-gray-500 mb-4">
+                <div className="pt-6 border-t">
+                  <h3 className="mb-2 text-lg font-semibold">Export My Data</h3>
+                  <p className="mb-4 text-gray-500">
                     Download a copy of all the personal data associated with your account.
                   </p>
                   <Button>
@@ -432,8 +470,8 @@ const Profile = () => {
                   </Button>
                 </div>
                 
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-2">Privacy Settings</h3>
+                <div className="pt-6 border-t">
+                  <h3 className="mb-2 text-lg font-semibold">Privacy Settings</h3>
                   <div className="space-y-3">
                     <div className="flex items-center">
                       <input 
