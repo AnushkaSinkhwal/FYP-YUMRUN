@@ -235,9 +235,9 @@ const Checkout = () => {
 
     // Recalculate adjusted total (including offers)
     const recalcItems = cartItems.map(item => {
-      const rawBasePrice = item.basePrice != null
+      const rawBasePrice = item.basePrice > 0
         ? item.basePrice
-        : item.unitPrice != null
+        : item.unitPrice > 0
           ? item.unitPrice
           : (item.price && item.quantity ? item.price / item.quantity : 0);
       const offer = restaurantOffers.filter(o => {
@@ -408,9 +408,9 @@ const Checkout = () => {
   console.log('[Checkout] restaurantOffers:', restaurantOffers);
   const adjustedItems = cartItems.map(item => {
     // Determine raw base price (fallback to unitPrice or total price/quantity)
-    const rawBasePrice = item.basePrice != null
+    const rawBasePrice = item.basePrice > 0
       ? item.basePrice
-      : item.unitPrice != null
+      : item.unitPrice > 0
         ? item.unitPrice
         : (item.price && item.quantity ? item.price / item.quantity : 0);
     // Find best applicable offer for this item
