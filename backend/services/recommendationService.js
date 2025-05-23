@@ -2,6 +2,7 @@ const User = require('../models/user');
 const Order = require('../models/order');
 const MenuItem = require('../models/menuItem');
 const mongoose = require('mongoose');
+const Offer = require('../models/offer');
 
 /**
  * Generates food recommendations for a user based on health profile and order history.
@@ -161,8 +162,33 @@ const getRecommendationsForUser = async (userId) => {
          score: item.score // Include score for debugging/potential future use
      }));
 
-
-    return formattedRecommendations;
+    // Enrich recommendations with active offers
+    const now = new Date();
+    const enrichedRecommendations = await Promise.all(
+      formattedRecommendations.map(async rec => {
+        const offer = await Offer.findOne({
+          isActive: true,
+          startDate: { $lte: now },
+          endDate: { $gte: now },
+          $or: [
+            { appliesTo: 'All Menu' },
+            { menuItems: mongoose.Types.ObjectId(rec.id) }
+          ]
+        }).sort({ discountPercentage: -1 }).lean();
+        if (offer) {
+          return {
+            ...rec,
+            offerDetails: {
+              id: offer._id.toString(),
+              percentage: offer.discountPercentage,
+              title: offer.title
+            }
+          };
+        }
+        return rec;
+      })
+    );
+    return enrichedRecommendations;
 
   } catch (error) {
     console.error(`Error generating recommendations for user ${userId}:`, error);

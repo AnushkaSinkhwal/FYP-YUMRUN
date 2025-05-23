@@ -265,7 +265,7 @@ const Home = () => {
                                     name: restaurantName 
                                 },
                                 location: restaurantName,
-                                createdAt: item.createdAt || new Date().toISOString()
+                                createdAt: item.createdAt || new Date().toISOString(),
                             };
                         }).filter(item => item !== null); // Remove null items
                         
@@ -454,7 +454,7 @@ const Home = () => {
                                                 rating={item.averageRating || 0}
                                                 oldPrice={item.oldPrice}
                                                 newPrice={item.price}
-                                                discount={item.discount}
+                                                offerDetails={item.offerDetails}
                                                 price={item.price}
                                                 image={item.image} 
                                                 isRecommendation={!item.isFallbackRecommendation}
