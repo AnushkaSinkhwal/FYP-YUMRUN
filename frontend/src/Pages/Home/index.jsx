@@ -452,7 +452,10 @@ const Home = () => {
                                                 restaurant={{ id: item.restaurant?.id, name: item.restaurant?.name }}
                                                 location={item.restaurant?.name || 'Unknown Restaurant'} 
                                                 rating={item.averageRating || 0}
-                                                price={item.price} 
+                                                oldPrice={item.oldPrice}
+                                                newPrice={item.price}
+                                                discount={item.discount}
+                                                price={item.price}
                                                 image={item.image} 
                                                 isRecommendation={!item.isFallbackRecommendation}
                                                 isTrendingItem={item.isFallbackRecommendation}
@@ -562,6 +565,7 @@ const Home = () => {
                                     <Button 
                                         variant="outline" 
                                         className="flex items-center gap-2 mt-2 sm:mt-0"
+                                        onClick={() => navigate('/menu')}
                                     >
                                         View All <FaLongArrowAltRight />
                                     </Button>
@@ -625,6 +629,7 @@ const Home = () => {
                                     <Button 
                                         variant="outline" 
                                         className="flex items-center gap-2 mt-2 sm:mt-0"
+                                        onClick={() => navigate('/menu')}
                                     >
                                         View All <FaLongArrowAltRight />
                                     </Button>
