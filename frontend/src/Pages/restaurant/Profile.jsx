@@ -3,7 +3,7 @@ import { Card, Button, Input, Textarea, Label, Alert, Switch } from '../../compo
 import { FaSave, FaClock, FaImage, FaPortrait } from 'react-icons/fa';
 import { restaurantAPI } from '../../utils/api';
 import { Spinner } from '../../components/ui/spinner';
-import { getFullImageUrl } from '../../utils/imageUtils';
+import { getFullImageUrl, PLACEHOLDERS } from '../../utils/imageUtils';
 
 // Helper to get main address line
 const getMainAddress = (address) => {
@@ -238,10 +238,6 @@ const RestaurantProfile = () => {
       const response = await restaurantAPI.updateProfile(formData); 
       console.log("Update profile response:", response);
       
-      // Store potential new paths before clearing file state
-      const submittedLogoPath = logoFile ? `/uploads/restaurants/${logoFile.name}` : null; // Construct potential path (adjust if backend stores differently)
-      const submittedCoverImagePath = coverImageFile ? `/uploads/restaurants/${coverImageFile.name}` : null;
-
       // Backend PUT /restaurants/profile returns 202 Accepted for pending approval
       if (response.status === 202 || response.data?.data?.status === 'pending_approval') {
         setSuccess('Profile update request submitted successfully. Changes require admin approval.');
@@ -354,16 +350,18 @@ const RestaurantProfile = () => {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
                     <Label htmlFor="logo" className="block mb-2">Restaurant Logo</Label>
-                    <div className="mb-2">
-                      {profile.logo && (
-                        <div className="flex items-center justify-center mb-2">
-                          <img 
-                            src={profile.logo.startsWith('blob:') ? profile.logo : getFullImageUrl(profile.logo)} 
-                            alt="Restaurant Logo"
-                            className="object-contain w-32 h-32 border rounded-md"
-                          />
-                        </div>
-                      )}
+                    <div className="mb-2 flex items-center justify-center">
+                      <img
+                        src={
+                          profile.logo && profile.logo.startsWith('blob:')
+                            ? profile.logo
+                            : profile.logo
+                              ? getFullImageUrl(profile.logo)
+                              : PLACEHOLDERS.RESTAURANT
+                        }
+                        alt="Restaurant Logo"
+                        className="object-contain w-32 h-32 border rounded-md"
+                      />
                     </div>
                     <div className="flex items-center">
                       <Input
@@ -381,16 +379,18 @@ const RestaurantProfile = () => {
                   
                   <div>
                     <Label htmlFor="coverImage" className="block mb-2">Cover Image</Label>
-                    <div className="mb-2">
-                      {profile.coverImage && (
-                        <div className="flex items-center justify-center mb-2">
-                          <img 
-                            src={profile.coverImage.startsWith('blob:') ? profile.coverImage : getFullImageUrl(profile.coverImage)} 
-                            alt="Restaurant Cover"
-                            className="object-cover w-full h-32 border rounded-md"
-                          />
-                        </div>
-                      )}
+                    <div className="mb-2 flex items-center justify-center">
+                      <img
+                        src={
+                          profile.coverImage && profile.coverImage.startsWith('blob:')
+                            ? profile.coverImage
+                            : profile.coverImage
+                              ? getFullImageUrl(profile.coverImage)
+                              : PLACEHOLDERS.RESTAURANT
+                        }
+                        alt="Restaurant Cover"
+                        className="object-cover w-full h-32 border rounded-md"
+                      />
                     </div>
                     <div className="flex items-center">
                       <Input

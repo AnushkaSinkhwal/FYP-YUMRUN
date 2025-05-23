@@ -90,6 +90,14 @@ router.get('/profile', auth, isRestaurantOwner, async (req, res) => {
             priceRange: restaurant.priceRange || '$$'
         };
         
+        // Ensure paths start with a slash for static file serving
+        if (profileData.logo && !profileData.logo.startsWith('/')) {
+            profileData.logo = `/${profileData.logo}`;
+        }
+        if (profileData.coverImage && !profileData.coverImage.startsWith('/')) {
+            profileData.coverImage = `/${profileData.coverImage}`;
+        }
+        
         // If there's a pending approval, overlay the requested changes (e.g., logo, coverImage, etc.)
         if (pendingApproval) {
             const rd = pendingApproval.requestedData || {};

@@ -381,11 +381,19 @@ router.get('/featured', async (req, res) => {
             if (restaurant.owner && restaurant.owner.restaurantDetails && restaurant.owner.restaurantDetails.logo) {
                 logo = restaurant.owner.restaurantDetails.logo;
             }
+            // Ensure leading slash for logo path
+            if (logo && !logo.startsWith('/')) {
+                logo = `/${logo}`;
+            }
             
             // Get cover image similarly
             let coverImage = restaurant.coverImage;
             if (restaurant.owner && restaurant.owner.restaurantDetails && restaurant.owner.restaurantDetails.coverImage) {
                 coverImage = restaurant.owner.restaurantDetails.coverImage;
+            }
+            // Ensure leading slash for coverImage path
+            if (coverImage && !coverImage.startsWith('/')) {
+                coverImage = `/${coverImage}`;
             }
             
             return {
