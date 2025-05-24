@@ -443,7 +443,7 @@ const Home = () => {
                                 }}
                                 className="py-4 recommendations-swiper"
                             >
-                                {userRecommendations.map((item) => (
+                                {userRecommendations.slice(0, 3).map((item) => (
                                     <SwiperSlide key={item.id} className="h-full">
                                         <div className="relative h-full">
                                             {item.isFallbackRecommendation && (
