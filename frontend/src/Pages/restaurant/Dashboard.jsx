@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUtensils, FaShoppingCart, FaChartLine, FaStore, FaGift, FaInfoCircle, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaStore, FaGift, FaInfoCircle, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
 import Dashboard from '../../components/shared/Dashboard';
 import { restaurantAPI } from '../../utils/api';
 import { Alert } from '../../components/ui';
@@ -130,13 +130,6 @@ const RestaurantDashboard = () => {
       color: "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300",
       link: "/restaurant/offers",
     },
-    {
-      title: "Total Revenue",
-      count: `$${dashboardData.totalRevenue.toLocaleString()}`,
-      icon: <FaChartLine size={24} />,
-      color: "bg-purple-100 text-purple-700 dark:bg-purple-800/30 dark:text-purple-300",
-      link: "/restaurant/analytics",
-    },
   ];
 
   // Restaurant-specific quick actions
@@ -144,7 +137,7 @@ const RestaurantDashboard = () => {
     {
       title: "Manage Restaurant",
       description: "Update your restaurant details",
-      icon: <FaStore className="h-8 w-8 mb-2" />,
+      icon: <FaStore className="w-8 h-8 mb-2" />,
       gradient: "bg-gradient-to-r from-orange-500 to-orange-700",
       link: "/restaurant/profile",
       buttonText: "Manage Restaurant"
@@ -152,7 +145,7 @@ const RestaurantDashboard = () => {
     {
       title: "Manage Menu",
       description: "Update your restaurant's menu",
-      icon: <FaUtensils className="h-8 w-8 mb-2" />,
+      icon: <FaUtensils className="w-8 h-8 mb-2" />,
       gradient: "bg-gradient-to-r from-blue-500 to-blue-700",
       link: "/restaurant/menu",
       buttonText: "Go to Menu"
@@ -160,19 +153,11 @@ const RestaurantDashboard = () => {
     {
       title: "Manage Offers",
       description: "Create and manage special offers",
-      icon: <FaGift className="h-8 w-8 mb-2" />,
+      icon: <FaGift className="w-8 h-8 mb-2" />,
       gradient: "bg-gradient-to-r from-red-500 to-red-700",
       link: "/restaurant/offers",
       buttonText: "Manage Offers"
     },
-    {
-      title: "View Analytics",
-      description: "Check your performance metrics",
-      icon: <FaChartLine className="h-8 w-8 mb-2" />,
-      gradient: "bg-gradient-to-r from-purple-500 to-purple-700",
-      link: "/restaurant/analytics",
-      buttonText: "View Analytics"
-    }
   ];
 
   const fetchDashboardData = async () => {
@@ -224,7 +209,7 @@ const RestaurantDashboard = () => {
       {!isLoading && profileStatus && (
         <Alert 
           variant={statusBadgeDetails.variant} 
-          className="mb-4 flex items-center"
+          className="flex items-center mb-4"
         >
           {statusBadgeDetails.icon}
           <div>

@@ -239,6 +239,7 @@ const RestaurantDetails = () => {
                   } 
                   alt={`${restaurant.name} cover`} 
                   className="object-cover w-full h-full"
+                  onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDERS.RESTAURANT; }}
                 />
                 <div className="absolute top-0 right-0 m-4">
                   <span className={`px-3 py-1 rounded text-sm font-semibold ${restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
@@ -254,6 +255,7 @@ const RestaurantDetails = () => {
                     }
                     alt={`${restaurant.name} logo`}
                     className="object-cover w-16 h-16 mr-4 border-2 border-white rounded-full"
+                    onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDERS.RESTAURANT; }}
                   />
                   <div>
                     <h1 className="mb-2 text-3xl font-bold text-white">{restaurant.name}</h1>

@@ -417,7 +417,7 @@ const Menu = () => {
                   </div>
                   <div className="flex flex-col flex-grow p-4">
                     <h3 className="mb-2 text-lg font-semibold text-gray-800 truncate">
-                      {item.name}
+                        {item.name}
                     </h3>
                     <p className="flex-grow mb-3 text-sm text-gray-600 line-clamp-2">
                       {item.description}

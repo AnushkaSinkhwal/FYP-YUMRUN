@@ -506,7 +506,7 @@ exports.getRestaurantReviews = async (req, res) => {
             }
         });
     }
-};
+}; 
 
 /**
  * Reply to a review
