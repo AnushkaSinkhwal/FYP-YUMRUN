@@ -193,12 +193,12 @@ const RestaurantDetails = () => {
         {/* Restaurant-level offers badges */}
         {restaurantOffers.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Current Offers</h2>
+            <h2 className="mb-2 text-xl font-semibold">Current Offers</h2>
             <div className="flex flex-wrap gap-2">
               {restaurantOffers.map(offer => (
                 <span 
                   key={offer._id || offer.id} 
-                  className="px-3 py-1 text-sm font-semibold text-white bg-yumrun-red rounded-full flex items-center gap-1 shadow-sm"
+                  className="flex items-center gap-1 px-3 py-1 text-sm font-semibold text-white rounded-full shadow-sm bg-yumrun-red"
                   title={offer.description}
                 >
                   <FaTag className="w-3 h-3" />
@@ -235,11 +235,9 @@ const RestaurantDetails = () => {
                   src={
                     restaurant.coverImage 
                       ? getFullImageUrl(restaurant.coverImage) 
-                      : restaurant.logo 
-                        ? getFullImageUrl(restaurant.logo) 
-                        : PLACEHOLDERS.RESTAURANT
+                      : PLACEHOLDERS.RESTAURANT
                   } 
-                  alt={restaurant.name} 
+                  alt={`${restaurant.name} cover`} 
                   className="object-cover w-full h-full"
                 />
                 <div className="absolute top-0 right-0 m-4">
@@ -247,18 +245,29 @@ const RestaurantDetails = () => {
                     {restaurant.isOpen ? 'Open' : 'Closed'}
                   </span>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent">
-                  <h1 className="mb-2 text-3xl font-bold text-white">{restaurant.name}</h1>
-                  <div className="flex items-center mb-2 text-white">
-                    <div className="flex items-center mr-4">
-                      <FaStar className="mr-1 text-yellow-400" />
-                      <span className="font-medium">{restaurant.rating || '0'}</span>
-                      <span className="ml-1 text-gray-300">({restaurant.totalReviews || '0'} reviews)</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-2">{Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(', ') : restaurant.cuisine}</span>
-                      <span>•</span>
-                      <span className="ml-2">{restaurant.priceRange || ''}</span>
+                <div className="absolute bottom-0 left-0 right-0 flex items-center p-6 bg-gradient-to-t from-black to-transparent">
+                  <img
+                    src={
+                      restaurant.logo 
+                        ? getFullImageUrl(restaurant.logo) 
+                        : PLACEHOLDERS.RESTAURANT
+                    }
+                    alt={`${restaurant.name} logo`}
+                    className="object-cover w-16 h-16 mr-4 border-2 border-white rounded-full"
+                  />
+                  <div>
+                    <h1 className="mb-2 text-3xl font-bold text-white">{restaurant.name}</h1>
+                    <div className="flex items-center mb-2 text-white">
+                      <div className="flex items-center mr-4">
+                        <FaStar className="mr-1 text-yellow-400" />
+                        <span className="font-medium">{restaurant.rating || '0'}</span>
+                        <span className="ml-1 text-gray-300">({restaurant.totalReviews || '0'} reviews)</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-2">{Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(', ') : restaurant.cuisine}</span>
+                        <span>•</span>
+                        <span className="ml-2">{restaurant.priceRange || ''}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

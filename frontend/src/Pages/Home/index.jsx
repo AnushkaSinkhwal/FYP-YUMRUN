@@ -276,15 +276,20 @@ const Home = () => {
                             const shuffled = [...processedItems].sort(() => 0.5 - Math.random());
                             const featuredCount = Math.min(shuffled.length, 5);
                             console.log(`Setting ${featuredCount} featured menu items`);
-                            setFeaturedProducts(shuffled.slice(0, featuredCount));
+                            // Pick random featured items
+                            const featuredList = shuffled.slice(0, featuredCount);
+                            setFeaturedProducts(featuredList);
                             
-                            // For new products (most recent items by date)
-                            const sortedByDate = [...processedItems].sort((a, b) => 
-                                new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-                            );
-                            const newCount = Math.min(sortedByDate.length, 4);
-                            console.log(`Setting ${newCount} new menu items`);
-                            setNewProducts(sortedByDate.slice(0, newCount));
+                            // For new products (most recent items by date), excluding featured
+                            const sortedByDate = [...processedItems]
+                                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                            const desiredNewCount = 4;
+                            // Exclude any featured items
+                            const newList = sortedByDate
+                                .filter(item => !featuredList.some(fp => fp.id === item.id))
+                                .slice(0, desiredNewCount);
+                            console.log(`Setting ${newList.length} new menu items (excluding featured)`);
+                            setNewProducts(newList);
                         } else {
                             console.warn('No valid menu items after processing');
                             setFeaturedProducts([]);

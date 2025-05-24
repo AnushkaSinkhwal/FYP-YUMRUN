@@ -31,6 +31,10 @@ const reviewSchema = mongoose.Schema({
         ref: 'Order',
         required: false,
         default: null
+    },
+    reply: {
+        type: String,
+        default: ''
     }
 }, {
     timestamps: true,

@@ -74,7 +74,7 @@ const ProductZoom = ({ images = [] }) => {
                                     >
                                         <img 
                                             src={img}
-                                            className="w-full h-20 object-cover"
+                                            className="w-full h-20 object-contain"
                                             alt={`Product view ${index + 1}`}
                                         />
                                     </div>
@@ -94,7 +94,7 @@ const ProductZoom = ({ images = [] }) => {
                                         zoomType="hover"
                                         zoomScale={1.5}
                                         src={img}
-                                        className="w-full"
+                                        className="w-full h-auto object-contain"
                                         zoomPreload={true}
                                         hideHint={true}
                                     />
@@ -128,7 +128,7 @@ const ProductZoom = ({ images = [] }) => {
                                         >
                                             <img 
                                                 src={img}
-                                                className="w-full h-16 object-cover"
+                                                className="w-full h-16 object-contain"
                                                 alt={`Product view ${index + 1}`}
                                             />
                                         </div>

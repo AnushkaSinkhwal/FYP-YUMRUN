@@ -66,7 +66,7 @@ const OrderConfirmation = () => {
     };
 
     fetchOrderDetails();
-  }, [orderId, clearCart]);
+  }, [orderId]);
 
   const renderStatus = () => {
     if (isLoading) {

@@ -1010,6 +1010,11 @@ export const reviewAPI = {
   // Delete a specific review
   deleteReview: async (reviewId) => {
     return api.delete(`/reviews/${reviewId}`);
+  },
+
+  // Restaurant owner replies to a review
+  replyToReview: async (reviewId, data) => {
+    return api.put(`/reviews/${reviewId}/reply`, data);
   }
 };
 // --- END: Review API methods ---

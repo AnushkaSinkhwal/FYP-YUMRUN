@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Spinner, Button } from '../../components/ui';
 import { FaFilter, FaSearch, FaShoppingCart, FaStar } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
@@ -391,7 +391,7 @@ const Menu = () => {
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedItems.map(item => (
-                <div key={item.id} className="overflow-hidden transition-transform bg-white border rounded-lg shadow-sm hover:shadow-md hover:scale-[1.01]">
+                <div key={item.id} onClick={() => navigate(`/product/${item.id}`)} className="overflow-hidden transition-transform bg-white border rounded-lg shadow-sm hover:shadow-md hover:scale-[1.01] cursor-pointer">
                   <div className="relative">
                     <img 
                       src={getBestImageUrl(item)} 
@@ -417,9 +417,7 @@ const Menu = () => {
                   </div>
                   <div className="flex flex-col flex-grow p-4">
                     <h3 className="mb-2 text-lg font-semibold text-gray-800 truncate">
-                      <Link to={`/product/${item.id}`} className="hover:text-yumrun-orange">
-                        {item.name}
-                      </Link>
+                      {item.name}
                     </h3>
                     <p className="flex-grow mb-3 text-sm text-gray-600 line-clamp-2">
                       {item.description}
@@ -434,22 +432,22 @@ const Menu = () => {
                           <>
                             <div>
                               <span className="text-sm text-gray-500 line-through mr-1.5">
-                                ${item.originalPrice.toFixed(2)}
+                                Rs. {item.originalPrice.toFixed(2)}
                               </span>
                               <span className="text-lg font-bold text-yumrun-red">
-                                ${item.discountedPrice.toFixed(2)}
+                                Rs. {item.discountedPrice.toFixed(2)}
                               </span>
                             </div>
                           </>
                         ) : (
                           <span className="text-lg font-semibold text-gray-900">
-                            ${item.price.toFixed(2)}
+                            Rs. {item.price.toFixed(2)}
                           </span>
                         )}
                       </div>
                     </div>
                     <Button 
-                      onClick={() => handleAddToCart(item)} 
+                      onClick={(e) => { e.stopPropagation(); handleAddToCart(item); }} 
                       variant="primary" 
                       className="w-full mt-auto"
                     >

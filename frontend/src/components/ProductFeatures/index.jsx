@@ -59,15 +59,6 @@ const ProductFeatures = ({ product }) => {
                     </div>
                 </div>
             )}
-
-            {/* If no content is available */}
-            {(!features || features.length === 0) && 
-             (!product?.cookingInstructions) && 
-             (!product?.ingredients || product.ingredients.length === 0) && (
-                <div className="py-8 text-center">
-                    <p className="text-gray-500">No detailed information available for this product.</p>
-                </div>
-            )}
         </div>
     );
 };

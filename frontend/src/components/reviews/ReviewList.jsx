@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import { Rating } from '@mui/material'; // Assuming MUI is used for UI components like Rating
 import { format } from 'date-fns'; // For formatting dates
 
-const ReviewItem = ({ review }) => {
+export const ReviewItem = ({ review }) => {
   return (
     <div className="py-4 border-b border-gray-200">
       <div className="flex items-center mb-2">
@@ -17,6 +17,10 @@ const ReviewItem = ({ review }) => {
       </div>
       <Rating value={review.rating} readOnly size="small" className="mb-1" />
       <p className="text-sm text-gray-700">{review.comment}</p>
+      {/* Display owner's reply if exists */}
+      {review.reply && (
+        <p className="mt-2 text-sm italic text-gray-600">Owner response: {review.reply}</p>
+      )}
       {/* Add links or details about the reviewed item/restaurant if needed */}
       {review.menuItem && (
           <p className="mt-1 text-xs text-gray-500">Reviewed: {review.menuItem.item_name}</p>
@@ -33,6 +37,7 @@ ReviewItem.propTypes = {
     _id: PropTypes.string.isRequired,
     rating: PropTypes.number.isRequired,
     comment: PropTypes.string,
+    reply: PropTypes.string,
     createdAt: PropTypes.string.isRequired,
     user: PropTypes.shape({
       fullName: PropTypes.string,

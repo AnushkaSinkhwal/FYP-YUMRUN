@@ -506,4 +506,52 @@ exports.getRestaurantReviews = async (req, res) => {
             }
         });
     }
+};
+
+/**
+ * Reply to a review
+ * @route PUT /api/reviews/:reviewId/reply
+ * @access Private (restaurant owner only)
+ */
+exports.replyToReview = async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+        const ownerId = req.user.id;
+        const { reply } = req.body;
+
+        if (!reply) {
+            return res.status(400).json({ success: false, error: { message: 'Reply text is required', code: 'VALIDATION_ERROR' } });
+        }
+
+        // Ensure user is a restaurant owner
+        if (req.user.role !== 'restaurant') {
+            return res.status(403).json({ success: false, error: { message: 'Only restaurant owners can reply to reviews', code: 'FORBIDDEN' } });
+        }
+
+        // Find restaurant owned by this user
+        const restaurant = await Restaurant.findOne({ owner: ownerId });
+        if (!restaurant) {
+            return res.status(404).json({ success: false, error: { message: 'Restaurant not found for owner', code: 'NOT_FOUND' } });
+        }
+
+        // Find the review
+        const review = await Review.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({ success: false, error: { message: 'Review not found', code: 'NOT_FOUND' } });
+        }
+
+        // Ensure review belongs to this restaurant
+        if (review.restaurant.toString() !== restaurant._id.toString()) {
+            return res.status(403).json({ success: false, error: { message: 'Cannot reply to reviews for other restaurants', code: 'FORBIDDEN' } });
+        }
+
+        // Update reply
+        review.reply = reply;
+        await review.save();
+
+        res.status(200).json({ success: true, data: { review } });
+    } catch (err) {
+        console.error('Error replying to review:', err);
+        res.status(500).json({ success: false, error: { message: 'Server error while replying to review', code: 'SERVER_ERROR' } });
+    }
 }; 
